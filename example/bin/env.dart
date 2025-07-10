@@ -16,12 +16,14 @@ class Env {
   static final GEMINI_API_KEY = Platform.environment['GEMINI_API_KEY'];
   static final OPENAI_API_KEY = Platform.environment['OPENAI_API_KEY'];
   static final OPENROUTER_API_KEY = Platform.environment['OPENROUTER_API_KEY'];
+  static final ANTHROPIC_API_KEY = Platform.environment['ANTHROPIC_API_KEY'];
 
   static String tryGet(String key, {String? defaultValue}) {
     final value = switch (key) {
       'GEMINI_API_KEY' => GEMINI_API_KEY,
       'OPENAI_API_KEY' => OPENAI_API_KEY,
       'OPENROUTER_API_KEY' => OPENROUTER_API_KEY,
+      'ANTHROPIC_API_KEY' => ANTHROPIC_API_KEY,
       _ => throw Exception('Unknown environment variable: $key'),
     };
 
@@ -36,5 +38,6 @@ class Env {
     'GEMINI_API_KEY': tryGet('GEMINI_API_KEY'),
     'OPENAI_API_KEY': tryGet('OPENAI_API_KEY'),
     'OPENROUTER_API_KEY': tryGet('OPENROUTER_API_KEY'),
+    'ANTHROPIC_API_KEY': tryGet('ANTHROPIC_API_KEY'),
   };
 }

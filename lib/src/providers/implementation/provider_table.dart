@@ -11,6 +11,15 @@ class ProviderTable {
   ///
   /// Used to look up the appropriate provider factory when creating providers.
   static final providers = <String, ProviderFactory>{
+    'anthropic':
+        (settings) => AnthropicProvider(
+          modelName: settings.modelName,
+          apiKey: settings.apiKey,
+          caps: ProviderCaps.allExcept({
+            ProviderCaps.embeddings,
+            ProviderCaps.structuredOutput,
+          }),
+        ),
     'openai':
         (settings) => OpenAiProvider(
           modelName: settings.modelName,
@@ -64,6 +73,8 @@ class ProviderTable {
 
   /// Aliases for provider names to support different naming conventions.
   static const providerAliases = {
+    'claude': 'anthropic',
+    'claude-ai': 'anthropic',
     'googleai': 'google',
     'google-gla': 'google',
     'gemini': 'google',

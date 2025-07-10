@@ -13,6 +13,7 @@ environment:
   sdk: ^3.7.2
 
 dependencies:
+  anthropic_sdk_dart: ^0.2.1
   dotprompt_dart: ^0.3.0
   google_generative_ai: ^0.4.7
   http: ^1.4.0

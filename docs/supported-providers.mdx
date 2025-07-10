@@ -13,21 +13,23 @@ one](https://github.com/csells/dartantic_ai/pulls)!
 
 ## Provider Capabilities
 
-| Provider                   | Default Model      | Default Embedding Model  | Capabilities                                           | Notes                                  |
-| -------------------------- | ------------------ | ------------------------ | ------------------------------------------------------ | -------------------------------------- |
-| **OpenAI**                 | `gpt-4o`           | `text-embedding-3-small` | Text Generation, Embeddings, Chat, File Uploads, Tools | Full feature support                   |
-| **OpenRouter**             | `gpt-4o`           | N/A                      | Text Generation, Chat, File Uploads, Tools             | No embedding support                   |
-| **Google Gemini**          | `gemini-2.0-flash` | `text-embedding-004`     | Text Generation, Embeddings, Chat, File Uploads, Tools | Uses native Gemini API                 |
-| **Gemini (OpenAI-compat)** | `gemini-2.0-flash` | `text-embedding-004`     | Text Generation, Embeddings, Chat, File Uploads, Tools | Uses OpenAI-compatible Gemini endpoint |
+| Provider                   | Default Model              | Default Embedding Model  | Capabilities                                           | Notes                                  |
+|----------------------------|----------------------------|--------------------------|--------------------------------------------------------|----------------------------------------|
+| **OpenAI**                 | `gpt-4o`                   | `text-embedding-3-small` | Text Generation, Embeddings, Chat, File Uploads, Tools | Full feature support                   |
+| **OpenRouter**             | `gpt-4o`                   | N/A                      | Text Generation, Chat, File Uploads, Tools             | No embedding support                   |
+| **Google Gemini**          | `gemini-2.0-flash`         | `text-embedding-004`     | Text Generation, Embeddings, Chat, File Uploads, Tools | Uses native Gemini API                 |
+| **Gemini (OpenAI-compat)** | `gemini-2.0-flash`         | `text-embedding-004`     | Text Generation, Embeddings, Chat, File Uploads, Tools | Uses OpenAI-compatible Gemini endpoint |
+| **Anthropic Claude**       | `claude-sonnet-4-20250514` | N/A                      | Text Generation, Chat, File Uploads, Tools             | No embedding support                   |
 
 ## Provider Configuration
 
-| Provider                       | Provider Prefix | Aliases                            | API Key              | Provider Type    |
-| ------------------------------ | --------------- | ---------------------------------- | -------------------- | ---------------- |
-| **OpenAI**                     | `openai`        | -                                  | `OPENAI_API_KEY`     | `OpenAiProvider` |
-| **OpenRouter**                 | `openrouter`    | -                                  | `OPENROUTER_API_KEY` | `OpenAiProvider` |
-| **Google Gemini**              | `google`        | `gemini`, `googleai`, `google-gla` | `GEMINI_API_KEY`     | `GeminiProvider` |
-| **Gemini (OpenAI-compatible)** | `gemini-compat` | -                                  | `GEMINI_API_KEY`     | `OpenAiProvider` |
+| Provider                       | Provider Prefix | Aliases                            | API Key              | Provider Type       |
+|--------------------------------|-----------------|------------------------------------|----------------------|---------------------|
+| **OpenAI**                     | `openai`        | -                                  | `OPENAI_API_KEY`     | `OpenAiProvider`    |
+| **OpenRouter**                 | `openrouter`    | -                                  | `OPENROUTER_API_KEY` | `OpenAiProvider`    |
+| **Google Gemini**              | `google`        | `gemini`, `googleai`, `google-gla` | `GEMINI_API_KEY`     | `GeminiProvider`    |
+| **Gemini (OpenAI-compatible)** | `gemini-compat` | -                                  | `GEMINI_API_KEY`     | `OpenAiProvider`    |
+| **Anthropic Claude**           | `anthropic`     | `claude`, `claude-ai`              | `ANTHROPIC_API_KEY`  | `AnthropicProvider` |
 
 ## API Key Environment Variables
 
@@ -43,10 +45,11 @@ have their own environments, like Flutter Web.
 
 ```dart
 void main() async {
-  // Set API keys for both OpenAI and Gemini using environment variables
+  // Set API keys for multiple providers using environment variables
   Agent.environment.addAll({
     'OPENAI_API_KEY': 'your-openai-api-key-here',
     'GEMINI_API_KEY': 'your-gemini-api-key-here',
+    'ANTHROPIC_API_KEY': 'your-anthropic-api-key-here',
   });
 
   // Create and test OpenAI agent without explicitly passing an apiKey
@@ -60,6 +63,12 @@ void main() async {
   final geminiResult = await geminiAgent.run('Why is the sea salty?');
   print('# Gemini Agent');
   print(geminiResult.output);
+
+  // Create and test Claude agent without explicitly passing an apiKey
+  final claudeAgent = Agent('claude', systemPrompt: 'Be concise.');
+  final claudeResult = await claudeAgent.run('Why is grass green?');
+  print('# Claude Agent');
+  print(claudeResult.output);
 }
 ```
 

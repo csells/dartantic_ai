@@ -8,7 +8,7 @@ environment:
 dependencies:
   dartantic_ai:
     path: ..
-  dotprompt_dart: ^0.2.0
+  dotprompt_dart: ^0.3.0
   http: ^1.2.0
   json_annotation: ^4.9.0
   logging: ^1.3.0

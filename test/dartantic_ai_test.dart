@@ -12,7 +12,8 @@ import 'test_utils.dart';
 // {
 //   "dart.env": {
 //     "GEMINI_API_KEY": "your_gemini_api_key",
-//     "OPENAI_API_KEY": "your_openai_api_key"
+//     "OPENAI_API_KEY": "your_openai_api_key",
+//     "ANTHROPIC_API_KEY": "your_anthropic_api_key"
 //   }
 // }
 
@@ -216,6 +217,21 @@ void main() {
           result.output['country'],
           isIn(['USA', 'United States', 'United States of America']),
         );
+      });
+
+      test('Claude Integration', () async {
+        final agent = Agent(
+          'claude',
+          systemPrompt: 'Be concise and direct in your responses.',
+        );
+
+        final result = await agent.runWithRetries(
+          'What city is known as "the windy city" in the US of A?',
+        );
+
+        expect(result.output, isA<String>());
+        expect(result.output, isNotEmpty);
+        expect(result.output, contains('Chicago'));
       });
 
       test('Agent.runPrompt with DotPrompt object', () async {

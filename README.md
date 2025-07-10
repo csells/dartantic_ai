@@ -9,7 +9,7 @@ server-side apps in Dart with generative AI easier and more fun!
 - **Agentic behavior with multi-step tool calling:** Let your AI agents
   autonomously chain tool calls together to solve multi-step problems without
   human intervention.
-- **Multi-Provider Support**: Works with OpenAI, Google Gemini and more
+- **Multi-Provider Support**: Works with OpenAI, Google Gemini, Anthropic Claude and more
 - **Type Safety**: Leverage Dart's strong typing with automatic JSON schema
   generation
 - **Production Ready**: Built-in logging, error handling, and provider
@@ -24,7 +24,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 void main() async {
   // Create an agent with your preferred provider
   final agent = Agent(
-    'openai',  // or 'gemini', 'openrouter', etc.
+    'openai',  // or 'claude', 'gemini', 'openrouter', etc.
     systemPrompt: 'You are a helpful assistant.',
   );
 

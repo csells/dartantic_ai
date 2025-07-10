@@ -13,7 +13,10 @@ enum ProviderCaps {
   fileUploads,
 
   /// Indicates that the provider supports tool calls.
-  tools;
+  tools,
+
+  /// Indicates that the provider natively supports structured JSON output.
+  structuredOutput;
 
   /// All available capabilities
   static const Set<ProviderCaps> all = {
@@ -22,6 +25,7 @@ enum ProviderCaps {
     chat,
     fileUploads,
     tools,
+    structuredOutput,
   };
 
   /// Returns all capabilities except those specified in [these].

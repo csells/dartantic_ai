@@ -86,7 +86,13 @@ class Agent {
     this.outputFromJson,
     Iterable<Tool>? tools,
     double? temperature,
-  }) : _provider = provider,
+  }) : assert(
+         outputSchema == null ||
+             provider.caps.contains(ProviderCaps.structuredOutput),
+         'The provider [${provider.name}] is not capable of producing '
+         'structured outputs.',
+       ),
+       _provider = provider,
        _systemPrompt = systemPrompt,
        _model = provider.createModel(
          ModelSettings(

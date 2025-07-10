@@ -1,3 +1,4 @@
+export 'implementation/anthropic_provider.dart';
 export 'implementation/gemini_provider.dart';
 export 'implementation/openai_provider.dart';
 export 'implementation/provider_table.dart';

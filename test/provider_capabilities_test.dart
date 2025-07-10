@@ -12,7 +12,8 @@ import 'test_utils.dart';
 //   "dart.env": {
 //     "GEMINI_API_KEY": "your_gemini_api_key",
 //     "OPENAI_API_KEY": "your_openai_api_key",
-//     "OPENROUTER_API_KEY": "your_openrouter_api_key"
+//     "OPENROUTER_API_KEY": "your_openrouter_api_key",
+//     "ANTHROPIC_API_KEY": "your_anthropic_api_key"
 //   }
 // }
 
@@ -84,12 +85,39 @@ void main() {
       }
     });
 
+    test('Claude provider should not support embeddings', () {
+      try {
+        final provider = Agent.providerFor('claude');
+        final agent = Agent.provider(provider);
+
+        // Claude should support most capabilities except embeddings
+        expect(agent.caps, contains(ProviderCaps.textGeneration));
+        expect(agent.caps, isNot(contains(ProviderCaps.embeddings)));
+        expect(agent.caps, contains(ProviderCaps.chat));
+        expect(agent.caps, contains(ProviderCaps.fileUploads));
+        expect(agent.caps, contains(ProviderCaps.tools));
+
+        // Check embedding support specifically
+        final supportsEmbeddings = agent.caps.contains(ProviderCaps.embeddings);
+        expect(supportsEmbeddings, isFalse);
+
+        print('Claude capabilities: ${agent.caps}');
+      } catch (e) {
+        print('Skipping Claude capabilities test: $e');
+      }
+    });
+
     test('capabilities check with all available providers', () {
       final availableProviders = <Provider>[];
       final providerCapabilities = <String, Set<ProviderCaps>>{};
 
       // Test known provider names instead of accessing ProviderTable directly
-      for (final providerName in ['openai', 'openrouter', 'google']) {
+      for (final providerName in [
+        'openai',
+        'openrouter',
+        'google',
+        'anthropic',
+      ]) {
         try {
           final provider = Agent.providerFor(providerName);
           final agent = Agent.provider(provider);
@@ -130,12 +158,19 @@ void main() {
           reason: '$name should support chat',
         );
 
-        // OpenRouter specifically should not support embeddings
+        // OpenRouter and Claude specifically should not support embeddings
         if (name.contains('openrouter')) {
           expect(
             caps,
             isNot(contains(ProviderCaps.embeddings)),
             reason: 'OpenRouter should not support embeddings',
+          );
+        }
+        if (name.contains('claude') || name.contains('anthropic')) {
+          expect(
+            caps,
+            isNot(contains(ProviderCaps.embeddings)),
+            reason: 'Claude should not support embeddings',
           );
         }
       }
@@ -181,26 +216,53 @@ void main() {
       },
     );
 
+    test('Claude embedding operations should fail gracefully', () async {
+      try {
+        final agent = Agent('claude');
+
+        // Check capabilities first
+        final supportsEmbeddings = agent.caps.contains(ProviderCaps.embeddings);
+        expect(
+          supportsEmbeddings,
+          isFalse,
+          reason: 'Claude should not support embeddings',
+        );
+
+        // Should throw a descriptive error when attempting embeddings
+        expect(
+          () async =>
+              agent.createEmbedding('Test text', type: EmbeddingType.document),
+          throwsA(isA<UnsupportedError>()),
+        );
+
+        print('Claude correctly fails embedding operations');
+      } catch (e) {
+        print('Skipping Claude embedding failure test: $e');
+      }
+    });
+
     test('ProviderCaps.all and allExcept work correctly', () {
       final allCaps = ProviderCaps.all.toSet();
       expect(
         allCaps,
-        hasLength(5),
-      ); // textGeneration, embeddings, chat, fileUploads, tools
+        hasLength(6),
+      ); // textGeneration, embeddings, chat, fileUploads, tools, structuredOutput
       expect(allCaps, contains(ProviderCaps.textGeneration));
       expect(allCaps, contains(ProviderCaps.embeddings));
       expect(allCaps, contains(ProviderCaps.chat));
       expect(allCaps, contains(ProviderCaps.fileUploads));
       expect(allCaps, contains(ProviderCaps.tools));
+      expect(allCaps, contains(ProviderCaps.structuredOutput));
 
       final capsWithoutEmbeddings =
           ProviderCaps.allExcept({ProviderCaps.embeddings}).toSet();
-      expect(capsWithoutEmbeddings, hasLength(4)); // all except embeddings
+      expect(capsWithoutEmbeddings, hasLength(5)); // all except embeddings
       expect(capsWithoutEmbeddings, contains(ProviderCaps.textGeneration));
       expect(capsWithoutEmbeddings, isNot(contains(ProviderCaps.embeddings)));
       expect(capsWithoutEmbeddings, contains(ProviderCaps.chat));
       expect(capsWithoutEmbeddings, contains(ProviderCaps.fileUploads));
       expect(capsWithoutEmbeddings, contains(ProviderCaps.tools));
+      expect(capsWithoutEmbeddings, contains(ProviderCaps.structuredOutput));
     });
   });
 

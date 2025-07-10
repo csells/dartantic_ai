@@ -9,7 +9,7 @@ takes a model string.
 void main() async {
   // Create an agent with a model string and a system prompt
   final agent = Agent(
-    'openai',  // Can also use 'openai:gpt-4o' or 'openai/gpt-4o'
+    'openai',  // Can also use 'claude', 'gemini', 'openai:gpt-4o', etc.
     systemPrompt: 'Be concise, reply with one sentence.',
   );
 
@@ -26,7 +26,7 @@ directly:
 void main() async {
   // Create an agent with a provider
   final agent = Agent.provider(
-    OpenAiProvider(),
+    OpenAiProvider(),  // Can also use AnthropicProvider(), GeminiProvider(), etc.
     systemPrompt: 'Be concise, reply with one sentence.',
   );
 
