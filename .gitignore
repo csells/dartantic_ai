@@ -8,3 +8,5 @@ pubspec.lock
 .vscode/settings.json
 .vscode/launch.json
 .DS_Store
+
+.idea
