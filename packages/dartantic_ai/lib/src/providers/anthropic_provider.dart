@@ -19,7 +19,7 @@ class AnthropicProvider
         apiKey:
             apiKey ??
             tryGetEnv(_defaultApiTestKeyName) ??
-            getEnv(defaultApiKeyName),
+            tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
         name: 'anthropic',
         displayName: 'Anthropic',
@@ -57,6 +57,10 @@ class AnthropicProvider
       'Creating Anthropic model: '
       '$modelName with ${tools?.length ?? 0} tools, temp: $temperature',
     );
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
 
     return AnthropicChatModel(
       name: modelName,
