@@ -1,3 +1,12 @@
+## 1.0.5
+
+-  Fixed #47: Dartantic is checking for wrong environment variable. I was being
+   aggressive about constructing providers before they were used and checking
+   API keys before they were needed, which was causing this issue. For example,
+   if you wanted to use `Agent('google')` and didn't have the MISTRAL_API_KEY
+   set (why would you?), string lookup creates all of the providers, which caused
+   all of them to check for their API key and -- BOOM.
+
 ## 1.0.4
 
 - Updated LLM SDK dependencies:
