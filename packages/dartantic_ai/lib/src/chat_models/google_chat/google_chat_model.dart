@@ -286,6 +286,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       gai.GenerativeModel(
         model: name,
         apiKey: _apiKey,
+        httpClient: _httpClient,
         systemInstruction: systemInstruction != null
             ? gai.Content.system(systemInstruction)
             : null,
