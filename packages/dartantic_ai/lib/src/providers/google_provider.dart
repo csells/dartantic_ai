@@ -6,7 +6,6 @@ import 'package:logging/logging.dart';
 
 import '../../dartantic_ai.dart';
 import '../chat_models/chat_utils.dart';
-import '../chat_models/google_chat/google_chat.dart';
 import '../platform/platform.dart';
 
 /// Provider for Google Gemini native API.
