@@ -1,3 +1,10 @@
+## 1.0.6
+
+- Fixed #48: Pass package name and other info to Generative AI providers. I
+  added an example of how to use a custom HTTP client for these kinds of things
+  when creating a model. It's not as easy as it could be, and it didn't work for
+  gemini w/o a quick fix, but it's doable.
+
 ## 1.0.5
 
 -  Fixed #47: Dartantic is checking for wrong environment variable. I was being
