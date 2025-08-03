@@ -1,0 +1,126 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "agent",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/agent.dart"
+    },
+    {
+      "name": "chat",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/chat.dart"
+    },
+    {
+      "name": "custom_provider",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/custom_provider.dart"
+    },
+    {
+      "name": "dotprompt",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/dotprompt.dart"
+    },
+    {
+      "name": "embeddings",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/embeddings.dart"
+    },
+    {
+      "name": "logging",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/logging.dart"
+    },
+    {
+      "name": "mcp_servers",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/mcp_servers.dart"
+    },
+    {
+      "name": "model_string",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/model_string.dart"
+    },
+    {
+      "name": "multi_provider",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/multi_provider.dart"
+    },
+    {
+      "name": "multi_tool_call",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/multi_tool_call.dart"
+    },
+    {
+      "name": "multi_turn_chat",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/multi_turn_chat.dart"
+    },
+    {
+      "name": "multimedia",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/multimedia.dart"
+    },
+    {
+      "name": "provider_models",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/provider_models.dart"
+    },
+    {
+      "name": "single_tool_call",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/single_tool_call.dart"
+    },
+    {
+      "name": "single_turn_chat",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/single_turn_chat.dart"
+    },
+    {
+      "name": "system_message",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/system_message.dart"
+    },
+    {
+      "name": "typed_output",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/typed_output.dart"
+    },
+    {
+      "name": "usage_tracking",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/usage_tracking.dart"
+    },
+    {
+      "name": "custom_http_client",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/custom_http_client.dart"
+    },
+    {
+      "name": "chatarang",
+      "request": "launch",
+      "type": "dart",
+      "program": "samples/chatarang/bin/chatarang.dart",
+      "console": "terminal"
+    }
+  ]
+}
