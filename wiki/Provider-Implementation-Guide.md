@@ -9,13 +9,13 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
   /// Creates a provider instance with optional overrides.
   /// 
   /// API key resolution:
-  /// - Constructor: Uses getEnv() to throw if required API key not found
-  /// - Model creation: Uses apiKey! since it's already resolved in constructor
+  /// - Constructor: Uses tryGetEnv() to allow lazy initialization without throwing
+  /// - Model creation: Validates API key and throws if required but not found
   ExampleProvider({
     String? apiKey,
     Uri? baseUrl,
   }) : super(
-          apiKey: apiKey ?? getEnv('EXAMPLE_API_KEY'),
+          apiKey: apiKey ?? tryGetEnv('EXAMPLE_API_KEY'),
           baseUrl: baseUrl,
           name: 'example',
           displayName: 'Example AI',
@@ -51,9 +51,14 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
       'temperature: $temperature',
     );
 
+    // Validate API key at model creation time
+    if (apiKey == null) {
+      throw ArgumentError('EXAMPLE_API_KEY is required for Example provider');
+    }
+
     return ExampleChatModel(
       name: modelName,  // Pass as 'name'
-      apiKey: apiKey!,  // Already resolved in constructor
+      apiKey: apiKey,  // Now validated to be non-null
       baseUrl: baseUrl,  // Nullable, model knows default
       tools: tools,
       temperature: temperature,
@@ -78,9 +83,14 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
       'options: $options',
     );
 
+    // Validate API key at model creation time
+    if (apiKey == null) {
+      throw ArgumentError('EXAMPLE_API_KEY is required for Example provider');
+    }
+
     return ExampleEmbeddingsModel(
       name: modelName,
-      apiKey: apiKey!,  // Already resolved in constructor
+      apiKey: apiKey,  // Now validated to be non-null
       baseUrl: baseUrl,
       defaultOptions: options,  // Pass options directly
     );
@@ -318,7 +328,8 @@ abstract class Provider {
 
 1. **Parameter Naming**: Always use `name` for model names, not `model`, `modelId`, or `modelName`
 2. **API Key Handling**: 
-   - Cloud providers: use `getEnv()` in constructor, `apiKey!` in model creation
+   - Cloud providers: use `tryGetEnv()` in constructor (allows lazy initialization)
+   - Model creation: validate API key and throw if required but not found
    - Local providers: no API key parameter at all
 3. **Base URL**: Always nullable, models pass directly to client
 4. **Options Handling**: Create new options objects with merged values from parameters and options

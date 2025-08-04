@@ -6,7 +6,6 @@ import 'package:logging/logging.dart';
 
 import '../../dartantic_ai.dart';
 import '../chat_models/chat_utils.dart';
-import '../chat_models/google_chat/google_chat.dart';
 import '../platform/platform.dart';
 
 /// Provider for Google Gemini native API.
@@ -17,7 +16,7 @@ class GoogleProvider
   /// [apiKey]: The API key to use for the Google AI API.
   GoogleProvider({String? apiKey})
     : super(
-        apiKey: apiKey ?? getEnv(defaultApiKeyName),
+        apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
         name: 'google',
         displayName: 'Google',
@@ -61,6 +60,10 @@ class GoogleProvider
       'temp: $temperature',
     );
 
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
     return GoogleChatModel(
       name: modelName,
       tools: tools,
@@ -88,6 +91,11 @@ class GoogleProvider
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
     _logger.info('Creating Google model: $modelName');
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
     return GoogleEmbeddingsModel(
       name: modelName,
       apiKey: apiKey!,

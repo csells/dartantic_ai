@@ -66,6 +66,10 @@ class OpenAIProvider
       'temperature: $temperature',
     );
 
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
     return OpenAIChatModel(
       name: modelName,
       tools: tools,
@@ -102,6 +106,10 @@ class OpenAIProvider
       'Creating OpenAI embeddings model: $modelName with '
       'options: $options',
     );
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
 
     return OpenAIEmbeddingsModel(
       name: modelName,

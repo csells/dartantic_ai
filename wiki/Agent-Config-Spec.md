@@ -38,34 +38,37 @@ flowchart TD
     B -->|Yes| C[Look up provider by name<br/>e.g. Agent('openai')]
     B -->|No| D[Use existing provider instance<br/>e.g. Agent.forProvider(provider)]
     
-    C --> E[Provider.createChatModel/<br/>Provider.createEmbeddingsModel]
-    D --> E
+    C --> E[Provider constructor uses tryGetEnv()]
+    D --> F[Provider already constructed]
     
-    E --> F{Provider has apiKeyName?}
-    F -->|Yes| G[Pass: provider.apiKey ?? tryGetEnv(apiKeyName)<br/>may be null]
-    F -->|No| H[Pass: provider.apiKey<br/>may be null]
+    E --> G[Provider.createChatModel/<br/>Provider.createEmbeddingsModel]
+    F --> G
     
-    G --> I[Pass: provider.baseUrl ?? defaultBaseUrl<br/>may be null]
-    H --> I
+    G --> H{Provider.apiKey exists?}
+    H -->|Yes| I[Use provider.apiKey]
+    H -->|No| J{Provider has apiKeyName?}
     
-    I --> J[Model Constructor]
+    J -->|Yes| K[Model validates API key]
+    J -->|No| L[No API key needed]
     
-    J --> K{apiKey provided?}
-    K -->|Yes| L[Use it]
-    K -->|No| M[Model calls getEnv with apiKeyName]
+    K --> M{Agent.environment[apiKeyName]?}
+    M -->|Yes| N[Use it]
+    M -->|No| O{Platform.environment[apiKeyName]?}
     
-    M --> N{Agent.environment[apiKeyName]?}
-    N -->|Yes| O[Use it]
-    N -->|No| P{Platform.environment[apiKeyName]?}
+    O -->|Yes| P[Use it]
+    O -->|No| Q[Throw if required]
     
-    P -->|Yes| Q[Use it]
-    P -->|No| R[Throw if required]
+    I --> R[Create model]
+    L --> R
+    N --> R
+    P --> R
     
     style A fill:#f9f,stroke:#333,stroke-width:2px
-    style L fill:#9f9,stroke:#333,stroke-width:2px
-    style O fill:#9f9,stroke:#333,stroke-width:2px
-    style Q fill:#9f9,stroke:#333,stroke-width:2px
-    style R fill:#f99,stroke:#333,stroke-width:2px
+    style R fill:#9f9,stroke:#333,stroke-width:2px
+    style Q fill:#f99,stroke:#333,stroke-width:2px
+    
+    note right of E: Provider constructors use tryGetEnv()<br/>to allow lazy initialization without throwing
+    note right of K: Model creation validates API key<br/>and throws if required but missing
 ```
 
 ## Base URL Resolution Hierarchy
@@ -151,7 +154,8 @@ flowchart TD
 ```
 
 Note: The `createChatModel` and `createEmbeddingsModel` methods do not accept `apiKey` or `baseUrl`
-parameters. These are set at the provider level through the constructor.
+parameters. These are set at the provider level through the constructor. Provider constructors use
+`tryGetEnv()` to allow lazy initialization, and API key validation happens at model creation time.
 
 ### 4. Provider Discovery
 
@@ -263,8 +267,9 @@ final provider = OpenAIProvider(
 
 ### Missing Required API Key
 ```dart
-// Throws: Exception('Environment variable OPENAI_API_KEY is not set')
-Agent('openai') // When no API key is available
+// Throws when trying to create a model, not when creating the agent
+final agent = Agent('openai'); // OK - provider created lazily
+final result = await agent.send('Hello'); // Throws: OPENAI_API_KEY is required
 ```
 
 ### Invalid API Key Format

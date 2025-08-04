@@ -16,7 +16,7 @@ class CohereProvider extends OpenAIProvider {
   /// [apiKey]: The API key for the Cohere provider.
   CohereProvider({String? apiKey})
     : super(
-        apiKey: apiKey ?? getEnv(defaultApiKeyName),
+        apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
         name: 'cohere',
         displayName: 'Cohere',
@@ -57,6 +57,10 @@ class CohereProvider extends OpenAIProvider {
       'Creating Cohere model: $modelName with ${tools?.length ?? 0} tools, '
       'temp: $temperature',
     );
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
 
     return CohereChatModel(
       name: modelName,

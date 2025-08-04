@@ -16,11 +16,24 @@ export 'openai_provider.dart';
 
 /// Providers for built-in chat and embeddings models.
 class Providers {
+  // Private cache fields for lazy initialization
+  static OpenAIProvider? _openai;
+  static OpenAIProvider? _openrouter;
+  static OpenAIProvider? _together;
+  static MistralProvider? _mistral;
+  static CohereProvider? _cohere;
+  static OpenAIProvider? _lambda;
+  static OpenAIProvider? _googleOpenAI;
+  static GoogleProvider? _google;
+  static AnthropicProvider? _anthropic;
+  static OllamaProvider? _ollama;
+  static OpenAIProvider? _ollamaOpenAI;
+
   /// OpenAI provider (cloud, OpenAI API).
-  static final openai = OpenAIProvider();
+  static OpenAIProvider get openai => _openai ??= OpenAIProvider();
 
   /// OpenRouter provider (OpenAI-compatible, multi-model cloud).
-  static final openrouter = OpenAIProvider(
+  static OpenAIProvider get openrouter => _openrouter ??= OpenAIProvider(
     name: 'openrouter',
     displayName: 'OpenRouter',
     defaultModelNames: {ModelKind.chat: 'google/gemini-2.0-flash-001'},
@@ -40,7 +53,7 @@ class Providers {
   ///   tool calls in a custom format with `<|python_tag|>` prefix instead of
   ///   the standard OpenAI tool_calls format while streaming.
   /// - TODO: perhaps move to non-streaming?
-  static final together = OpenAIProvider(
+  static OpenAIProvider get together => _together ??= OpenAIProvider(
     name: 'together',
     displayName: 'Together AI',
     defaultModelNames: {
@@ -52,13 +65,13 @@ class Providers {
   );
 
   /// Mistral AI provider (native API, cloud).
-  static final mistral = MistralProvider();
+  static MistralProvider get mistral => _mistral ??= MistralProvider();
 
   /// Cohere provider (OpenAI-compatible, cloud).
-  static final cohere = CohereProvider();
+  static CohereProvider get cohere => _cohere ??= CohereProvider();
 
   /// Lambda provider (OpenAI-compatible, cloud).
-  static final lambda = OpenAIProvider(
+  static OpenAIProvider get lambda => _lambda ??= OpenAIProvider(
     name: 'lambda',
     displayName: 'Lambda',
     defaultModelNames: {ModelKind.chat: 'hermes-3-llama-3.1-405b-fp8'},
@@ -68,7 +81,7 @@ class Providers {
   );
 
   /// Gemini (OpenAI-compatible) provider (Google AI, OpenAI API).
-  static final googleOpenAI = OpenAIProvider(
+  static OpenAIProvider get googleOpenAI => _googleOpenAI ??= OpenAIProvider(
     name: 'google-openai',
     displayName: 'Google AI (OpenAI-compatible)',
     defaultModelNames: {
@@ -89,18 +102,18 @@ class Providers {
   );
 
   /// Google Gemini native provider (uses Gemini API, not OpenAI-compatible).
-  static final google = GoogleProvider();
+  static GoogleProvider get google => _google ??= GoogleProvider();
 
   /// Anthropic provider (Claude, native API).
-  static final anthropic = AnthropicProvider();
+  static AnthropicProvider get anthropic => _anthropic ??= AnthropicProvider();
 
   /// Native Ollama provider (local, uses ChatOllama and /api endpoint). No API
   /// key required. Vision models like llava are available.
-  static final ollama = OllamaProvider();
+  static OllamaProvider get ollama => _ollama ??= OllamaProvider();
 
   /// OpenAI-compatible Ollama provider (local, uses /v1 endpoint). No API key
   /// required. Vision models like llava are available.
-  static final ollamaOpenAI = OpenAIProvider(
+  static OpenAIProvider get ollamaOpenAI => _ollamaOpenAI ??= OpenAIProvider(
     name: 'ollama-openai',
     displayName: 'Ollama (OpenAI-compatible)',
     defaultModelNames: {ModelKind.chat: 'llama3.2'},
@@ -128,7 +141,9 @@ class Providers {
       all.where((p) => p.caps.containsAll(caps)).toList();
 
   static final _providerMap = <String, Provider>{};
-  static final _intrinsicProviders = <Provider>[
+
+  /// Returns all intrinsic providers (lazily evaluated).
+  static List<Provider> get _intrinsicProviders => <Provider>[
     openai,
     openrouter,
     together,

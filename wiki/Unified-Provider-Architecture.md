@@ -126,12 +126,12 @@ classDiagram
     note for ProviderRegistry "Alias lookup:\n'claude' → Anthropic\n'gemini' → Google"
 ```
 
-- **Static instances**: Each provider has a static instance (e.g., `Providers.openai`)
+- **Lazy instances**: Each provider has a lazy getter (e.g., `Providers.openai`) to avoid initialization errors
 - **Name-based lookup**: `Providers.get(String)` with case-insensitive matching
 - **Alias support**: Providers can have alternative names (e.g., 'claude' → 'anthropic')
 - **Discovery methods**: `Providers.all` lists all providers, `Providers.allWith()` filters by capabilities
 
-The registry is populated lazily on first access to avoid initialization overhead.
+Providers are created lazily on first access to avoid initialization errors when API keys are missing. This allows users to use specific providers without needing all API keys configured.
 
 ## Separation of Concerns
 
@@ -196,13 +196,14 @@ The Agent creates models lazily when needed, allowing the Provider to handle all
 
 ### 2. Provider Layer (lib/src/providers/)
 **Responsibilities:**
-- API key resolution from environment (via tryGetEnv helper)
+- API key resolution from environment (via tryGetEnv helper - allows lazy initialization)
 - Default model selection from defaultModelNames map
 - Base URL configuration and defaults
 - Model factory operations (createChatModel, createEmbeddingsModel)
 - Capability declaration
+- API key validation at model creation time (not constructor time)
 
-**Key Pattern**: Providers resolve all configuration before passing to models. They handle the complexity of environment variables, defaults, and overrides so models receive clean, resolved values.
+**Key Pattern**: Providers use `tryGetEnv()` in constructors to allow lazy initialization without throwing errors. API key validation happens when creating models, not when creating providers. This allows users to access provider metadata and use specific providers without needing all API keys configured.
 
 ### 3. Model Layer (lib/src/chat_models/, lib/src/embeddings_models/)
 **Responsibilities:**
@@ -229,9 +230,10 @@ See actual implementations in `lib/src/providers/`:
 
 Key patterns:
 1. Providers extend `Provider<TChatOptions, TEmbeddingsOptions>`
-2. Constructor calls super with all required metadata
-3. Factory methods resolve configuration before creating models
+2. Constructor calls super with all required metadata, using `tryGetEnv()` for API keys
+3. Factory methods validate API keys and throw if required but missing
 4. Unsupported operations throw `UnsupportedError`
+5. Providers are instantiated lazily via getters to avoid initialization errors
 
 ### OpenAI-Compatible Pattern
 
@@ -272,10 +274,11 @@ While Agent is the primary interface, direct model creation is supported for adv
 - Consistent configuration across model types
 - Simplified API surface
 
-### 2. Fail-Fast Philosophy
-- Invalid configurations fail immediately
-- No silent fallbacks or defaults that hide errors
-- Clear error messages for debugging
+### 2. Deferred Validation Philosophy
+- API key validation deferred to model creation time
+- Allows provider access without all API keys configured
+- Clear error messages when actually trying to use a provider
+- No silent fallbacks that hide configuration errors
 
 ### 3. Capability as Information
 - Capabilities inform but don't restrict

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
@@ -424,6 +425,11 @@ class Agent {
 
   /// Gets an environment map for the agent.
   static Map<String, String> environment = {};
+
+  /// Controls whether environment lookups should only use [Agent.environment]
+  /// and ignore [Platform.environment]. This is useful for testing to ensure
+  /// complete control over environment variables.
+  static bool useAgentEnvironmentOnly = false;
 
   /// Global logging configuration for all Agent operations.
   ///

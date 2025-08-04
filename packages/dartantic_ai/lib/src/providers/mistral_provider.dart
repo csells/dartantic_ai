@@ -18,7 +18,7 @@ class MistralProvider
   /// [apiKey]: The API key for the Mistral provider.
   MistralProvider({String? apiKey})
     : super(
-        apiKey: apiKey ?? getEnv(defaultApiKeyName),
+        apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         name: 'mistral',
         displayName: 'Mistral',
         defaultModelNames: {
@@ -55,6 +55,10 @@ class MistralProvider
       'temp: $temperature',
     );
 
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
     return MistralChatModel(
       name: modelName,
       tools: tools,
@@ -77,6 +81,11 @@ class MistralProvider
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
     _logger.info('Creating Mistral embeddings model: $modelName');
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
     return MistralEmbeddingsModel(
       name: modelName,
       apiKey: apiKey!,

@@ -1,3 +1,19 @@
+## 1.0.6
+
+- Fixed #48: Pass package name and other info to Generative AI providers. I
+  added an example of how to use a custom HTTP client for these kinds of things
+  when creating a model. It's not as easy as it could be, and it didn't work for
+  gemini w/o a quick fix, but it's doable.
+
+## 1.0.5
+
+-  Fixed #47: Dartantic is checking for wrong environment variable. I was being
+   aggressive about constructing providers before they were used and checking
+   API keys before they were needed, which was causing this issue. For example,
+   if you wanted to use `Agent('google')` and didn't have the MISTRAL_API_KEY
+   set (why would you?), string lookup creates all of the providers, which caused
+   all of them to check for their API key and -- BOOM.
+
 ## 1.0.4
 
 - Updated LLM SDK dependencies:
