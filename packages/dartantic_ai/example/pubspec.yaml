@@ -11,12 +11,13 @@ dependencies:
   dartantic_ai:
     path: ..
   dartantic_interface: ^1.0.2
-  dotprompt_dart: ^0.2.0
+  dotprompt_dart: ^0.3.0
+  freezed_annotation: ^3.1.0
   http: ^1.4.0
   json_annotation: ^4.9.0
   json_schema: ^5.2.1
   logging: ^1.3.0
-  soti_schema_plus: ^1.1.0
+  soti_schema_plus: ^1.2.0
 
 dev_dependencies:
   all_lint_rules_community: ^0.0.43

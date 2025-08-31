@@ -11,27 +11,27 @@ import '../chat_models/ollama_chat/ollama_chat_model.dart';
 class OllamaProvider
     extends Provider<OllamaChatOptions, EmbeddingsModelOptions> {
   /// Creates a new Ollama provider instance.
-  OllamaProvider()
-    : super(
-        name: 'ollama',
-        displayName: 'Ollama',
-        defaultModelNames: {
-          /// Note: llama3.x models have a known issue with spurious content in
-          /// tool calling responses, generating unwanted JSON fragments like
-          /// '", "parameters": {}}' during streaming. qwen2.5:7b-instruct
-          /// provides cleaner tool calling behavior.
-          ModelKind.chat: 'qwen2.5:7b-instruct',
-        },
-        baseUrl: null,
-        apiKey: null,
-        apiKeyName: null,
-        caps: {
-          ProviderCaps.chat,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.vision,
-        },
-      );
+  OllamaProvider({
+    super.name = 'ollama',
+    super.displayName = 'Ollama',
+    super.apiKey,
+    super.baseUrl,
+    super.apiKeyName,
+  }) : super(
+         defaultModelNames: {
+           /// Note: llama3.x models have a known issue with spurious content in
+           /// tool calling responses, generating unwanted JSON fragments like
+           /// '", "parameters": {}}' during streaming. qwen2.5:7b-instruct
+           /// provides cleaner tool calling behavior.
+           ModelKind.chat: 'qwen2.5:7b-instruct',
+         },
+         caps: {
+           ProviderCaps.chat,
+           ProviderCaps.multiToolCalls,
+           ProviderCaps.typedOutput,
+           ProviderCaps.vision,
+         },
+       );
 
   static final Logger _logger = Logger('dartantic.chat.providers.ollama');
 

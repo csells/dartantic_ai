@@ -1,11 +1,13 @@
 import 'package:chrono_dart/chrono_dart.dart' show Chrono;
+import 'package:freezed_annotation/freezed_annotation.dart' show Freezed;
 import 'package:json_annotation/json_annotation.dart';
 import 'package:json_schema/json_schema.dart';
-import 'package:soti_schema_plus/soti_schema_plus.dart' hide JsonSchema;
+import 'package:soti_schema_plus/soti_schema_plus.dart';
 
 part 'example_types.g.dart';
 
 @SotiSchema()
+@Freezed()
 @JsonSerializable()
 class TownAndCountry {
   const TownAndCountry({required this.town, required this.country});

@@ -118,8 +118,8 @@ Future<void> typedOutput(Agent agent) async {
       },
       'required': ['town', 'country'],
     }),
-    outputFromJson:
-        (json) => TownAndCountry(town: json['town'], country: json['country']),
+    outputFromJson: (json) =>
+        TownAndCountry(town: json['town'], country: json['country']),
   );
 
   print('town: ${result.output.town}');

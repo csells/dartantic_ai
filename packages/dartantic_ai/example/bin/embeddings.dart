@@ -74,8 +74,8 @@ void main() async {
   }
 
   // Sort by similarity
-  final sorted =
-      similarities.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  final sorted = similarities.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
 
   print('\nResults (sorted by similarity):');
   for (final entry in sorted) {

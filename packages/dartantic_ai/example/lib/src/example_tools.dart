@@ -119,11 +119,10 @@ final temperatureConverterTool = Tool<Map<String, dynamic>>(
       return {'result': value, 'unit': toUnit};
     }
 
-    final converted =
-        fromUnit == 'C'
-            ? (value * 9 / 5) +
-                32 // C to F
-            : (value - 32) * 5 / 9; // F to C
+    final converted = fromUnit == 'C'
+        ? (value * 9 / 5) +
+              32 // C to F
+        : (value - 32) * 5 / 9; // F to C
 
     return {
       'original': {'value': value, 'unit': fromUnit},

@@ -128,10 +128,9 @@ String _messageToSummary(ChatMessage message) {
 
   for (final part in message.parts) {
     if (part is TextPart) {
-      final preview =
-          part.text.length > 50
-              ? '${part.text.substring(0, 47)}...'
-              : part.text;
+      final preview = part.text.length > 50
+          ? '${part.text.substring(0, 47)}...'
+          : part.text;
       parts.add('Text("$preview")');
     } else if (part is ToolPart) {
       if (part.kind == ToolPartKind.call) {

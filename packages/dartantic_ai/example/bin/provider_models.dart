@@ -18,18 +18,19 @@ Future<void> main() async {
     final modelList = models.toList();
 
     // Categorize models by type
-    final chatModels =
-        modelList.where((m) => m.kinds.contains(ModelKind.chat)).toList();
-    final embeddingModels =
-        modelList.where((m) => m.kinds.contains(ModelKind.embeddings)).toList();
-    final otherModels =
-        modelList
-            .where(
-              (m) =>
-                  !m.kinds.contains(ModelKind.chat) &&
-                  !m.kinds.contains(ModelKind.embeddings),
-            )
-            .toList();
+    final chatModels = modelList
+        .where((m) => m.kinds.contains(ModelKind.chat))
+        .toList();
+    final embeddingModels = modelList
+        .where((m) => m.kinds.contains(ModelKind.embeddings))
+        .toList();
+    final otherModels = modelList
+        .where(
+          (m) =>
+              !m.kinds.contains(ModelKind.chat) &&
+              !m.kinds.contains(ModelKind.embeddings),
+        )
+        .toList();
 
     totalChatModels += chatModels.length;
     totalEmbeddingModels += embeddingModels.length;
@@ -39,14 +40,14 @@ Future<void> main() async {
     if (chatModels.isNotEmpty) {
       print('\n## Chat Models (${chatModels.length})');
       for (final chatModel in chatModels) {
-        final model =
-            ModelStringParser(
-              provider.name,
-              chatModelName: chatModel.name,
-            ).toString();
+        final model = ModelStringParser(
+          provider.name,
+          chatModelName: chatModel.name,
+        ).toString();
         final kinds = chatModel.kinds.map((k) => k.name).join(', ');
-        final displayName =
-            chatModel.displayName != null ? '"${chatModel.displayName}"' : '';
+        final displayName = chatModel.displayName != null
+            ? '"${chatModel.displayName}"'
+            : '';
         print('- $model $displayName ($kinds)');
       }
     }
@@ -55,16 +56,14 @@ Future<void> main() async {
     if (embeddingModels.isNotEmpty) {
       print('\n## Embedding Models (${embeddingModels.length})');
       for (final embeddingsModel in embeddingModels) {
-        final model =
-            ModelStringParser(
-              provider.name,
-              embeddingsModelName: embeddingsModel.name,
-            ).toString();
+        final model = ModelStringParser(
+          provider.name,
+          embeddingsModelName: embeddingsModel.name,
+        ).toString();
         final kinds = embeddingsModel.kinds.map((k) => k.name).join(', ');
-        final displayName =
-            embeddingsModel.displayName != null
-                ? '"${embeddingsModel.displayName}"'
-                : '';
+        final displayName = embeddingsModel.displayName != null
+            ? '"${embeddingsModel.displayName}"'
+            : '';
         print('- $model $displayName ($kinds)');
       }
     }
@@ -73,14 +72,14 @@ Future<void> main() async {
     if (otherModels.isNotEmpty) {
       print('\n## Other Models (${otherModels.length})');
       for (final otherModel in otherModels) {
-        final model =
-            ModelStringParser(
-              provider.name,
-              otherModelName: otherModel.name,
-            ).toString();
+        final model = ModelStringParser(
+          provider.name,
+          otherModelName: otherModel.name,
+        ).toString();
         final kinds = otherModel.kinds.map((k) => k.name).join(', ');
-        final displayName =
-            otherModel.displayName != null ? '"${otherModel.displayName}"' : '';
+        final displayName = otherModel.displayName != null
+            ? '"${otherModel.displayName}"'
+            : '';
         print('- $model $displayName ($kinds)');
       }
     }

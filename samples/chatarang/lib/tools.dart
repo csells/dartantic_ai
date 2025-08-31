@@ -29,7 +29,7 @@ final tools = [
       'required': ['zipcode'],
     }),
     onCall: (input) async {
-      final zipcode = (input! as Map<String, dynamic>)['zipcode'] as String;
+      final zipcode = (input as Map<String, dynamic>)['zipcode'] as String;
       final url = Uri.parse('https://wttr.in/US~$zipcode?format=j1');
       final response = await http.get(url);
       if (response.statusCode != 200) {
@@ -53,7 +53,7 @@ final tools = [
       'required': ['location'],
     }),
     onCall: (input) async {
-      final location = (input! as Map<String, dynamic>)['location'] as String;
+      final location = (input as Map<String, dynamic>)['location'] as String;
       try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
           'q': location,
@@ -89,7 +89,7 @@ final tools = [
       'required': ['link'],
     }),
     onCall: (args) async {
-      final link = (args! as Map<String, dynamic>)['link'] as String?;
+      final link = (args as Map<String, dynamic>)['link'] as String?;
       if (link == null) {
         return {'error': 'link is required'};
       }

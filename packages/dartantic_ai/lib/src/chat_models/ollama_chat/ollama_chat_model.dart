@@ -118,7 +118,7 @@ class OllamaChatModel extends ChatModel<OllamaChatOptions> {
   ///
   /// TODO: Remove this workaround once ollama_dart supports dynamic format
   /// objects GitHub issue:
-  /// https://github.com/csells/dartantic_ai/issues/740
+  /// https://github.com/davidmigloz/langchain_dart/issues/740
   Stream<ChatResult<ChatMessage>> _sendStreamWithSchema(
     List<ChatMessage> messages, {
     required JsonSchema outputSchema,

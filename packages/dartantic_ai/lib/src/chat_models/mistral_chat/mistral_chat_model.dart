@@ -34,7 +34,7 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
 
     if (tools != null) {
       // TODO: Mistral doesn't support tools yet, waiting for a fix:
-      // https://github.com/csells/dartantic_ai/issues/653
+      // https://github.com/davidmigloz/langchain_dart/issues/653
       throw Exception('Tools are not supported by Mistral.');
     }
   }

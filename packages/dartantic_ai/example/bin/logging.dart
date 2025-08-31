@@ -38,10 +38,8 @@ Future<void> levelFiltering() async {
   print('Setting level to FINE for detailed debugging...');
   Agent.loggingOptions = LoggingOptions(
     level: Level.FINE,
-    onRecord:
-        (record) => print(
-          '[${record.level.name}] ${record.loggerName}: ${record.message}',
-        ),
+    onRecord: (record) =>
+        print('[${record.level.name}] ${record.loggerName}: ${record.message}'),
   );
 
   final agent = Agent('openai:gpt-3.5-turbo');
@@ -51,10 +49,8 @@ Future<void> levelFiltering() async {
   print('\nSetting level to WARNING for production...');
   Agent.loggingOptions = LoggingOptions(
     level: Level.WARNING,
-    onRecord:
-        (record) => print(
-          '[${record.level.name}] ${record.loggerName}: ${record.message}',
-        ),
+    onRecord: (record) =>
+        print('[${record.level.name}] ${record.loggerName}: ${record.message}'),
   );
 
   // This should show no logs (no warnings/errors expected)
@@ -70,8 +66,8 @@ Future<void> providerFiltering() async {
   print('Filtering to only OpenAI operations...');
   Agent.loggingOptions = LoggingOptions(
     filter: 'openai',
-    onRecord:
-        (record) => print('OpenAI: ${record.loggerName} - ${record.message}'),
+    onRecord: (record) =>
+        print('OpenAI: ${record.loggerName} - ${record.message}'),
   );
 
   final openaiAgent = Agent('openai:gpt-4o-mini');
@@ -81,8 +77,8 @@ Future<void> providerFiltering() async {
   print('\nFiltering to only Agent operations...');
   Agent.loggingOptions = LoggingOptions(
     filter: 'agent',
-    onRecord:
-        (record) => print('Agent: ${record.loggerName} - ${record.message}'),
+    onRecord: (record) =>
+        print('Agent: ${record.loggerName} - ${record.message}'),
   );
 
   final agentForAgentLogs = Agent('openai:gpt-3.5-turbo');
