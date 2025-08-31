@@ -3,7 +3,7 @@ description: Examples using dartantic_ai.
 publish_to: none
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.8.0
 
 dependencies:
   chrono_dart: ^2.0.2
@@ -16,9 +16,9 @@ dependencies:
   json_annotation: ^4.9.0
   json_schema: ^5.2.1
   logging: ^1.3.0
-  soti_schema: ^1.0.0
+  soti_schema_plus: ^1.1.0
 
 dev_dependencies:
   all_lint_rules_community: ^0.0.43
-  build_runner: ^2.4.15
-  json_serializable: ^6.9.0
+  build_runner: ^2.4.13
+  json_serializable: ^6.8.0

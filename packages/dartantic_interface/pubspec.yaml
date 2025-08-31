@@ -1,10 +1,10 @@
 name: dartantic_interface
 description: Interface definitions for dartantic_ai for use in building custom providers.
-version: 1.0.2
+version: 1.0.3
 repository: https://github.com/csells/dartantic_ai
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.8.0
 
 dependencies:
   cross_file: ^0.3.4+2

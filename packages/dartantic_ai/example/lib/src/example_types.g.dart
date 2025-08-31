@@ -15,17 +15,14 @@ TownAndCountry _$TownAndCountryFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$TownAndCountryToJson(TownAndCountry instance) =>
     <String, dynamic>{'town': instance.town, 'country': instance.country};
 
-// **************************************************************************
-// SotiSchemaGenerator
-// **************************************************************************
+TimeAndTemperature _$TimeAndTemperatureFromJson(Map<String, dynamic> json) =>
+    TimeAndTemperature(
+      time: DateTime.parse(json['time'] as String),
+      temperature: (json['temperature'] as num).toDouble(),
+    );
 
-const _$TownAndCountrySchemaMap = <String, dynamic>{
-  r'$schema': r'https://json-schema.org/draft/2020-12/schema',
-  r'type': r'object',
-  r'properties': {
-    r'town': {r'type': r'string'},
-    r'country': {r'type': r'string'},
-  },
-  r'required': [r'town', r'country'],
-  r'$defs': {},
-};
+Map<String, dynamic> _$TimeAndTemperatureToJson(TimeAndTemperature instance) =>
+    <String, dynamic>{
+      'time': instance.time.toIso8601String(),
+      'temperature': instance.temperature,
+    };

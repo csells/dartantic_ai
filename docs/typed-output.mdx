@@ -74,10 +74,10 @@ print('${result.output.city}: ${result.output.temp}°F');
 ## Schema Generation
 
 Hand-writing schemas and JSON serialization is a lot of boilerplate. Consider
-using `json_serializable` and `soti_schema` to automate this:
+using `json_serializable` and `_soti_schema_plus` to automate this:
 
 ```dart
-// let's use the `soti_schema` package to generate the schema and JSON serialization
+// let's use the `soti_schema_plus` package to generate the schema and JSON serialization
 @SotiSchema()
 @JsonSerializable()
 class TownAndCountry {

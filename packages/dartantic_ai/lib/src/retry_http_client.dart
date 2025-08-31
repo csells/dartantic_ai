@@ -174,7 +174,6 @@ class RetryHttpClient extends http.BaseClient {
         await Future.delayed(delay);
 
         attempt++;
-        // ignore: exception_hiding
       } catch (e) {
         // If we've exhausted retries, rethrow
         if (attempt == maxRetries) {

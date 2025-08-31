@@ -1,3 +1,9 @@
+## 1.0.7
+
+- remove custom lint dependency
+- move from soti_schema to soti_schema_plus in examples, as the former seems to
+  have been abandoned.
+
 ## 1.0.6
 
 - Fixed #48: Pass package name and other info to Generative AI providers. I

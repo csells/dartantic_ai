@@ -75,5 +75,4 @@ cd packages/dartantic_ai && dart pub upgrade
 ## Configuration
 
 - Linting: Uses `all_lint_rules_community` with custom rules in `analysis_options.yaml`
-- Custom lint plugin: `exception_hiding` to prevent silent exception handling
 - Formatter: 80-character page width

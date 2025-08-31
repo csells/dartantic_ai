@@ -1,3 +1,7 @@
+## 1.0.3
+
+- remove custom lint dependency
+
 ## 1.0.2
 
 - fixed a compilation error on the web
