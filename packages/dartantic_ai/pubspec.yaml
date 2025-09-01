@@ -11,7 +11,7 @@ environment:
 dependencies:
   anthropic_sdk_dart: ^0.2.2
   collection: ^1.19.1
-  dartantic_interface: ^1.0.2
+  dartantic_interface: ^1.0.3
   google_generative_ai: ^0.4.7
   html: ^0.15.6
   http: ^1.4.0
