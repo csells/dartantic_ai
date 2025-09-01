@@ -1,3 +1,7 @@
+## 1.0.4
+
+- added `ProviderCaps.thinking`
+
 ## 1.0.3
 
 - remove custom lint dependency

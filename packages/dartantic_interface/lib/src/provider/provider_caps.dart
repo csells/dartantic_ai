@@ -19,4 +19,10 @@ enum ProviderCaps {
 
   /// The provider supports vision/multi-modal input (images, etc.).
   vision,
+
+  /// The provider can stream or return model reasoning ("thinking").
+  ///
+  /// When supported, thinking text is exposed via ChatResult.metadata under
+  /// the key 'thinking'. It is never persisted into message history.
+  thinking,
 }
