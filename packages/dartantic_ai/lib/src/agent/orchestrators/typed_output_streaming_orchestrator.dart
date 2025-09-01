@@ -208,6 +208,9 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       );
 
       state.addToHistory(toolResultMessage);
+      // Reset empty-after-tools guard for the next assistant turn to allow at
+      // most one empty continuation without looping indefinitely.
+      state.resetEmptyAfterToolsContinuation();
 
       // Only yield if not handling return_result normalization
       if (returnResultJson.isEmpty) {

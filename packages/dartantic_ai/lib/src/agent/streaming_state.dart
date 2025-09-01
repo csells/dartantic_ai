@@ -57,6 +57,11 @@ class StreamingState {
   /// For typed output: text parts that were suppressed
   List<TextPart> suppressedTextParts = <TextPart>[];
 
+  /// Count of consecutive empty assistant messages immediately after tool
+  /// execution. Used to allow at most one "empty-after-tools" continuation
+  /// to accommodate provider quirks, then stop to avoid infinite loops.
+  int emptyAfterToolsContinuations = 0;
+
   /// Resets state for a new message in the conversation
   void resetForNewMessage() {
     _logger.fine('Resetting streaming state for new message');
@@ -92,6 +97,18 @@ class StreamingState {
   /// Adds a message to the conversation history
   void addToHistory(ChatMessage message) {
     conversationHistory.add(message);
+  }
+
+  /// Resets the empty-after-tools continuation counter (typically called when
+  /// adding tool results to history so the next empty can be treated as
+  /// intermediate once).
+  void resetEmptyAfterToolsContinuation() {
+    emptyAfterToolsContinuations = 0;
+  }
+
+  /// Records an observed empty message after tool execution.
+  void noteEmptyAfterToolsContinuation() {
+    emptyAfterToolsContinuations++;
   }
 
   /// For typed output: stores metadata from a suppressed tool call

@@ -10,12 +10,11 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
-import 'package:logging/logging.dart';
 
 void main() async {
   Agent.loggingOptions = LoggingOptions(
-    level: Level.ALL,
-    filter: 'dartantic',
+    // level: Level.ALL,
+    // filter: 'dartantic',
     onRecord: (r) {
       // Keep concise; errors/stack are printed explicitly
       stdout.writeln('🔍 [${r.level.name}] ${r.loggerName}: ${r.message}');
@@ -68,7 +67,7 @@ void main() async {
 
   // 3) Create a single tool that commonly triggers the issue
   var callCount = 0;
-  final writeFile = Tool(
+  final writeFile = Tool<Map<String, dynamic>>(
     name: 'write_file',
     description: 'Create or overwrite a file',
     inputSchema: JsonSchema.create({
@@ -81,11 +80,9 @@ void main() async {
     }),
     onCall: (args) async {
       callCount++;
-      stdout.writeln(
-        '🛠️ Tool call #$callCount args=($args) type=${args.runtimeType}',
-      );
+      stdout.writeln('🛠️ Tool call #$callCount path=${args['path']}');
 
-      if (args is Map && args.isEmpty) {
+      if (args.isEmpty) {
         try {
           stdout.writeln('❌ EMPTY ARGS DETECTED (count=$callCount)');
           // Stop fast once we prove the bug
@@ -100,7 +97,7 @@ void main() async {
         }
       }
 
-      final path = (args! as Map)['path'];
+      final path = (args as Map)['path'];
       return {'status': 'success', 'path': path};
     },
   );
@@ -108,7 +105,12 @@ void main() async {
   // 4) Build a simple agent (Anthropic streaming with one tool)
   final agent = Agent(
     // Using explicit model string; provider default also works
-    'anthropic:claude-3-5-sonnet-20241022',
+    // 'anthropic:claude-3-5-sonnet-20241022',
+    // 'google:gemini-2.5-pro',
+    // 'openai:gpt-5',
+    'openai',
+    // 'anthropic',
+    // 'google',
     tools: [writeFile],
   );
 

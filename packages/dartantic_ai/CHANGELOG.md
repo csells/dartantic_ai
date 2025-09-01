@@ -1,6 +1,8 @@
 ## 1.0.8
 
-- fix a intermittent anthropic tool-calling error
+- fix a intermittent anthropic tool-calling error with streaming responses
+- fix an openai-based tool-calling error that resulted in an infinite loop from
+  empty responses after tool calls
 
 ## 1.0.7
 

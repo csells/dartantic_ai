@@ -112,12 +112,44 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
                     .isNotEmpty,
               );
 
+      // If this is immediately after tool execution, allow at most one
+      // empty continuation, then treat subsequent empties as final to avoid
+      // infinite looping with providers that intentionally return nothing
+      if (recentToolExecution) {
+        if (state.emptyAfterToolsContinuations < 1) {
+          _logger.fine('Allowing one empty-after-tools continuation');
+          state.noteEmptyAfterToolsContinuation();
+          yield StreamingIterationResult(
+            output: '',
+            messages: const [],
+            shouldContinue: true,
+            finishReason: state.lastResult.finishReason,
+            metadata: state.lastResult.metadata,
+            usage: state.lastResult.usage,
+          );
+          return;
+        }
+
+        _logger.fine(
+          'Second empty-after-tools message encountered; treating as final',
+        );
+        state.addToHistory(consolidatedMessage);
+
+        yield StreamingIterationResult(
+          output: '',
+          messages: [consolidatedMessage],
+          shouldContinue: false,
+          finishReason: state.lastResult.finishReason,
+          metadata: state.lastResult.metadata,
+          usage: state.lastResult.usage,
+        );
+        return;
+      }
+
       // Check if this is a legitimate completion (finish reason indicates done)
-      // BUT not if we just executed tools - then it's an intermediate message
       final isLegitimateCompletion =
-          (state.lastResult.finishReason == FinishReason.stop ||
-              state.lastResult.finishReason == FinishReason.length) &&
-          !recentToolExecution;
+          state.lastResult.finishReason == FinishReason.stop ||
+          state.lastResult.finishReason == FinishReason.length;
 
       if (isLegitimateCompletion) {
         // This is a real empty response (e.g., OpenAI returning empty
@@ -130,21 +162,6 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
           output: '',
           messages: [consolidatedMessage],
           shouldContinue: false,
-          finishReason: state.lastResult.finishReason,
-          metadata: state.lastResult.metadata,
-          usage: state.lastResult.usage,
-        );
-        return;
-      } else {
-        // This is an intermediate empty message (Anthropic pattern after
-        // tools), skip it
-        _logger.fine(
-          'Empty message is intermediate (after tools), continuing iteration',
-        );
-        yield StreamingIterationResult(
-          output: '',
-          messages: const [],
-          shouldContinue: true,
           finishReason: state.lastResult.finishReason,
           metadata: state.lastResult.metadata,
           usage: state.lastResult.usage,
@@ -219,6 +236,8 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       );
 
       state.addToHistory(toolResultMessage);
+      // Reset empty-after-tools guard for the next assistant turn
+      state.resetEmptyAfterToolsContinuation();
 
       yield StreamingIterationResult(
         output: '',
