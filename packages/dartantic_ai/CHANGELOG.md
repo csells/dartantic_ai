@@ -1,7 +1,7 @@
 ## 1.0.7
 
 - move from soti_schema to soti_schema_plus in examples, as the former seems to
-  have been abandoned.
+  have been abandoned
 - fixed: can't move to the latest version of freezed etc due to deps in
   ollama_dart [#54](https://github.com/csells/dartantic_ai/issues/54)
 - fixed: apiKey and baseUrl parameters should be exposed from the OllamaProvider
@@ -10,6 +10,7 @@
   [#53](https://github.com/csells/dartantic_ai/issues/53)
 - fixed: update for openai_dart 0.5.4
   [#51](https://github.com/csells/dartantic_ai/issues/51)
+- fixed chatarang to use new streaming message collection pattern
 
 ## 1.0.6
 
