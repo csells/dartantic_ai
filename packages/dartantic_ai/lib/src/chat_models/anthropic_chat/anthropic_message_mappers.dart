@@ -290,14 +290,17 @@ class MessageStreamEventTransformer
   /// The last message ID.
   String? lastMessageId;
 
-  /// The last tool call ID.
-  String? lastToolCallId;
+  /// Map of content block index -> tool call ID.
+  final Map<int, String> _toolCallIdByIndex = {};
 
-  /// The last tool name.
-  String? lastToolName;
+  /// Map of content block index -> tool name.
+  final Map<int, String> _toolNameByIndex = {};
 
-  /// Accumulator for tool arguments during streaming.
-  final Map<String, StringBuffer> _toolArgumentsAccumulator = {};
+  /// Accumulator for tool arguments during streaming (by content block index).
+  final Map<int, StringBuffer> _toolArgumentsByIndex = {};
+
+  /// Seed arguments captured from ToolUseBlock.start when provided fully.
+  final Map<int, Map<String, dynamic>> _toolSeedArgsByIndex = {};
 
   /// Binds this transformer to a stream of [a.MessageStreamEvent]s, producing a
   /// stream of [ChatResult]s.
@@ -364,12 +367,17 @@ class MessageStreamEventTransformer
       'parts=${parts.length}, contentBlock=$e.contentBlock',
     );
 
-    // Track tool call IDs and names
-    for (final part in parts) {
-      if (part is ToolPart && part.kind == ToolPartKind.call) {
-        lastToolCallId = part.id;
-        lastToolName = part.name;
-        break;
+    // Track tool call IDs and names by content block index
+    final cb = e.contentBlock;
+    if (cb is a.ToolUseBlock) {
+      _toolCallIdByIndex[e.index] = cb.id;
+      _toolNameByIndex[e.index] = cb.name;
+
+      // Capture any initial args if present (small payloads may arrive fully
+      // in the start block without deltas)
+      final input = cb.input;
+      if (input.isNotEmpty) {
+        _toolSeedArgsByIndex[e.index] = Map<String, dynamic>.from(input);
       }
     }
 
@@ -387,10 +395,16 @@ class MessageStreamEventTransformer
     a.ContentBlockDeltaEvent e,
   ) {
     // Handle InputJsonBlockDelta specially to accumulate arguments
-    if (e.delta is a.InputJsonBlockDelta && lastToolCallId != null) {
+    if (e.delta is a.InputJsonBlockDelta &&
+        _toolCallIdByIndex.containsKey(e.index)) {
       final delta = e.delta as a.InputJsonBlockDelta;
-      _toolArgumentsAccumulator.putIfAbsent(lastToolCallId!, StringBuffer.new);
-      _toolArgumentsAccumulator[lastToolCallId]!.write(delta.partialJson);
+      _toolArgumentsByIndex.putIfAbsent(e.index, StringBuffer.new);
+      _toolArgumentsByIndex[e.index]!.write(delta.partialJson);
+
+      // If we start receiving deltas, prefer them over any seeded args
+      if (_toolSeedArgsByIndex.containsKey(e.index)) {
+        _toolSeedArgsByIndex.remove(e.index);
+      }
 
       // Return empty result for accumulation
       return ChatResult<ChatMessage>(
@@ -403,7 +417,7 @@ class MessageStreamEventTransformer
       );
     }
 
-    final parts = _mapContentBlockDelta(lastToolCallId, e.delta);
+    final parts = _mapContentBlockDelta(_toolCallIdByIndex[e.index], e.delta);
     _logger.fine(
       'Processing content block delta event: index=${e.index}, '
       'parts=${parts.length}',
@@ -423,21 +437,26 @@ class MessageStreamEventTransformer
   ) {
     // If we have accumulated arguments for this tool, create a complete tool
     // part
-    if (lastToolCallId != null &&
-        _toolArgumentsAccumulator.containsKey(lastToolCallId)) {
-      final argsJson = _toolArgumentsAccumulator[lastToolCallId]!.toString();
-      _toolArgumentsAccumulator.remove(lastToolCallId);
+    final toolId = _toolCallIdByIndex.remove(e.index);
+    final toolName = _toolNameByIndex.remove(e.index);
+
+    if (toolId != null) {
+      final argsBuffer = _toolArgumentsByIndex.remove(e.index);
+      final argsJson = argsBuffer?.toString() ?? '';
+      final seededArgs = _toolSeedArgsByIndex.remove(e.index);
 
       // Return a result with the complete tool call
-      final result = ChatResult<ChatMessage>(
+      return ChatResult<ChatMessage>(
         id: lastMessageId,
         output: ChatMessage(
           role: ChatMessageRole.model,
           parts: [
             ToolPart.call(
-              id: lastToolCallId!,
-              name: lastToolName ?? '',
-              arguments: argsJson.isNotEmpty ? json.decode(argsJson) : {},
+              id: toolId,
+              name: toolName ?? '',
+              arguments: argsJson.isNotEmpty
+                  ? json.decode(argsJson)
+                  : (seededArgs ?? <String, dynamic>{}),
             ),
           ],
         ),
@@ -446,19 +465,18 @@ class MessageStreamEventTransformer
         metadata: const {},
         usage: const LanguageModelUsage(),
       );
-
-      lastToolCallId = null;
-      lastToolName = null;
-      return result;
     }
 
-    lastToolCallId = null;
-    lastToolName = null;
     return null;
   }
 
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
+    // Clear any tracking state for safety
     lastMessageId = null;
+    _toolCallIdByIndex.clear();
+    _toolNameByIndex.clear();
+    _toolArgumentsByIndex.clear();
+    _toolSeedArgsByIndex.clear();
     return null;
   }
 }
@@ -469,14 +487,7 @@ List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
   final a.MessageContentBlocks b => [
     // Extract text parts
     ...b.value.whereType<a.TextBlock>().map((t) => TextPart(t.text)),
-    // Extract tool use parts
-    ...b.value.whereType<a.ToolUseBlock>().map(
-      (toolUse) => ToolPart.call(
-        id: toolUse.id,
-        name: toolUse.name,
-        arguments: toolUse.input,
-      ),
-    ),
+    // Do not emit tool use parts here; they stream via block events.
   ],
 };
 
@@ -489,9 +500,8 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
       mimeType: 'image/png',
     ),
   ],
-  final a.ToolUseBlock tu => [
-    ToolPart.call(id: tu.id, name: tu.name, arguments: tu.input),
-  ],
+  // Do not emit tool use blocks at start; emit at stop with full args.
+  final a.ToolUseBlock _ => const [],
   final a.ToolResultBlock tr => [TextPart(tr.content.text)],
 };
 

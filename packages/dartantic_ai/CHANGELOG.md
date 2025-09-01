@@ -1,3 +1,7 @@
+## 1.0.8
+
+- fix a intermittent anthropic tool-calling error
+
 ## 1.0.7
 
 - move from soti_schema to soti_schema_plus in examples, as the former seems to
