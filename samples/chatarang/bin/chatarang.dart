@@ -73,14 +73,18 @@ Everything else you type will be sent to the current model.
 
     stdout.write('\x1B[93m${commandHandler.agent.model}\x1B[0m: ');
     await stdout.flush();
-    var newMessages = <ChatMessage>[];
+    // Collect all new messages emitted during the stream (user, tool, model)
+    final collectedMessages = <ChatMessage>[];
     await for (final response in stream) {
       stdout.write(response.output);
       await stdout.flush();
-      newMessages = response.messages;
+      if (response.messages.isNotEmpty) {
+        collectedMessages.addAll(response.messages);
+      }
     }
 
-    for (final msg in newMessages) {
+    // Persist all collected messages in the history so /messages shows them
+    for (final msg in collectedMessages) {
       commandHandler.history.add(
         HistoryEntry(
           message: msg,
