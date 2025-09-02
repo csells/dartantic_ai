@@ -195,10 +195,15 @@ metadata key:
 - Streaming: When available, incremental thinking deltas are attached to
   `ChatResult.metadata['thinking']` on streaming chunks. These chunks do not add
   any extra message parts; the thinking text is metadata-only.
-- Final: The final consolidated thinking text is attached to the last
-  `ChatResult.metadata['thinking']` for the iteration.
+- Completion: Thinking is not re-emitted at completion (no final consolidation
+  is guaranteed). The final `ChatResult` may carry only usage/finish state.
 - History: Thinking is never added to conversation history. Only normal text
   content and tool messages are persisted as `ChatMessage`s.
+
+UX tip: If you display thinking and visible text together, insert a visual
+separator when transitioning from thinking to the first visible text chunk (for
+example, two newlines). This keeps the streamed reasoning visually distinct
+without polluting message history.
 
 Applications can use this metadata to show background reasoning without
 polluting prompts or context. If a provider does not support thinking, the
@@ -486,4 +491,3 @@ Agent → StreamingOrchestrator → ChatModel → Provider API
   ↓           ↓                    ↓
 StreamingState → ToolExecutor → MessageAccumulator
 ```
-

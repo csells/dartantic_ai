@@ -85,3 +85,15 @@ These providers use their own native APIs in dartantic and are not OpenAI-compat
 - For Google AI OpenAI-compatible endpoint, use your Google AI Studio API key (GEMINI_API_KEY) and the special base URL as shown above. See the [official Gemini OpenAI compatibility docs](https://ai.google.dev/gemini-api/docs/openai) for details.
 - Together AI has tool support disabled due to its non-standard streaming format that uses `<|python_tag|>` prefix instead of standard OpenAI tool_calls format.
 - For a more comprehensive and up-to-date list of OpenAI-compatible providers, see [cheahjs/free-llm-api-resources](https://github.com/cheahjs/free-llm-api-resources).
+
+### OpenAI Responses (native) details
+
+- Endpoint: `POST /v1/responses`
+- Headers: `Accept: text/event-stream` and `OpenAI-Beta: responses=v1`
+- Thinking summary: opt-in via `reasoning.summary` (`detailed` | `concise` | `auto`).
+  - Default is no summary (omit the field to disable thinking deltas).
+  - dartantic: set `OpenAIResponsesChatOptions(reasoningSummary: ...)`.
+- Streaming order: reasoning summary deltas often arrive before text; dartantic
+  exposes them as `metadata['thinking']` and does not add them to message history.
+- Completion: no re-emission of thinking at `response.completed`; final event
+  carries usage/finish state only.

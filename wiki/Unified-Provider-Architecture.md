@@ -71,7 +71,8 @@ The `ProviderCaps` enum (see `lib/src/provider_caps.dart`) enables dynamic disco
 - **typedOutput**: Structured JSON output generation
 - **typedOutputWithTools**: Combination of typed output + tools
 - **vision**: Multi-modal input support (images, etc.)
-- **thinking**: Streams or returns model reasoning; exposed via `metadata['thinking']` and excluded from history
+- **thinking**: Streams model reasoning (when available); exposed via
+  `metadata['thinking']` and excluded from history
 
 Note: Streaming is not a capability because all chat providers support it by default.
 
@@ -288,9 +289,10 @@ While Agent is the primary interface, direct model creation is supported for adv
 
 ### 3b. Metadata Conventions
 - Providers may attach context metadata to `ChatResult.metadata`.
-- The `thinking` key is reserved for model reasoning streams. It should contain
+- The `thinking` key is reserved for model reasoning streams. It contains
   provider-supplied reasoning text. This metadata is not persisted in message
-  history and is safe to ignore by consumers that don't display it.
+  history, is not guaranteed to be present on the final result, and is safe to
+  ignore by consumers that don't display it.
 
 ### 4. Clean Separation
 - Each layer has clear responsibilities

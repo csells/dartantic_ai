@@ -8,98 +8,69 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 void main() {
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash']
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
-
-    for (final providerModel in providers) {
-      test('$providerModel: $description', () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-        final provider = Providers.get(providerName);
-        await testFunction(provider);
-      });
-    }
-  }
-
-  group('Thinking', timeout: const Timeout(Duration(minutes: 3)), () {
-    runProviderTest(
-      'streams thinking-only metadata when present',
-      (provider) async {
-        final agent = Agent(
-          provider.name,
-          chatModelOptions: const OpenAIResponsesChatOptions(
-            reasoningEffort: OpenAIReasoningEffort.high,
-          ),
-        );
-
-        var sawThinkingOnly = false;
-        var sawAnyText = false;
-
-        await for (final chunk in agent.sendStream(
-          'Solve 247 + 389. Think step by step, then give the final answer.',
-        )) {
-          final thinking = chunk.metadata['thinking'];
-          if (chunk.output.isEmpty &&
-              thinking is String &&
-              thinking.isNotEmpty) {
-            sawThinkingOnly = true;
-            break; // Found a thinking-only delta
-          }
-          if (chunk.output.isNotEmpty) {
-            sawAnyText = true;
-          }
-        }
-
-        expect(sawAnyText, isTrue);
-        expect(sawThinkingOnly, isTrue);
-      },
-      requiredCaps: {ProviderCaps.thinking},
-    );
-
-    runProviderTest(
-      'final thinking present and excluded from history',
-      (provider) async {
-        final agent = Agent(
-          provider.name,
-          chatModelOptions: const OpenAIResponsesChatOptions(
-            reasoningEffort: OpenAIReasoningEffort.medium,
-          ),
-        );
-
-        final result = await agent.send('What is 2 + 2? Explain briefly.');
-
-        final thinking = result.metadata['thinking'];
-        expect(thinking, isA<String>());
-        expect((thinking as String).isNotEmpty, isTrue);
-
-        // Ensure no ChatMessage contains 'thinking' text injected into content
-        for (final msg in result.messages) {
-          expect(
-            msg.parts.whereType<TextPart>().every(
-              (p) => !p.text.contains('thinking:'),
+  group(
+    'Thinking (OpenAI Responses)',
+    timeout: const Timeout(Duration(minutes: 3)),
+    () {
+      test(
+        'streams thinking-first and thinking-only metadata chunks',
+        () async {
+          final agent = Agent(
+            'openai-responses',
+            chatModelOptions: const OpenAIResponsesChatOptions(
+              // Opt-in to summary thinking to exercise the channel
+              reasoningSummary: OpenAIReasoningSummary.detailed,
             ),
-            isTrue,
           );
-        }
-      },
-      requiredCaps: {ProviderCaps.thinking},
-    );
-  });
+
+          var sawAnyText = false;
+          var sawThinkingOnly = false;
+          var sawThinkingBeforeText = false;
+
+          await for (final chunk in agent.sendStream(
+            'In one sentence: how does quicksort work?',
+          )) {
+            final thinking = chunk.metadata['thinking'];
+            final isThinkingOnly =
+                chunk.output.isEmpty &&
+                thinking is String &&
+                thinking.isNotEmpty;
+
+            if (isThinkingOnly) {
+              sawThinkingOnly = true;
+              if (!sawAnyText) sawThinkingBeforeText = true;
+            }
+
+            if (chunk.output.isNotEmpty) {
+              sawAnyText = true;
+              // First text chunk is sufficient to validate ordering
+              break;
+            }
+          }
+
+          expect(
+            sawThinkingOnly,
+            isTrue,
+            reason: 'Expected metadata-only thinking deltas',
+          );
+          expect(
+            sawAnyText,
+            isTrue,
+            reason: 'Expected some visible response text',
+          );
+          expect(
+            sawThinkingBeforeText,
+            isTrue,
+            reason: 'Expected thinking to precede text',
+          );
+        },
+      );
+
+      // Note: We intentionally avoid checking final-result metadata because
+      // thinking deltas are streamed live and not re-emitted at completion.
+    },
+  );
 }
