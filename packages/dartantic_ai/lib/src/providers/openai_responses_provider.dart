@@ -79,6 +79,8 @@ class OpenAIResponsesProvider
         responseFormat: options?.responseFormat,
         user: options?.user,
         toolChoice: options?.toolChoice,
+        reasoningEffort: options?.reasoningEffort,
+        reasoningSummary: options?.reasoningSummary,
       ),
     );
   }

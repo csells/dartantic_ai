@@ -23,17 +23,16 @@ void main() async {
     'In one paragraph: how does quicksort work? Think carefully.',
     history: history,
   )) {
-    // Stream assistant text (bold)
-    if (chunk.output.isNotEmpty) {
-      textBuffer.write(chunk.output);
-      stdout.write(chunk.output);
-    }
-
     // Stream thinking deltas in metadata (if present)
     final thinkingDelta = chunk.metadata['thinking'];
     if (thinkingDelta is String && thinkingDelta.isNotEmpty) {
-      final ital = Colorize('[thinking] $thinkingDelta')..italic();
-      stdout.write('THINKING: $ital');
+      stdout.write(Colorize(thinkingDelta)..italic());
+    }
+
+    // Stream assistant text
+    if (chunk.output.isNotEmpty) {
+      textBuffer.write(chunk.output);
+      stdout.write(chunk.output);
     }
 
     // Always collect new messages for history continuity
