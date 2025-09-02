@@ -1,3 +1,11 @@
+## Unreleased
+
+- Added `OpenAIResponsesProvider` (OpenAI Responses API) with streaming, tools,
+  typed output, and vision support.
+- Default chat model for the new provider set to `gpt-5`.
+- Introduced provider-agnostic `thinking` metadata for streaming and final
+  results (reasoning traces are excluded from message history).
+
 ## 1.0.8
 
 - fix a intermittent anthropic tool-calling error with streaming responses
@@ -31,14 +39,15 @@
    aggressive about constructing providers before they were used and checking
    API keys before they were needed, which was causing this issue. For example,
    if you wanted to use `Agent('google')` and didn't have the MISTRAL_API_KEY
-   set (why would you?), string lookup creates all of the providers, which caused
-   all of them to check for their API key and -- BOOM.
+   set (why would you?), string lookup creates all of the providers, which
+   caused all of them to check for their API key and -- BOOM.
 
 ## 1.0.4
 
 - Updated LLM SDK dependencies:
   - `anthropic_sdk_dart`: 0.2.1 → 0.2.2
-  - `openai_dart`: 0.5.2 → 0.5.3 (adds nullable choices field support for Groq compatibility)
+  - `openai_dart`: 0.5.2 → 0.5.3 (adds nullable choices field support for Groq
+    compatibility)
   - `mistralai_dart`: 0.0.4 → 0.0.5
   - `ollama_dart`: 0.2.3 → 0.2.4
 

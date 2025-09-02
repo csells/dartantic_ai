@@ -77,6 +77,8 @@ flowchart TB
 - **Tool Accumulation**: Building complete tool calls across chunks
 - **Message Boundaries**: Preserving complete messages in history
 - **Streaming UX**: Visual separation between tool calls and responses
+- **Thinking Metadata**: For providers that support reasoning/thinking, stream
+  incremental "thinking" text in result metadata under the `thinking` key.
 
 ### Tool Execution
 - **Tool Calls**: LLM-initiated function invocations with structured arguments
@@ -455,6 +457,8 @@ catch (error, stackTrace) {
 5. **UX Features**: Newline prefixing works correctly
 6. **Message History Validation**: User/model alternation maintained
 7. **Tool Result Consolidation**: Multiple results in single message
+8. **Thinking Streaming**: `thinking` metadata present and non-persistent in
+   history (no `ChatMessage` parts created)
 
 ### Debug Examples
 

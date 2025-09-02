@@ -5,3 +5,4 @@ export 'google_chat/google_chat.dart';
 export 'mistral_chat/mistral_chat.dart';
 export 'ollama_chat/ollama_chat.dart';
 export 'openai_chat/openai_chat.dart';
+export 'openai_responses/openai_responses.dart';

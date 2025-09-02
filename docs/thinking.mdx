@@ -1,0 +1,81 @@
+---
+title: Thinking (Reasoning)
+---
+
+Thinking (also called “reasoning”) exposes a provider’s internal chain-of-thought style traces as metadata during streaming, without polluting message history.
+
+What you get
+- Metadata only: thinking text is attached to ChatResult.metadata under the key `thinking`
+- Streaming deltas: incremental thinking pieces can arrive before any visible text
+- Final summary: the last ChatResult of an iteration includes the full thinking string
+- History stays clean: thinking is never added to ChatMessage parts
+
+Enable thinking
+Currently supported on the OpenAI Responses provider.
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart' show ChatMessage;
+
+Future<void> main() async {
+  final agent = Agent(
+    'openai-responses:gpt-5',
+    chatModelOptions: const OpenAIResponsesChatOptions(
+      reasoningEffort: OpenAIReasoningEffort.medium,
+    ),
+  );
+
+  final history = <ChatMessage>[];
+  final text = StringBuffer();
+
+  await for (final chunk in agent.sendStream(
+    'Explain how to invert a binary tree step-by-step.',
+    history: history,
+  )) {
+    // Visible text
+    if (chunk.output.isNotEmpty) {
+      text.write(chunk.output);
+      print(chunk.output);
+    }
+
+    // Thinking deltas (metadata only)
+    final thinking = chunk.metadata['thinking'];
+    if (thinking is String && thinking.isNotEmpty) {
+      print('[thinking] $thinking');
+    }
+
+    history.addAll(chunk.messages);
+  }
+
+  // Final result includes full thinking text in metadata
+  final result = await agent.send('Summarize in one sentence.', history: history);
+  print('\nFinal: ${result.output}\n');
+  final finalThinking = result.metadata['thinking'];
+  if (finalThinking is String && finalThinking.isNotEmpty) {
+    print('Full thinking (not added to history):');
+    print(finalThinking);
+  }
+}
+```
+
+Behavior
+- Key: `metadata['thinking']`
+- Streaming: may appear even when `chunk.output` is empty (you still get a chunk with blank output + thinking metadata)
+- Final: last result contains the full “thinking” text
+- History: thinking never appears in `result.messages`
+
+Provider support
+- Discover providers that support thinking using capability filtering:
+
+```dart
+final thinkingProviders = Providers.allWith({ProviderCaps.thinking});
+for (final p in thinkingProviders) {
+  print('${p.displayName} supports thinking');
+}
+```
+
+Notes
+- Thinking is optional; your app can ignore it safely.
+- Thinking is not sent back to the model—only displayed to the user or logged.
+- For providers that do not support thinking, the `thinking` key will be absent.
+

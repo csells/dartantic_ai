@@ -98,6 +98,13 @@
       "program": "packages/dartantic_ai/example/bin/system_message.dart"
     },
     {
+      "name": "thinking",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/thinking.dart",
+      "console": "terminal"
+    },
+    {
       "name": "typed_output",
       "request": "launch",
       "type": "dart",

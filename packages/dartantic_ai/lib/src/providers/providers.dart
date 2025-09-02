@@ -6,6 +6,7 @@ import 'google_provider.dart';
 import 'mistral_provider.dart';
 import 'ollama_provider.dart';
 import 'openai_provider.dart';
+import 'openai_responses_provider.dart';
 
 export 'anthropic_provider.dart';
 export 'cohere_provider.dart';
@@ -13,11 +14,13 @@ export 'google_provider.dart';
 export 'mistral_provider.dart';
 export 'ollama_provider.dart';
 export 'openai_provider.dart';
+export 'openai_responses_provider.dart';
 
 /// Providers for built-in chat and embeddings models.
 class Providers {
   // Private cache fields for lazy initialization
   static OpenAIProvider? _openai;
+  static OpenAIResponsesProvider? _openaiResponses;
   static OpenAIProvider? _openrouter;
   static OpenAIProvider? _together;
   static MistralProvider? _mistral;
@@ -31,6 +34,10 @@ class Providers {
 
   /// OpenAI provider (cloud, OpenAI API).
   static OpenAIProvider get openai => _openai ??= OpenAIProvider();
+
+  /// OpenAI Responses API provider (cloud, OpenAI Responses endpoint).
+  static OpenAIResponsesProvider get openaiResponses =>
+      _openaiResponses ??= OpenAIResponsesProvider();
 
   /// OpenRouter provider (OpenAI-compatible, multi-model cloud).
   static OpenAIProvider get openrouter => _openrouter ??= OpenAIProvider(
@@ -145,6 +152,7 @@ class Providers {
   /// Returns all intrinsic providers (lazily evaluated).
   static List<Provider> get _intrinsicProviders => <Provider>[
     openai,
+    openaiResponses,
     openrouter,
     together,
     mistral,

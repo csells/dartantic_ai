@@ -185,6 +185,25 @@ For typed output (structured JSON responses), see [[Typed-Output-Architecture]].
 - Tool results are still consolidated into single user messages as normal
 - The final JSON output replaces the text output in ChatResult
 
+## Thinking Metadata
+
+Some providers (starting with OpenAI Responses) can stream model "thinking" or
+reasoning traces. dartantic exposes these traces via a single, provider-agnostic
+metadata key:
+
+- Key: `thinking`
+- Streaming: When available, incremental thinking deltas are attached to
+  `ChatResult.metadata['thinking']` on streaming chunks. These chunks do not add
+  any extra message parts; the thinking text is metadata-only.
+- Final: The final consolidated thinking text is attached to the last
+  `ChatResult.metadata['thinking']` for the iteration.
+- History: Thinking is never added to conversation history. Only normal text
+  content and tool messages are persisted as `ChatMessage`s.
+
+Applications can use this metadata to show background reasoning without
+polluting prompts or context. If a provider does not support thinking, the
+`thinking` key will be absent.
+
 ## Streaming Enhancements
 
 ### Tool Call Argument Parsing
@@ -467,5 +486,4 @@ Agent → StreamingOrchestrator → ChatModel → Provider API
   ↓           ↓                    ↓
 StreamingState → ToolExecutor → MessageAccumulator
 ```
-
 

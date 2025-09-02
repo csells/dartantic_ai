@@ -53,6 +53,10 @@
           "href": "/typed-output"
         },
         {
+          "title": "Thinking",
+          "href": "/thinking"
+        },
+        {
           "title": "Tool Calling",
           "href": "/tool-calling"
         },

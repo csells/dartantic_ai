@@ -70,13 +70,14 @@ flowchart TB
 
 These providers use their own native APIs in dartantic and are not OpenAI-compatible:
 
-| Provider       | API Key Name         | Default Model                   | Notes |
-| -------------- | -------------------- | ------------------------------- | ----- |
-| **Google**     | `GEMINI_API_KEY`     | `gemini-2.0-flash`              | Native Gemini API |
-| **Anthropic**  | `ANTHROPIC_API_KEY`  | `claude-3-5-sonnet-20241022`    | Native Claude API |
-| **Mistral**    | `MISTRAL_API_KEY`    | `mistral-7b-instruct`           | Native Mistral API |
-| **Cohere**     | `COHERE_API_KEY`     | `command-r-plus`                | Native Cohere API with some OpenAI compatibility |
-| **Ollama**     | (none)               | `qwen2.5:7b-instruct`           | Native Ollama API at `/api` endpoint |
+| Provider             | API Key Name         | Default Model                | Notes |
+| -------------------- | -------------------- | ---------------------------- | ----- |
+| **OpenAI Responses** | `OPENAI_API_KEY`     | `gpt-5`                      | Uses `/v1/responses`. Streams "thinking" via metadata key `thinking`. |
+| **Google**           | `GEMINI_API_KEY`     | `gemini-2.0-flash`           | Native Gemini API |
+| **Anthropic**        | `ANTHROPIC_API_KEY`  | `claude-3-5-sonnet-20241022` | Native Claude API |
+| **Mistral**          | `MISTRAL_API_KEY`    | `mistral-7b-instruct`        | Native Mistral API |
+| **Cohere**           | `COHERE_API_KEY`     | `command-r-plus`             | Native Cohere API with some OpenAI compatibility |
+| **Ollama**           | (none)               | `qwen2.5:7b-instruct`        | Native Ollama API at `/api` endpoint |
 
 **Notes:**
 - All OpenAI-compatible providers use the `/chat/completions` endpoint and the `Authorization: Bearer <API_KEY>` header.

@@ -54,6 +54,11 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
           .map((p) => p.text)
           .join();
 
+      // Extract thinking metadata if present
+      final thinkingMeta = result.metadata['thinking'];
+      final hasThinking =
+          thinkingMeta is String && thinkingMeta.isNotEmpty;
+
       // Stream text if available
       if (textOutput.isNotEmpty) {
         _logger.fine('Streaming text chunk: ${textOutput.length} chars');
@@ -67,6 +72,19 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
         yield StreamingIterationResult(
           output: streamOutput,
+          messages: const [],
+          shouldContinue: true,
+          finishReason: result.finishReason,
+          metadata: result.metadata,
+          usage: result.usage,
+        );
+      } else if (hasThinking) {
+        // Expose thinking-only deltas as metadata with blank text
+        _logger.fine('Streaming thinking-only metadata delta');
+        // Do NOT mark message started to preserve newline prefix for first
+        // visible text chunk. This keeps UX tidy.
+        yield StreamingIterationResult(
+          output: '',
           messages: const [],
           shouldContinue: true,
           finishReason: result.finishReason,
