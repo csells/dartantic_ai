@@ -9,8 +9,6 @@ import 'package:logging/logging.dart';
 import '../../agent/tool_constants.dart';
 import '../../chat_models/chat_utils.dart';
 import '../../retry_http_client.dart';
-import '../openai_chat/openai_message_mappers.dart'
-    show createCompleteMessageWithTools;
 import '../openai_chat/openai_message_mappers_helpers.dart'
     show StreamingToolCall;
 import 'openai_responses_chat_options.dart';
@@ -140,15 +138,47 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
 
       await for (final line in lines) {
         if (line.startsWith('event:')) {
+          // Log event line for debugging SSE sequencing
+          final evName = line.substring('event:'.length).trim();
+          _logger.fine('SSE event: $evName');
           // Process any pending event before switching
           if (currentEvent != null) {
             final dataStr = dataBuffer.toString();
             dataBuffer.clear();
 
-            final data = json.decode(dataStr) as Map<String, dynamic>;
+            if (dataStr.trim().isEmpty) {
+              // Nothing buffered for this event; move on
+              currentEvent = null;
+              continue;
+            }
+
+            Map<String, dynamic> data;
+            try {
+              data = json.decode(dataStr) as Map<String, dynamic>;
+            } on Object {
+              // If we somehow received an incomplete JSON chunk, skip
+              // gracefully
+              currentEvent = null;
+              continue;
+            }
 
             // Handle previous event
             if (currentEvent == 'response.output_text.delta') {
+              // If there is pending reasoning delta, emit it BEFORE text
+              if (reasoningDeltaBuffer.isNotEmpty) {
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {'thinking': reasoningDeltaBuffer.toString()},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                reasoningDeltaBuffer.clear();
+              }
               final delta = (data['delta'] ?? data['text'] ?? '').toString();
               if (delta.isNotEmpty) {
                 chunkCount++;
@@ -197,7 +227,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               }
             } else if (currentEvent == 'response.reasoning.delta' ||
                 currentEvent == 'response.thinking.delta' ||
-                currentEvent == 'response.reasoning_summary_text.delta') {
+                currentEvent == 'response.reasoning_summary_text.delta' ||
+                currentEvent == 'response.reasoning_summary.delta') {
               final delta = (data['delta'] ?? data['text'] ?? '').toString();
               if (delta.isNotEmpty) {
                 reasoningBuffer.write(delta);
@@ -217,45 +248,29 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 reasoningDeltaBuffer.clear();
               }
             } else if (currentEvent == 'response.completed') {
-              // Finalize and yield
-              if (accumulatedToolCalls.isNotEmpty ||
-                  accumulatedTextBuffer.isNotEmpty) {
-                final completeMessage = createCompleteMessageWithTools(
-                  accumulatedToolCalls,
-                  accumulatedText: accumulatedTextBuffer.toString(),
-                );
-
-                // Extract usage if present
-                var usage = lastResult.usage;
-                final resp = data['response'];
-                if (resp is Map) {
-                  final u = resp['usage'];
-                  if (u is Map) {
-                    usage = LanguageModelUsage(
+              // Do not emit consolidated text here to avoid duplication.
+              // Orchestrator will consolidate state.accumulatedMessage.
+              // Update usage if present so orchestrator can surface it.
+              final resp = data['response'];
+              if (resp is Map) {
+                final u = resp['usage'];
+                if (u is Map) {
+                  lastResult = ChatResult<ChatMessage>(
+                    output: lastResult.output,
+                    messages: lastResult.messages,
+                    finishReason: FinishReason.stop,
+                    metadata: lastResult.metadata,
+                    usage: LanguageModelUsage(
                       promptTokens:
                           (u['input_tokens'] ?? u['prompt_tokens']) as int?,
                       responseTokens:
                           (u['output_tokens'] ?? u['completion_tokens'])
                               as int?,
                       totalTokens: u['total_tokens'] as int?,
-                    );
-                  }
+                    ),
+                    id: lastResult.id,
+                  );
                 }
-
-                yield ChatResult<ChatMessage>(
-                  id: lastResult.id,
-                  output: completeMessage,
-                  messages: [completeMessage],
-                  finishReason: FinishReason.stop,
-                  metadata: {
-                    ...lastResult.metadata,
-                    if (reasoningBuffer.isNotEmpty)
-                      'thinking': reasoningBuffer.toString(),
-                  },
-                  usage: usage,
-                );
-              } else {
-                yield lastResult;
               }
             } else if (currentEvent == 'response.error' ||
                 currentEvent == 'error') {
@@ -264,26 +279,142 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
 
             currentEvent = null;
           }
-
-          currentEvent = line.substring('event:'.length).trim();
+          currentEvent = evName;
         } else if (line.startsWith('data:')) {
-          final data = line.substring('data:'.length).trim();
-          if (data == '[DONE]') {
-            // Treat as event boundary flush; no explicit action
+          final dataLine = line.substring('data:'.length).trim();
+          // Log data line (truncated) for debugging
+          final preview = dataLine.length > 200
+              ? '${dataLine.substring(0, 200)}…'
+              : dataLine;
+          _logger.fine('SSE data (event=${currentEvent ?? 'null'}): $preview');
+          if (dataLine == '[DONE]') {
+            // Stream finished marker; ignore here and let outer loop end
             continue;
           }
-          if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
-          dataBuffer.write(data);
+
+          // First-principles streaming: try to process this data line
+          // immediately instead of waiting for the event boundary.
+          try {
+            final data = json.decode(dataLine) as Map<String, dynamic>;
+
+            if (currentEvent == 'response.reasoning.delta' ||
+                currentEvent == 'response.thinking.delta' ||
+                currentEvent == 'response.reasoning_summary_text.delta' ||
+                currentEvent == 'response.reasoning_summary.delta') {
+              final delta = (data['delta'] ?? data['text'] ?? '').toString();
+              if (delta.isNotEmpty) {
+                reasoningBuffer.write(delta);
+                reasoningDeltaBuffer.write(delta);
+
+                // Emit reasoning immediately as metadata-only chunk
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {'thinking': reasoningDeltaBuffer.toString()},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                reasoningDeltaBuffer.clear();
+                continue; // already handled this data line
+              }
+            }
+
+            if (currentEvent == 'response.output_text.delta') {
+              // Flush any pending reasoning before visible text
+              if (reasoningDeltaBuffer.isNotEmpty) {
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {'thinking': reasoningDeltaBuffer.toString()},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                reasoningDeltaBuffer.clear();
+              }
+
+              final delta = (data['delta'] ?? data['text'] ?? '').toString();
+              if (delta.isNotEmpty) {
+                chunkCount++;
+                accumulatedTextBuffer.write(delta);
+
+                final message = ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [TextPart(delta)],
+                );
+                lastResult = ChatResult<ChatMessage>(
+                  output: message,
+                  messages: [message],
+                  finishReason: FinishReason.unspecified,
+                  metadata: const {},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                continue; // handled immediately
+              }
+            }
+
+            // For other events (e.g., tool_call deltas), fall back to
+            // boundary-based handling by buffering this data
+            if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
+            dataBuffer.write(dataLine);
+          } on Object {
+            // If JSON parsing fails, buffer and let boundary handler process
+            if (dataBuffer.isNotEmpty) dataBuffer.write('\n');
+            dataBuffer.write(dataLine);
+          }
         } else if (line.isEmpty) {
           // Event delimiter: flush current event
           if (currentEvent != null) {
             final dataStr = dataBuffer.toString();
             dataBuffer.clear();
 
-            final data = json.decode(dataStr) as Map<String, dynamic>;
+            if (dataStr.trim().isEmpty) {
+              currentEvent = null;
+              continue;
+            }
+
+            Map<String, dynamic> data;
+            try {
+              data = json.decode(dataStr) as Map<String, dynamic>;
+            } on Object {
+              // Skip malformed/incomplete JSON safely
+              currentEvent = null;
+              continue;
+            }
 
             // Duplicate handling to flush on empty line
-            if (currentEvent == 'response.output_text.delta') {
+            // If this is an event type we already processed line-by-line,
+            // skip any boundary flush processing to avoid duplicate output.
+            if (currentEvent == 'response.reasoning.delta' ||
+                currentEvent == 'response.thinking.delta' ||
+                currentEvent == 'response.reasoning_summary_text.delta' ||
+                currentEvent == 'response.reasoning_summary.delta') {
+              currentEvent = null;
+              continue;
+            } else if (currentEvent == 'response.output_text.delta') {
+              // If there is pending reasoning delta, emit it BEFORE text
+              if (reasoningDeltaBuffer.isNotEmpty) {
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {'thinking': reasoningDeltaBuffer.toString()},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                reasoningDeltaBuffer.clear();
+              }
               final delta = (data['delta'] ?? data['text'] ?? '').toString();
               if (delta.isNotEmpty) {
                 chunkCount++;
@@ -331,7 +462,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               }
             } else if (currentEvent == 'response.reasoning.delta' ||
                 currentEvent == 'response.thinking.delta' ||
-                currentEvent == 'response.reasoning_summary_text.delta') {
+                currentEvent == 'response.reasoning_summary_text.delta' ||
+                currentEvent == 'response.reasoning_summary.delta') {
               final delta = (data['delta'] ?? data['text'] ?? '').toString();
               if (delta.isNotEmpty) {
                 reasoningBuffer.write(delta);
@@ -351,43 +483,27 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 reasoningDeltaBuffer.clear();
               }
             } else if (currentEvent == 'response.completed') {
-              if (accumulatedToolCalls.isNotEmpty ||
-                  accumulatedTextBuffer.isNotEmpty) {
-                final completeMessage = createCompleteMessageWithTools(
-                  accumulatedToolCalls,
-                  accumulatedText: accumulatedTextBuffer.toString(),
-                );
-
-                var usage = lastResult.usage;
-                final resp = data['response'];
-                if (resp is Map) {
-                  final u = resp['usage'];
-                  if (u is Map) {
-                    usage = LanguageModelUsage(
+              // Do not re-emit consolidated output; orchestrator will handle.
+              final resp = data['response'];
+              if (resp is Map) {
+                final u = resp['usage'];
+                if (u is Map) {
+                  lastResult = ChatResult<ChatMessage>(
+                    output: lastResult.output,
+                    messages: lastResult.messages,
+                    finishReason: FinishReason.stop,
+                    metadata: lastResult.metadata,
+                    usage: LanguageModelUsage(
                       promptTokens:
                           (u['input_tokens'] ?? u['prompt_tokens']) as int?,
                       responseTokens:
                           (u['output_tokens'] ?? u['completion_tokens'])
                               as int?,
                       totalTokens: u['total_tokens'] as int?,
-                    );
-                  }
+                    ),
+                    id: lastResult.id,
+                  );
                 }
-
-                yield ChatResult<ChatMessage>(
-                  id: lastResult.id,
-                  output: completeMessage,
-                  messages: [completeMessage],
-                  finishReason: FinishReason.stop,
-                  metadata: {
-                    ...lastResult.metadata,
-                    if (reasoningBuffer.isNotEmpty)
-                      'thinking': reasoningBuffer.toString(),
-                  },
-                  usage: usage,
-                );
-              } else {
-                yield lastResult;
               }
             } else if (currentEvent == 'response.error' ||
                 currentEvent == 'error') {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
+import 'package:logging/logging.dart';
 
 import '../../agent/tool_constants.dart';
 import 'openai_responses_chat_options.dart';
@@ -16,6 +17,8 @@ Map<String, dynamic> buildResponsesRequest(
   OpenAIResponsesChatOptions? options,
   JsonSchema? outputSchema,
 }) {
+  // Local logger for request mapping
+  final logger = Logger('dartantic.chat.models.openai_responses.mapper');
   final request = <String, dynamic>{'model': modelName};
 
   // Collect system instructions (concatenate all system texts)
@@ -141,24 +144,39 @@ Map<String, dynamic> buildResponsesRequest(
 
   // Reasoning configuration (effort + summary)
   final effort = options?.reasoningEffort ?? defaultOptions.reasoningEffort;
-  final summary = options?.reasoningSummary ?? defaultOptions.reasoningSummary;
-  if (effort != null || summary != null) {
-    final reasoning = <String, dynamic>{};
-    if (effort != null) {
-      reasoning['effort'] = switch (effort) {
-        OpenAIReasoningEffort.low => 'low',
-        OpenAIReasoningEffort.medium => 'medium',
-        OpenAIReasoningEffort.high => 'high',
-      };
-    }
-    if (summary != null) {
-      reasoning['summary'] = switch (summary) {
-        OpenAIReasoningSummary.brief => 'brief',
-        OpenAIReasoningSummary.detailed => 'detailed',
-      };
-    }
+  // Default summary to 'none' when not specified at all (no summary field)
+  final selectedSummary =
+      options?.reasoningSummary ??
+      defaultOptions.reasoningSummary ??
+      OpenAIReasoningSummary.none;
+
+  final reasoning = <String, dynamic>{};
+  if (effort != null) {
+    reasoning['effort'] = switch (effort) {
+      OpenAIReasoningEffort.low => 'low',
+      OpenAIReasoningEffort.medium => 'medium',
+      OpenAIReasoningEffort.high => 'high',
+    };
+  }
+  // Only include 'summary' if not explicitly NONE
+  if (selectedSummary != OpenAIReasoningSummary.none) {
+    reasoning['summary'] = switch (selectedSummary) {
+      OpenAIReasoningSummary.detailed => 'detailed',
+      OpenAIReasoningSummary.concise => 'concise',
+      OpenAIReasoningSummary.auto => 'auto',
+      OpenAIReasoningSummary.none => 'auto', // unreachable due to guard
+    };
+  }
+  if (reasoning.isNotEmpty) {
     request['reasoning'] = reasoning;
   }
+
+  // Debug: log reasoning block and model selection for verification
+  final r = request['reasoning'];
+  logger.info(
+    'Responses request: '
+    'model=$modelName, reasoning=${r == null ? 'null' : json.encode(r)}',
+  );
 
   // Options merging (favor explicit args, then options, then defaults)
   final mergedTemperature =

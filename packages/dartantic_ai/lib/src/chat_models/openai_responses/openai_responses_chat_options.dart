@@ -69,9 +69,15 @@ enum OpenAIReasoningEffort {
 
 /// Reasoning summary exposure preference for Responses API.
 enum OpenAIReasoningSummary {
-  /// Request a brief reasoning summary.
-  brief,
-
   /// Request a detailed reasoning summary.
   detailed,
+
+  /// Request a concise reasoning summary.
+  concise,
+
+  /// Let the model decide (recommended default).
+  auto,
+
+  /// Do not request a summary (omit the summary field in payload).
+  none,
 }

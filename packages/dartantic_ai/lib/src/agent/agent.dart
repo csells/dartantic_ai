@@ -336,6 +336,23 @@ class Agent {
               );
             }
 
+            // Yield thinking-only metadata deltas (no text, no messages)
+            final thinkingMeta = result.metadata['thinking'];
+            final hasThinkingOnly =
+                (thinkingMeta is String && thinkingMeta.isNotEmpty) &&
+                result.output.isEmpty &&
+                result.messages.isEmpty;
+            if (hasThinkingOnly) {
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: '',
+                messages: const [],
+                finishReason: result.finishReason,
+                metadata: result.metadata,
+                usage: result.usage ?? const LanguageModelUsage(),
+              );
+            }
+
             // Yield messages
             if (result.messages.isNotEmpty) {
               for (final message in result.messages) {

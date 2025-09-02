@@ -2,41 +2,32 @@ import 'dart:io';
 
 import 'package:colorize/colorize.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart' show ChatMessage;
 
 void main() async {
+  // Enable verbose logging for OpenAI Responses to debug SSE and payload
+  // Agent.loggingOptions = const LoggingOptions(
+  //   level: Level.FINE,
+  //   filter: 'openai_responses',
+  // );
+  stdout.writeln(Colorize('model thinking appears in italics')..italic());
+
+  // enable thinking output
   final agent = Agent(
     'openai-responses',
     chatModelOptions: const OpenAIResponsesChatOptions(
-      reasoningEffort: OpenAIReasoningEffort.medium,
       reasoningSummary: OpenAIReasoningSummary.detailed,
     ),
   );
 
-  final history = <ChatMessage>[];
-  final textBuffer = StringBuffer();
-
-  // Legend demonstrating the exact styles we use below
-  stdout.writeln(Colorize('model thinking appears in italics')..italic());
-
   await for (final chunk in agent.sendStream(
-    'In one paragraph: how does quicksort work? Think carefully.',
-    history: history,
+    'In one sentence: how does quicksort work?',
   )) {
-    // Stream thinking deltas in metadata (if present)
-    final thinkingDelta = chunk.metadata['thinking'];
-    if (thinkingDelta is String && thinkingDelta.isNotEmpty) {
-      stdout.write(Colorize(thinkingDelta)..italic());
-    }
+    // Stream thinking text, if present
+    final thinkingDelta = chunk.metadata['thinking'] as String?;
+    if (thinkingDelta != null) stdout.write(Colorize(thinkingDelta)..italic());
 
-    // Stream assistant text
-    if (chunk.output.isNotEmpty) {
-      textBuffer.write(chunk.output);
-      stdout.write(chunk.output);
-    }
-
-    // Always collect new messages for history continuity
-    history.addAll(chunk.messages);
+    // Stream response text
+    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
   }
   stdout.writeln();
 

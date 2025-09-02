@@ -101,8 +101,7 @@
       "name": "thinking",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/thinking.dart",
-      "console": "terminal"
+      "program": "packages/dartantic_ai/example/bin/thinking.dart"
     },
     {
       "name": "typed_output",
