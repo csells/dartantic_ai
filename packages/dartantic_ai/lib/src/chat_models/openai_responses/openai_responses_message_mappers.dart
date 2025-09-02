@@ -171,9 +171,9 @@ Map<String, dynamic> buildResponsesRequest(
     request['reasoning'] = reasoning;
   }
 
-  // Debug: log reasoning block and model selection for verification
+  // Debug: log reasoning block and model selection for verification (FINE)
   final r = request['reasoning'];
-  logger.info(
+  logger.fine(
     'Responses request: '
     'model=$modelName, reasoning=${r == null ? 'null' : json.encode(r)}',
   );

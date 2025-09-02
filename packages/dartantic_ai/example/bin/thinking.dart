@@ -4,12 +4,7 @@ import 'package:colorize/colorize.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 void main() async {
-  // Enable verbose logging for OpenAI Responses to debug SSE and payload
-  // Agent.loggingOptions = const LoggingOptions(
-  //   level: Level.FINE,
-  //   filter: 'openai_responses',
-  // );
-  stdout.writeln(Colorize('model thinking appears in italics')..italic());
+  stdout.writeln(Colorize('-> model thinking appears in italics\n')..italic());
 
   // enable thinking output
   final agent = Agent(
@@ -19,16 +14,38 @@ void main() async {
     ),
   );
 
+  // Track phase transitions to add spacing between thinking and text
+  const phaseNone = 0;
+  const phaseThinking = 1;
+  const phaseText = 2;
+  var last = phaseNone;
+
+  void separator() {
+    // Two newlines for clear separation
+    stdout.writeln();
+    stdout.writeln();
+  }
+
   await for (final chunk in agent.sendStream(
     'In one sentence: how does quicksort work?',
   )) {
-    // Stream thinking text, if present
     final thinkingDelta = chunk.metadata['thinking'] as String?;
-    if (thinkingDelta != null) stdout.write(Colorize(thinkingDelta)..italic());
+    final hasThinking = thinkingDelta != null && thinkingDelta.isNotEmpty;
+    final hasText = chunk.output.isNotEmpty;
 
-    // Stream response text
-    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+    if (hasThinking && last == phaseText) separator();
+    if (hasThinking) {
+      stdout.write(Colorize(thinkingDelta)..italic());
+      last = phaseThinking;
+    }
+
+    if (hasText && last == phaseThinking) separator();
+    if (hasText) {
+      stdout.write(chunk.output);
+      last = phaseText;
+    }
   }
+  stdout.writeln();
   stdout.writeln();
 
   exit(0);
