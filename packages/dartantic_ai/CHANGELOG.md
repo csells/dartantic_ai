@@ -5,6 +5,7 @@
 - Default chat model for the new provider set to `gpt-5`.
 - Introduced provider-agnostic `thinking` metadata for streaming and final
   results (reasoning traces are excluded from message history).
+- Added `CactusProvider` and `CactusChatModel`.
 
 ## 1.0.8
 
