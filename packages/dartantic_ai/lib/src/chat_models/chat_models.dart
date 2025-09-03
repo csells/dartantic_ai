@@ -1,4 +1,5 @@
 export 'anthropic_chat/anthropic_chat.dart';
+export 'cactus_chat/cactus_chat.dart';
 export 'chat.dart';
 export 'cohere_chat/cohere_chat.dart';
 export 'google_chat/google_chat.dart';

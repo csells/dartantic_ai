@@ -1,6 +1,7 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 import 'anthropic_provider.dart';
+import 'cactus_provider.dart';
 import 'cohere_provider.dart';
 import 'google_provider.dart';
 import 'mistral_provider.dart';
@@ -9,6 +10,7 @@ import 'openai_provider.dart';
 import 'openai_responses_provider.dart';
 
 export 'anthropic_provider.dart';
+export 'cactus_provider.dart';
 export 'cohere_provider.dart';
 export 'google_provider.dart';
 export 'mistral_provider.dart';
@@ -31,6 +33,7 @@ class Providers {
   static AnthropicProvider? _anthropic;
   static OllamaProvider? _ollama;
   static OpenAIProvider? _ollamaOpenAI;
+  static CactusProvider? _cactusProvider;
 
   /// OpenAI provider (cloud, OpenAI API).
   static OpenAIProvider get openai => _openai ??= OpenAIProvider();
@@ -134,6 +137,10 @@ class Providers {
     },
   );
 
+  /// Cactus, a cross-platform framework for deploying LLM/VLM/TTS models
+  /// locally in your app.
+  static CactusProvider? get cactus => _cactusProvider;
+
   /// Returns a list of all available providers (static fields above).
   ///
   /// Use this to iterate or display all providers in a UI.
@@ -163,6 +170,7 @@ class Providers {
     anthropic,
     ollama,
     ollamaOpenAI,
+    if (_cactusProvider != null) cactus!,
   ];
 
   /// Returns a map of all providers by name or alias.
@@ -189,6 +197,10 @@ class Providers {
 
     return _providerMap;
   }
+
+  /// Externally configure the CactusProvider
+  static Provider initializeCactus(CactusProvider provider) =>
+      _cactusProvider = provider;
 
   /// Looks up a provider by name or alias (case-insensitive). Throws if not
   /// found.
