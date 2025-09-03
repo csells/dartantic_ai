@@ -16,10 +16,16 @@ Map<String, dynamic> buildResponsesRequest(
   double? temperature,
   OpenAIResponsesChatOptions? options,
   JsonSchema? outputSchema,
+  String? previousResponseId,
 }) {
   // Local logger for request mapping
   final logger = Logger('dartantic.chat.models.openai_responses.mapper');
   final request = <String, dynamic>{'model': modelName};
+  
+  // Add previous response ID for tool result linking
+  if (previousResponseId != null) {
+    request['previous_response_id'] = previousResponseId;
+  }
 
   // Collect system instructions (concatenate all system texts)
   final systemTexts = <String>[];
@@ -44,17 +50,18 @@ Map<String, dynamic> buildResponsesRequest(
     );
 
     if (toolResults.isNotEmpty) {
+      // Convert tool results to function_call_output format for Responses API
+      logger.info(
+        'Converting ${toolResults.length} tool results to function_call_output',
+      );
       for (final tr in toolResults) {
+        logger.fine(
+          'Sending function_call_output: call_id=${tr.id}, name=${tr.name}',
+        );
         input.add({
-          'role': 'tool',
-          'id': tr.id,
-          'name': tr.name,
-          // Many variants accept either content or a structured tool_result.
-          // We use a plain text payload for broad compatibility; providers
-          // parse this as the tool's output content.
-          'content': [
-            {'type': 'output_text', 'text': _serializeToolResult(tr.result)},
-          ],
+          'type': 'function_call_output',
+          'call_id': tr.id,
+          'output': _serializeToolResult(tr.result),
         });
       }
       // Skip adding the original message parts (tool results handled above)
@@ -126,13 +133,14 @@ Map<String, dynamic> buildResponsesRequest(
   final toolDefs = tools
       ?.where((t) => t.name != kReturnResultToolName)
       .map(
-        (tool) => {
-          'type': 'function',
-          'function': {
+        (tool) {
+          final originalSchema = tool.inputSchema.schemaMap ?? {};
+          return {
+            'type': 'function',
             'name': tool.name,
             'description': tool.description,
-            'parameters': tool.inputSchema.schemaMap,
-          },
+            'parameters': originalSchema,
+          };
         },
       )
       .toList();
@@ -173,6 +181,11 @@ Map<String, dynamic> buildResponsesRequest(
 
   // Debug: log reasoning block and model selection for verification (FINE)
   final r = request['reasoning'];
+  logger.info(
+    'Responses request has tool results: ${messages.any((m) => 
+      m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result))}, '
+    'previous_response_id: $previousResponseId',
+  );
   logger.fine(
     'Responses request: '
     'model=$modelName, reasoning=${r == null ? 'null' : json.encode(r)}',
@@ -211,13 +224,6 @@ Map<String, dynamic> buildResponsesRequest(
   return request;
 }
 
-/// Convert a tool result into the string payload used by Responses input.
-String _serializeToolResult(Object? result) {
-  // Tool results may already be strings or structured JSON; stringify uniformly
-  if (result == null) return '';
-  if (result is String) return result;
-  return json.encode(result);
-}
 
 /// Creates a native response_format from a JsonSchema, if provided.
 Map<String, dynamic>? _createResponseFormat(JsonSchema? outputSchema) {
@@ -289,4 +295,12 @@ Map<String, dynamic> _openaiStrictSchemaFrom(Map<String, dynamic> schema) {
   }
 
   return result;
+}
+
+/// Serializes a tool result to string format for function_call_output
+String _serializeToolResult(dynamic result) {
+  if (result == null) return '';
+  if (result is String) return result;
+  if (result is Map || result is List) return json.encode(result);
+  return result.toString();
 }

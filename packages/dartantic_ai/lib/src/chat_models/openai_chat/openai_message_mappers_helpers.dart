@@ -171,6 +171,7 @@ class StreamingToolCall {
     required this.id,
     required this.name,
     this.argumentsJson = '',
+    this.itemId = '',
   });
 
   /// The ID of the tool call.
@@ -181,4 +182,7 @@ class StreamingToolCall {
 
   /// The arguments of the tool call.
   String argumentsJson;
+
+  /// The item ID for matching (used by Responses API).
+  String itemId;
 }

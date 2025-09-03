@@ -9,12 +9,19 @@ import 'package:logging/logging.dart';
 import '../../agent/tool_constants.dart';
 import '../../chat_models/chat_utils.dart';
 import '../../retry_http_client.dart';
+import '../openai_chat/openai_message_mappers.dart'
+    show createCompleteMessageWithTools;
 import '../openai_chat/openai_message_mappers_helpers.dart'
     show StreamingToolCall;
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_message_mappers.dart';
 
 /// Chat model backed by the OpenAI Responses API (streaming).
+///
+/// Supports full tool calling functionality including proper argument parsing.
+/// Note: This API follows a different flow than Chat Completions - tool results
+/// are not sent back to the API as the model handles tool calling in a single
+/// round-trip.
 class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   /// Creates a [OpenAIResponsesChatModel] instance.
   OpenAIResponsesChatModel({
@@ -73,6 +80,29 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final resolvedBaseUrl = _baseUrl ?? _defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'responses');
 
+    // Extract response ID from the last message metadata (if tool results present)
+    String? previousResponseId;
+    if (messages.isNotEmpty) {
+      final lastMessage = messages.last;
+      if (lastMessage.parts.any(
+        (p) => p is ToolPart && p.kind == ToolPartKind.result,
+      )) {
+        // Check previous messages for tool calls with response ID
+        for (var i = messages.length - 2; i >= 0; i--) {
+          final msg = messages[i];
+          if (msg.role == ChatMessageRole.model &&
+              msg.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.call)) {
+            // This is a model message with tool calls, check its metadata
+            previousResponseId = msg.metadata['response_id'] as String?;
+            if (previousResponseId != null) {
+              _logger.info('Found previous response ID: $previousResponseId');
+              break;
+            }
+          }
+        }
+      }
+    }
+    
     final payload = buildResponsesRequest(
       messages,
       modelName: name,
@@ -81,6 +111,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
       defaultOptions: defaultOptions,
       options: options,
       outputSchema: outputSchema,
+      previousResponseId: previousResponseId,
     );
 
     // Build URL with optional query params before creating the request
@@ -118,6 +149,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
       metadata: const {},
       usage: const LanguageModelUsage(),
     );
+    
+    // Track response ID for linking tool result requests
+    String? responseId;
 
     http.StreamedResponse? streamedResponse;
     try {
@@ -155,6 +189,38 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             Map<String, dynamic> data;
             try {
               data = json.decode(dataStr) as Map<String, dynamic>;
+              
+              // Capture response ID from response.created event  
+              _logger.info(
+                'Processing event: $currentEvent, responseId: $responseId',
+              );
+              if (responseId == null && 
+                  currentEvent == 'response.created' && 
+                  data.containsKey('response')) {
+                final respData = data['response'];
+                if (respData is Map<String, dynamic> && 
+                    respData.containsKey('id')) {
+                  responseId = respData['id']?.toString();
+                  _logger.info(
+                    'Captured response ID from response.created: $responseId',
+                  );
+                  
+                  // Update lastResult with response ID in metadata and yield it
+                  final metadata = 
+                      Map<String, dynamic>.from(lastResult.metadata);
+                  if (responseId != null) {
+                    metadata['response_id'] = responseId;
+                  }
+                  lastResult = ChatResult<ChatMessage>(
+                    output: lastResult.output,
+                    messages: lastResult.messages,
+                    finishReason: lastResult.finishReason,
+                    metadata: metadata,
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                }
+              }
             } on Object {
               // If we somehow received an incomplete JSON chunk, skip
               // gracefully
@@ -162,6 +228,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               continue;
             }
 
+            
             // Handle previous event
             if (currentEvent == 'response.output_text.delta') {
               // If there is pending reasoning delta, emit it BEFORE text
@@ -188,42 +255,58 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   role: ChatMessageRole.model,
                   parts: [TextPart(delta)],
                 );
+                // Include response ID in metadata if available
+                final streamingMetadata = <String, dynamic>{};
+                if (reasoningDeltaBuffer.isNotEmpty) {
+                  streamingMetadata['thinking'] = reasoningDeltaBuffer.toString();
+                }
+                if (responseId != null) {
+                  streamingMetadata['response_id'] = responseId;
+                }
+                
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
                   messages: [message],
                   finishReason: FinishReason.unspecified,
-                  metadata: reasoningDeltaBuffer.isEmpty
-                      ? const {}
-                      : {'thinking': reasoningDeltaBuffer.toString()},
+                  metadata: streamingMetadata,
                   usage: lastResult.usage,
                 );
                 yield lastResult;
                 reasoningDeltaBuffer.clear();
               }
-            } else if (currentEvent == 'response.tool_call.delta') {
-              final id = (data['id'] ?? data['tool_call_id'] ?? '').toString();
-              final name = (data['name'] ?? '').toString();
-              final argsDelta = (data['arguments_delta'] ?? data['delta'] ?? '')
-                  .toString();
-              if (id.isNotEmpty) {
-                final existingIndex = accumulatedToolCalls.indexWhere(
-                  (t) => t.id == id,
-                );
-                StreamingToolCall sc;
-                if (existingIndex == -1) {
-                  sc = StreamingToolCall(id: id, name: name);
-                  accumulatedToolCalls.add(sc);
-                } else {
-                  sc = accumulatedToolCalls[existingIndex];
+            } else if (currentEvent == 'response.output_item.added') {
+              final item = data['item'] as Map<String, dynamic>?;
+              if (item?['type'] == 'function_call') {
+                final callId = (item?['call_id'] ?? '').toString();
+                final name = (item?['name'] ?? '').toString();
+                final itemId = (item?['id'] ?? '').toString();
+                
+                if (callId.isNotEmpty && name.isNotEmpty && itemId.isNotEmpty) {
+                  _logger.info(
+                    'Tool call added: callId=$callId, name=$name, itemId=$itemId',
+                  );
+                  // Use item_id as the key for matching arguments later
+                  accumulatedToolCalls.add(
+                    StreamingToolCall(
+                      id: callId, // Use callId as primary ID to match function_call_output
+                      name: name,
+                      itemId: itemId,
+                    ),
+                  );
                 }
-                if (name.isNotEmpty) sc.name = name;
-                if (argsDelta.isNotEmpty) sc.argumentsJson += argsDelta;
               }
-            } else if (currentEvent == 'response.tool_call.created') {
-              final id = (data['id'] ?? '').toString();
-              final name = (data['name'] ?? '').toString();
-              if (id.isNotEmpty) {
-                accumulatedToolCalls.add(StreamingToolCall(id: id, name: name));
+            } else if (currentEvent ==
+                'response.function_call_arguments.delta') {
+              final itemId = (data['item_id'] ?? '').toString();
+              final argsDelta = (data['delta'] ?? '').toString();
+              if (itemId.isNotEmpty && argsDelta.isNotEmpty) {
+                final existingIndex = accumulatedToolCalls.indexWhere(
+                  (t) => t.itemId == itemId,
+                );
+                if (existingIndex != -1) {
+                  accumulatedToolCalls[existingIndex].argumentsJson +=
+                      argsDelta;
+                }
               }
             } else if (currentEvent == 'response.reasoning.delta' ||
                 currentEvent == 'response.thinking.delta' ||
@@ -280,6 +363,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             currentEvent = null;
           }
           currentEvent = evName;
+          _logger.info('Processing event: $evName');
         } else if (line.startsWith('data:')) {
           final dataLine = line.substring('data:'.length).trim();
           // Log data line (truncated) for debugging
@@ -423,42 +507,58 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   role: ChatMessageRole.model,
                   parts: [TextPart(delta)],
                 );
+                // Include response ID in metadata if available
+                final streamingMetadata = <String, dynamic>{};
+                if (reasoningDeltaBuffer.isNotEmpty) {
+                  streamingMetadata['thinking'] = reasoningDeltaBuffer.toString();
+                }
+                if (responseId != null) {
+                  streamingMetadata['response_id'] = responseId;
+                }
+                
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
                   messages: [message],
                   finishReason: FinishReason.unspecified,
-                  metadata: reasoningDeltaBuffer.isEmpty
-                      ? const {}
-                      : {'thinking': reasoningDeltaBuffer.toString()},
+                  metadata: streamingMetadata,
                   usage: lastResult.usage,
                 );
                 yield lastResult;
                 reasoningDeltaBuffer.clear();
               }
-            } else if (currentEvent == 'response.tool_call.delta') {
-              final id = (data['id'] ?? data['tool_call_id'] ?? '').toString();
-              final name = (data['name'] ?? '').toString();
-              final argsDelta = (data['arguments_delta'] ?? data['delta'] ?? '')
-                  .toString();
-              if (id.isNotEmpty) {
-                final existingIndex = accumulatedToolCalls.indexWhere(
-                  (t) => t.id == id,
-                );
-                StreamingToolCall sc;
-                if (existingIndex == -1) {
-                  sc = StreamingToolCall(id: id, name: name);
-                  accumulatedToolCalls.add(sc);
-                } else {
-                  sc = accumulatedToolCalls[existingIndex];
+            } else if (currentEvent == 'response.output_item.added') {
+              final item = data['item'] as Map<String, dynamic>?;
+              if (item?['type'] == 'function_call') {
+                final callId = (item?['call_id'] ?? '').toString();
+                final name = (item?['name'] ?? '').toString();
+                final itemId = (item?['id'] ?? '').toString();
+                
+                if (callId.isNotEmpty && name.isNotEmpty && itemId.isNotEmpty) {
+                  _logger.info(
+                    'Tool call added: callId=$callId, name=$name, itemId=$itemId',
+                  );
+                  // Use item_id as the key for matching arguments later
+                  accumulatedToolCalls.add(
+                    StreamingToolCall(
+                      id: callId, // Use callId as primary ID to match function_call_output
+                      name: name,
+                      itemId: itemId,
+                    ),
+                  );
                 }
-                if (name.isNotEmpty) sc.name = name;
-                if (argsDelta.isNotEmpty) sc.argumentsJson += argsDelta;
               }
-            } else if (currentEvent == 'response.tool_call.created') {
-              final id = (data['id'] ?? '').toString();
-              final name = (data['name'] ?? '').toString();
-              if (id.isNotEmpty) {
-                accumulatedToolCalls.add(StreamingToolCall(id: id, name: name));
+            } else if (currentEvent ==
+                'response.function_call_arguments.delta') {
+              final itemId = (data['item_id'] ?? '').toString();
+              final argsDelta = (data['delta'] ?? '').toString();
+              if (itemId.isNotEmpty && argsDelta.isNotEmpty) {
+                final existingIndex = accumulatedToolCalls.indexWhere(
+                  (t) => t.itemId == itemId,
+                );
+                if (existingIndex != -1) {
+                  accumulatedToolCalls[existingIndex].argumentsJson +=
+                      argsDelta;
+                }
               }
             } else if (currentEvent == 'response.reasoning.delta' ||
                 currentEvent == 'response.thinking.delta' ||
@@ -481,6 +581,18 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
                 reasoningDeltaBuffer.clear();
+              }
+            } else if (currentEvent == 'response.created') {
+              // Capture response ID from response.created event
+              final resp = data['response'];
+              if (responseId == null && 
+                  resp is Map<String, dynamic> && 
+                  resp.containsKey('id')) {
+                responseId = resp['id']?.toString();
+                _logger.info(
+                  'Captured response ID from response.created (boundary): '
+                  '$responseId',
+                );
               }
             } else if (currentEvent == 'response.completed') {
               // Do not re-emit consolidated output; orchestrator will handle.
@@ -518,6 +630,37 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
       _logger.info(
         'OpenAI Responses stream completed after $chunkCount chunks',
       );
+
+      // After streaming completes, create and yield the final message with all
+      // tools
+      if (accumulatedToolCalls.isNotEmpty) {
+        final completeMessage = createCompleteMessageWithTools(
+          accumulatedToolCalls,
+          accumulatedText: accumulatedTextBuffer.toString(),
+        );
+
+        // Include response ID in metadata for tool result linking
+        final messageMetadata = <String, dynamic>{};
+        if (responseId != null) {
+          messageMetadata['response_id'] = responseId;
+        }
+        
+        // Create message with metadata
+        final messageWithMetadata = ChatMessage(
+          role: completeMessage.role,
+          parts: completeMessage.parts,
+          metadata: messageMetadata,
+        );
+        
+        yield ChatResult<ChatMessage>(
+          id: lastResult.id,
+          output: messageWithMetadata,
+          messages: [messageWithMetadata],
+          finishReason: lastResult.finishReason,
+          metadata: messageMetadata,
+          usage: lastResult.usage,
+        );
+      }
     } catch (e) {
       _logger.warning('OpenAI Responses stream error: $e');
       rethrow;

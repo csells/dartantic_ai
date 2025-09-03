@@ -2,6 +2,10 @@ import 'dart:io';
 
 import 'package:colorize/colorize.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:example/src/dump_stuff.dart';
+
+// TODO: check thinking + Agent.send();
 
 void main() async {
   stdout.writeln(Colorize('-> model thinking appears in italics\n')..italic());
@@ -26,6 +30,7 @@ void main() async {
     stdout.writeln();
   }
 
+  final history = <ChatMessage>[];
   await for (final chunk in agent.sendStream(
     'In one sentence: how does quicksort work?',
   )) {
@@ -44,9 +49,13 @@ void main() async {
       stdout.write(chunk.output);
       last = phaseText;
     }
+
+    history.addAll(chunk.messages);
   }
   stdout.writeln();
   stdout.writeln();
+
+  dumpMessages(history);
 
   exit(0);
 }
