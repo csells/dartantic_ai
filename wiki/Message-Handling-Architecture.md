@@ -291,7 +291,7 @@ graph TD
     style D fill:#fbf,stroke:#333,stroke-width:2px
 ```
 
-### OpenAI
+### OpenAI Chat Completions
 - **Requirement**: Each tool result must be a separate message
 - **Format**: Multiple consecutive user messages, each with role="tool"
 - **Example**:
@@ -299,6 +299,20 @@ graph TD
   {"role": "assistant", "tool_calls": [{"id": "1", ...}, {"id": "2", ...}]}
   {"role": "tool", "tool_call_id": "1", "content": "result1"}
   {"role": "tool", "tool_call_id": "2", "content": "result2"}
+  ```
+
+### OpenAI Responses
+- **Requirement**: Two-request workflow with response linking
+- **Format**: `function_call_output` format with `previous_response_id`
+- **Workflow**:
+  1. First request: User → Model (generates tool calls, captures response ID)
+  2. Second request: Tool results → Model (uses `previous_response_id`)
+- **Example**:
+  ```
+  // First request response metadata: {response_id: "resp_abc123..."}
+  // Second request input:
+  {"previous_response_id": "resp_abc123...", 
+   "input": [{"type": "function_call_output", "call_id": "1", "output": "result1"}]}
   ```
 
 ### Anthropic

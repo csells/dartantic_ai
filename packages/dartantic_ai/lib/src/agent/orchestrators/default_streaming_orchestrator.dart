@@ -56,8 +56,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
       // Extract thinking metadata if present
       final thinkingMeta = result.metadata['thinking'];
-      final hasThinking =
-          thinkingMeta is String && thinkingMeta.isNotEmpty;
+      final hasThinking = thinkingMeta is String && thinkingMeta.isNotEmpty;
 
       // Stream text if available
       if (textOutput.isNotEmpty) {

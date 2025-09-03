@@ -80,7 +80,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final resolvedBaseUrl = _baseUrl ?? _defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'responses');
 
-    // Extract response ID from the last message metadata (if tool results present)
+    // Extract response ID from the last message metadata (if tool results
+    // present)
     String? previousResponseId;
     if (messages.isNotEmpty) {
       final lastMessage = messages.last;
@@ -91,7 +92,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         for (var i = messages.length - 2; i >= 0; i--) {
           final msg = messages[i];
           if (msg.role == ChatMessageRole.model &&
-              msg.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.call)) {
+              msg.parts.any(
+                (p) => p is ToolPart && p.kind == ToolPartKind.call,
+              )) {
             // This is a model message with tool calls, check its metadata
             previousResponseId = msg.metadata['response_id'] as String?;
             if (previousResponseId != null) {
@@ -102,7 +105,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         }
       }
     }
-    
+
     final payload = buildResponsesRequest(
       messages,
       modelName: name,
@@ -149,7 +152,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
       metadata: const {},
       usage: const LanguageModelUsage(),
     );
-    
+
     // Track response ID for linking tool result requests
     String? responseId;
 
@@ -189,25 +192,26 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             Map<String, dynamic> data;
             try {
               data = json.decode(dataStr) as Map<String, dynamic>;
-              
-              // Capture response ID from response.created event  
+
+              // Capture response ID from response.created event
               _logger.info(
                 'Processing event: $currentEvent, responseId: $responseId',
               );
-              if (responseId == null && 
-                  currentEvent == 'response.created' && 
+              if (responseId == null &&
+                  currentEvent == 'response.created' &&
                   data.containsKey('response')) {
                 final respData = data['response'];
-                if (respData is Map<String, dynamic> && 
+                if (respData is Map<String, dynamic> &&
                     respData.containsKey('id')) {
                   responseId = respData['id']?.toString();
                   _logger.info(
                     'Captured response ID from response.created: $responseId',
                   );
-                  
+
                   // Update lastResult with response ID in metadata and yield it
-                  final metadata = 
-                      Map<String, dynamic>.from(lastResult.metadata);
+                  final metadata = Map<String, dynamic>.from(
+                    lastResult.metadata,
+                  );
                   if (responseId != null) {
                     metadata['response_id'] = responseId;
                   }
@@ -228,7 +232,6 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               continue;
             }
 
-            
             // Handle previous event
             if (currentEvent == 'response.output_text.delta') {
               // If there is pending reasoning delta, emit it BEFORE text
@@ -258,12 +261,13 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 // Include response ID in metadata if available
                 final streamingMetadata = <String, dynamic>{};
                 if (reasoningDeltaBuffer.isNotEmpty) {
-                  streamingMetadata['thinking'] = reasoningDeltaBuffer.toString();
+                  streamingMetadata['thinking'] = reasoningDeltaBuffer
+                      .toString();
                 }
                 if (responseId != null) {
                   streamingMetadata['response_id'] = responseId;
                 }
-                
+
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
                   messages: [message],
@@ -280,15 +284,17 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 final callId = (item?['call_id'] ?? '').toString();
                 final name = (item?['name'] ?? '').toString();
                 final itemId = (item?['id'] ?? '').toString();
-                
+
                 if (callId.isNotEmpty && name.isNotEmpty && itemId.isNotEmpty) {
                   _logger.info(
-                    'Tool call added: callId=$callId, name=$name, itemId=$itemId',
+                    'Tool call added: '
+                    'callId=$callId, name=$name, itemId=$itemId',
                   );
                   // Use item_id as the key for matching arguments later
                   accumulatedToolCalls.add(
                     StreamingToolCall(
-                      id: callId, // Use callId as primary ID to match function_call_output
+                      // Use callId as primary ID to match function_call_output
+                      id: callId,
                       name: name,
                       itemId: itemId,
                     ),
@@ -510,12 +516,13 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 // Include response ID in metadata if available
                 final streamingMetadata = <String, dynamic>{};
                 if (reasoningDeltaBuffer.isNotEmpty) {
-                  streamingMetadata['thinking'] = reasoningDeltaBuffer.toString();
+                  streamingMetadata['thinking'] = reasoningDeltaBuffer
+                      .toString();
                 }
                 if (responseId != null) {
                   streamingMetadata['response_id'] = responseId;
                 }
-                
+
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
                   messages: [message],
@@ -532,15 +539,17 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 final callId = (item?['call_id'] ?? '').toString();
                 final name = (item?['name'] ?? '').toString();
                 final itemId = (item?['id'] ?? '').toString();
-                
+
                 if (callId.isNotEmpty && name.isNotEmpty && itemId.isNotEmpty) {
                   _logger.info(
-                    'Tool call added: callId=$callId, name=$name, itemId=$itemId',
+                    'Tool call added: '
+                    'callId=$callId, name=$name, itemId=$itemId',
                   );
                   // Use item_id as the key for matching arguments later
                   accumulatedToolCalls.add(
                     StreamingToolCall(
-                      id: callId, // Use callId as primary ID to match function_call_output
+                      // Use callId as primary ID to match function_call_output
+                      id: callId,
                       name: name,
                       itemId: itemId,
                     ),
@@ -585,8 +594,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             } else if (currentEvent == 'response.created') {
               // Capture response ID from response.created event
               final resp = data['response'];
-              if (responseId == null && 
-                  resp is Map<String, dynamic> && 
+              if (responseId == null &&
+                  resp is Map<String, dynamic> &&
                   resp.containsKey('id')) {
                 responseId = resp['id']?.toString();
                 _logger.info(
@@ -644,14 +653,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         if (responseId != null) {
           messageMetadata['response_id'] = responseId;
         }
-        
+
         // Create message with metadata
         final messageWithMetadata = ChatMessage(
           role: completeMessage.role,
           parts: completeMessage.parts,
           metadata: messageMetadata,
         );
-        
+
         yield ChatResult<ChatMessage>(
           id: lastResult.id,
           output: messageWithMetadata,

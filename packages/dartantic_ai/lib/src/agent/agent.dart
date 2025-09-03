@@ -164,6 +164,7 @@ class Agent {
 
     final allNewMessages = <ChatMessage>[];
     var finalOutput = '';
+    final accumulatedThinking = StringBuffer();
     var finalResult = ChatResult<String>(
       output: '',
       finishReason: FinishReason.unspecified,
@@ -181,16 +182,30 @@ class Agent {
         finalOutput += result.output;
       }
       allNewMessages.addAll(result.messages);
+      
+      // Accumulate thinking metadata across all chunks
+      final thinkingMeta = result.metadata['thinking'];
+      if (thinkingMeta is String && thinkingMeta.isNotEmpty) {
+        accumulatedThinking.write(thinkingMeta);
+      }
+      
       finalResult = result;
     }
 
-    // Return final result with all accumulated messages
+    // Create final metadata with accumulated thinking
+    final finalMetadata = Map<String, dynamic>.from(finalResult.metadata);
+    if (accumulatedThinking.isNotEmpty) {
+      finalMetadata['thinking'] = accumulatedThinking.toString();
+    }
+    
+
+    // Return final result with all accumulated messages and thinking
     finalResult = ChatResult<String>(
       id: finalResult.id,
       output: finalOutput,
       messages: allNewMessages,
       finishReason: finalResult.finishReason,
-      metadata: finalResult.metadata,
+      metadata: finalMetadata,
       usage: finalResult.usage,
     );
 

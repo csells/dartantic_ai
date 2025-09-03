@@ -76,5 +76,25 @@ void main() async {
   }
   print('\n');
 
+  // Streaming with multiple tools via OpenAI Responses API
+  print('--- Streaming Multiple Tool Calls (OpenAI Responses) ---');
+  agent = Agent(
+    'openai-responses',
+    tools: exampleTools, // All tools available
+  );
+
+  print(
+    'User: Check the weather in Seattle and tell me the distance from Seattle '
+    'to Portland.',
+  );
+  print('Assistant: ');
+  await for (final chunk in agent.sendStream(
+    'Check the weather in Seattle and tell me the distance from Seattle '
+    'to Portland.',
+  )) {
+    stdout.write(chunk.output);
+  }
+  print('\n');
+
   exit(0);
 }

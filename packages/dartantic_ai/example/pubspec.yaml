@@ -7,7 +7,6 @@ environment:
 
 dependencies:
   chrono_dart: ^2.0.2
-  colorize: ^3.0.0
   cross_file: ^0.3.4+2
   dartantic_ai:
     path: ..

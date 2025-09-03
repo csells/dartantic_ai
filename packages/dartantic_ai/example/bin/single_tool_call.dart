@@ -8,8 +8,8 @@ import 'package:example/example.dart';
 void main() async {
   print('=== Single Tool Call Example ===\n');
 
-  // final agent = Agent('anthropic', tools: [weatherTool]);
-  final agent = Agent('openai-responses', tools: [weatherTool]);
+  final agent = Agent('anthropic', tools: [weatherTool]);
+  // final agent = Agent('openai-responses', tools: [weatherTool]);
   const prompt = 'What is the weather in Boston?';
   final response = await agent.send(prompt);
   print('User: $prompt');

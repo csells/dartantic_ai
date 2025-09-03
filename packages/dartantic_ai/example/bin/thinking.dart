@@ -1,15 +1,10 @@
 import 'dart:io';
 
-import 'package:colorize/colorize.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
-// TODO: check thinking + Agent.send();
-
 void main() async {
-  stdout.writeln(Colorize('-> model thinking appears in italics\n')..italic());
-
   // enable thinking output
   final agent = Agent(
     'openai-responses',
@@ -18,44 +13,49 @@ void main() async {
     ),
   );
 
-  // Track phase transitions to add spacing between thinking and text
-  const phaseNone = 0;
-  const phaseThinking = 1;
-  const phaseText = 2;
-  var last = phaseNone;
+  stdout.writeln('[[model thinking appears in brackets]]\n');
+  await thinking(agent);
+  await thinkingStream(agent);
+  exit(0);
+}
 
-  void separator() {
-    // Two newlines for clear separation
-    stdout.writeln();
-    stdout.writeln();
+Future<void> thinking(Agent agent) async {
+  stdout.writeln('\nthinking:');
+  final result = await agent.send('In one sentence: how does quicksort work?');
+  final thinking = result.metadata['thinking'];
+  if (thinking is String && thinking.isNotEmpty) {
+    stdout.writeln('[[$thinking]]\n');
   }
+  stdout.writeln(result.output);
+  dumpMessages(result.messages);
+}
+
+Future<void> thinkingStream(Agent agent) async {
+  stdout.writeln('\nthinkingStream:');
 
   final history = <ChatMessage>[];
+  var stillThinking = true;
+  stdout.write('[[');
   await for (final chunk in agent.sendStream(
     'In one sentence: how does quicksort work?',
   )) {
-    final thinkingDelta = chunk.metadata['thinking'] as String?;
-    final hasThinking = thinkingDelta != null && thinkingDelta.isNotEmpty;
+    final thinking = chunk.metadata['thinking'] as String?;
+    final hasThinking = thinking != null && thinking.isNotEmpty;
     final hasText = chunk.output.isNotEmpty;
 
-    if (hasThinking && last == phaseText) separator();
-    if (hasThinking) {
-      stdout.write(Colorize(thinkingDelta)..italic());
-      last = phaseThinking;
-    }
-
-    if (hasText && last == phaseThinking) separator();
+    if (hasThinking) stdout.write(thinking);
     if (hasText) {
+      if (stillThinking) {
+        stillThinking = false;
+        stdout.writeln(']]\n');
+      }
       stdout.write(chunk.output);
-      last = phaseText;
     }
 
     history.addAll(chunk.messages);
   }
-  stdout.writeln();
-  stdout.writeln();
 
+  stdout.writeln('\n');
   dumpMessages(history);
-
   exit(0);
 }

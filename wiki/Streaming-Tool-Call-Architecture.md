@@ -90,16 +90,17 @@ flowchart TB
 
 ### Tool Support Matrix
 
-| Provider   | Streaming | Tools | Tool IDs | Streaming Format |
-|------------|-----------|-------|----------|------------------|
-| OpenAI     | ✅        | ✅    | ✅       | Partial chunks   |
-| OpenRouter | ✅        | ✅    | ✅       | OpenAI-compatible|
-| Anthropic  | ✅        | ✅    | ✅       | Event-based      |
-| Google     | ✅        | ✅    | ❌       | Complete chunks  |
-| Ollama     | ✅        | ✅    | ❌       | Complete chunks  |
-| Mistral    | ✅        | ❌    | N/A      | Text only        |
-| Cohere     | ✅        | ✅    | ✅       | Custom format    |
-| Together   | ✅        | ✅    | ✅       | OpenAI-compatible|
+| Provider   | Streaming | Tools | Tool IDs | Streaming Format | Response Linking |
+|------------|-----------|-------|----------|------------------|------------------|
+| OpenAI     | ✅        | ✅    | ✅       | Partial chunks   | Single request   |
+| OpenAI Responses | ✅  | ✅    | ✅       | Event-based      | previous_response_id |
+| OpenRouter | ✅        | ✅    | ✅       | OpenAI-compatible| Single request   |
+| Anthropic  | ✅        | ✅    | ✅       | Event-based      | Single request   |
+| Google     | ✅        | ✅    | ❌       | Complete chunks  | Single request   |
+| Ollama     | ✅        | ✅    | ❌       | Complete chunks  | Single request   |
+| Mistral    | ✅        | ❌    | N/A      | Text only        | Single request   |
+| Cohere     | ✅        | ✅    | ✅       | Custom format    | Single request   |
+| Together   | ✅        | ✅    | ✅       | OpenAI-compatible| Single request   |
 
 ## Streaming Patterns
 
@@ -111,6 +112,9 @@ Each chunk contains complete information with already parsed arguments.
 
 ### Anthropic-Style (Event-Based)
 Structured event sequence with state tracking across events.
+
+### OpenAI Responses-Style (Event-Based with Request Linking)
+Event-based streaming with unique two-request workflow for tool calling. Requires response ID capture and linking between requests.
 
 ## Orchestration Layer
 
@@ -395,6 +399,48 @@ arguments: json.decode(argsJson)
 arguments: functionCall.args
 ```
 
+### OpenAI Responses Implementation Details
+
+#### Response ID Capture
+```dart
+// Capture response ID from response.created event
+final eventType = data['type']?.toString();
+if (responseId == null && eventType == 'response.created' && data.containsKey('response')) {
+  final respData = data['response'];
+  if (respData is Map<String, dynamic> && respData.containsKey('id')) {
+    responseId = respData['id']?.toString();
+    // Include in message metadata for orchestrator access
+    metadata['response_id'] = responseId;
+  }
+}
+```
+
+#### Tool Result Format
+```dart
+// Tool results sent as function_call_output in second request
+{
+  'type': 'function_call_output',
+  'call_id': toolPart.id,  // Links to original tool call ID
+  'output': serializeToolResult(toolPart.result),
+}
+```
+
+#### Previous Response ID Extraction
+```dart
+// Extract response ID from previous conversation for tool result requests
+String? extractResponseId(List<ChatMessage> messages) {
+  for (final message in messages.reversed) {
+    if (message.role == ChatMessageRole.model) {
+      final responseId = message.metadata['response_id'] as String?;
+      if (responseId != null && responseId.startsWith('resp_')) {
+        return responseId;
+      }
+    }
+  }
+  return null;
+}
+```
+
 ### Error Handling
 
 Tool execution errors are included in the consolidated tool result message:
@@ -416,11 +462,28 @@ catch (error, stackTrace) {
 
 ## Provider-Specific Details
 
-### OpenAI
+### OpenAI Chat Completions
 - **Streaming**: Partial chunks with index-based accumulation
 - **Tool IDs**: Provided by API
 - **Arguments**: Streamed as raw JSON string, parsed by mapper when complete
 - **ToolPart Creation**: Only after streaming completes with parsed arguments
+
+### OpenAI Responses
+- **Streaming**: Event-based with structured event sequence
+- **Tool IDs**: Provided by API (`call_id` in events)
+- **Arguments**: Accumulated via `response.function_call_arguments.delta` events
+- **Response Linking**: Requires `previous_response_id` for tool result requests
+- **Event Flow**:
+  1. `response.created` → Capture response ID for linking
+  2. `response.output_item.added` (function_call) → Initialize tool call
+  3. `response.function_call_arguments.delta` → Accumulate arguments
+  4. `response.function_call_arguments.done` → Finalize arguments
+  5. `response.output_item.done` → Complete tool call
+  6. `response.completed` → Stream completion
+- **Tool Results**: Sent as `function_call_output` format in separate request
+- **Request Workflow**:
+  - First request: User → Model (generates tool calls, captures response ID)
+  - Second request: Tool results → Model (uses `previous_response_id` for linking)
 
 ### Anthropic
 - **Streaming**: Event-based with explicit stages

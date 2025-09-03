@@ -21,7 +21,7 @@ Map<String, dynamic> buildResponsesRequest(
   // Local logger for request mapping
   final logger = Logger('dartantic.chat.models.openai_responses.mapper');
   final request = <String, dynamic>{'model': modelName};
-  
+
   // Add previous response ID for tool result linking
   if (previousResponseId != null) {
     request['previous_response_id'] = previousResponseId;
@@ -130,20 +130,17 @@ Map<String, dynamic> buildResponsesRequest(
   if (input.isNotEmpty) request['input'] = input;
 
   // Tools mapping (filter out return_result - native typed output supported)
-  final toolDefs = tools
-      ?.where((t) => t.name != kReturnResultToolName)
-      .map(
-        (tool) {
-          final originalSchema = tool.inputSchema.schemaMap ?? {};
-          return {
-            'type': 'function',
-            'name': tool.name,
-            'description': tool.description,
-            'parameters': originalSchema,
-          };
-        },
-      )
-      .toList();
+  final toolDefs = tools?.where((t) => t.name != kReturnResultToolName).map((
+    tool,
+  ) {
+    final originalSchema = tool.inputSchema.schemaMap ?? {};
+    return {
+      'type': 'function',
+      'name': tool.name,
+      'description': tool.description,
+      'parameters': originalSchema,
+    };
+  }).toList();
   if (toolDefs != null && toolDefs.isNotEmpty) request['tools'] = toolDefs;
 
   // Typed output via native response_format
@@ -181,9 +178,11 @@ Map<String, dynamic> buildResponsesRequest(
 
   // Debug: log reasoning block and model selection for verification (FINE)
   final r = request['reasoning'];
+  final results = messages.any(
+    (m) => m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result),
+  );
   logger.info(
-    'Responses request has tool results: ${messages.any((m) => 
-      m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result))}, '
+    'Responses request has tool results: $results, '
     'previous_response_id: $previousResponseId',
   );
   logger.fine(
@@ -223,7 +222,6 @@ Map<String, dynamic> buildResponsesRequest(
 
   return request;
 }
-
 
 /// Creates a native response_format from a JsonSchema, if provided.
 Map<String, dynamic>? _createResponseFormat(JsonSchema? outputSchema) {
