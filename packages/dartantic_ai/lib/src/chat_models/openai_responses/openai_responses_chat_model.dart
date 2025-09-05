@@ -83,9 +83,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     // Extract response ID for tool result linking if any tool results exist
     String? previousResponseId;
     final hasAnyToolResults = messages.any(
-      (m) => m.parts.any(
-        (p) => p is ToolPart && p.kind == ToolPartKind.result,
-      ),
+      (m) => m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result),
     );
     if (hasAnyToolResults) {
       // Find the most recent model message with tool calls and capture its id
@@ -142,6 +140,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final accumulatedTextBuffer = StringBuffer();
     final reasoningBuffer = StringBuffer();
     final reasoningDeltaBuffer = StringBuffer();
+    // Media accumulation for providers that stream images/audio
+    final mediaBase64 = <String, StringBuffer>{};
+    final mediaMime = <String, String>{};
     var chunkCount = 0;
 
     var lastResult = ChatResult<ChatMessage>(
@@ -298,6 +299,21 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                     ),
                   );
                 }
+              } else if (item != null &&
+                  (item['type'] == 'image' ||
+                      item['type'] == 'output_image' ||
+                      item['type'] == 'audio' ||
+                      item['type'] == 'output_audio')) {
+                final itemId = (item['id'] ?? '').toString();
+                final mimeType = (item['mime_type'] ?? '').toString();
+                if (itemId.isNotEmpty) {
+                  _logger.info(
+                    'Media item added: type=${item['type']}, id=$itemId, '
+                    'mime=$mimeType',
+                  );
+                  mediaBase64[itemId] = StringBuffer();
+                  if (mimeType.isNotEmpty) mediaMime[itemId] = mimeType;
+                }
               }
             } else if (currentEvent ==
                 'response.function_call_arguments.delta') {
@@ -333,6 +349,92 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
                 reasoningDeltaBuffer.clear();
+              }
+            } else if (currentEvent == 'response.output_image.delta' ||
+                currentEvent == 'response.output_audio.delta') {
+              // Handle media deltas. Support either URL or base64 chunk forms.
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              final delta = data['delta'];
+              // URL form
+              String? url;
+              String? mimeType;
+              if (delta is Map<String, dynamic>) {
+                url = (delta['image_url'] ?? delta['url'])?.toString();
+                final mt = (delta['mime_type'] ?? data['mime_type'])
+                    ?.toString();
+                if (mt != null && mt.isNotEmpty) mimeType = mt;
+                final b64 = (delta['data'] ?? delta['b64'] ?? '').toString();
+                if (b64.isNotEmpty && itemId.isNotEmpty) {
+                  (mediaBase64[itemId] ??= StringBuffer()).write(b64);
+                }
+              } else if (delta is String) {
+                // Some implementations may stream raw base64 string
+                if (itemId.isNotEmpty) {
+                  (mediaBase64[itemId] ??= StringBuffer()).write(delta);
+                }
+              }
+
+              if (url != null && url.isNotEmpty) {
+                // Emit a link part immediately
+                final message = ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [LinkPart(Uri.parse(url))],
+                );
+                final streamingMetadata = <String, dynamic>{};
+                if (responseId != null) {
+                  streamingMetadata['response_id'] = responseId;
+                }
+                lastResult = ChatResult<ChatMessage>(
+                  output: message,
+                  messages: [message],
+                  finishReason: FinishReason.unspecified,
+                  metadata: streamingMetadata,
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+              } else if (itemId.isNotEmpty &&
+                  (mediaBase64[itemId]?.isNotEmpty ?? false)) {
+                // Defer emission until completion event; keep accumulating
+                if (mimeType != null && mimeType.isNotEmpty) {
+                  mediaMime[itemId] = mimeType;
+                }
+              }
+            } else if (currentEvent == 'response.output_item.completed') {
+              // Finalize any buffered media for this item
+              final item = data['item'] as Map<String, dynamic>?;
+              final itemId = (item?['id'] ?? data['item_id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64 = mediaBase64[itemId]!.toString();
+                  final bytes = base64.decode(b64);
+                  final mimeType =
+                      mediaMime[itemId] ??
+                      (item?['mime_type']?.toString() ??
+                          'application/octet-stream');
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  final streamingMetadata = <String, dynamic>{};
+                  if (responseId != null) {
+                    streamingMetadata['response_id'] = responseId;
+                  }
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: streamingMetadata,
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // Ignore decode errors silently; better than crashing stream
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
               }
             } else if (currentEvent == 'response.completed') {
               // Do not emit consolidated text here to avoid duplication.
@@ -455,6 +557,39 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 yield lastResult;
                 continue; // handled immediately
               }
+            } else if (currentEvent == 'response.output_image.delta' ||
+                currentEvent == 'response.output_audio.delta') {
+              // Allow immediate handling similar to text if URL present
+              final data = json.decode(dataLine) as Map<String, dynamic>;
+              final delta = data['delta'];
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              if (delta is Map<String, dynamic>) {
+                final url = (delta['image_url'] ?? delta['url'])?.toString();
+                final mt = (delta['mime_type'] ?? data['mime_type'])
+                    ?.toString();
+                if (url != null && url.isNotEmpty) {
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [LinkPart(Uri.parse(url))],
+                  );
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: const {},
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                  continue; // handled immediately
+                }
+                final b64 = (delta['data'] ?? delta['b64'] ?? '').toString();
+                if (b64.isNotEmpty && itemId.isNotEmpty) {
+                  (mediaBase64[itemId] ??= StringBuffer()).write(b64);
+                  if (mt != null && mt.isNotEmpty) mediaMime[itemId] = mt;
+                }
+              } else if (delta is String && itemId.isNotEmpty) {
+                (mediaBase64[itemId] ??= StringBuffer()).write(delta);
+              }
             }
 
             // For other events (e.g., tool_call deltas), fall back to
@@ -561,6 +696,21 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                     ),
                   );
                 }
+              } else if (item != null &&
+                  (item['type'] == 'image' ||
+                      item['type'] == 'output_image' ||
+                      item['type'] == 'audio' ||
+                      item['type'] == 'output_audio')) {
+                final itemId = (item['id'] ?? '').toString();
+                final mimeType = (item['mime_type'] ?? '').toString();
+                if (itemId.isNotEmpty) {
+                  _logger.info(
+                    'Media item added (boundary): type=${item['type']}, '
+                    'id=$itemId, mime=$mimeType',
+                  );
+                  mediaBase64[itemId] = StringBuffer();
+                  if (mimeType.isNotEmpty) mediaMime[itemId] = mimeType;
+                }
               }
             } else if (currentEvent ==
                 'response.function_call_arguments.delta') {
@@ -596,6 +746,75 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
                 reasoningDeltaBuffer.clear();
+              }
+            } else if (currentEvent == 'response.output_image.delta' ||
+                currentEvent == 'response.output_audio.delta') {
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              final delta = data['delta'];
+              String? url;
+              String? mimeType;
+              if (delta is Map<String, dynamic>) {
+                url = (delta['image_url'] ?? delta['url'])?.toString();
+                final mt = (delta['mime_type'] ?? data['mime_type'])
+                    ?.toString();
+                if (mt != null && mt.isNotEmpty) mimeType = mt;
+                final b64 = (delta['data'] ?? delta['b64'] ?? '').toString();
+                if (b64.isNotEmpty && itemId.isNotEmpty) {
+                  (mediaBase64[itemId] ??= StringBuffer()).write(b64);
+                }
+              } else if (delta is String && itemId.isNotEmpty) {
+                (mediaBase64[itemId] ??= StringBuffer()).write(delta);
+              }
+
+              if (url != null && url.isNotEmpty) {
+                final message = ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [LinkPart(Uri.parse(url))],
+                );
+                lastResult = ChatResult<ChatMessage>(
+                  output: message,
+                  messages: [message],
+                  finishReason: FinishReason.unspecified,
+                  metadata: const {},
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+              } else if (itemId.isNotEmpty &&
+                  mimeType != null &&
+                  mimeType.isNotEmpty) {
+                mediaMime[itemId] = mimeType;
+              }
+            } else if (currentEvent == 'response.output_item.completed') {
+              final item = data['item'] as Map<String, dynamic>?;
+              final itemId = (item?['id'] ?? data['item_id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64 = mediaBase64[itemId]!.toString();
+                  final bytes = base64.decode(b64);
+                  final mimeType =
+                      mediaMime[itemId] ??
+                      (item?['mime_type']?.toString() ??
+                          'application/octet-stream');
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: const {},
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // Ignore decode errors
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
               }
             } else if (currentEvent == 'response.created') {
               // Capture response ID from response.created event

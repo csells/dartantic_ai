@@ -159,9 +159,13 @@ Map<String, dynamic> buildResponsesRequest(
         case DataPart(:final bytes, :final mimeType):
           if (mimeType.startsWith('image/')) {
             if (role == 'user') {
+              // Responses API expects input_image with image_url for inline
+              // data. Using data URL ensures broad compatibility across
+              // models (avoids unknown 'image' parameter errors).
+              final base64Data = base64.encode(bytes);
               content.add({
                 'type': 'input_image',
-                'image': {'data': base64.encode(bytes), 'mime_type': mimeType},
+                'image_url': 'data:$mimeType;base64,$base64Data',
               });
             }
           } else {

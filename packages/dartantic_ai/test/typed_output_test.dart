@@ -441,7 +441,6 @@ void main() {
       // Test edge cases on only 1-2 providers to save resources
     });
 
-
     group('streaming typed output', () {
       runProviderTest('streams JSON output correctly', (provider) async {
         final schema = js.JsonSchema.create({

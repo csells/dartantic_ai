@@ -2,29 +2,31 @@
 title: Providers
 ---
 
-Out of the box support for 11 providers, with more to come.
+ Out of the box support for 12 providers, with more to come.
 
 ## Provider Capabilities
 
 | Provider | Default Model | Default Embedding Model | Capabilities | Notes |
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
+| **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Supports Thinking (metadata) |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | - | Chat, Vision, Tools, Streaming | No embeddings |
-| **Google** | `gemini-2.0-flash-exp` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
+| **Google** | `gemini-2.0-flash` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
-| **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
-| **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
-| **Together AI** | `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | - | Chat, Tools, Streaming | Open source models |
-| **Lambda** | `hermes-3-llama-3.1-405b-fp8` | - | Chat, Tools, Streaming | Research models |
-| **Google-OpenAI** | `gemini-2.0-flash-exp` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
-| **Ollama-OpenAI** | `llama3.2:latest` | - | Chat, Tools, Streaming | Ollama via OpenAI API |
+| **Ollama** | `qwen2.5:7b-instruct` | - | Chat, Tools, Streaming | Local models only |
+| **OpenRouter** | `google/gemini-2.0-flash-001` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
+| **Together AI** | `Qwen/Qwen2.5-VL-72B-Instruct` | - | Chat, Tools, Streaming | Open source models |
+| **Lambda** | `hermes3-405b` | - | Chat, Tools, Streaming | Research models |
+| **Google-OpenAI** | `gemini-2.0-flash` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
+| **Ollama-OpenAI** | `llama3.2` | - | Chat, Tools, Streaming | Ollama via OpenAI API |
 
 ## Provider Configuration
 
 | Provider | Provider Prefix | Aliases | API Key | Provider Type |
 |----------|----------------|---------|---------|---------------|
 | **OpenAI** | `openai` | - | `OPENAI_API_KEY` | `OpenAIProvider` |
+| **OpenAI Responses** | `openai-responses` | `oai-resp`, `openai-v2` | `OPENAI_API_KEY` | `OpenAIResponsesProvider` |
 | **Anthropic** | `anthropic` | `claude` | `ANTHROPIC_API_KEY` | `AnthropicProvider` |
 | **Google** | `google` | `gemini`, `googleai` | `GEMINI_API_KEY` | `GoogleProvider` |
 | **Mistral** | `mistral` | - | `MISTRAL_API_KEY` | `MistralProvider` |
@@ -50,6 +52,9 @@ export GEMINI_API_KEY="..."
 ```dart
 // Basic
 Agent('openai');
+
+// OpenAI Responses API
+Agent('openai-responses');
 
 // With model
 Agent('anthropic:claude-3-5-sonnet');
@@ -85,7 +90,7 @@ Agent.forProvider(provider);
 
 ```dart
 // Check what a provider supports
-final agent = Agent('openrouter');
+final provider = Providers.openrouter;
 print('Capabilities: ${provider.caps}');
 // Output: {chat, vision, toolCalls, streaming}
 

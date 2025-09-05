@@ -437,5 +437,67 @@ void main() {
         expect(userMessage.parts.whereType<DataPart>().length, equals(10));
       }, edgeCase: true);
     });
+
+    group('OpenAI Responses (images/links)', () {
+      test('openai-responses: handles single image attachment', () async {
+        final agent = Agent('openai-responses');
+
+        final result = await agent.send(
+          'Describe this image in one short sentence',
+          attachments: [DataPart(testImageBytes, mimeType: 'image/png')],
+        );
+
+        expect(result.output, isNotEmpty);
+        // Verify the user message includes the image attachment
+        final userMessage = result.messages.firstWhere(
+          (m) => m.role == ChatMessageRole.user,
+        );
+        expect(userMessage.parts.whereType<DataPart>().length, equals(1));
+      });
+
+      test('openai-responses: handles single URL attachment', () async {
+        final agent = Agent('openai-responses');
+        final result = await agent.send(
+          'What is shown in this picture?',
+          attachments: [
+            LinkPart(
+              Uri.parse(
+                'https://upload.wikimedia.org/wikipedia/commons/b/bc/Juvenile_Ragdoll.jpg',
+              ),
+            ),
+          ],
+        );
+
+        expect(result.output, isNotEmpty);
+        final userMessage = result.messages.firstWhere(
+          (m) => m.role == ChatMessageRole.user,
+        );
+        expect(userMessage.parts.whereType<LinkPart>().length, equals(1));
+      });
+
+      test('openai-responses: streams with image attachment', () async {
+        final agent = Agent('openai-responses');
+        final chunks = <String>[];
+        final messages = <ChatMessage>[];
+
+        await for (final r in agent.sendStream(
+          'Give a brief description of this image',
+          attachments: [DataPart(testImageBytes, mimeType: 'image/png')],
+        )) {
+          chunks.add(r.output);
+          messages.addAll(r.messages);
+        }
+
+        final text = chunks.join();
+        expect(text, isNotEmpty);
+        // Ensure the user turn with the image was present
+        final userMessage = messages.firstWhere(
+          (m) => m.role == ChatMessageRole.user,
+          orElse: () =>
+              const ChatMessage(role: ChatMessageRole.user, parts: []),
+        );
+        expect(userMessage.parts.whereType<DataPart>().length, equals(1));
+      });
+    });
   });
 }
