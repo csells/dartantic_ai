@@ -58,6 +58,11 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       final thinkingMeta = result.metadata['thinking'];
       final hasThinking = thinkingMeta is String && thinkingMeta.isNotEmpty;
 
+      // Accumulate thinking deltas for this assistant turn
+      if (hasThinking) {
+        state.thinkingBuffer.write(thinkingMeta);
+      }
+
       // Stream text if available
       if (textOutput.isNotEmpty) {
         _logger.fine('Streaming text chunk: ${textOutput.length} chars');
@@ -105,6 +110,12 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       state.accumulatedMessage,
     );
 
+    // Attach accumulated thinking to the consolidated model message metadata
+    final consolidatedWithThinking = _attachThinkingToMessage(
+      consolidatedMessage,
+      state,
+    );
+
     _logger.fine(
       'Stream closed. Consolidated message has '
       '${consolidatedMessage.parts.length} parts',
@@ -150,11 +161,11 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         _logger.fine(
           'Second empty-after-tools message encountered; treating as final',
         );
-        state.addToHistory(consolidatedMessage);
+        state.addToHistory(consolidatedWithThinking);
 
         yield StreamingIterationResult(
           output: '',
-          messages: [consolidatedMessage],
+          messages: [consolidatedWithThinking],
           shouldContinue: false,
           finishReason: state.lastResult.finishReason,
           metadata: state.lastResult.metadata,
@@ -173,11 +184,11 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         // when asked without any prior tool execution)
         // Add it to history and complete
         _logger.fine('Empty message is legitimate completion, finishing');
-        state.addToHistory(consolidatedMessage);
+        state.addToHistory(consolidatedWithThinking);
 
         yield StreamingIterationResult(
           output: '',
-          messages: [consolidatedMessage],
+          messages: [consolidatedWithThinking],
           shouldContinue: false,
           finishReason: state.lastResult.finishReason,
           metadata: state.lastResult.metadata,
@@ -188,12 +199,12 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
     }
 
     // Add message to conversation history
-    state.addToHistory(consolidatedMessage);
+    state.addToHistory(consolidatedWithThinking);
 
     // Yield the consolidated message
     yield StreamingIterationResult(
       output: '',
-      messages: [consolidatedMessage],
+      messages: [consolidatedWithThinking],
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
       metadata: state.lastResult.metadata,
@@ -279,4 +290,22 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
   bool _shouldPrefixNewline(StreamingState state) =>
       state.shouldPrefixNextMessage && state.isFirstChunkOfMessage;
+
+  /// Creates a copy of [message] with accumulated thinking (if any) attached
+  /// to its metadata under key 'thinking'. The state's thinking buffer is not
+  /// cleared here; it is cleared when the next message turn begins.
+  ChatMessage _attachThinkingToMessage(
+    ChatMessage message,
+    StreamingState state,
+  ) {
+    if (state.thinkingBuffer.isEmpty) return message;
+    final merged = <String, dynamic>{...message.metadata};
+    final thinking = state.thinkingBuffer.toString();
+    if (thinking.isNotEmpty) merged['thinking'] = thinking;
+    return ChatMessage(
+      role: message.role,
+      parts: message.parts,
+      metadata: merged,
+    );
+  }
 }

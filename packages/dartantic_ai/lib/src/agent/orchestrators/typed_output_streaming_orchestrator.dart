@@ -46,6 +46,11 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       state.conversationHistory,
       outputSchema: outputSchema,
     )) {
+      // Capture thinking metadata deltas (provider-agnostic) for this turn
+      final thinkingMeta = result.metadata['thinking'];
+      if (thinkingMeta is String && thinkingMeta.isNotEmpty) {
+        state.thinkingBuffer.write(thinkingMeta);
+      }
       // Check if we should stream native JSON text
       // Stream when:
       // 1. Provider doesn't have return_result in its tools (native support)
@@ -94,6 +99,12 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       state.accumulatedMessage,
     );
 
+    // Attach accumulated thinking to the consolidated model message metadata
+    final consolidatedWithThinking = _attachThinkingToMessage(
+      consolidatedMessage,
+      state,
+    );
+
     // Check if this message has return_result tool call
     final hasReturnResultCall = consolidatedMessage.parts
         .whereType<ToolPart>()
@@ -103,7 +114,9 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
 
     if (hasReturnResultCall) {
       // This is a return_result call - suppress it and save metadata/text
-      state.addSuppressedMetadata({...consolidatedMessage.metadata});
+      final suppressedMeta = {...consolidatedWithThinking.metadata};
+      // Ensure thinking moves forward into the synthetic message
+      state.addSuppressedMetadata(suppressedMeta);
       final textParts = consolidatedMessage.parts
           .whereType<TextPart>()
           .toList();
@@ -116,7 +129,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       // Still yield the message but without text output
       yield StreamingIterationResult(
         output: '',
-        messages: [consolidatedMessage],
+        messages: [consolidatedWithThinking],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
         metadata: state.lastResult.metadata,
@@ -126,7 +139,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       // Normal message for native typed output - yield it
       yield StreamingIterationResult(
         output: '',
-        messages: [consolidatedMessage],
+        messages: [consolidatedWithThinking],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
         metadata: state.lastResult.metadata,
@@ -231,6 +244,9 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       final mergedMetadata = <String, dynamic>{
         ...state.suppressedToolCallMetadata,
         ...returnResultMetadata,
+        // If any thinking remains, include it as part of the synthetic message
+        if (state.thinkingBuffer.isNotEmpty)
+          'thinking': state.thinkingBuffer.toString(),
         if (state.suppressedTextParts.isNotEmpty)
           'suppressedText': state.suppressedTextParts.map((p) => p.text).join(),
       };
@@ -270,4 +286,22 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
 
   bool _shouldPrefixNewline(StreamingState state) =>
       state.shouldPrefixNextMessage && state.isFirstChunkOfMessage;
+
+  /// Creates a copy of [message] with accumulated thinking (if any) attached
+  /// to its metadata under key 'thinking'. The state's thinking buffer is not
+  /// cleared here; it is cleared when the next message turn begins.
+  ChatMessage _attachThinkingToMessage(
+    ChatMessage message,
+    StreamingState state,
+  ) {
+    if (state.thinkingBuffer.isEmpty) return message;
+    final merged = <String, dynamic>{...message.metadata};
+    final thinking = state.thinkingBuffer.toString();
+    if (thinking.isNotEmpty) merged['thinking'] = thinking;
+    return ChatMessage(
+      role: message.role,
+      parts: message.parts,
+      metadata: merged,
+    );
+  }
 }

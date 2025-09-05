@@ -78,7 +78,9 @@ flowchart TB
 - **Message Boundaries**: Preserving complete messages in history
 - **Streaming UX**: Visual separation between tool calls and responses
 - **Thinking Metadata**: For providers that support reasoning/thinking, stream
-  incremental "thinking" text in result metadata under the `thinking` key.
+  incremental "thinking" text in result metadata under the `thinking` key, and
+  attach the consolidated thinking string to the associated assistant message's
+  `metadata['thinking']` at message boundary.
 
 ### Tool Execution
 - **Tool Calls**: LLM-initiated function invocations with structured arguments
@@ -520,8 +522,9 @@ catch (error, stackTrace) {
 5. **UX Features**: Newline prefixing works correctly
 6. **Message History Validation**: User/model alternation maintained
 7. **Tool Result Consolidation**: Multiple results in single message
-8. **Thinking Streaming**: `thinking` metadata present and non-persistent in
-   history (no `ChatMessage` parts created)
+8. **Thinking Streaming**: `thinking` metadata streamed via results and
+   persisted on the assistant message metadata (no `ChatMessage` parts created;
+   never sent back to providers)
 
 ### Debug Examples
 

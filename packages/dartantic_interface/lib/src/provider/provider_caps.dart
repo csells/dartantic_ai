@@ -22,7 +22,11 @@ enum ProviderCaps {
 
   /// The provider can stream or return model reasoning ("thinking").
   ///
-  /// When supported, thinking text is exposed via ChatResult.metadata under
-  /// the key 'thinking'. It is never persisted into message history.
+  /// When supported, thinking text is exposed via `ChatResult.metadata`
+  /// under the key 'thinking' during streaming. On consolidation, the
+  /// full thinking string for that assistant turn is attached to the
+  /// associated `ChatMessage.metadata['thinking']`. Thinking is never
+  /// included as visible content parts and is never sent back to providers
+  /// via history.
   thinking,
 }

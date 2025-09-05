@@ -43,6 +43,12 @@ class StreamingState {
     parts: [],
   );
 
+  /// Accumulates provider-agnostic thinking deltas for the current
+  /// assistant turn. These deltas are attached to the consolidated
+  /// model message's metadata as a single string under the key
+  /// 'thinking' when the turn finishes.
+  final StringBuffer thinkingBuffer = StringBuffer();
+
   /// The last result received from the model
   ChatResult<ChatMessage> lastResult = ChatResult<ChatMessage>(
     output: const ChatMessage(role: ChatMessageRole.model, parts: []),
@@ -70,6 +76,8 @@ class StreamingState {
       role: ChatMessageRole.model,
       parts: [],
     );
+    // Clear thinking accumulated for the previous turn
+    thinkingBuffer.clear();
     lastResult = ChatResult<ChatMessage>(
       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       finishReason: FinishReason.unspecified,

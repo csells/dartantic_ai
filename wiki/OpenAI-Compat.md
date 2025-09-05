@@ -94,6 +94,9 @@ These providers use their own native APIs in dartantic and are not OpenAI-compat
   - Default is no summary (omit the field to disable thinking deltas).
   - dartantic: set `OpenAIResponsesChatOptions(reasoningSummary: ...)`.
 - Streaming order: reasoning summary deltas often arrive before text; dartantic
-  exposes them as `metadata['thinking']` and does not add them to message history.
+  exposes them as `metadata['thinking']` during streaming. On consolidation,
+  the full thinking string for the assistant turn is attached to the
+  assistant message's `metadata['thinking']` (not as visible content and never
+  sent back to the API).
 - Completion: no re-emission of thinking at `response.completed`; final event
   carries usage/finish state only.

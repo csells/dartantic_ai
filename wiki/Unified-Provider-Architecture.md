@@ -290,9 +290,11 @@ While Agent is the primary interface, direct model creation is supported for adv
 ### 3b. Metadata Conventions
 - Providers may attach context metadata to `ChatResult.metadata`.
 - The `thinking` key is reserved for model reasoning streams. It contains
-  provider-supplied reasoning text. This metadata is not persisted in message
-  history, is not guaranteed to be present on the final result, and is safe to
-  ignore by consumers that don't display it.
+  provider-supplied reasoning text. During streaming, deltas appear on
+  `ChatResult.metadata['thinking']`. On consolidation, the agent attaches the
+  full thinking string to the associated assistant message via
+  `ChatMessage.metadata['thinking']`. Thinking is never included in message
+  content parts and is never sent back to providers via history.
 
 ### 4. Clean Separation
 - Each layer has clear responsibilities

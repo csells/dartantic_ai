@@ -197,8 +197,11 @@ metadata key:
   any extra message parts; the thinking text is metadata-only.
 - Completion: Thinking is not re-emitted at completion (no final consolidation
   is guaranteed). The final `ChatResult` may carry only usage/finish state.
-- History: Thinking is never added to conversation history. Only normal text
-  content and tool messages are persisted as `ChatMessage`s.
+- History: Thinking is not added as visible content parts and is never sent
+  back to providers. However, for each assistant message, all thinking deltas
+  for that turn are consolidated and attached to the associated
+  `ChatMessage.metadata['thinking']`. This keeps message alternation intact
+  without polluting provider-facing history.
 
 UX tip: If you display thinking and visible text together, insert a visual
 separator when transitioning from thinking to the first visible text chunk (for

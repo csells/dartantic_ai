@@ -2,13 +2,13 @@
 title: Thinking (Reasoning)
 ---
 
-Thinking (also called “reasoning”) exposes a provider’s internal chain-of-thought style traces as metadata during streaming, without polluting message history.
+Thinking (also called “reasoning”) exposes a provider’s internal chain-of-thought style traces via metadata, without polluting provider-facing history.
 
 What you get
-- Metadata only: thinking text is attached to ChatResult.metadata under the key `thinking`
-- Streaming deltas: incremental thinking pieces can arrive before any visible text
-- Final summary: the last ChatResult of an iteration includes the full thinking string
-- History stays clean: thinking is never added to ChatMessage parts
+- Streaming deltas: incremental thinking pieces in `ChatResult.metadata['thinking']`
+- Message metadata: on each assistant turn, all deltas are consolidated and attached to that assistant `ChatMessage.metadata['thinking']`
+- Non‑streaming summary: `Agent.send(...)` returns `ChatResult.metadata['thinking']` with the full thinking string for that turn
+- History stays clean: thinking is never added as visible parts and is never sent back to providers via history
 
 Enable thinking
 Currently supported on the OpenAI Responses provider.
@@ -38,31 +38,51 @@ Future<void> main() async {
       print(chunk.output);
     }
 
-    // Thinking deltas (metadata only)
+    // Thinking deltas (metadata-only on each chunk)
     final thinking = chunk.metadata['thinking'];
     if (thinking is String && thinking.isNotEmpty) {
       print('[thinking] $thinking');
     }
 
+    // Consolidated thinking on the assistant message at message boundary
+    for (final m in chunk.messages) {
+      if (m.role == ChatMessageRole.model) {
+        final consolidated = m.metadata['thinking'];
+        if (consolidated is String && consolidated.isNotEmpty) {
+          print('[message thinking] $consolidated');
+        }
+      }
+    }
+
     history.addAll(chunk.messages);
   }
 
-  // Final result includes full thinking text in metadata
+  // Non-streaming call: includes full thinking text in metadata
   final result = await agent.send('Summarize in one sentence.', history: history);
   print('\nFinal: ${result.output}\n');
   final finalThinking = result.metadata['thinking'];
   if (finalThinking is String && finalThinking.isNotEmpty) {
-    print('Full thinking (not added to history):');
+    print('Full thinking (not returned to provider):');
     print(finalThinking);
+  }
+
+  // Message-level thinking for non-streaming
+  for (final m in result.messages) {
+    if (m.role == ChatMessageRole.model) {
+      final consolidated = m.metadata['thinking'];
+      if (consolidated is String && consolidated.isNotEmpty) {
+        print('[message thinking] $consolidated');
+      }
+    }
   }
 }
 ```
 
 Behavior
-- Key: `metadata['thinking']`
-- Streaming: may appear even when `chunk.output` is empty (you still get a chunk with blank output + thinking metadata)
-- Final: last result contains the full “thinking” text
-- History: thinking never appears in `result.messages`
+- Streaming deltas: `chunk.metadata['thinking']` may arrive before any text and even when `chunk.output` is empty
+- Message consolidation: when a model message is yielded in `chunk.messages`, it includes the full thinking for that assistant turn in `ChatMessage.metadata['thinking']`
+- Non-stream summary: `Agent.send(...)` returns the full thinking string in `result.metadata['thinking']`
+- History safety: thinking is not a visible content part and is never sent back to providers via message history
 
 Provider support
 - Discover providers that support thinking using capability filtering:
@@ -76,6 +96,8 @@ for (final p in thinkingProviders) {
 
 Notes
 - Thinking is optional; your app can ignore it safely.
-- Thinking is not sent back to the model—only displayed to the user or logged.
+- Thinking is never sent back to the model—only displayed to the user or logged.
 - For providers that do not support thinking, the `thinking` key will be absent.
 
+Typed output (return_result)
+- When using typed output with a `return_result` pattern, the consolidated thinking is attached to the synthetic assistant message (containing the JSON) under `message.metadata['thinking']`, and it still appears in streaming deltas via `chunk.metadata['thinking']`.
