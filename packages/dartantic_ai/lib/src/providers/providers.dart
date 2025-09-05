@@ -64,7 +64,10 @@ class Providers {
     name: 'together',
     displayName: 'Together AI',
     defaultModelNames: {
-      ModelKind.chat: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
+      // Use a serverless, vision-capable default to match caps
+      // and work out-of-the-box in tests/environments without
+      // access to non-serverless tiers.
+      ModelKind.chat: 'Qwen/Qwen2.5-VL-72B-Instruct',
     },
     baseUrl: Uri.parse('https://api.together.xyz/v1'),
     apiKeyName: 'TOGETHER_API_KEY',
@@ -81,10 +84,12 @@ class Providers {
   static OpenAIProvider get lambda => _lambda ??= OpenAIProvider(
     name: 'lambda',
     displayName: 'Lambda',
-    defaultModelNames: {ModelKind.chat: 'hermes-3-llama-3.1-405b-fp8'},
+    // Set default to an available chat model observed via listModels
+    defaultModelNames: {ModelKind.chat: 'hermes3-405b'},
     baseUrl: Uri.parse('https://api.lambda.ai/v1'),
     apiKeyName: 'LAMBDA_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput, ProviderCaps.vision},
+    // Current account/model list shows no vision models available
+    caps: {ProviderCaps.chat, ProviderCaps.typedOutput},
   );
 
   /// Gemini (OpenAI-compatible) provider (Google AI, OpenAI API).

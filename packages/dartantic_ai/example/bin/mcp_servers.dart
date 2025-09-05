@@ -86,7 +86,7 @@ Future<void> oneRequestMultiTool() async {
   print('\nOne Request, Multi Tool Calls');
 
   final agent = Agent(
-    'openai',
+    'openai-responses',
     tools: [
       Tool(
         name: 'get-current-date-time',

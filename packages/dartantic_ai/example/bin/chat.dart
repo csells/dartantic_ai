@@ -22,7 +22,7 @@ void main() async {
 
   // multi-turn chat using context and streaming output w/ gemini
   chat = Chat(
-    Agent('openai', tools: [weatherTool, temperatureConverterTool]),
+    Agent('openai-responses', tools: [weatherTool, temperatureConverterTool]),
     history: chat.history,
   );
   prompt = 'Is that typical for this time of year?';

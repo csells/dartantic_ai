@@ -116,6 +116,83 @@ void main() {
     });
 
     group('Group 2: Tool Call Message Portability', () {
+      test(
+        'multi-tool streaming across providers with openai-responses',
+        () async {
+          // Providers order includes both OpenAI and OpenAI Responses. Turn 1:
+          // OpenAI calls multiple tools to seed history with tool results. Turn
+          // 2: OpenAI Responses (with tools) streams tool calls.
+          final providers = ['openai', 'openai-responses', 'openai'];
+          final history = <ChatMessage>[];
+
+          // Provider 1: Call multiple tools in one turn (OpenAI)
+          final agent1 = Agent(
+            providers[0],
+            tools: [weatherTool, temperatureTool],
+          );
+          final result1 = await agent1.send(
+            'Use get_weather with city="Boston" and temperature with '
+            'location="New York". Then summarize briefly.',
+            history: history,
+          );
+          history.addAll(result1.messages);
+          // Verify tool results exist in history
+          final initialToolResults = result1.messages
+              .expand((m) => m.toolResults)
+              .toList();
+          expect(initialToolResults, isNotEmpty);
+
+          // Provider 2 (OpenAI Responses): Stream and actually CALL tools.
+          // Ask it to call temperature tool for each city and convert/compare.
+          final agent2 = Agent(
+            providers[1],
+            tools: [temperatureConverterTool, temperatureTool],
+          );
+          final chunks2 = <String>[];
+          final messages2 = <ChatMessage>[];
+          await for (final chunk in agent2.sendStream(
+            'Call temperature for both Boston and New York, convert as needed '
+            'using temperature_converter, and tell me which city is warmer. '
+            'Stream your answer.',
+            history: history,
+          )) {
+            chunks2.add(chunk.output);
+            history.addAll(chunk.messages);
+            messages2.addAll(chunk.messages);
+          }
+
+          final response2 = chunks2.join();
+          expect(response2, isNotEmpty);
+          expect(
+            response2.toLowerCase(),
+            anyOf(contains('warmer'), contains('boston'), contains('new york')),
+          );
+
+          // Assert OpenAI Responses actually issued a tool call during
+          // streaming
+          final modelToolCalls2 = messages2
+              .where((m) => m.role == ChatMessageRole.model)
+              .expand((m) => m.toolCalls)
+              .toList();
+          expect(
+            modelToolCalls2,
+            isNotEmpty,
+            reason: 'openai-responses should call a tool',
+          );
+
+          // Third provider (OpenAI): continue the conversation
+          final agent3 = Agent(providers[2]);
+          final result3 = await agent3.send(
+            'Given that, should I bring a jacket?',
+            history: history,
+          );
+          history.addAll(result3.messages);
+          expect(result3.output, isNotEmpty);
+
+          // Validate message history alternation across providers
+          validateMessageHistory(history);
+        },
+      );
       test('single tool call across providers', () async {
         final providers = ['google', 'anthropic', 'openai'];
         final history = <ChatMessage>[];

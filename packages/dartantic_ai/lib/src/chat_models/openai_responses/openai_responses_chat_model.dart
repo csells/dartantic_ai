@@ -80,27 +80,25 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final resolvedBaseUrl = _baseUrl ?? _defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'responses');
 
-    // Extract response ID from the last message metadata (if tool results
-    // present)
+    // Extract response ID for tool result linking if any tool results exist
     String? previousResponseId;
-    if (messages.isNotEmpty) {
-      final lastMessage = messages.last;
-      if (lastMessage.parts.any(
+    final hasAnyToolResults = messages.any(
+      (m) => m.parts.any(
         (p) => p is ToolPart && p.kind == ToolPartKind.result,
-      )) {
-        // Check previous messages for tool calls with response ID
-        for (var i = messages.length - 2; i >= 0; i--) {
-          final msg = messages[i];
-          if (msg.role == ChatMessageRole.model &&
-              msg.parts.any(
-                (p) => p is ToolPart && p.kind == ToolPartKind.call,
-              )) {
-            // This is a model message with tool calls, check its metadata
-            previousResponseId = msg.metadata['response_id'] as String?;
-            if (previousResponseId != null) {
-              _logger.info('Found previous response ID: $previousResponseId');
-              break;
-            }
+      ),
+    );
+    if (hasAnyToolResults) {
+      // Find the most recent model message with tool calls and capture its id
+      for (var i = messages.length - 1; i >= 0; i--) {
+        final msg = messages[i];
+        if (msg.role == ChatMessageRole.model &&
+            msg.parts.any(
+              (p) => p is ToolPart && p.kind == ToolPartKind.call,
+            )) {
+          previousResponseId = msg.metadata['response_id'] as String?;
+          if (previousResponseId != null) {
+            _logger.info('Found previous response ID: $previousResponseId');
+            break;
           }
         }
       }
@@ -342,6 +340,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               // Update usage if present so orchestrator can surface it.
               final resp = data['response'];
               if (resp is Map) {
+                // Fallback: capture response ID if not already set
+                if (responseId == null && resp.containsKey('id')) {
+                  responseId = resp['id']?.toString();
+                  _logger.info(
+                    'Captured response ID from response.completed: '
+                    '$responseId',
+                  );
+                }
                 final u = resp['usage'];
                 if (u is Map) {
                   lastResult = ChatResult<ChatMessage>(
@@ -607,6 +613,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               // Do not re-emit consolidated output; orchestrator will handle.
               final resp = data['response'];
               if (resp is Map) {
+                // Fallback: capture response ID if not already set
+                if (responseId == null && resp.containsKey('id')) {
+                  responseId = resp['id']?.toString();
+                  _logger.info(
+                    'Captured response ID from response.completed '
+                    '(boundary): $responseId',
+                  );
+                }
                 final u = resp['usage'];
                 if (u is Map) {
                   lastResult = ChatResult<ChatMessage>(

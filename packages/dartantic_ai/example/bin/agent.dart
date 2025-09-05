@@ -14,7 +14,7 @@ void main() async {
   final claudeAgent = Agent('anthropic', tools: exampleTools);
 
   // Weather and temperature conversion
-  print('--- ${claudeAgent.displayName} Weather Query ---');
+  print('--- ${claudeAgent.model} Weather Query ---');
   print(
     "User: What's the weather in Boston? "
     "If it's in Celsius, convert to Fahrenheit.",
@@ -27,7 +27,7 @@ void main() async {
   print('Agent: ${response1.output}\n');
 
   // Travel planning
-  print('--- ${claudeAgent.displayName} Travel Planning ---');
+  print('--- ${claudeAgent.model} Travel Planning ---');
   print(
     "User: I'm planning a trip from New York to San Francisco. "
     'Can you tell me the distance and check the weather in both cities?',
@@ -41,7 +41,7 @@ void main() async {
   print('Agent: ${response2.output}\n');
 
   // Multi-step task with streaming
-  print('--- ${claudeAgent.displayName} Investment Research (Streaming) ---');
+  print('--- ${claudeAgent.model} Investment Research (Streaming) ---');
   print(
     'User: Check the stock prices for AAPL and MSFT, then tell me which one '
     'is performing better today.',
@@ -61,11 +61,11 @@ void main() async {
 
   // OpenAI agent
   final openaiAgent = Agent(
-    'openai',
+    'openai-responses',
     tools: [currentDateTimeTool, weatherTool],
   );
 
-  stdout.write('\n${openaiAgent.displayName}: ');
+  stdout.write('\n${openaiAgent.model}: ');
   await openaiAgent
       .sendStream("What time is it and how's the weather in London?")
       .forEach((result) => stdout.write(result.output));
@@ -77,7 +77,7 @@ void main() async {
     tools: [currentDateTimeTool, weatherTool],
   );
 
-  stdout.write('\n${googleAgent.displayName}: ');
+  stdout.write('\n${googleAgent.model}: ');
   await googleAgent
       .sendStream("What time is it and how's the weather in London?")
       .forEach((result) => stdout.write(result.output));

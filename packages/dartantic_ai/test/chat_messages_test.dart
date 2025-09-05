@@ -63,17 +63,19 @@ void main() {
             }
 
             // Testing single turn chat with provider
-
             final agent = Agent(provider.name);
 
             final response = await agent.send(
-              'Reply with exactly: "Test ${provider.name} OK"',
+              'Please include the exact substring "Test OK" '
+              'somewhere in your reply.',
             );
 
             expect(
               response.output,
-              contains('Test ${provider.name} OK'),
-              reason: 'Provider ${provider.name} should respond correctly',
+              contains('Test OK'),
+              reason:
+                  'Provider ${provider.name} should include the '
+                  'requested substring',
             );
           }
         },

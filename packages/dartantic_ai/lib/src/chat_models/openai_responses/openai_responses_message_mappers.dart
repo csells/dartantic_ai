@@ -41,6 +41,29 @@ Map<String, dynamic> buildResponsesRequest(
 
   // Convert messages to Responses `input` array
   final input = <Map<String, dynamic>>[];
+
+  // When linking tool results via previous_response_id, only include results
+  // that correspond to the tool calls from the most recent assistant turn that
+  // actually issued those calls. This avoids sending mismatched historical
+  // tool outputs which would cause API errors.
+  final allowedToolCallIds = <String>{};
+  if (previousResponseId != null) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final m = messages[i];
+      if (m.role == ChatMessageRole.model) {
+        final callIds = m.parts
+            .whereType<ToolPart>()
+            .where((p) => p.kind == ToolPartKind.call)
+            .map((p) => p.id)
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        if (callIds.isNotEmpty) {
+          allowedToolCallIds.addAll(callIds);
+          break;
+        }
+      }
+    }
+  }
   for (final m in messages) {
     if (m.role == ChatMessageRole.system) continue; // handled as instructions
 
@@ -50,22 +73,71 @@ Map<String, dynamic> buildResponsesRequest(
     );
 
     if (toolResults.isNotEmpty) {
-      // Convert tool results to function_call_output format for Responses API
-      logger.info(
-        'Converting ${toolResults.length} tool results to function_call_output',
-      );
-      for (final tr in toolResults) {
-        logger.fine(
-          'Sending function_call_output: call_id=${tr.id}, name=${tr.name}',
-        );
+      if (previousResponseId != null && allowedToolCallIds.isNotEmpty) {
+        // Split tool results into those that belong to the last assistant tool
+        // calls (linkable) and those that don't (fallback to text embedding).
+        final linkable = <ToolPart>[];
+        final fallback = <ToolPart>[];
+        for (final tr in toolResults) {
+          if (allowedToolCallIds.contains(tr.id)) {
+            linkable.add(tr);
+          } else {
+            fallback.add(tr);
+          }
+        }
+
+        if (linkable.isNotEmpty) {
+          logger.info(
+            'Converting ${linkable.length} tool results to '
+            'function_call_output '
+            '(linking to previous_response_id) and embedding '
+            '${fallback.length} as text',
+          );
+          for (final tr in linkable) {
+            logger.fine(
+              'Sending function_call_output: call_id=${tr.id}, name=${tr.name}',
+            );
+            input.add({
+              'type': 'function_call_output',
+              'call_id': tr.id,
+              'output': _serializeToolResult(tr.result),
+            });
+          }
+        }
+
+        if (fallback.isNotEmpty) {
+          final textBlocks = fallback
+              .map(
+                (tr) =>
+                    'Tool result ${tr.name}: '
+                    '${_serializeToolResult(tr.result)}',
+              )
+              .toList();
+          input.add({
+            'role': 'user',
+            'content': [
+              {'type': 'input_text', 'text': textBlocks.join('\n')},
+            ],
+          });
+        }
+
+        continue;
+      } else {
+        // previous_response_id not available (e.g., provider switch), or we
+        // don't know which tool calls to link: embed as text context.
+        final textBlocks = <String>[];
+        for (final tr in toolResults) {
+          final serialized = _serializeToolResult(tr.result);
+          textBlocks.add('Tool result ${tr.name}: $serialized');
+        }
         input.add({
-          'type': 'function_call_output',
-          'call_id': tr.id,
-          'output': _serializeToolResult(tr.result),
+          'role': 'user',
+          'content': [
+            {'type': 'input_text', 'text': textBlocks.join('\n')},
+          ],
         });
+        continue;
       }
-      // Skip adding the original message parts (tool results handled above)
-      continue;
     }
 
     final role = switch (m.role) {
@@ -143,9 +215,11 @@ Map<String, dynamic> buildResponsesRequest(
   }).toList();
   if (toolDefs != null && toolDefs.isNotEmpty) request['tools'] = toolDefs;
 
-  // Typed output via native response_format
+  // Typed output via native Responses API text.format (response_format moved)
   final rf = _createResponseFormat(outputSchema);
-  if (rf != null) request['response_format'] = rf;
+  if (rf != null) {
+    request['text'] = {'format': rf};
+  }
 
   // Reasoning configuration (effort + summary)
   final effort = options?.reasoningEffort ?? defaultOptions.reasoningEffort;
@@ -191,8 +265,8 @@ Map<String, dynamic> buildResponsesRequest(
   );
 
   // Options merging (favor explicit args, then options, then defaults)
-  final mergedTemperature =
-      temperature ?? options?.temperature ?? defaultOptions.temperature;
+  // Temperature is not supported for some Responses models (e.g., gpt-5),
+  // and the API returns 400 when present. Omit it for maximum compatibility.
   final mergedTopP = options?.topP ?? defaultOptions.topP;
   final mergedMaxTokens = options?.maxTokens ?? defaultOptions.maxTokens;
   final mergedStop = options?.stop ?? defaultOptions.stop;
@@ -202,7 +276,7 @@ Map<String, dynamic> buildResponsesRequest(
   final mergedUser = options?.user ?? defaultOptions.user;
   final mergedToolChoice = options?.toolChoice ?? defaultOptions.toolChoice;
 
-  if (mergedTemperature != null) request['temperature'] = mergedTemperature;
+  // Intentionally not sending temperature in Responses API payload
   if (mergedTopP != null) request['top_p'] = mergedTopP;
   if (mergedMaxTokens != null) {
     // Include both fields for compatibility
@@ -226,16 +300,16 @@ Map<String, dynamic> buildResponsesRequest(
 /// Creates a native response_format from a JsonSchema, if provided.
 Map<String, dynamic>? _createResponseFormat(JsonSchema? outputSchema) {
   if (outputSchema == null) return null;
+  // For the Responses API, the format object expects the schema fields at the
+  // top level under text.format (not nested under json_schema)
   return {
     'type': 'json_schema',
-    'json_schema': {
-      'name': 'output_schema',
-      'description': 'Generated response following the provided schema',
-      'schema': _openaiStrictSchemaFrom(
-        Map<String, dynamic>.from(outputSchema.schemaMap ?? {}),
-      ),
-      'strict': true,
-    },
+    'name': 'output_schema',
+    'description': 'Generated response following the provided schema',
+    'schema': _openaiStrictSchemaFrom(
+      Map<String, dynamic>.from(outputSchema.schemaMap ?? {}),
+    ),
+    'strict': true,
   };
 }
 

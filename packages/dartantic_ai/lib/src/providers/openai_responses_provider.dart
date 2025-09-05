@@ -21,7 +21,7 @@ class OpenAIResponsesProvider
     super.name = 'openai-responses',
     super.displayName = 'OpenAI (Responses API)',
     super.defaultModelNames = const {
-      ModelKind.chat: 'gpt-5',
+      ModelKind.chat: 'gpt-4o',
       ModelKind.embeddings: 'text-embedding-3-small',
     },
     super.caps = const {
@@ -75,10 +75,11 @@ class OpenAIResponsesProvider
         maxTokens: options?.maxTokens,
         seed: options?.seed,
         stop: options?.stop,
-        parallelToolCalls: options?.parallelToolCalls,
+        // Encourage robust tool behavior by default
+        parallelToolCalls: options?.parallelToolCalls ?? true,
         responseFormat: options?.responseFormat,
         user: options?.user,
-        toolChoice: options?.toolChoice,
+        toolChoice: options?.toolChoice ?? 'auto',
         reasoningEffort: options?.reasoningEffort,
         reasoningSummary: options?.reasoningSummary,
       ),

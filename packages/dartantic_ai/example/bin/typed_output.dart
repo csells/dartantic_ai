@@ -9,7 +9,7 @@ import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
 void main() async {
-  final provider = Providers.openai;
+  final provider = Providers.openaiResponses;
   assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
   final agent = Agent.forProvider(
     provider,
@@ -29,7 +29,7 @@ void main() async {
 }
 
 Future<void> jsonOutput(Agent agent) async {
-  print('═══ ${agent.displayName} JSON Output ═══');
+  print('═══ ${agent.model} JSON Output ═══');
 
   final result = await agent.send(
     'What is the Windy City in the US of A?',
@@ -52,7 +52,7 @@ Future<void> jsonOutput(Agent agent) async {
 }
 
 Future<void> jsonOutputStreaming(Agent agent) async {
-  print('═══ ${agent.displayName} JSON Output Stream ═══');
+  print('═══ ${agent.model} JSON Output Stream ═══');
 
   final text = StringBuffer();
   final history = <ChatMessage>[];
@@ -84,7 +84,7 @@ Future<void> jsonOutputStreaming(Agent agent) async {
 }
 
 Future<void> mapOutput(Agent agent) async {
-  print('═══ ${agent.displayName} Map Output ═══');
+  print('═══ ${agent.model} Map Output ═══');
 
   final result = await agent.sendFor<Map<String, dynamic>>(
     'What is the Windy City in the US of A?',
@@ -106,7 +106,7 @@ Future<void> mapOutput(Agent agent) async {
 }
 
 Future<void> typedOutput(Agent agent) async {
-  print('═══ ${agent.displayName} Typed Output ═══');
+  print('═══ ${agent.model} Typed Output ═══');
 
   final result = await agent.sendFor<TownAndCountry>(
     'What is the Windy City in the US of A?',
@@ -132,7 +132,7 @@ Future<void> typedOutput(Agent agent) async {
 Future<void> typedOutputWithCodeGen(Agent agent) async {
   print(
     '═══ '
-    '${agent.displayName} Typed Output with Code Gen (fromJson + schema) '
+    '${agent.model} Typed Output with Code Gen (fromJson + schema) '
     '═══',
   );
 
@@ -150,7 +150,7 @@ Future<void> typedOutputWithCodeGen(Agent agent) async {
 }
 
 Future<void> typedOutputWithToolCalls(Agent agent) async {
-  print('═══ ${agent.displayName} Typed Output with Tool Calls ═══');
+  print('═══ ${agent.model} Typed Output with Tool Calls ═══');
 
   final result = await agent.sendFor<TimeAndTemperature>(
     'What is the time and temperature in Portland, OR?',
@@ -170,7 +170,7 @@ Future<void> typedOutputWithToolCallsAndMultipleTurns(Provider provider) async {
 
   print(
     '═══ '
-    '${agent.displayName} Typed Output with Tool Calls and Multiple Turns '
+    '${agent.model} Typed Output with Tool Calls and Multiple Turns '
     '═══',
   );
 
@@ -231,7 +231,7 @@ Future<void> typedOutputWithToolCallsAndMultipleTurnsStreaming(
 
   print(
     '═══ '
-    '${agent.displayName} Typed Output with Tool Calls and Multiple Turns '
+    '${agent.model} Typed Output with Tool Calls and Multiple Turns '
     'Stream '
     '═══',
   );

@@ -44,7 +44,10 @@ void main() async {
 
   // Step 3: Use OpenAI with tools
   print('═══ Step 3: OpenAI with Tools ═══');
-  final openai = Agent('openai', tools: [weatherTool, temperatureTool]);
+  final openai = Agent(
+    'openai-responses',
+    tools: [weatherTool, temperatureTool],
+  );
   final result3 = await openai.send(
     'Can you check the weather where I live?',
     history: history,

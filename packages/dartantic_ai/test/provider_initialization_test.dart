@@ -91,7 +91,7 @@ void main() {
 
       // Now access all providers - this triggers initialization of all
       final allProviders = Providers.all;
-      expect(allProviders.length, equals(11));
+      expect(allProviders.length, equals(12));
 
       // Verify we can still use a specific provider
       expect(() => Agent('anthropic:claude-3-5-sonnet'), returnsNormally);

@@ -46,7 +46,8 @@ void main() {
 
   // Helper to get vision-capable model name for vision-only providers
   String getVisionModelName(Provider provider) => switch (provider.name) {
-    'together' => 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
+    // Use provider default for Together; default is vision-capable
+    'together' => '',
     'lambda' => 'llama3.2-11b-vision-instruct',
     'ollama' => 'llava:7b',
     'ollama-openai' => 'llava:7b',
@@ -94,7 +95,10 @@ void main() {
     for (final provider in providers) {
       // Use vision-specific model for vision-only providers
       final modelName = getVisionModelName(provider);
-      final agent = Agent('${provider.name}:$modelName');
+      // If no explicit model is returned, rely on provider default
+      final agent = modelName.isEmpty
+          ? Agent(provider.name)
+          : Agent('${provider.name}:$modelName');
 
       test('${agent.model}: $description', () async {
         await testFunction(provider, agent);
@@ -110,10 +114,8 @@ void main() {
       ) async {
         // Debug: verify correct model is being used for Together
         if (provider.name == 'together') {
-          expect(
-            agent.model,
-            contains('meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'),
-          );
+          // Using provider default model; should be a vision-capable model
+          expect(agent.model, contains('Qwen/Qwen2.5-VL-'));
         }
 
         // Use the pre-loaded test image
@@ -283,10 +285,7 @@ void main() {
       ) async {
         // Debug: verify correct model is being used
         if (provider.name == 'together') {
-          expect(
-            agent.model,
-            contains('meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'),
-          );
+          expect(agent.model, contains('Qwen/Qwen2.5-VL-'));
         }
 
         // Use the pre-loaded test image

@@ -7,7 +7,7 @@ import 'package:example/src/dump_stuff.dart';
 void main() async {
   // enable thinking output
   final agent = Agent(
-    'openai-responses',
+    'openai-responses:gpt-5',
     chatModelOptions: const OpenAIResponsesChatOptions(
       reasoningSummary: OpenAIReasoningSummary.detailed,
     ),

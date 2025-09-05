@@ -182,13 +182,13 @@ class Agent {
         finalOutput += result.output;
       }
       allNewMessages.addAll(result.messages);
-      
+
       // Accumulate thinking metadata across all chunks
       final thinkingMeta = result.metadata['thinking'];
       if (thinkingMeta is String && thinkingMeta.isNotEmpty) {
         accumulatedThinking.write(thinkingMeta);
       }
-      
+
       finalResult = result;
     }
 
@@ -197,7 +197,6 @@ class Agent {
     if (accumulatedThinking.isNotEmpty) {
       finalMetadata['thinking'] = accumulatedThinking.toString();
     }
-    
 
     // Return final result with all accumulated messages and thinking
     finalResult = ChatResult<String>(

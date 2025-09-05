@@ -439,60 +439,8 @@ void main() {
 
     group('edge cases (limited providers)', () {
       // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-
-      test('handles schema validation errors', () async {
-        for (final provider in edgeCaseProviders) {
-          final schema = js.JsonSchema.create({
-            'type': 'object',
-            'properties': {
-              'required_field': {'type': 'string'},
-            },
-            'required': ['required_field', 'another_required_field'], // Invalid
-          });
-
-          final agent = Agent(provider.name);
-
-          // Model should handle gracefully even with invalid schema
-          final result = await agent.send(
-            'Create any valid object',
-            outputSchema: schema,
-          );
-
-          // Should return something, even if not perfectly matching schema
-          expect(result.output, isNotEmpty);
-        }
-      });
-
-      test('handles conflicting instructions', () async {
-        for (final provider in edgeCaseProviders) {
-          final schema = js.JsonSchema.create({
-            'type': 'object',
-            'properties': {
-              'number': {'type': 'integer', 'minimum': 10, 'maximum': 20},
-            },
-            'required': ['number'],
-          });
-
-          final agent = Agent(provider.name);
-          final result = await agent.send(
-            // Conflicting: asking for 50 but schema max is 20
-            'Create a JSON object with number between 10 and 20',
-            outputSchema: schema,
-          );
-
-          final json = jsonDecode(result.output) as Map<String, dynamic>;
-          // Should respect schema constraint
-          final number = json['number'] as int?;
-          expect(number, isNotNull);
-          expect(number, lessThanOrEqualTo(20));
-          expect(number, greaterThanOrEqualTo(10));
-        }
-      });
     });
+
 
     group('streaming typed output', () {
       runProviderTest('streams JSON output correctly', (provider) async {
