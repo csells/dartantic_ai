@@ -32,6 +32,8 @@ class OpenAIResponsesProvider
       ProviderCaps.typedOutputWithTools,
       ProviderCaps.vision,
       ProviderCaps.thinking,
+      ProviderCaps.serverSideTools,
+      ProviderCaps.promptCaching,
     },
     super.baseUrl,
     super.apiKeyName = 'OPENAI_API_KEY',
@@ -82,6 +84,12 @@ class OpenAIResponsesProvider
         toolChoice: options?.toolChoice ?? 'auto',
         reasoningEffort: options?.reasoningEffort,
         reasoningSummary: options?.reasoningSummary,
+        // Server-side tools and per-tool configs
+        serverSideTools: options?.serverSideTools,
+        fileSearchConfig: options?.fileSearchConfig,
+        webSearchConfig: options?.webSearchConfig,
+        // Prompt caching configuration
+        cacheConfig: options?.cacheConfig,
       ),
     );
   }

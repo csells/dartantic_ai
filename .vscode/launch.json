@@ -80,6 +80,12 @@
       "program": "packages/dartantic_ai/example/bin/provider_models.dart"
     },
     {
+      "name": "server_side_tools",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools.dart"
+    },
+    {
       "name": "single_tool_call",
       "request": "launch",
       "type": "dart",

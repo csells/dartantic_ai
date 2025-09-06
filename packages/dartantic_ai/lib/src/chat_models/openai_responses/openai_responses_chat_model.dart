@@ -13,6 +13,7 @@ import '../openai_chat/openai_message_mappers.dart'
     show createCompleteMessageWithTools;
 import '../openai_chat/openai_message_mappers_helpers.dart'
     show StreamingToolCall;
+import 'openai_responses_cache_config.dart';
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_message_mappers.dart';
 
@@ -124,6 +125,21 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         : url;
 
     final request = http.Request('POST', effectiveUrl);
+    // Apply cache headers from options if enabled
+    final cacheCfg = options?.cacheConfig ?? defaultOptions.cacheConfig;
+    final extraHeaders = <String, String>{};
+    if (cacheCfg != null && cacheCfg.enabled) {
+      if (cacheCfg.sessionId != null && cacheCfg.sessionId!.isNotEmpty) {
+        extraHeaders['X-OpenAI-Session-ID'] = cacheCfg.sessionId!;
+      }
+      if (cacheCfg.cacheControl != null) {
+        extraHeaders['Cache-Control'] = cacheCfg.cacheControl!.headerValue;
+      }
+      if (cacheCfg.ttlSeconds > 0) {
+        extraHeaders['X-OpenAI-Cache-TTL'] = cacheCfg.ttlSeconds.toString();
+      }
+    }
+
     request.headers.addAll({
       if (_apiKey != null && _apiKey.isNotEmpty)
         'Authorization': 'Bearer $_apiKey',
@@ -131,6 +147,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
       'Accept': 'text/event-stream',
       // Required beta header for Responses API
       'OpenAI-Beta': 'responses=v1',
+      ...extraHeaders,
       ...?_headers,
     });
 
@@ -163,6 +180,32 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         throw Exception(
           'OpenAI Responses error: HTTP ${streamedResponse.statusCode}: $body',
         );
+      }
+
+      // Cache metrics from response headers
+      bool? cacheHit;
+      if (cacheCfg != null && cacheCfg.enabled && cacheCfg.trackMetrics) {
+        final hdr = streamedResponse.headers['x-openai-cache-hit'];
+        if (hdr != null) {
+          cacheHit = hdr.toLowerCase() == 'true' || hdr == '1';
+          _logger.info('OpenAI Responses cache hit: $cacheHit');
+          // attach to current lastResult metadata
+          lastResult = ChatResult<ChatMessage>(
+            output: lastResult.output,
+            messages: lastResult.messages,
+            finishReason: lastResult.finishReason,
+            metadata: {
+              ...lastResult.metadata,
+              'cache': {
+                'hit': cacheHit,
+                if (cacheCfg.sessionId != null) 'session': cacheCfg.sessionId,
+                if (cacheCfg.ttlSeconds > 0) 'ttl': cacheCfg.ttlSeconds,
+              },
+            },
+            usage: lastResult.usage,
+          );
+          yield lastResult;
+        }
       }
 
       String? currentEvent;
@@ -351,7 +394,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 reasoningDeltaBuffer.clear();
               }
             } else if (currentEvent == 'response.output_image.delta' ||
-                currentEvent == 'response.output_audio.delta') {
+                currentEvent == 'response.output_audio.delta' ||
+                currentEvent == 'response.image_generation.delta') {
               // Handle media deltas. Support either URL or base64 chunk forms.
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
               final delta = data['delta'];
@@ -392,12 +436,40 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   usage: lastResult.usage,
                 );
                 yield lastResult;
+                // Also emit metadata-only hint for image_generation delta
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    'image_generation': {'stage': 'delta', 'data': data},
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
               } else if (itemId.isNotEmpty &&
                   (mediaBase64[itemId]?.isNotEmpty ?? false)) {
                 // Defer emission until completion event; keep accumulating
                 if (mimeType != null && mimeType.isNotEmpty) {
                   mediaMime[itemId] = mimeType;
                 }
+                // Emit metadata for delta accumulation
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    'image_generation': {'stage': 'delta', 'data': data},
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
               }
             } else if (currentEvent == 'response.output_item.completed') {
               // Finalize any buffered media for this item
@@ -436,6 +508,78 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaMime.remove(itemId);
                 }
               }
+            } else if (currentEvent == 'response.image_generation.completed') {
+              // Finalize buffered image_generation media if any
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64 = mediaBase64[itemId]!.toString();
+                  final bytes = base64.decode(b64);
+                  final mimeType = mediaMime[itemId] ?? 'image/png';
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  final streamingMetadata = <String, dynamic>{};
+                  if (responseId != null) {
+                    streamingMetadata['response_id'] = responseId;
+                  }
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: streamingMetadata,
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // ignore
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
+              }
+              // Emit completion metadata regardless
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  'image_generation': {
+                    'stage': 'completed',
+                    'data': data,
+                  },
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+            } else if (currentEvent.startsWith('response.') &&
+                currentEvent.contains('_call.')) {
+              // Map built-in tool call lifecycle events, e.g.:
+              // response.web_search_call.in_progress/searching/completed
+              final afterPrefix = currentEvent.substring('response.'.length);
+              final toolName = afterPrefix.split('_call').first; // web_search
+              final stage = afterPrefix.contains('.')
+                  ? afterPrefix.split('.').last
+                  : 'in_progress';
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  toolName: {'stage': stage, 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
             } else if (currentEvent == 'response.completed') {
               // Do not emit consolidated text here to avoid duplication.
               // Orchestrator will consolidate state.accumulatedMessage.
@@ -558,7 +702,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 continue; // handled immediately
               }
             } else if (currentEvent == 'response.output_image.delta' ||
-                currentEvent == 'response.output_audio.delta') {
+                currentEvent == 'response.output_audio.delta' ||
+                currentEvent == 'response.image_generation.delta') {
               // Allow immediate handling similar to text if URL present
               final data = json.decode(dataLine) as Map<String, dynamic>;
               final delta = data['delta'];
@@ -580,16 +725,86 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                     usage: lastResult.usage,
                   );
                   yield lastResult;
+                  // Metadata hint for image_generation delta
+                  lastResult = ChatResult<ChatMessage>(
+                    output: const ChatMessage(
+                      role: ChatMessageRole.model,
+                      parts: [],
+                    ),
+                    messages: const [],
+                    finishReason: FinishReason.unspecified,
+                    metadata: {
+                      'image_generation': {'stage': 'delta', 'data': data},
+                    },
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
                   continue; // handled immediately
                 }
                 final b64 = (delta['data'] ?? delta['b64'] ?? '').toString();
                 if (b64.isNotEmpty && itemId.isNotEmpty) {
                   (mediaBase64[itemId] ??= StringBuffer()).write(b64);
                   if (mt != null && mt.isNotEmpty) mediaMime[itemId] = mt;
+                  // Metadata hint for accumulation delta
+                  lastResult = ChatResult<ChatMessage>(
+                    output: const ChatMessage(
+                      role: ChatMessageRole.model,
+                      parts: [],
+                    ),
+                    messages: const [],
+                    finishReason: FinishReason.unspecified,
+                    metadata: {
+                      'image_generation': {'stage': 'delta', 'data': data},
+                    },
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
                 }
               } else if (delta is String && itemId.isNotEmpty) {
                 (mediaBase64[itemId] ??= StringBuffer()).write(delta);
               }
+            } else if (currentEvent == 'response.web_search.started' ||
+                currentEvent == 'response.file_search.started' ||
+                currentEvent == 'response.computer_use.started' ||
+                currentEvent == 'response.code_interpreter.started') {
+              final parts = currentEvent!.split('.');
+              final t = parts.length > 1 ? parts[1] : 'tool';
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  t: {'stage': 'started', 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+              continue;
+            } else if (currentEvent == 'response.web_search.result' ||
+                currentEvent == 'response.file_search.result' ||
+                currentEvent == 'response.computer_use.action' ||
+                currentEvent == 'response.computer_use.result' ||
+                currentEvent == 'response.code_interpreter.output') {
+              final parts = currentEvent!.split('.');
+              final t = parts.length > 1 ? parts[1] : 'tool';
+              final stage = parts.length > 2 ? parts[2] : 'data';
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  t: {'stage': stage, 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+              continue;
             }
 
             // For other events (e.g., tool_call deltas), fall back to
@@ -748,7 +963,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 reasoningDeltaBuffer.clear();
               }
             } else if (currentEvent == 'response.output_image.delta' ||
-                currentEvent == 'response.output_audio.delta') {
+                currentEvent == 'response.output_audio.delta' ||
+                currentEvent == 'response.image_generation.delta') {
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
               final delta = data['delta'];
               String? url;
@@ -784,6 +1000,68 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mimeType.isNotEmpty) {
                 mediaMime[itemId] = mimeType;
               }
+            } else if (currentEvent == 'response.image_generation.completed') {
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64 = mediaBase64[itemId]!.toString();
+                  final bytes = base64.decode(b64);
+                  final mimeType = mediaMime[itemId] ?? 'image/png';
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: const {},
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // Ignore
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
+              }
+              // Emit completion metadata
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  'image_generation': {'stage': 'completed', 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+            } else if (currentEvent.startsWith('response.') &&
+                currentEvent.contains('_call.')) {
+              final afterPrefix = currentEvent.substring('response.'.length);
+              final tool = afterPrefix.split('_call').first;
+              final stage = afterPrefix.contains('.')
+                  ? afterPrefix.split('.').last
+                  : 'in_progress';
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  tool: {'stage': stage, 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
             } else if (currentEvent == 'response.output_item.completed') {
               final item = data['item'] as Map<String, dynamic>?;
               final itemId = (item?['id'] ?? data['item_id'] ?? '').toString();
@@ -815,6 +1093,24 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaBase64.remove(itemId);
                   mediaMime.remove(itemId);
                 }
+              }
+              // Also surface completion for built-in calls via item.type
+              final itemType = item?['type']?.toString() ?? '';
+              if (itemType.endsWith('_call')) {
+                final tool = itemType.replaceAll('_call', '');
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    tool: {'stage': 'completed', 'data': data},
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
               }
             } else if (currentEvent == 'response.created') {
               // Capture response ID from response.created event

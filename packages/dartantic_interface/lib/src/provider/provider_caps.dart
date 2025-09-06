@@ -29,4 +29,10 @@ enum ProviderCaps {
   /// included as visible content parts and is never sent back to providers
   /// via history.
   thinking,
+
+  /// The provider supports enabling built-in tools exposed by the API.
+  serverSideTools,
+
+  /// The provider supports session-based prompt caching.
+  promptCaching,
 }

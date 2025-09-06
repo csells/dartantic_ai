@@ -61,6 +61,10 @@
           "href": "/tool-calling"
         },
         {
+          "title": "Server-Side Tools",
+          "href": "/server-side-tools"
+        },
+        {
           "title": "System Messages",
           "href": "/system-messages"
         },

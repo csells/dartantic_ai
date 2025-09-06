@@ -4,6 +4,7 @@ description: >
   server-side apps in Dart with generative AI easier and more fun!
 version: 1.0.8
 repository: https://github.com/csells/dartantic_ai
+publish_to: none # TODO: remove
 
 environment:
   sdk: ^3.8.0
@@ -11,7 +12,9 @@ environment:
 dependencies:
   anthropic_sdk_dart: ^0.2.2
   collection: ^1.19.1
-  dartantic_interface: ^1.0.4
+  # dartantic_interface: ^1.0.4
+  dartantic_interface:
+    path: ../dartantic_interface
   google_generative_ai: ^0.4.7
   html: ^0.15.6
   http: ^1.4.0

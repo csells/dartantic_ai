@@ -1,0 +1,73 @@
+---
+title: Server-Side Tools
+description: Enable and observe provider-native tools (e.g., OpenAI Responses built-ins) with a single switch.
+---
+
+Server-side tools are capabilities executed by the provider (not your app). Examples include web search, file/document search, browser/desktop control, image generation, and code interpreter. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
+
+Key benefits
+
+- Zero hosting: No code to run or maintain for these tools.
+- Lower latency: Single round-trip; results stream as they’re produced.
+- Rich signals: Structured SSE events and media deltas.
+
+Enable server-side tools (OpenAI Responses)
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.webSearch, OpenAIServerSideTool.imageGeneration},
+  ),
+);
+```
+
+Observing usage in metadata
+
+When tools are used, the stream carries metadata-only events so you can drive UI, telemetry, or governance without interfering with the model flow.
+
+```dart
+await for (final chunk in agent.sendStream('What happened at WWDC 2024?')) {
+  if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+  // Optional observability hooks
+  final web = chunk.metadata['web_search'];
+  if (web != null) {
+    // { stage: 'started'|'result', data: {...} }
+    print('\n(web_search) ${web['stage']}: ${web['data']}');
+  }
+
+  final ci = chunk.metadata['code_interpreter'];
+  if (ci != null) {
+    print('\n(code_interpreter) ${ci['stage']}: ${ci['data']}');
+  }
+}
+```
+
+Provider note (OpenAI Responses)
+
+- These map directly to OpenAI’s built-ins (web_search, file_search, computer_use, image_generation, code_interpreter).
+- Image generation may stream URLs or base64 media; the example prints text while media arrives as `LinkPart` or `DataPart`.
+
+Advanced configuration
+
+- For provider-specific tuning (e.g., file/web search filters), supply per-tool config on `OpenAIResponsesChatOptions`.
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: const {OpenAIServerSideTool.webSearch},
+    webSearchConfig: const WebSearchConfig(
+      siteFilter: 'site:developer.apple.com',
+    ),
+  ),
+);
+```
+
+Why not callbacks?
+
+Server-side tools are already executed by the provider and feed the model directly. Callbacks are not required for model quality. Metadata is exposed purely for product UX, analytics, and compliance.

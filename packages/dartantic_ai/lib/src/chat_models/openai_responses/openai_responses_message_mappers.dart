@@ -5,7 +5,9 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import '../../agent/tool_constants.dart';
+import 'openai_responses_built_in_tools.dart';
 import 'openai_responses_chat_options.dart';
+import 'openai_responses_model_config.dart';
 
 /// Builds a request payload for the OpenAI Responses API from unified messages.
 Map<String, dynamic> buildResponsesRequest(
@@ -206,18 +208,47 @@ Map<String, dynamic> buildResponsesRequest(
   if (input.isNotEmpty) request['input'] = input;
 
   // Tools mapping (filter out return_result - native typed output supported)
-  final toolDefs = tools?.where((t) => t.name != kReturnResultToolName).map((
-    tool,
-  ) {
-    final originalSchema = tool.inputSchema.schemaMap ?? {};
-    return {
-      'type': 'function',
-      'name': tool.name,
-      'description': tool.description,
-      'parameters': originalSchema,
-    };
-  }).toList();
-  if (toolDefs != null && toolDefs.isNotEmpty) request['tools'] = toolDefs;
+  final toolDefs = <Map<String, dynamic>>[
+    // User-defined function tools
+    ...?tools?.where((t) => t.name != kReturnResultToolName).map((tool) {
+      final originalSchema = tool.inputSchema.schemaMap ?? {};
+      // Responses API expects function details nested under 'function'
+      return {
+        'type': 'function',
+        'function': {
+          'name': tool.name,
+          if (tool.description.isNotEmpty) 'description': tool.description,
+          'parameters': originalSchema,
+        },
+      };
+    }),
+  ];
+
+  // Server-side built-in tools (Responses-specific)
+  final enabledBuiltIns = <OpenAIServerSideTool>{
+    ...?defaultOptions.serverSideTools,
+    ...?options?.serverSideTools,
+  };
+
+  if (enabledBuiltIns.isNotEmpty) {
+    // Merge per-tool configs (options override defaults)
+    final fsCfg = options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
+    final wsCfg = options?.webSearchConfig ?? defaultOptions.webSearchConfig;
+
+    for (final t in enabledBuiltIns) {
+      // Built-ins should not include a 'name' property per Responses API
+      final tool = <String, dynamic>{'type': t.apiName};
+      if (t == OpenAIServerSideTool.fileSearch && fsCfg != null) {
+        tool['config'] = fsCfg.toRequestJson();
+      }
+      if (t == OpenAIServerSideTool.webSearch && wsCfg != null) {
+        tool['config'] = wsCfg.toRequestJson();
+      }
+      toolDefs.add(tool);
+    }
+  }
+
+  if (toolDefs.isNotEmpty) request['tools'] = toolDefs;
 
   // Typed output via native Responses API text.format (response_format moved)
   final rf = _createResponseFormat(outputSchema);
@@ -269,8 +300,6 @@ Map<String, dynamic> buildResponsesRequest(
   );
 
   // Options merging (favor explicit args, then options, then defaults)
-  // Temperature is not supported for some Responses models (e.g., gpt-5),
-  // and the API returns 400 when present. Omit it for maximum compatibility.
   final mergedTopP = options?.topP ?? defaultOptions.topP;
   final mergedMaxTokens = options?.maxTokens ?? defaultOptions.maxTokens;
   final mergedStop = options?.stop ?? defaultOptions.stop;
@@ -279,8 +308,17 @@ Map<String, dynamic> buildResponsesRequest(
       options?.parallelToolCalls ?? defaultOptions.parallelToolCalls;
   final mergedUser = options?.user ?? defaultOptions.user;
   final mergedToolChoice = options?.toolChoice ?? defaultOptions.toolChoice;
+  final mergedTemperature =
+      temperature ?? options?.temperature ?? defaultOptions.temperature;
 
-  // Intentionally not sending temperature in Responses API payload
+  // Model-aware temperature inclusion
+  if (mergedTemperature != null &&
+      OpenAIResponsesModelConfig.supportsTemperature(modelName)) {
+    request['temperature'] = mergedTemperature;
+  } else if (mergedTemperature != null) {
+    logger.fine('Model $modelName does not support temperature, omitting');
+  }
+
   if (mergedTopP != null) request['top_p'] = mergedTopP;
   if (mergedMaxTokens != null) {
     // Include both fields for compatibility

@@ -1,6 +1,9 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
+import 'openai_responses_built_in_tools.dart';
+import 'openai_responses_cache_config.dart';
+
 /// Generation options for the OpenAI Responses API chat model.
 @immutable
 class OpenAIResponsesChatOptions extends ChatModelOptions {
@@ -17,6 +20,10 @@ class OpenAIResponsesChatOptions extends ChatModelOptions {
     this.toolChoice,
     this.reasoningEffort,
     this.reasoningSummary,
+    this.serverSideTools,
+    this.fileSearchConfig,
+    this.webSearchConfig,
+    this.cacheConfig,
   });
 
   /// The maximum number of tokens to generate in the response.
@@ -53,6 +60,22 @@ class OpenAIResponsesChatOptions extends ChatModelOptions {
   /// Preferred reasoning summary exposure (where supported by Responses API).
   /// When set, providers may stream a reasoning summary channel.
   final OpenAIReasoningSummary? reasoningSummary;
+
+  /// OpenAI Responses server-side tools to enable (e.g., webSearch,
+  /// fileSearch).
+  ///
+  /// Provider-specific, akin to reasoning configuration. When supplied, these
+  /// are mapped to native built-ins in the Responses API request.
+  final Set<OpenAIServerSideTool>? serverSideTools;
+
+  /// Optional configuration for file_search.
+  final FileSearchConfig? fileSearchConfig;
+
+  /// Optional configuration for web_search.
+  final WebSearchConfig? webSearchConfig;
+
+  /// Prompt caching configuration.
+  final OpenAICacheConfig? cacheConfig;
 }
 
 /// Reasoning effort levels for OpenAI Responses models that support thinking.
