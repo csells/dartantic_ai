@@ -56,8 +56,9 @@ Request payload:
 
 SSE handling:
 
-- Recognize built-in events (e.g., `response.web_search.started`, `response.web_search.result`, `response.code_interpreter.output`, `response.image_generation.delta/completed`).
+- Recognize built-in events (e.g., `response.web_search_call.in_progress`, `response.web_search_call.searching`, `response.web_search_call.completed`, `response.code_interpreter.output`, `response.image_generation_call.partial_image`, `response.image_generation_call.completed`).
 - Emit metadata-only `ChatResult` slices for non-text events; stream media via parts where appropriate.
+- Image generation: `partial_image_b64` data is accumulated and emitted as `DataPart` on completion.
 
 ## Compatibility with Function Tools
 

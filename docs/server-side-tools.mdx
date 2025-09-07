@@ -29,27 +29,41 @@ Observing usage in metadata
 When tools are used, the stream carries metadata-only events so you can drive UI, telemetry, or governance without interfering with the model flow.
 
 ```dart
-await for (final chunk in agent.sendStream('What happened at WWDC 2024?')) {
+await for (final chunk in agent.sendStream('Search for recent news')) {
   if (chunk.output.isNotEmpty) stdout.write(chunk.output);
 
-  // Optional observability hooks
+  // Optional observability hooks - metadata is automatically truncated for display
   final web = chunk.metadata['web_search'];
   if (web != null) {
-    // { stage: 'started'|'result', data: {...} }
-    print('\n(web_search) ${web['stage']}: ${web['data']}');
+    // { stage: 'in_progress'|'searching'|'completed', data: {...} }
+    print('\n[web_search/${web['stage']}] ${web['data']}');
   }
 
-  final ci = chunk.metadata['code_interpreter'];
-  if (ci != null) {
-    print('\n(code_interpreter) ${ci['stage']}: ${ci['data']}');
+  final ig = chunk.metadata['image_generation'];
+  if (ig != null) {
+    // { stage: 'in_progress'|'generating'|'partial_image'|'completed', data: {...} }
+    print('\n[image_generation/${ig['stage']}] ${ig['data']}');
+  }
+
+  // Image data comes through as DataPart or LinkPart
+  for (final msg in chunk.messages) {
+    for (final part in msg.parts) {
+      if (part is DataPart && part.mimeType.startsWith('image/')) {
+        // Handle image bytes
+        print('Received image: ${part.bytes.length} bytes');
+      } else if (part is LinkPart) {
+        print('Image URL: ${part.url}');
+      }
+    }
   }
 }
 ```
 
 Provider note (OpenAI Responses)
 
-- These map directly to OpenAI’s built-ins (web_search, file_search, computer_use, image_generation, code_interpreter).
-- Image generation may stream URLs or base64 media; the example prints text while media arrives as `LinkPart` or `DataPart`.
+- These map directly to OpenAI's built-ins (web_search, file_search, computer_use, image_generation, code_interpreter).
+- Image generation streams `partial_image_b64` data which is accumulated and emitted as `DataPart` on completion.
+- Web search doesn't include the search query in metadata - the provider handles the search internally.
 
 Advanced configuration
 
