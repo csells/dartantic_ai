@@ -1030,6 +1030,52 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
                 continue;
+              } else if (itemData != null &&
+                  itemData is Map &&
+                  itemData['type'] == 'message') {
+                // Handle message items that may contain annotations
+                final content = itemData['content'];
+                if (content is List) {
+                  for (final part in content) {
+                    if (part is Map) {
+                      final annotations = part['annotations'];
+                      if (annotations is List && annotations.isNotEmpty) {
+                        // Extract file citations from annotations
+                        final fileCitations = <Map<String, dynamic>>[];
+                        for (final ann in annotations) {
+                          if (ann is Map && 
+                              ann['type'] == 'container_file_citation') {
+                            fileCitations.add({
+                              'container_id': ann['container_id'],
+                              'file_id': ann['file_id'],
+                              'filename': ann['filename'],
+                            });
+                          }
+                        }
+                        if (fileCitations.isNotEmpty) {
+                          lastResult = ChatResult<ChatMessage>(
+                            output: const ChatMessage(
+                              role: ChatMessageRole.model,
+                              parts: [],
+                            ),
+                            messages: const [],
+                            finishReason: FinishReason.unspecified,
+                            metadata: {
+                              'code_interpreter': {
+                                'stage': 'files_generated',
+                                'data': {
+                                  'files': fileCitations,
+                                },
+                              },
+                            },
+                            usage: lastResult.usage,
+                          );
+                          yield lastResult;
+                        }
+                      }
+                    }
+                  }
+                }
               }
             } else if (currentEvent == 'response.web_search.result' ||
                 currentEvent == 'response.file_search.result' ||

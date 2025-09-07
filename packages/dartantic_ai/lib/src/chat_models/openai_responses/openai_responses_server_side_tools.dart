@@ -70,15 +70,34 @@ class WebSearchConfig {
 @immutable
 class CodeInterpreterConfig {
   /// Creates a new configuration instance for the code interpreter tool.
-  const CodeInterpreterConfig({this.files});
+  const CodeInterpreterConfig({
+    this.containerId,
+    this.files,
+  });
+
+  /// Explicit container ID to reuse from a previous code_interpreter session.
+  /// If not provided, uses 'auto' to create a new container or reuse an
+  /// active one.
+  final String? containerId;
 
   /// List of file IDs available to the code interpreter.
   /// Files must be uploaded through OpenAI's Files API first.
   final List<String>? files;
 
   /// Converts the configuration to a request JSON object.
-  Map<String, dynamic> toRequestJson() => {
-    'type': 'auto',
-    if (files != null && files!.isNotEmpty) 'files': files,
-  };
+  Map<String, dynamic> toRequestJson() {
+    if (containerId != null && containerId!.isNotEmpty) {
+      // Use explicit container ID
+      return {
+        'id': containerId,
+        if (files != null && files!.isNotEmpty) 'files': files,
+      };
+    } else {
+      // Use auto mode
+      return {
+        'type': 'auto',
+        if (files != null && files!.isNotEmpty) 'files': files,
+      };
+    }
+  }
 }

@@ -239,64 +239,149 @@ Future<void> demoComputerUse() async {
   print('It may not be available in all environments.');
 }
 
-/// Demonstrates code interpreter capabilities
+/// Demonstrates code interpreter capabilities with container reuse
 Future<void> demoCodeInterpreter() async {
-  print('🐍 Code Interpreter Demo\n');
-  print('This demo executes Python code to solve mathematical problems.\n');
+  print('🐍 Code Interpreter Demo with Container Reuse\n');
+  print('This demo shows how to reuse containers across sessions.\n');
 
-  final agent = Agent(
+  // First session: Calculate Fibonacci numbers and store in container
+  print('=== Session 1: Calculate Fibonacci Numbers ===\n');
+  
+  final agent1 = Agent(
     'openai-responses',
     chatModelOptions: const OpenAIResponsesChatOptions(
       serverSideTools: {OpenAIServerSideTool.codeInterpreter},
     ),
   );
 
-  const prompt =
-      'Calculate the first 10 Fibonacci numbers and plot them in a graph. '
-      'Also find the golden ratio from the sequence.';
+  const prompt1 =
+      'Calculate the first 10 Fibonacci numbers and store them in a variable '
+      'called "fib_sequence". Also create a simple plot of these numbers.';
 
-  print('Prompt: $prompt\n');
+  print('Prompt: $prompt1\n');
   print('Response:\n');
 
-  await for (final chunk in agent.sendStream(prompt)) {
+  String? capturedContainerId;
+  final messages = <ChatMessage>[];
+
+  await for (final chunk in agent1.sendStream(prompt1)) {
+    // Collect messages for history
+    messages.addAll(chunk.messages);
+    
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
 
-    // Show code interpreter metadata
+    // Capture and show code interpreter metadata
     final ci = chunk.metadata['code_interpreter'];
     if (ci != null) {
       final stage = ci['stage'] as String?;
-      if (stage != null) {
+      if (stage != null && stage != 'code_delta') {
         stdout.writeln('\n[code_interpreter/$stage]');
 
         final data = ci['data'];
         if (data is Map) {
-          // Show code being executed
-          if (data['code'] != null) {
-            stdout.writeln('  Code:');
-            final codeLines = data['code'].toString().split('\n');
-            for (final line in codeLines.take(5)) {
-              stdout.writeln('    $line');
-            }
-            if (codeLines.length > 5) {
-              stdout.writeln('    ... (${codeLines.length - 5} more lines)');
-            }
-          }
-
-          // Show container ID
+          // Capture container ID for reuse
           if (data['container_id'] != null) {
-            stdout.writeln('  Container: ${data['container_id']}');
+            capturedContainerId = data['container_id'] as String;
+            stdout.writeln('  📦 Container: $capturedContainerId');
           }
 
-          // Show output
-          if (data['output'] != null) {
-            stdout.writeln(
-              '  Output: ${truncateValue(data['output'], maxLength: 200)}',
-            );
+          // Show code (abbreviated)
+          if (data['code'] != null && stage == 'completed') {
+            stdout.writeln('  Code executed successfully');
+          }
+          
+          // Show generated files
+          if (data['files'] != null && data['files'] is List) {
+            final files = data['files'] as List;
+            stdout.writeln('  📊 Generated ${files.length} file(s)');
           }
         }
       }
     }
   }
-  print('\n');
+  
+  print('\n\n');
+  
+  // Check if we captured a container ID
+  if (capturedContainerId == null) {
+    print('❌ Failed to capture container ID from first session');
+    return;
+  }
+  
+  print('✅ Captured container ID: $capturedContainerId\n');
+  print('=== Session 2: Reuse Container for Golden Ratio ===\n');
+  
+  // Second session: Reuse the container with the stored data
+  print('🔄 Attempting to reuse container: $capturedContainerId\n');
+  
+  final agent2 = Agent(
+    'openai-responses',
+    chatModelOptions: OpenAIResponsesChatOptions(
+      serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+      codeInterpreterConfig: CodeInterpreterConfig(
+        containerId: capturedContainerId, // Reuse the container!
+      ),
+    ),
+  );
+
+  const prompt2 =
+      'Using the fib_sequence variable we created earlier, '
+      'calculate the golden ratio by dividing consecutive terms. '
+      'Show how the ratio converges to the golden ratio (1.618...).';
+
+  print('Prompt: $prompt2\n');
+  print('Response:\n');
+
+  await for (final chunk in agent2.sendStream(
+    prompt2,
+    history: messages, // Pass conversation history here
+  )) {
+    // Stream the text response
+    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+    // Show code interpreter metadata for second session
+    final ci = chunk.metadata['code_interpreter'];
+    if (ci != null) {
+      final stage = ci['stage'] as String?;
+      if (stage != null && stage != 'code_delta') {
+        stdout.writeln('\n[code_interpreter/$stage]');
+
+        final data = ci['data'];
+        if (data is Map) {
+          // Verify we're using the same container
+          if (data['container_id'] != null) {
+            final currentContainerId = data['container_id'] as String;
+            if (currentContainerId == capturedContainerId) {
+              stdout.writeln('  ✅ Reusing container: $currentContainerId');
+            } else {
+              stdout.writeln('  ⚠️ New container: $currentContainerId');
+            }
+          }
+
+          // Show code execution status
+          if (data['code'] != null && stage == 'completed') {
+            stdout.writeln('  Code executed successfully');
+          }
+          
+          // Show any new files generated
+          if (data['files'] != null && data['files'] is List) {
+            final files = data['files'] as List;
+            stdout.writeln('  📊 Generated ${files.length} new file(s)');
+          }
+        }
+      }
+    }
+  }
+  
+  print('\n\n');
+  print('✨ Demo complete!');
+  print('');
+  print('Note: If a new container was created instead of reusing the old one,');
+  print('it could be due to:');
+  print('  - Container expiration (30-minute idle timeout)');
+  print('  - Container session limits');
+  print('  - API restrictions on container reuse');
+  print('');
+  print('However, the conversation history is maintained regardless!\n');
 }

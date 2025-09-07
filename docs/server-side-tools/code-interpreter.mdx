@@ -120,6 +120,42 @@ OpenAI automatically manages containers with these characteristics:
 - **Isolation**: Each session gets its own isolated environment
 - **Cost**: $0.03 per container
 
+### Reusing Containers
+
+You can reuse a container from a previous session to maintain state and avoid recreation costs:
+
+```dart
+// First session - container is created automatically
+final agent1 = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+  ),
+);
+
+String? containerId;
+await for (final chunk in agent1.sendStream('Create a dataset')) {
+  final ci = chunk.metadata['code_interpreter'];
+  if (ci?['data']?['container_id'] != null) {
+    containerId = ci['data']['container_id'];
+  }
+}
+
+// Second session - reuse the same container
+final agent2 = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(
+      containerId: containerId, // Reuse previous container
+    ),
+  ),
+);
+
+// The dataset from the first session is still available
+await agent2.send('Analyze the dataset we created earlier');
+```
+
 ## Available Libraries
 
 The Python environment includes common data science and visualization libraries:
