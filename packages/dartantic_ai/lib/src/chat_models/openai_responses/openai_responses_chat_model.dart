@@ -998,6 +998,39 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               );
               yield lastResult;
               continue;
+            } else if (currentEvent == 'response.output_item.added' ||
+                currentEvent == 'response.output_item.done') {
+              // Handle output_item events which contain container_id for
+              // code_interpreter
+              final itemData = data['item'];
+              if (itemData != null && 
+                  itemData is Map &&
+                  itemData['type'] == 'code_interpreter_call') {
+                final containerId = itemData['container_id'];
+                final code = itemData['code'];
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    'code_interpreter': {
+                      'stage': currentEvent == 'response.output_item.added' 
+                          ? 'started' 
+                          : 'completed',
+                      'data': {
+                        if (containerId != null) 'container_id': containerId,
+                        if (code != null) 'code': code,
+                      },
+                    },
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                continue;
+              }
             } else if (currentEvent == 'response.web_search.result' ||
                 currentEvent == 'response.file_search.result' ||
                 currentEvent == 'response.computer_use.action' ||
