@@ -471,7 +471,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
               }
-            } else if (currentEvent == 
+            } else if (currentEvent ==
                 'response.image_generation_call.partial_image') {
               // Handle image_generation server-side tool partial image data
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
@@ -616,7 +616,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 usage: lastResult.usage,
               );
               yield lastResult;
-            } else if (currentEvent == 
+            } else if (currentEvent ==
                 'response.image_generation_call.completed') {
               // Handle completion of image_generation server-side tool
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
@@ -885,7 +885,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               } else if (delta is String && itemId.isNotEmpty) {
                 (mediaBase64[itemId] ??= StringBuffer()).write(delta);
               }
-            } else if (currentEvent == 
+            } else if (currentEvent ==
                 'response.image_generation_call.partial_image') {
               // Handle immediate processing of partial image data
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
@@ -917,7 +917,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 yield lastResult;
                 continue; // handled immediately
               }
-            } else if (currentEvent == 
+            } else if (currentEvent ==
                 'response.image_generation_call.completed') {
               // Handle immediate completion of image generation
               final itemId = (data['item_id'] ?? data['id'] ?? '').toString();

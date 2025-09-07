@@ -234,11 +234,28 @@ Map<String, dynamic> buildResponsesRequest(
     // Merge per-tool configs (options override defaults)
     final fsCfg = options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
     final wsCfg = options?.webSearchConfig ?? defaultOptions.webSearchConfig;
+    final ciCfg =
+        options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
 
     for (final t in enabledServerSideTools) {
       // Server-side tools should not include a 'name' property per
       // Responses API
       final tool = <String, dynamic>{'type': t.apiName};
+
+      // Handle code_interpreter with validation
+      if (t == OpenAIServerSideTool.codeInterpreter) {
+        final containerId = ciCfg?.containerId;
+        if (containerId == null || containerId.isEmpty) {
+          throw ArgumentError(
+            'Code interpreter requires a container ID. '
+            'Create a container via OpenAI API and provide it in '
+            'OpenAIResponsesChatOptions.codeInterpreterConfig.containerId. '
+            'See docs/server-side-tools/code-interpreter for setup instructions.',
+          );
+        }
+        tool['container'] = containerId;
+      }
+
       if (t == OpenAIServerSideTool.fileSearch && fsCfg != null) {
         tool['config'] = fsCfg.toRequestJson();
       }

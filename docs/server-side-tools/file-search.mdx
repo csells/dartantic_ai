@@ -1,0 +1,328 @@
+---
+title: File Search
+description: Search through uploaded documents and files with OpenAI's File Search tool
+---
+
+# File Search
+
+The File Search tool allows models to search through documents and files that have been uploaded to OpenAI. This enables semantic search across your knowledge base, documentation, or any text-based content you've stored with OpenAI.
+
+## Prerequisites
+
+Before using File Search, you need to:
+
+1. Upload files to OpenAI using their Files API
+2. Create a vector store and add your files to it
+3. Note the file IDs or vector store ID for configuration
+
+## Uploading Files to OpenAI
+
+### Using the OpenAI CLI
+
+```bash
+# Upload a single file
+openai files create \
+  --file documentation.pdf \
+  --purpose assistants
+
+# Response includes file ID:
+# {
+#   "id": "file-abc123...",
+#   "purpose": "assistants",
+#   ...
+# }
+```
+
+### Using the OpenAI API
+
+```bash
+curl https://api.openai.com/v1/files \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -F purpose="assistants" \
+  -F file="@documentation.pdf"
+```
+
+### Creating a Vector Store
+
+```bash
+# Create a vector store
+curl https://api.openai.com/v1/vector_stores \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Documentation",
+    "file_ids": ["file-abc123...", "file-xyz789..."]
+  }'
+
+# Response includes vector store ID:
+# {
+#   "id": "vs_abc123...",
+#   ...
+# }
+```
+
+## Basic Usage
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.fileSearch},
+  ),
+);
+
+final response = await agent.send(
+  'Search for information about error handling best practices'
+);
+```
+
+## Configuration Options
+
+Customize file search behavior with `FileSearchConfig`:
+
+```dart
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.fileSearch},
+    fileSearchConfig: FileSearchConfig(
+      maxResults: 10,  // Maximum number of search results
+      metadataFilters: {
+        'category': 'technical',
+        'version': '2.0',
+      },
+    ),
+  ),
+);
+```
+
+### Configuration Parameters
+
+- **maxResults**: Limit the number of search results to return (default: 20)
+- **metadataFilters**: Filter results by metadata fields you've added to your files
+
+## Monitoring Search Activity
+
+File search provides metadata events during execution:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  // Display the response
+  if (chunk.output.isNotEmpty) print(chunk.output);
+  
+  // Monitor file search activity
+  final fileSearch = chunk.metadata['file_search'];
+  if (fileSearch != null) {
+    final stage = fileSearch['stage'];
+    print('File search: $stage');
+    
+    if (fileSearch['data'] != null) {
+      final data = fileSearch['data'];
+      
+      // Show search query
+      if (data['query'] != null) {
+        print('Searching for: ${data['query']}');
+      }
+      
+      // Show results count
+      if (data['results'] != null && data['results'] is List) {
+        final results = data['results'] as List;
+        print('Found ${results.length} relevant sections');
+        
+        // Preview first result
+        if (results.isNotEmpty) {
+          final first = results[0];
+          if (first['content'] != null) {
+            final preview = first['content'].toString();
+            print('First match: ${preview.substring(0, 100)}...');
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Example Use Cases
+
+### Documentation Search
+```dart
+// After uploading your API documentation
+final response = await agent.send(
+  'How do I authenticate API requests in our system?'
+);
+```
+
+### Knowledge Base Queries
+```dart
+// After uploading company policies
+final response = await agent.send(
+  'What is our remote work policy regarding time zones?'
+);
+```
+
+### Technical Reference
+```dart
+// After uploading technical specifications
+final response = await agent.send(
+  'What are the performance requirements for the database module?'
+);
+```
+
+### Legal Document Search
+```dart
+// After uploading contracts and agreements
+final response = await agent.send(
+  'Find all clauses related to intellectual property rights'
+);
+```
+
+### Research Papers
+```dart
+// After uploading academic papers
+final response = await agent.send(
+  'Summarize the findings about machine learning in healthcare'
+);
+```
+
+## File Types Supported
+
+File Search works with:
+- PDF documents
+- Text files (.txt, .md)
+- Word documents (.docx)
+- HTML files
+- JSON/CSV data files
+- Code files (various programming languages)
+
+## Best Practices
+
+1. **Organize Files**: Use meaningful file names and metadata
+   ```dart
+   // When uploading files, add metadata
+   curl https://api.openai.com/v1/files \
+     -F file="@doc.pdf" \
+     -F purpose="assistants" \
+     -F metadata='{"category": "api", "version": "2.0"}'
+   ```
+
+2. **Use Metadata Filters**: Narrow searches to relevant documents
+   ```dart
+   fileSearchConfig: FileSearchConfig(
+     metadataFilters: {'department': 'engineering'},
+   )
+   ```
+
+3. **Chunk Large Documents**: Break very large documents into sections for better search
+
+4. **Regular Updates**: Keep your vector store updated with latest documents
+
+5. **Clear Queries**: Be specific about what you're looking for
+   ```dart
+   // Good
+   'Find the deployment process for production environments'
+   
+   // Less effective
+   'deployment info'
+   ```
+
+## Managing Files
+
+### List Uploaded Files
+
+```bash
+curl https://api.openai.com/v1/files \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+### Delete Files
+
+```bash
+curl -X DELETE https://api.openai.com/v1/files/file-abc123 \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+### Update Vector Store
+
+```bash
+curl -X POST https://api.openai.com/v1/vector_stores/vs_abc123/files \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"file_id": "file-new123"}'
+```
+
+## Limitations
+
+- **File Size**: Individual files limited to 512MB
+- **Total Storage**: Account limits apply
+- **File Types**: Only text-extractable formats supported
+- **Processing Time**: Large files may take time to index
+- **Search Scope**: Only searches within uploaded files
+- **Cost**: Storage and retrieval incur charges
+
+## Error Handling
+
+Common issues and solutions:
+
+```dart
+try {
+  final response = await agent.send('Search for...');
+} catch (e) {
+  // Possible errors:
+  // - No files uploaded
+  // - Vector store not configured
+  // - Files still being processed
+  // - Exceeded storage limits
+  print('File search error: $e');
+}
+```
+
+### No Results Found
+
+If searches return no results:
+
+```dart
+final response = await agent.send('Search for specific term');
+
+// Check if files are properly uploaded
+if (response.output.contains('no results') || 
+    response.output.contains('couldn\'t find')) {
+  print('No matches found. Ensure files are uploaded and indexed.');
+}
+```
+
+## Cost Considerations
+
+File Search incurs costs for:
+- File storage (per GB per month)
+- Vector store operations
+- Retrieval operations during search
+
+Check OpenAI pricing for current rates.
+
+## Troubleshooting
+
+### Files Not Being Searched
+- Verify files are uploaded with purpose="assistants"
+- Ensure files are added to a vector store
+- Check file processing status
+
+### Poor Search Results
+- Review file content quality
+- Use more specific search queries
+- Check if files contain searchable text (not images)
+
+### Slow Search Performance
+- Reduce number of files in vector store
+- Use metadata filters to narrow scope
+- Limit maxResults parameter
+
+## See Also
+
+- [Server-Side Tools Overview](/server-side-tools)
+- [Web Search](/server-side-tools/web-search)
+- [Code Interpreter](/server-side-tools/code-interpreter)
+- [OpenAI Files API](https://platform.openai.com/docs/api-reference/files)
+- [OpenAI Vector Stores](https://platform.openai.com/docs/api-reference/vector-stores)

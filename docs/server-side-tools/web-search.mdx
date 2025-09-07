@@ -1,0 +1,205 @@
+---
+title: Web Search
+description: Search the web for current information with OpenAI's Web Search tool
+---
+
+# Web Search
+
+The Web Search tool allows models to search the internet for current information, going beyond their training data cutoff. The model automatically formulates search queries, evaluates results, and integrates findings into its responses.
+
+## How It Works
+
+When enabled, the model can:
+1. Automatically determine when web search would be helpful
+2. Formulate appropriate search queries
+3. Evaluate search results for relevance
+4. Synthesize information from multiple sources
+5. Provide citations and sources in responses
+
+## Basic Usage
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.webSearch},
+  ),
+);
+
+final response = await agent.send(
+  'What are the latest features in Dart 3.6?'
+);
+```
+
+## Configuration Options
+
+You can customize web search behavior with `WebSearchConfig`:
+
+```dart
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.webSearch},
+    webSearchConfig: WebSearchConfig(
+      maxResults: 10,           // Maximum number of search results
+      siteFilter: 'dart.dev',   // Restrict to specific domain
+      timeRange: 'past_week',   // Filter by recency
+    ),
+  ),
+);
+```
+
+### Configuration Parameters
+
+- **maxResults**: Limit the number of search results (default: varies by model)
+- **siteFilter**: Restrict searches to specific domains (e.g., 'openai.com', 'github.com')
+- **timeRange**: Filter by time period ('past_day', 'past_week', 'past_month', 'past_year')
+
+## Monitoring Search Activity
+
+Web search provides metadata events during execution:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  // Display the response
+  if (chunk.output.isNotEmpty) print(chunk.output);
+  
+  // Monitor web search activity
+  final webSearch = chunk.metadata['web_search'];
+  if (webSearch != null) {
+    final stage = webSearch['stage'];
+    print('Web search stage: $stage');
+    
+    if (webSearch['data'] != null) {
+      final data = webSearch['data'];
+      
+      // Note: The API doesn't expose actual search queries
+      // but provides status information
+      if (data['status'] != null) {
+        print('Status: ${data['status']}');
+      }
+      
+      if (data['results_count'] != null) {
+        print('Found ${data['results_count']} results');
+      }
+    }
+  }
+}
+```
+
+## Example Use Cases
+
+### Current Events
+```dart
+final response = await agent.send(
+  'What happened in the tech industry this week?'
+);
+```
+
+### Technical Documentation
+```dart
+final response = await agent.send(
+  'Find the latest best practices for Flutter state management'
+);
+```
+
+### Research and Comparison
+```dart
+final response = await agent.send(
+  'Compare the latest features of React Native vs Flutter for mobile development'
+);
+```
+
+### Product Information
+```dart
+final response = await agent.send(
+  'What are the current prices and features of the latest iPhone models?'
+);
+```
+
+### Academic Research
+```dart
+final response = await agent.send(
+  'Find recent research papers on quantum computing applications'
+);
+```
+
+## Best Practices
+
+1. **Be Specific**: More specific queries yield better results
+   ```dart
+   // Good
+   'Latest Flutter 3.5 performance improvements'
+   
+   // Less effective
+   'Flutter updates'
+   ```
+
+2. **Use Domain Filters**: When you know the authoritative source
+   ```dart
+   webSearchConfig: WebSearchConfig(
+     siteFilter: 'docs.flutter.dev',
+   )
+   ```
+
+3. **Time-Sensitive Queries**: Use time ranges for recent information
+   ```dart
+   webSearchConfig: WebSearchConfig(
+     timeRange: 'past_month',
+   )
+   ```
+
+4. **Combine with Context**: Provide context for better search results
+   ```dart
+   agent.send('''
+     I'm building a Flutter app for iOS and Android.
+     Find the latest guidelines for app store submission in 2024.
+   ''')
+   ```
+
+## Limitations
+
+- **Search Query Visibility**: The API doesn't expose the actual search queries being made
+- **Rate Limits**: Subject to provider rate limits
+- **Content Restrictions**: Some content may be filtered or inaccessible
+- **Regional Availability**: May have different results based on region
+- **No Direct URL Access**: Cannot directly fetch specific URLs (use regular web fetching for that)
+
+## Metadata Events
+
+The web search tool emits several metadata events:
+
+- `web_search/started`: Search initiated
+- `web_search/searching`: Actively searching
+- `web_search/processing`: Processing results
+- `web_search/completed`: Search finished
+
+Note: The actual search queries and detailed results are not exposed in the metadata for privacy and security reasons.
+
+## Error Handling
+
+Web search errors are handled gracefully:
+
+```dart
+try {
+  final response = await agent.send('Search for latest news');
+} catch (e) {
+  // Web search might fail due to:
+  // - Rate limiting
+  // - Network issues
+  // - Service unavailability
+  print('Search failed: $e');
+}
+```
+
+## Cost Considerations
+
+Web search usage may incur additional costs beyond standard API usage. Check your OpenAI billing dashboard for current pricing.
+
+## See Also
+
+- [Server-Side Tools Overview](/server-side-tools)
+- [File Search](/server-side-tools/file-search)
+- [OpenAI Responses API Documentation](https://platform.openai.com/docs/api-reference)

@@ -1,0 +1,293 @@
+---
+title: Image Generation
+description: Generate images from text descriptions using DALL-E through OpenAI's Image Generation tool
+---
+
+# Image Generation
+
+The Image Generation tool allows models to create images from text descriptions using DALL-E. This server-side tool handles all the complexity of image generation, returning images as base64-encoded data or URLs that can be saved or displayed in your application.
+
+## How It Works
+
+When enabled, the model can:
+1. Interpret natural language image descriptions
+2. Automatically enhance prompts for better results
+3. Generate images using DALL-E
+4. Return images as base64 data or URLs
+5. Handle multiple image generation requests in a conversation
+
+## Basic Usage
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'dart:io';
+import 'dart:convert';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.imageGeneration},
+  ),
+);
+
+final response = await agent.send(
+  'Generate a serene landscape with mountains at sunset'
+);
+
+// Images are returned as DataPart in the response
+for (final message in response.messages) {
+  for (final part in message.parts) {
+    if (part is DataPart && part.mimeType.startsWith('image/')) {
+      // Save the image
+      final file = File('generated_image.png');
+      await file.writeAsBytes(part.bytes);
+      print('Image saved to: ${file.path}');
+    }
+  }
+}
+```
+
+## Handling Streaming Responses
+
+Image generation with streaming provides real-time updates:
+
+```dart
+var imageCount = 0;
+
+await for (final chunk in agent.sendStream(prompt)) {
+  // Display text response
+  if (chunk.output.isNotEmpty) print(chunk.output);
+  
+  // Monitor image generation progress
+  final imageGen = chunk.metadata['image_generation'];
+  if (imageGen != null) {
+    final stage = imageGen['stage'];
+    
+    // Don't show partial_image events (too verbose)
+    if (stage != 'partial_image') {
+      print('Image generation: $stage');
+    }
+  }
+  
+  // Handle generated images
+  for (final message in chunk.messages) {
+    if (message.role != ChatMessageRole.model) continue;
+    
+    for (final part in message.parts) {
+      if (part is LinkPart) {
+        print('Image URL: ${part.url}');
+      } else if (part is DataPart && part.mimeType.startsWith('image/')) {
+        imageCount++;
+        final filename = 'image_$imageCount.png';
+        final file = File(filename);
+        await file.writeAsBytes(part.bytes);
+        print('Saved image to: $filename');
+      }
+    }
+  }
+}
+```
+
+## Example Prompts
+
+### Logo Design
+```dart
+final response = await agent.send('''
+  Create a modern, minimalist logo for a tech startup called "NeuralFlow".
+  Use geometric shapes and a gradient from deep blue to purple.
+''');
+```
+
+### Illustration
+```dart
+final response = await agent.send('''
+  Generate an illustration of a cozy coffee shop interior with 
+  warm lighting, vintage furniture, and plants by the window.
+''');
+```
+
+### Concept Art
+```dart
+final response = await agent.send('''
+  Create concept art for a futuristic city with flying vehicles,
+  holographic billboards, and vertical gardens on skyscrapers.
+''');
+```
+
+### Product Mockup
+```dart
+final response = await agent.send('''
+  Design a mockup of a sleek smartwatch with a circular display,
+  showing a minimal watch face with weather information.
+''');
+```
+
+### Artistic Styles
+```dart
+final response = await agent.send('''
+  Paint a portrait of a cat in the style of Van Gogh,
+  with swirling brushstrokes and vibrant colors.
+''');
+```
+
+## Image Processing
+
+### Saving Images
+```dart
+void saveGeneratedImages(AgentResponse response) {
+  var count = 0;
+  for (final message in response.messages) {
+    for (final part in message.parts) {
+      if (part is DataPart && part.mimeType.startsWith('image/')) {
+        count++;
+        final file = File('output/image_$count.png');
+        file.createSync(recursive: true);
+        file.writeAsBytesSync(part.bytes);
+        print('Saved: ${file.path} (${part.bytes.length} bytes)');
+      }
+    }
+  }
+}
+```
+
+### Converting to Base64
+```dart
+String imageToBase64(DataPart imagePart) {
+  return base64.encode(imagePart.bytes);
+}
+```
+
+### Displaying in Flutter
+```dart
+import 'package:flutter/material.dart';
+
+Widget displayGeneratedImage(DataPart imagePart) {
+  return Image.memory(
+    Uint8List.fromList(imagePart.bytes),
+    fit: BoxFit.contain,
+  );
+}
+```
+
+## Metadata Events
+
+Image generation emits several metadata events:
+
+- `image_generation/started`: Generation initiated
+- `image_generation/generating`: Creating the image
+- `image_generation/partial_image`: Streaming partial image data (base64 chunks)
+- `image_generation/completed`: Image fully generated
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  final imageGen = chunk.metadata['image_generation'];
+  if (imageGen != null) {
+    switch (imageGen['stage']) {
+      case 'started':
+        print('Starting image generation...');
+        break;
+      case 'generating':
+        print('Generating image...');
+        break;
+      case 'partial_image':
+        // Partial base64 data is being accumulated
+        break;
+      case 'completed':
+        print('Image generation complete!');
+        break;
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Detailed Descriptions**: More detail generally produces better results
+   ```dart
+   // Good
+   'A majestic eagle soaring over snow-capped mountains at golden hour,
+    with dramatic lighting and clouds in the background'
+   
+   // Less effective
+   'An eagle flying'
+   ```
+
+2. **Specify Style**: Include artistic style or medium
+   ```dart
+   'Digital art style illustration of...'
+   'Photorealistic rendering of...'
+   'Watercolor painting of...'
+   'Minimalist vector design of...'
+   ```
+
+3. **Include Composition**: Describe layout and perspective
+   ```dart
+   'Wide-angle view from below...'
+   'Close-up portrait with shallow depth of field...'
+   'Isometric view of...'
+   ```
+
+4. **Error Handling**: Image generation can fail
+   ```dart
+   try {
+     final response = await agent.send('Generate an image of...');
+   } catch (e) {
+     print('Image generation failed: $e');
+     // Fallback logic
+   }
+   ```
+
+## Limitations
+
+- **Content Policy**: Some content may be rejected by safety filters
+- **Resolution**: Images are generated at fixed resolutions
+- **Style Consistency**: Multiple images may have varying styles
+- **Text in Images**: Generated text in images may be imperfect
+- **Rate Limits**: Subject to DALL-E rate limits
+- **Cost**: Each image generation incurs costs
+
+## Image Quality Tips
+
+### For Logos and Graphics
+- Use terms like "vector", "flat design", "minimalist"
+- Specify exact colors or color schemes
+- Include "on white background" for clean isolation
+
+### For Photorealistic Images
+- Add "photorealistic", "high detail", "8K resolution"
+- Specify lighting conditions
+- Include camera settings like "85mm lens", "f/1.4"
+
+### For Artistic Images
+- Reference specific artists or art movements
+- Include medium details like "oil painting", "digital art"
+- Specify mood and atmosphere
+
+## Cost Considerations
+
+Image generation incurs additional costs:
+- Each image request is billed separately
+- Costs vary by model and resolution
+- Check OpenAI pricing for current rates
+
+## Error Messages
+
+Common error scenarios:
+
+```dart
+// Content policy violation
+// Error: Your request was rejected due to content policy
+
+// Rate limiting
+// Error: Rate limit exceeded for image generation
+
+// Invalid prompt
+// Error: Unable to generate image from the provided description
+```
+
+## See Also
+
+- [Server-Side Tools Overview](/server-side-tools)
+- [Web Search](/server-side-tools/web-search)
+- [DALL-E Documentation](https://platform.openai.com/docs/guides/images)
+- [OpenAI Content Policy](https://platform.openai.com/docs/usage-policies)

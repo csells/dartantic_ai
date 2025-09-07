@@ -1,17 +1,30 @@
 ---
-title: Server-Side Tools
+title: Server-Side Tools Overview
 description: Enable and observe provider-native tools (e.g., OpenAI Responses server-side tools) with a single switch.
 ---
 
-Server-side tools are capabilities executed by the provider (not your app). Examples include web search, file/document search, browser/desktop control, image generation, and code interpreter. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
+# Server-Side Tools Overview
 
-Key benefits
+Server-side tools are capabilities executed by the provider (not your app). OpenAI's Responses API offers five powerful server-side tools that can be enabled with simple configuration: web search, image generation, code interpreter, file search, and computer use. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
 
-- Zero hosting: No code to run or maintain for these tools.
-- Lower latency: Single round-trip; results stream as they’re produced.
-- Rich signals: Structured SSE events and media deltas.
+## Available Tools
 
-Enable server-side tools (OpenAI Responses)
+| Tool | Description | Requirements |
+|------|-------------|--------------|
+| **Web Search** | Search the internet for current information | None |
+| **Image Generation** | Create images from text descriptions using DALL-E | None |
+| **Code Interpreter** | Execute Python code in a sandboxed environment | Container ID |
+| **File Search** | Search through uploaded documents | Pre-uploaded files |
+| **Computer Use** | Control browsers and desktop applications | Special permissions |
+
+## Key Benefits
+
+- **Zero hosting**: No code to run or maintain for these tools
+- **Lower latency**: Single round-trip; results stream as they're produced
+- **Rich signals**: Structured SSE events and media deltas
+- **Automatic orchestration**: Model decides when and how to use tools
+
+## Quick Start
 
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
@@ -59,13 +72,25 @@ await for (final chunk in agent.sendStream('Search for recent news')) {
 }
 ```
 
-Provider note (OpenAI Responses)
+## Tool-Specific Guides
 
-- These map directly to OpenAI's server-side tools (web_search, file_search, computer_use, image_generation, code_interpreter).
-- Image generation streams `partial_image_b64` data which is accumulated and emitted as `DataPart` on completion.
-- Web search doesn't include the search query in metadata - the provider handles the search internally.
+Each tool has unique capabilities and configuration requirements:
 
-Advanced configuration
+- [**Web Search**](/server-side-tools/web-search) - Search for current information beyond the model's training data
+- [**Image Generation**](/server-side-tools/image-generation) - Create images with DALL-E from text descriptions
+- [**Code Interpreter**](/server-side-tools/code-interpreter) - Execute Python code for data analysis and calculations
+- [**File Search**](/server-side-tools/file-search) - Search through your uploaded documents and knowledge base
+- [**Computer Use**](/server-side-tools/computer-use) - Automate browser and desktop interactions (requires special setup)
+
+## Provider Notes (OpenAI Responses)
+
+- These map directly to OpenAI's server-side tools (web_search, file_search, computer_use, image_generation, code_interpreter)
+- Image generation streams `partial_image_b64` data which is accumulated and emitted as `DataPart` on completion
+- Web search doesn't include the search query in metadata - the provider handles the search internally
+- Code interpreter requires a pre-created container ID from OpenAI's API
+- File search requires files to be uploaded via OpenAI's Files API
+
+## Advanced Configuration
 
 - For provider-specific tuning (e.g., file/web search filters), supply per-tool config on `OpenAIResponsesChatOptions`.
 
@@ -82,6 +107,58 @@ final agent = Agent(
 );
 ```
 
-Why not callbacks?
+## Complete Example
+
+Here's a comprehensive example using multiple server-side tools:
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: {
+      OpenAIServerSideTool.webSearch,
+      OpenAIServerSideTool.imageGeneration,
+      OpenAIServerSideTool.codeInterpreter,
+    },
+    webSearchConfig: WebSearchConfig(
+      maxResults: 5,
+      timeRange: 'past_week',
+    ),
+    codeInterpreterConfig: CodeInterpreterConfig(
+      containerId: '<your_container_id>', // Required for code execution
+    ),
+  ),
+);
+
+// The model will automatically use the appropriate tools
+final response = await agent.send('''
+  1. Search for the latest Dart language features
+  2. Generate a logo for a Dart package
+  3. Calculate the Fibonacci sequence up to 20 terms
+''');
+```
+
+## Why Not Callbacks?
 
 Server-side tools are already executed by the provider and feed the model directly. Callbacks are not required for model quality. Metadata is exposed purely for product UX, analytics, and compliance.
+
+## Cost Considerations
+
+Each server-side tool has different cost implications:
+- **Web Search**: Additional API calls
+- **Image Generation**: DALL-E generation costs
+- **Code Interpreter**: $0.03 per container
+- **File Search**: Storage and retrieval costs
+- **Computer Use**: Enterprise pricing
+
+## Getting Started
+
+1. Choose the tools you need from the table above
+2. Check the specific requirements for each tool
+3. Enable them in your `OpenAIResponsesChatOptions`
+4. Monitor tool usage through metadata events
+5. Handle results (images, search results, code output) appropriately
+
+For detailed configuration and examples, see the individual tool guides linked above.

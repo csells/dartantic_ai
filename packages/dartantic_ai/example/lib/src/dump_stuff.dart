@@ -174,9 +174,7 @@ dynamic truncateDeep(dynamic obj, {int maxLength = 512}) {
     });
     return result;
   } else if (obj is List) {
-    return obj
-        .map((item) => truncateDeep(item, maxLength: maxLength))
-        .toList();
+    return obj.map((item) => truncateDeep(item, maxLength: maxLength)).toList();
   } else if (obj is String) {
     return obj.length > maxLength ? '${obj.substring(0, maxLength)}...' : obj;
   } else {
@@ -203,8 +201,7 @@ void dumpMetadata(
 
     // Special handling for structured metadata (like web_search with stage/data)
     if (value is Map<String, dynamic> && value.containsKey('stage')) {
-      stdout
-          .writeln('$prefix[$key/${value['stage']}] ${value['data'] ?? ''}');
+      stdout.writeln('$prefix[$key/${value['stage']}] ${value['data'] ?? ''}');
     } else {
       stdout.writeln('$prefix[$key] $value');
     }

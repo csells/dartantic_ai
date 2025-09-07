@@ -351,7 +351,8 @@ class Agent {
             }
 
             // Yield metadata-only deltas (no text, no messages)
-            final hasMetadataOnly = result.metadata.isNotEmpty &&
+            final hasMetadataOnly =
+                result.metadata.isNotEmpty &&
                 result.output.isEmpty &&
                 result.messages.isEmpty;
             if (hasMetadataOnly) {

@@ -1,0 +1,266 @@
+---
+title: Computer Use
+description: Enable models to control browsers and desktop applications with OpenAI's Computer Use tool
+---
+
+# Computer Use
+
+The Computer Use tool allows models to interact with computer interfaces, including web browsers and desktop applications. This enables automation of tasks that require visual interaction with software interfaces.
+
+> **Note**: Computer Use is an advanced feature that requires special setup and permissions. It may not be available in all environments or account types.
+
+## Prerequisites
+
+Computer Use requires:
+1. Special permissions from OpenAI (may require enterprise account)
+2. Secure environment configuration
+3. Appropriate safety measures and monitoring
+4. Understanding of security implications
+
+## How It Works
+
+When enabled, the model can:
+1. Take screenshots of the current screen
+2. Identify UI elements and their locations
+3. Perform mouse clicks and keyboard input
+4. Navigate web pages and applications
+5. Extract information from visual interfaces
+
+## Basic Usage
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: const OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.computerUse},
+  ),
+);
+
+// Note: This will only work if Computer Use is properly configured
+// and you have the necessary permissions
+final response = await agent.send(
+  'Navigate to example.com and take a screenshot of the homepage'
+);
+```
+
+## Monitoring Computer Use Activity
+
+Computer Use provides detailed metadata about actions:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  // Display the response
+  if (chunk.output.isNotEmpty) print(chunk.output);
+  
+  // Monitor computer use activity
+  final computerUse = chunk.metadata['computer_use'];
+  if (computerUse != null) {
+    final stage = computerUse['stage'];
+    print('Computer use: $stage');
+    
+    if (computerUse['data'] != null) {
+      final data = computerUse['data'];
+      
+      // Show action being performed
+      if (data['action'] != null) {
+        print('Action: ${data['action']}');
+      }
+      
+      // Show target element or coordinates
+      if (data['target'] != null) {
+        print('Target: ${data['target']}');
+      }
+      
+      // Check for screenshots
+      if (data['screenshot'] != null) {
+        print('Screenshot captured');
+      }
+    }
+  }
+}
+```
+
+## Example Use Cases
+
+### Web Automation
+```dart
+final response = await agent.send('''
+  1. Open a web browser
+  2. Navigate to a news website
+  3. Find today's top headline
+  4. Take a screenshot of the article
+''');
+```
+
+### Form Filling
+```dart
+final response = await agent.send('''
+  Fill out the contact form with:
+  - Name: John Doe
+  - Email: john@example.com
+  - Message: Testing automated form submission
+''');
+```
+
+### Data Extraction
+```dart
+final response = await agent.send('''
+  Open the sales dashboard and extract this month's 
+  revenue figures from the chart
+''');
+```
+
+### UI Testing
+```dart
+final response = await agent.send('''
+  Test the login flow:
+  1. Click on "Sign In" button
+  2. Enter test credentials
+  3. Verify successful login
+  4. Take screenshot of dashboard
+''');
+```
+
+## Security Considerations
+
+> **Warning**: Computer Use has significant security implications. Always:
+
+1. **Isolate Environment**: Run in sandboxed or virtual environments
+2. **Limit Permissions**: Restrict access to sensitive systems
+3. **Monitor Activity**: Log all actions for audit purposes
+4. **Validate Actions**: Review automated actions before execution
+5. **Use Test Accounts**: Never use production credentials
+
+## Configuration Requirements
+
+Computer Use typically requires:
+
+```dart
+// Hypothetical configuration (actual requirements may vary)
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.computerUse},
+    // Additional configuration may be required
+    // This is environment-specific
+  ),
+);
+```
+
+## Limitations
+
+- **Availability**: Not available to all accounts or regions
+- **Performance**: Actions may be slow compared to direct automation
+- **Accuracy**: Visual recognition may not be 100% accurate
+- **Security**: Significant security risks if not properly configured
+- **Cost**: May incur substantial additional costs
+- **Environment**: Requires specific runtime environment setup
+
+## Best Practices
+
+1. **Start Simple**: Begin with read-only tasks like screenshots
+   ```dart
+   'Take a screenshot of the current desktop'
+   ```
+
+2. **Be Specific**: Provide clear, detailed instructions
+   ```dart
+   'Click the blue "Submit" button in the bottom right corner'
+   ```
+
+3. **Verify State**: Check current state before actions
+   ```dart
+   'First, verify we are on the login page, then enter credentials'
+   ```
+
+4. **Error Recovery**: Plan for failure scenarios
+   ```dart
+   'If the page doesn't load, refresh and try again'
+   ```
+
+5. **Audit Trail**: Keep detailed logs
+   ```dart
+   // Log all computer use actions
+   print('Computer Use Action: ${action} at ${timestamp}');
+   ```
+
+## Error Handling
+
+```dart
+try {
+  final response = await agent.send('Automate browser task...');
+} catch (e) {
+  // Possible errors:
+  // - Feature not enabled for account
+  // - Security restrictions
+  // - Environment not configured
+  // - Target element not found
+  // - Action failed
+  print('Computer use error: $e');
+}
+```
+
+## Alternative Approaches
+
+If Computer Use is not available, consider:
+
+1. **Browser Automation Tools**: Puppeteer, Selenium, Playwright
+2. **Desktop Automation**: AutoHotkey, AppleScript
+3. **API Integration**: Direct API calls instead of UI automation
+4. **RPA Tools**: UiPath, Automation Anywhere
+
+## Metadata Events
+
+Computer Use emits events for:
+- `computer_use/started`: Automation initiated
+- `computer_use/screenshot`: Screen captured
+- `computer_use/click`: Mouse click performed
+- `computer_use/type`: Keyboard input sent
+- `computer_use/completed`: Action finished
+
+## Cost Considerations
+
+Computer Use may incur significant costs:
+- Per-action pricing
+- Screenshot processing costs
+- Extended processing time charges
+- Additional compute resources
+
+Check with OpenAI for current pricing and availability.
+
+## Getting Access
+
+To enable Computer Use:
+1. Contact OpenAI support or your account manager
+2. Discuss your use case and security measures
+3. Complete any required agreements or compliance checks
+4. Receive configuration instructions specific to your setup
+
+## Troubleshooting
+
+### Feature Not Available
+```dart
+// Error: Computer use is not enabled for this account
+// Solution: Contact OpenAI to request access
+```
+
+### Environment Issues
+```dart
+// Error: Computer use environment not configured
+// Solution: Follow OpenAI's setup guide for your platform
+```
+
+### Permission Denied
+```dart
+// Error: Insufficient permissions for computer use
+// Solution: Ensure proper security configuration
+```
+
+## See Also
+
+- [Server-Side Tools Overview](/server-side-tools)
+- [Web Search](/server-side-tools/web-search)
+- [OpenAI Enterprise Features](https://platform.openai.com/docs/enterprise)
+- [Security Best Practices](https://platform.openai.com/docs/security)

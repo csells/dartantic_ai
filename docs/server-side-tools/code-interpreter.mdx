@@ -1,0 +1,189 @@
+---
+title: Code Interpreter
+description: Execute Python code in a sandboxed environment with OpenAI's Code Interpreter
+---
+
+# Code Interpreter
+
+The Code Interpreter is a server-side tool that allows models to execute Python code in a secure, sandboxed environment. This tool is particularly useful for data analysis, calculations, file processing, and generating visualizations.
+
+## What is a Container?
+
+A container in the context of OpenAI's Code Interpreter is:
+
+- **A sandboxed Python runtime environment** - An isolated execution space where Python code runs safely
+- **Persistent within a session** - Files and state are maintained for the duration of the container's lifecycle
+- **Secure and isolated** - Code execution cannot affect your local system or other containers
+- **Resource-managed** - Has defined CPU, memory, and storage limits
+
+## Container Lifecycle
+
+- **Duration**: Containers remain active for 1 hour from creation
+- **Idle timeout**: Automatically terminated after 30 minutes of inactivity
+- **Cost**: $0.03 per container
+- **Storage**: Files are saved to `/mnt/data` within the container
+- **State**: Python variables and imports persist across code executions within the same session
+
+## Creating a Container
+
+Currently, containers must be created through the OpenAI API before use.
+
+### Using the OpenAI API
+
+```bash
+# Create a container via OpenAI's API
+curl -X POST https://api.openai.com/v1/containers \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "code_interpreter"
+  }'
+
+# Response will include:
+# {
+#   "id": "<container_id>",
+#   "created_at": "2024-01-01T00:00:00Z",
+#   "expires_at": "2024-01-01T01:00:00Z"
+# }
+```
+
+## Using Code Interpreter with Dartantic
+
+Once you have a container ID, you can use it with Dartantic:
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatOptions(
+    serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(
+      containerId: '<your_container_id>', // Your container ID
+    ),
+  ),
+);
+
+// The model can now execute Python code
+final response = await agent.send('''
+  Calculate the first 20 Fibonacci numbers and create a visualization 
+  showing their growth rate.
+''');
+```
+
+## What Code Interpreter Can Do
+
+### Data Analysis
+```dart
+final response = await agent.send('''
+  Here's my sales data: [100, 150, 120, 180, 200, 175, 220].
+  Calculate the mean, median, standard deviation, and create a trend analysis.
+''');
+```
+
+### File Processing
+```dart
+final response = await agent.send('''
+  Create a CSV file with sample customer data including names, emails, 
+  and purchase amounts. Then analyze the purchasing patterns.
+''');
+```
+
+### Visualizations
+```dart
+final response = await agent.send('''
+  Generate a bar chart comparing the population of the 10 largest cities 
+  in the world. Save it as an image file.
+''');
+```
+
+### Complex Calculations
+```dart
+final response = await agent.send('''
+  Solve this system of equations:
+  3x + 2y - z = 1
+  2x - 2y + 4z = -2
+  -x + 0.5y - z = 0
+''');
+```
+
+## Handling Metadata Events
+
+Code Interpreter provides detailed metadata about code execution:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  // Display the response
+  if (chunk.output.isNotEmpty) print(chunk.output);
+  
+  // Monitor code execution
+  final ci = chunk.metadata['code_interpreter'];
+  if (ci != null) {
+    final stage = ci['stage'];
+    print('Stage: $stage');
+    
+    if (ci['data'] != null) {
+      final data = ci['data'];
+      
+      // Show code being executed
+      if (data['code'] != null) {
+        print('Executing: ${data['code']}');
+      }
+      
+      // Show output from execution
+      if (data['output'] != null) {
+        print('Output: ${data['output']}');
+      }
+      
+      // Handle generated files
+      if (data['file_id'] != null) {
+        print('File created: ${data['file_id']}');
+      }
+    }
+  }
+}
+```
+
+## Error Handling
+
+If Code Interpreter is not properly configured, you'll receive clear error messages:
+
+```dart
+// Without a container ID:
+// ArgumentError: Code interpreter requires a container ID.
+// Create a container via OpenAI API and provide it in
+// OpenAIResponsesChatOptions.codeInterpreterConfig.containerId
+```
+
+## Best Practices
+
+1. **Container Reuse**: Reuse container IDs within their 1-hour lifecycle to avoid unnecessary costs
+2. **Session Management**: Track container expiration times and create new ones as needed
+3. **File Persistence**: Remember that files only persist within the container's lifecycle
+4. **Error Recovery**: Implement retry logic with new containers when containers expire
+5. **Cost Management**: Monitor container usage to manage costs ($0.03 per container)
+
+## Limitations
+
+- Containers expire after 1 hour (30-minute idle timeout)
+- No direct internet access from within the container
+- Limited to Python execution only
+- File size and storage limits apply
+- Cannot install additional Python packages beyond the pre-installed set
+
+## Troubleshooting
+
+### Container Expired
+If you receive errors about expired containers, create a new container and update your configuration.
+
+### Missing Container ID
+Ensure you've created a container via the OpenAI API and provided the ID in your configuration.
+
+### File Not Found
+Files created in one container session are not available in another. Ensure you're using the same container for related operations.
+
+## See Also
+
+- [Server-Side Tools Overview](/server-side-tools)
+- [OpenAI API Documentation](https://platform.openai.com/docs/api-reference)
+- [Python Libraries Available in Code Interpreter](https://platform.openai.com/docs/assistants/tools/code-interpreter)

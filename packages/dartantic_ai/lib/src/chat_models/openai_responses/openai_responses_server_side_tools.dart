@@ -66,5 +66,18 @@ class WebSearchConfig {
   };
 }
 
-// No container config; use OpenAIResponsesChatOptions.serverSideTools and
-// per-tool configs on the options object (fileSearchConfig, webSearchConfig).
+/// Configuration for the code interpreter tool.
+@immutable
+class CodeInterpreterConfig {
+  /// Creates a new configuration instance for the code interpreter tool.
+  const CodeInterpreterConfig({this.containerId});
+
+  /// The container ID for code execution.
+  /// Containers can be created via OpenAI's API and cost $0.03 each.
+  final String? containerId;
+
+  /// Converts the configuration to a request JSON object.
+  Map<String, dynamic> toRequestJson() => {
+    if (containerId != null) 'container': containerId,
+  };
+}

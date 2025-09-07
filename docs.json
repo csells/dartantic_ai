@@ -53,16 +53,8 @@
           "href": "/typed-output"
         },
         {
-          "title": "Thinking",
-          "href": "/thinking"
-        },
-        {
           "title": "Tool Calling",
           "href": "/tool-calling"
-        },
-        {
-          "title": "Server-Side Tools",
-          "href": "/server-side-tools"
         },
         {
           "title": "System Messages",
@@ -84,6 +76,36 @@
         {
           "title": "Usage Tracking",
           "href": "/usage-tracking"
+        },
+        {
+          "title": "Thinking",
+          "href": "/thinking"
+        },
+        {
+          "group": "Server-Side Tools",
+          "href": "/server-side-tools",
+          "pages": [
+            {
+              "title": "Web Search",
+              "href": "/server-side-tools/web-search"
+            },
+            {
+              "title": "Image Generation",
+              "href": "/server-side-tools/image-generation"
+            },
+            {
+              "title": "Code Interpreter",
+              "href": "/server-side-tools/code-interpreter"
+            },
+            {
+              "title": "File Search",
+              "href": "/server-side-tools/file-search"
+            },
+            {
+              "title": "Computer Use",
+              "href": "/server-side-tools/computer-use"
+            }
+          ]
         },
         {
           "title": "Automatic Retry",

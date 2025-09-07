@@ -23,6 +23,7 @@ class OpenAIResponsesChatOptions extends ChatModelOptions {
     this.serverSideTools,
     this.fileSearchConfig,
     this.webSearchConfig,
+    this.codeInterpreterConfig,
     this.cacheConfig,
   });
 
@@ -73,6 +74,9 @@ class OpenAIResponsesChatOptions extends ChatModelOptions {
 
   /// Optional configuration for web_search.
   final WebSearchConfig? webSearchConfig;
+
+  /// Optional configuration for code_interpreter.
+  final CodeInterpreterConfig? codeInterpreterConfig;
 
   /// Prompt caching configuration.
   final OpenAICacheConfig? cacheConfig;
