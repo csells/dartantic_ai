@@ -350,13 +350,11 @@ class Agent {
               );
             }
 
-            // Yield thinking-only metadata deltas (no text, no messages)
-            final thinkingMeta = result.metadata['thinking'];
-            final hasThinkingOnly =
-                (thinkingMeta is String && thinkingMeta.isNotEmpty) &&
+            // Yield metadata-only deltas (no text, no messages)
+            final hasMetadataOnly = result.metadata.isNotEmpty &&
                 result.output.isEmpty &&
                 result.messages.isEmpty;
-            if (hasThinkingOnly) {
+            if (hasMetadataOnly) {
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: '',

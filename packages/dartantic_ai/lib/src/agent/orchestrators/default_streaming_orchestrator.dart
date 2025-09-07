@@ -95,6 +95,17 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
           metadata: result.metadata,
           usage: result.usage,
         );
+      } else if (result.metadata.isNotEmpty) {
+        // Expose any other metadata (e.g., web_search, image_generation)
+        _logger.fine('Streaming metadata-only delta: ${result.metadata.keys}');
+        yield StreamingIterationResult(
+          output: '',
+          messages: const [],
+          shouldContinue: true,
+          finishReason: result.finishReason,
+          metadata: result.metadata,
+          usage: result.usage,
+        );
       }
 
       // Accumulate the message

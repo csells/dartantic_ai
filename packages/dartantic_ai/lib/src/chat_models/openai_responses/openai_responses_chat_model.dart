@@ -219,7 +219,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         if (line.startsWith('event:')) {
           // Log event line for debugging SSE sequencing
           final evName = line.substring('event:'.length).trim();
-          _logger.fine('SSE event: $evName');
+          _logger.info('SSE event: $evName');
           // Process any pending event before switching
           if (currentEvent != null) {
             final dataStr = dataBuffer.toString();
@@ -471,6 +471,37 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 );
                 yield lastResult;
               }
+            } else if (currentEvent == 
+                'response.image_generation_call.partial_image') {
+              // Handle image_generation server-side tool partial image data
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              final b64 = (data['partial_image_b64'] ?? '').toString();
+              if (b64.isNotEmpty && itemId.isNotEmpty) {
+                _logger.info(
+                  'Accumulating partial_image_b64 for item $itemId: '
+                  '${b64.length} chars',
+                );
+                (mediaBase64[itemId] ??= StringBuffer()).write(b64);
+                // image_generation produces PNGs
+                mediaMime[itemId] = 'image/png';
+                // Emit metadata for observability
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    'image_generation': {
+                      'stage': 'partial_image',
+                      'data': data,
+                    },
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+              }
             } else if (currentEvent == 'response.output_item.completed') {
               // Finalize any buffered media for this item
               final item = data['item'] as Map<String, dynamic>?;
@@ -479,12 +510,27 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaBase64.containsKey(itemId) &&
                   mediaBase64[itemId]!.isNotEmpty) {
                 try {
-                  final b64 = mediaBase64[itemId]!.toString();
-                  final bytes = base64.decode(b64);
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding base64 for output_item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
                   final mimeType =
                       mediaMime[itemId] ??
                       (item?['mime_type']?.toString() ??
                           'application/octet-stream');
+
+                  // Verify PNG signature if expected
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
                   final message = ChatMessage(
                     role: ChatMessageRole.model,
                     parts: [DataPart(bytes, mimeType: mimeType)],
@@ -515,9 +561,24 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaBase64.containsKey(itemId) &&
                   mediaBase64[itemId]!.isNotEmpty) {
                 try {
-                  final b64 = mediaBase64[itemId]!.toString();
-                  final bytes = base64.decode(b64);
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding image_generation base64 for item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
                   final mimeType = mediaMime[itemId] ?? 'image/png';
+                  // Verify PNG signature since image_generation usually
+                  // produces PNGs
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
                   final message = ChatMessage(
                     role: ChatMessageRole.model,
                     parts: [DataPart(bytes, mimeType: mimeType)],
@@ -550,16 +611,76 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 messages: const [],
                 finishReason: FinishReason.unspecified,
                 metadata: {
-                  'image_generation': {
-                    'stage': 'completed',
-                    'data': data,
-                  },
+                  'image_generation': {'stage': 'completed', 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+            } else if (currentEvent == 
+                'response.image_generation_call.completed') {
+              // Handle completion of image_generation server-side tool
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding image_generation_call base64 for item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
+                  final mimeType = mediaMime[itemId] ?? 'image/png';
+                  // Verify PNG signature
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  final streamingMetadata = <String, dynamic>{};
+                  if (responseId != null) {
+                    streamingMetadata['response_id'] = responseId;
+                  }
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: streamingMetadata,
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // ignore
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
+              }
+              // Emit completion metadata
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  'image_generation': {'stage': 'completed', 'data': data},
                 },
                 usage: lastResult.usage,
               );
               yield lastResult;
             } else if (currentEvent.startsWith('response.') &&
-                currentEvent.contains('_call.')) {
+                currentEvent.contains('_call.') &&
+                !currentEvent.startsWith('response.image_generation_call.')) {
               // Map built-in tool call lifecycle events, e.g.:
               // response.web_search_call.in_progress/searching/completed
               final afterPrefix = currentEvent.substring('response.'.length);
@@ -567,6 +688,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               final stage = afterPrefix.contains('.')
                   ? afterPrefix.split('.').last
                   : 'in_progress';
+              _logger.info('Built-in tool event: $toolName.$stage');
               lastResult = ChatResult<ChatMessage>(
                 output: const ChatMessage(
                   role: ChatMessageRole.model,
@@ -763,6 +885,101 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               } else if (delta is String && itemId.isNotEmpty) {
                 (mediaBase64[itemId] ??= StringBuffer()).write(delta);
               }
+            } else if (currentEvent == 
+                'response.image_generation_call.partial_image') {
+              // Handle immediate processing of partial image data
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              final b64 = (data['partial_image_b64'] ?? '').toString();
+              if (b64.isNotEmpty && itemId.isNotEmpty) {
+                _logger.info(
+                  'Accumulating partial_image_b64 for item $itemId: '
+                  '${b64.length} chars',
+                );
+                (mediaBase64[itemId] ??= StringBuffer()).write(b64);
+                // image_generation produces PNGs
+                mediaMime[itemId] = 'image/png';
+                // Emit metadata for observability
+                lastResult = ChatResult<ChatMessage>(
+                  output: const ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [],
+                  ),
+                  messages: const [],
+                  finishReason: FinishReason.unspecified,
+                  metadata: {
+                    'image_generation': {
+                      'stage': 'partial_image',
+                      'data': data,
+                    },
+                  },
+                  usage: lastResult.usage,
+                );
+                yield lastResult;
+                continue; // handled immediately
+              }
+            } else if (currentEvent == 
+                'response.image_generation_call.completed') {
+              // Handle immediate completion of image generation
+              final itemId = (data['item_id'] ?? data['id'] ?? '').toString();
+              if (itemId.isNotEmpty &&
+                  mediaBase64.containsKey(itemId) &&
+                  mediaBase64[itemId]!.isNotEmpty) {
+                try {
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding image_generation_call base64 for item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
+                  final mimeType = mediaMime[itemId] ?? 'image/png';
+                  // Verify PNG signature
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
+                  final message = ChatMessage(
+                    role: ChatMessageRole.model,
+                    parts: [DataPart(bytes, mimeType: mimeType)],
+                  );
+                  final streamingMetadata = <String, dynamic>{};
+                  if (responseId != null) {
+                    streamingMetadata['response_id'] = responseId;
+                  }
+                  lastResult = ChatResult<ChatMessage>(
+                    output: message,
+                    messages: [message],
+                    finishReason: FinishReason.unspecified,
+                    metadata: streamingMetadata,
+                    usage: lastResult.usage,
+                  );
+                  yield lastResult;
+                } on Object catch (_) {
+                  // ignore
+                } finally {
+                  mediaBase64.remove(itemId);
+                  mediaMime.remove(itemId);
+                }
+              }
+              // Emit completion metadata
+              lastResult = ChatResult<ChatMessage>(
+                output: const ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [],
+                ),
+                messages: const [],
+                finishReason: FinishReason.unspecified,
+                metadata: {
+                  'image_generation': {'stage': 'completed', 'data': data},
+                },
+                usage: lastResult.usage,
+              );
+              yield lastResult;
+              continue; // handled immediately
             } else if (currentEvent == 'response.web_search.started' ||
                 currentEvent == 'response.file_search.started' ||
                 currentEvent == 'response.computer_use.started' ||
@@ -1006,9 +1223,24 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaBase64.containsKey(itemId) &&
                   mediaBase64[itemId]!.isNotEmpty) {
                 try {
-                  final b64 = mediaBase64[itemId]!.toString();
-                  final bytes = base64.decode(b64);
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding image_generation base64 (boundary) for '
+                    'item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
                   final mimeType = mediaMime[itemId] ?? 'image/png';
+                  // Verify PNG signature
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
                   final message = ChatMessage(
                     role: ChatMessageRole.model,
                     parts: [DataPart(bytes, mimeType: mimeType)],
@@ -1049,6 +1281,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               final stage = afterPrefix.contains('.')
                   ? afterPrefix.split('.').last
                   : 'in_progress';
+              _logger.fine('Built-in tool event (boundary): $tool.$stage');
               lastResult = ChatResult<ChatMessage>(
                 output: const ChatMessage(
                   role: ChatMessageRole.model,
@@ -1069,12 +1302,27 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaBase64.containsKey(itemId) &&
                   mediaBase64[itemId]!.isNotEmpty) {
                 try {
-                  final b64 = mediaBase64[itemId]!.toString();
-                  final bytes = base64.decode(b64);
+                  final b64String = mediaBase64[itemId]!.toString();
+                  // Normalize base64 and remove all whitespace
+                  final normalized = base64.normalize(
+                    b64String.replaceAll(RegExp(r'\s+'), ''),
+                  );
+                  _logger.fine(
+                    'Decoding base64 (boundary) for output_item $itemId: '
+                    '${normalized.length} chars',
+                  );
+                  final bytes = base64.decode(normalized);
+
                   final mimeType =
                       mediaMime[itemId] ??
                       (item?['mime_type']?.toString() ??
                           'application/octet-stream');
+
+                  // Verify PNG signature if expected
+                  if (bytes.length >= 8 && mimeType.contains('png')) {
+                    _verifyPngSignature(bytes);
+                  }
+
                   final message = ChatMessage(
                     role: ChatMessageRole.model,
                     parts: [DataPart(bytes, mimeType: mimeType)],
@@ -1211,5 +1459,28 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   void dispose() {
     // Close HTTP client session
     _client.close();
+  }
+
+  /// Verifies PNG signature for image data
+  static void _verifyPngSignature(List<int> bytes) {
+    // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+    const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+    if (bytes.length < 8) {
+      _logger.warning('Image data too short to be a valid PNG');
+      return;
+    }
+
+    for (var i = 0; i < 8; i++) {
+      if (bytes[i] != pngSignature[i]) {
+        _logger.warning(
+          'Invalid PNG signature at byte $i: expected ${pngSignature[i]}, '
+          'got ${bytes[i]}',
+        );
+        return;
+      }
+    }
+
+    _logger.fine('Valid PNG signature verified');
   }
 }

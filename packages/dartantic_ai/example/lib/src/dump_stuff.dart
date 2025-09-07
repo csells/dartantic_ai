@@ -74,8 +74,10 @@ void dumpChatResult(ChatResult result, {String? label}) {
   // Show metadata if present
   if (result.metadata.isNotEmpty) {
     print('\nMetadata:');
+    // Truncate metadata before encoding
+    final truncated = truncateDeep(result.metadata) as Map<String, dynamic>;
     const encoder = JsonEncoder.withIndent('  ');
-    print(encoder.convert(result.metadata));
+    print(encoder.convert(truncated));
   }
 
   // Show messages
@@ -117,7 +119,9 @@ void dumpStreamingResults(List<ChatResult> results) {
           meta.containsKey('suppressed_tool_calls') ||
           meta.containsKey('extra_return_results')) {
         print('\nChunk with suppressed content:');
-        print(const JsonEncoder.withIndent('  ').convert(meta));
+        // Truncate metadata before encoding
+        final truncated = truncateDeep(meta) as Map<String, dynamic>;
+        print(const JsonEncoder.withIndent('  ').convert(truncated));
       }
     }
   }
@@ -151,4 +155,58 @@ String _messageToSummary(ChatMessage message) {
 Future<void> dumpStream(Stream<ChatResult<String>> stream) async {
   await stream.forEach((r) => stdout.write(r.output));
   stdout.write('\n');
+}
+
+/// Truncates any value to a maximum length, handling different types
+String truncateValue(dynamic value, {int maxLength = 512}) {
+  final str = value.toString();
+  if (str.length <= maxLength) return str;
+  return '${str.substring(0, maxLength)}...';
+}
+
+/// Recursively truncates values in a map/list structure
+dynamic truncateDeep(dynamic obj, {int maxLength = 512}) {
+  if (obj is Map) {
+    // Create a new Map<String, dynamic> to ensure proper type
+    final result = <String, dynamic>{};
+    obj.forEach((key, value) {
+      result[key.toString()] = truncateDeep(value, maxLength: maxLength);
+    });
+    return result;
+  } else if (obj is List) {
+    return obj
+        .map((item) => truncateDeep(item, maxLength: maxLength))
+        .toList();
+  } else if (obj is String) {
+    return obj.length > maxLength ? '${obj.substring(0, maxLength)}...' : obj;
+  } else {
+    // For other types, convert to string and truncate if needed
+    final str = obj.toString();
+    return str.length > maxLength ? '${str.substring(0, maxLength)}...' : obj;
+  }
+}
+
+/// Dumps metadata in a formatted way with all values truncated
+void dumpMetadata(
+  Map<String, dynamic> metadata, {
+  String prefix = '',
+  int maxLength = 512,
+}) {
+  if (metadata.isEmpty) return;
+
+  final truncated =
+      truncateDeep(metadata, maxLength: maxLength) as Map<String, dynamic>;
+
+  for (final entry in truncated.entries) {
+    final key = entry.key;
+    final value = entry.value;
+
+    // Special handling for structured metadata (like web_search with stage/data)
+    if (value is Map<String, dynamic> && value.containsKey('stage')) {
+      stdout
+          .writeln('$prefix[$key/${value['stage']}] ${value['data'] ?? ''}');
+    } else {
+      stdout.writeln('$prefix[$key] $value');
+    }
+  }
 }
