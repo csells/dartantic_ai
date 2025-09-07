@@ -81,25 +81,78 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final resolvedBaseUrl = _baseUrl ?? _defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'responses');
 
-    // Extract response ID for tool result linking if any tool results exist
+    // Extract response ID for tool result linking and explicit container reuse
     String? previousResponseId;
     final hasAnyToolResults = messages.any(
       (m) => m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result),
     );
-    if (hasAnyToolResults) {
-      // Find the most recent model message with tool calls and capture its id
+    
+    // Check if container reuse is explicitly requested
+    final codeInterpreterConfig = options?.codeInterpreterConfig ?? 
+                                   defaultOptions.codeInterpreterConfig;
+    final shouldReuseContainer = 
+        codeInterpreterConfig?.shouldReuseContainer ?? false;
+    final requestedContainerId = codeInterpreterConfig?.containerId;
+    
+    // Only look for previous_response_id if:
+    // 1. We have tool results that need linking, OR
+    // 2. Container reuse is explicitly requested
+    //
+    // NOTE: Container reuse via container_id alone does NOT work with the
+    // OpenAI Responses API. Testing confirmed that passing container_id 
+    // directly (e.g., "container": "cntr_...") is accepted by the API but 
+    // does NOT preserve container state. Only previous_response_id properly 
+    // maintains container state across requests.
+    if (hasAnyToolResults || shouldReuseContainer) {
       for (var i = messages.length - 1; i >= 0; i--) {
         final msg = messages[i];
-        if (msg.role == ChatMessageRole.model &&
-            msg.parts.any(
-              (p) => p is ToolPart && p.kind == ToolPartKind.call,
-            )) {
-          previousResponseId = msg.metadata['response_id'] as String?;
-          if (previousResponseId != null) {
-            _logger.info('Found previous response ID: $previousResponseId');
+        if (msg.role == ChatMessageRole.model) {
+          // For tool results, we need a message with tool calls
+          if (hasAnyToolResults &&
+              !msg.parts.any(
+                (p) => p is ToolPart && p.kind == ToolPartKind.call,
+              )) {
+            continue;
+          }
+          
+          // Try to get response_id from metadata
+          final msgResponseId = msg.metadata['response_id'] as String?;
+          final msgContainerId = msg.metadata['container_id'] as String?;
+          
+          // For container reuse, check if this message has the requested 
+          // container
+          if (shouldReuseContainer && requestedContainerId != null) {
+            if (msgContainerId == requestedContainerId && 
+                msgResponseId != null) {
+              previousResponseId = msgResponseId;
+              _logger.info(
+                'Found response ID for container reuse: $previousResponseId '
+                '(container: $requestedContainerId)',
+              );
+              break;
+            }
+            // Continue looking for matching container
+            continue;
+          }
+          
+          // For tool results, just use the response_id if available
+          if (hasAnyToolResults && msgResponseId != null) {
+            previousResponseId = msgResponseId;
+            _logger.info(
+              'Found previous response ID for tool result linking: '
+              '$previousResponseId',
+            );
             break;
           }
         }
+      }
+      
+      // Warn if container reuse was requested but no matching response found
+      if (shouldReuseContainer && previousResponseId == null) {
+        _logger.warning(
+          'Container reuse requested for $requestedContainerId but no matching '
+          'response_id found in history',
+        );
       }
     }
 
@@ -169,6 +222,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
 
     // Track response ID for linking tool result requests
     String? responseId;
+    // Track container ID for code_interpreter sessions
+    String? containerId;
 
     http.StreamedResponse? streamedResponse;
     try {
@@ -294,11 +349,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 chunkCount++;
                 accumulatedTextBuffer.write(delta);
 
-                final message = ChatMessage(
-                  role: ChatMessageRole.model,
-                  parts: [TextPart(delta)],
-                );
-                // Include response ID in metadata if available
+                // Include response ID and container ID in metadata if available
                 final streamingMetadata = <String, dynamic>{};
                 if (reasoningDeltaBuffer.isNotEmpty) {
                   streamingMetadata['thinking'] = reasoningDeltaBuffer
@@ -307,6 +358,15 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 if (responseId != null) {
                   streamingMetadata['response_id'] = responseId;
                 }
+                if (containerId != null) {
+                  streamingMetadata['container_id'] = containerId;
+                }
+                
+                final message = ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [TextPart(delta)],
+                  metadata: streamingMetadata,
+                );
 
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
@@ -425,6 +485,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 final streamingMetadata = <String, dynamic>{};
                 if (responseId != null) {
                   streamingMetadata['response_id'] = responseId;
+                }
+                if (containerId != null) {
+                  streamingMetadata['container_id'] = containerId;
                 }
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
@@ -807,15 +870,25 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 chunkCount++;
                 accumulatedTextBuffer.write(delta);
 
+                // Include response ID and container ID in message metadata
+                final messageMetadata = <String, dynamic>{};
+                if (responseId != null) {
+                  messageMetadata['response_id'] = responseId;
+                }
+                if (containerId != null) {
+                  messageMetadata['container_id'] = containerId;
+                }
+
                 final message = ChatMessage(
                   role: ChatMessageRole.model,
                   parts: [TextPart(delta)],
+                  metadata: messageMetadata,
                 );
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
                   messages: [message],
                   finishReason: FinishReason.unspecified,
-                  metadata: const {},
+                  metadata: messageMetadata,
                   usage: lastResult.usage,
                 );
                 yield lastResult;
@@ -1006,8 +1079,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               if (itemData != null && 
                   itemData is Map &&
                   itemData['type'] == 'code_interpreter_call') {
-                final containerId = itemData['container_id'];
+                final itemContainerId = itemData['container_id'];
                 final code = itemData['code'];
+                
+                // Capture the container ID for message metadata
+                if (itemContainerId != null) {
+                  containerId = itemContainerId as String;
+                }
+                
                 lastResult = ChatResult<ChatMessage>(
                   output: const ChatMessage(
                     role: ChatMessageRole.model,
@@ -1021,7 +1100,8 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                           ? 'started' 
                           : 'completed',
                       'data': {
-                        if (containerId != null) 'container_id': containerId,
+                        if (itemContainerId != null) 
+                          'container_id': itemContainerId,
                         if (code != null) 'code': code,
                       },
                     },
@@ -1181,11 +1261,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               if (delta.isNotEmpty) {
                 chunkCount++;
                 accumulatedTextBuffer.write(delta);
-                final message = ChatMessage(
-                  role: ChatMessageRole.model,
-                  parts: [TextPart(delta)],
-                );
-                // Include response ID in metadata if available
+                // Include response ID and container ID in metadata if available
                 final streamingMetadata = <String, dynamic>{};
                 if (reasoningDeltaBuffer.isNotEmpty) {
                   streamingMetadata['thinking'] = reasoningDeltaBuffer
@@ -1194,6 +1270,15 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 if (responseId != null) {
                   streamingMetadata['response_id'] = responseId;
                 }
+                if (containerId != null) {
+                  streamingMetadata['container_id'] = containerId;
+                }
+                
+                final message = ChatMessage(
+                  role: ChatMessageRole.model,
+                  parts: [TextPart(delta)],
+                  metadata: streamingMetadata,
+                );
 
                 lastResult = ChatResult<ChatMessage>(
                   output: message,
@@ -1524,10 +1609,13 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
           accumulatedText: accumulatedTextBuffer.toString(),
         );
 
-        // Include response ID in metadata for tool result linking
+        // Include response ID and container ID in metadata
         final messageMetadata = <String, dynamic>{};
         if (responseId != null) {
           messageMetadata['response_id'] = responseId;
+        }
+        if (containerId != null) {
+          messageMetadata['container_id'] = containerId;
         }
 
         // Create message with metadata

@@ -246,7 +246,7 @@ Future<void> demoCodeInterpreter() async {
 
   // First session: Calculate Fibonacci numbers and store in container
   print('=== Session 1: Calculate Fibonacci Numbers ===\n');
-  
+
   final agent1 = Agent(
     'openai-responses',
     chatModelOptions: const OpenAIResponsesChatOptions(
@@ -267,9 +267,23 @@ Future<void> demoCodeInterpreter() async {
   await for (final chunk in agent1.sendStream(prompt1)) {
     // Collect messages for history
     messages.addAll(chunk.messages);
-    
+
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+    // Check for images in message parts
+    for (final msg in chunk.messages) {
+      if (msg.role != ChatMessageRole.model) continue;
+      for (final part in msg.parts) {
+        if (part is LinkPart) {
+          stdout.writeln('\n📎 Image URL: ${part.url}');
+        } else if (part is DataPart && part.mimeType.startsWith('image/')) {
+          stdout.writeln(
+            '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
+          );
+        }
+      }
+    }
 
     // Capture and show code interpreter metadata
     final ci = chunk.metadata['code_interpreter'];
@@ -290,37 +304,49 @@ Future<void> demoCodeInterpreter() async {
           if (data['code'] != null && stage == 'completed') {
             stdout.writeln('  Code executed successfully');
           }
-          
-          // Show generated files
+
+          // Show generated files with their URLs
           if (data['files'] != null && data['files'] is List) {
             final files = data['files'] as List;
             stdout.writeln('  📊 Generated ${files.length} file(s)');
+            for (final file in files) {
+              if (file is Map) {
+                final fileId = file['file_id'];
+                final filename = file['filename'];
+                if (fileId != null) {
+                  stdout.writeln('     📄 $filename (ID: $fileId)');
+                }
+              } else if (file is String) {
+                // File might just be a string ID
+                stdout.writeln('     📄 File ID: $file');
+              }
+            }
           }
         }
       }
     }
   }
-  
+
   print('\n\n');
-  
+
   // Check if we captured a container ID
   if (capturedContainerId == null) {
     print('❌ Failed to capture container ID from first session');
     return;
   }
-  
+
   print('✅ Captured container ID: $capturedContainerId\n');
   print('=== Session 2: Reuse Container for Golden Ratio ===\n');
-  
-  // Second session: Reuse the container with the stored data
-  print('🔄 Attempting to reuse container: $capturedContainerId\n');
-  
+
+  // Second session: Explicitly configure container reuse
+  print('🔄 Configuring agent to reuse container: $capturedContainerId\n');
+
   final agent2 = Agent(
     'openai-responses',
     chatModelOptions: OpenAIResponsesChatOptions(
       serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
       codeInterpreterConfig: CodeInterpreterConfig(
-        containerId: capturedContainerId, // Reuse the container!
+        containerId: capturedContainerId, // Explicitly request container reuse
       ),
     ),
   );
@@ -339,6 +365,20 @@ Future<void> demoCodeInterpreter() async {
   )) {
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+    // Check for images in message parts
+    for (final msg in chunk.messages) {
+      if (msg.role != ChatMessageRole.model) continue;
+      for (final part in msg.parts) {
+        if (part is LinkPart) {
+          stdout.writeln('\n📎 Image URL: ${part.url}');
+        } else if (part is DataPart && part.mimeType.startsWith('image/')) {
+          stdout.writeln(
+            '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
+          );
+        }
+      }
+    }
 
     // Show code interpreter metadata for second session
     final ci = chunk.metadata['code_interpreter'];
@@ -363,25 +403,48 @@ Future<void> demoCodeInterpreter() async {
           if (data['code'] != null && stage == 'completed') {
             stdout.writeln('  Code executed successfully');
           }
-          
-          // Show any new files generated
+
+          // Show any new files generated with their URLs
           if (data['files'] != null && data['files'] is List) {
             final files = data['files'] as List;
             stdout.writeln('  📊 Generated ${files.length} new file(s)');
+            for (final file in files) {
+              if (file is Map) {
+                final fileId = file['file_id'];
+                final filename = file['filename'];
+                if (fileId != null) {
+                  stdout.writeln('     📄 $filename (ID: $fileId)');
+                }
+              } else if (file is String) {
+                // File might just be a string ID
+                stdout.writeln('     📄 File ID: $file');
+              }
+            }
           }
         }
       }
     }
   }
-  
+
   print('\n\n');
   print('✨ Demo complete!');
   print('');
-  print('Note: If a new container was created instead of reusing the old one,');
-  print('it could be due to:');
-  print('  - Container expiration (30-minute idle timeout)');
-  print('  - Container session limits');
-  print('  - API restrictions on container reuse');
+  print('📝 Notes:');
+  print(
+    '  - Generated plot files can be downloaded using the OpenAI Files API',
+  );
+  print(
+    '  - Use the file IDs shown above with: '
+    'GET /v1/files/{file_id}/content',
+  );
+  print('  - Container reuse works via conversation history automatically');
+  print('  - If a new container was created, it could be due to:');
+  print('    • Container expiration (30-minute idle timeout)');
+  print('    • Container session limits');
+  print('    • API restrictions on container reuse');
   print('');
-  print('However, the conversation history is maintained regardless!\n');
+  print(
+    'The conversation history is maintained regardless of container '
+    'reuse!\n',
+  );
 }

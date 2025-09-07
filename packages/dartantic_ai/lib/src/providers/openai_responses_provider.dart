@@ -88,6 +88,7 @@ class OpenAIResponsesProvider
         serverSideTools: options?.serverSideTools,
         fileSearchConfig: options?.fileSearchConfig,
         webSearchConfig: options?.webSearchConfig,
+        codeInterpreterConfig: options?.codeInterpreterConfig,
         // Prompt caching configuration
         cacheConfig: options?.cacheConfig,
       ),

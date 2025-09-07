@@ -67,6 +67,10 @@ class WebSearchConfig {
 }
 
 /// Configuration for the code interpreter tool.
+/// 
+/// To reuse a container from a previous session, provide the containerId
+/// from a previous code_interpreter response. This will maintain state
+/// across requests by using the previous_response_id mechanism.
 @immutable
 class CodeInterpreterConfig {
   /// Creates a new configuration instance for the code interpreter tool.
@@ -75,9 +79,8 @@ class CodeInterpreterConfig {
     this.files,
   });
 
-  /// Explicit container ID to reuse from a previous code_interpreter session.
-  /// If not provided, uses 'auto' to create a new container or reuse an
-  /// active one.
+  /// Optional container ID to reuse from a previous code_interpreter session.
+  /// When provided, enables container reuse via previous_response_id.
   final String? containerId;
 
   /// List of file IDs available to the code interpreter.
@@ -85,19 +88,14 @@ class CodeInterpreterConfig {
   final List<String>? files;
 
   /// Converts the configuration to a request JSON object.
-  Map<String, dynamic> toRequestJson() {
-    if (containerId != null && containerId!.isNotEmpty) {
-      // Use explicit container ID
-      return {
-        'id': containerId,
-        if (files != null && files!.isNotEmpty) 'files': files,
-      };
-    } else {
-      // Use auto mode
-      return {
-        'type': 'auto',
-        if (files != null && files!.isNotEmpty) 'files': files,
-      };
-    }
-  }
+  Map<String, dynamic> toRequestJson() => {
+    // Always use 'auto' for container type
+    // Container reuse is controlled at a higher level via previous_response_id
+    'type': 'auto',
+    if (files != null && files!.isNotEmpty) 'files': files,
+  };
+  
+  /// Whether container reuse is requested.
+  bool get shouldReuseContainer => 
+      containerId != null && containerId!.isNotEmpty;
 }
