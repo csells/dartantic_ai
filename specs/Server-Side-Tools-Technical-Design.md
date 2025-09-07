@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how dartantic enables provider-native, server-side tools (e.g., OpenAI Responses built-ins) and surfaces their usage via message metadata without requiring app-side execution.
+This document describes how dartantic enables provider-native, server-side tools (e.g., OpenAI Responses server-side tools) and surfaces their usage via message metadata without requiring app-side execution.
 
 Goals
 
@@ -14,7 +14,7 @@ Goals
 Non-goals
 
 - Re-implement provider tools on the client.
-- Force built-ins into function-tool call/response cycles.
+- Force server-side tools into function-tool call/response cycles.
 
 ## API Surface
 
@@ -25,7 +25,7 @@ Non-goals
 
 Behavior
 
-- The set is mapped to native built-ins in the Responses request (e.g., `type: "web_search"`).
+- The set is mapped to native server-side tools in the Responses request (e.g., `type: "web_search"`).
 - Unrelated providers ignore these options (they are specific to Responses).
 
 ### Provider-Specific Configuration
@@ -35,11 +35,11 @@ For OpenAI Responses, we support:
 - `OpenAIServerSideTool` enum for tool selection.
 - `OpenAIResponsesChatOptions.serverSideTools` for enabling tools.
 - `OpenAIResponsesChatOptions.fileSearchConfig` and `webSearchConfig` for tuning.
-- Legacy: `builtInTools` container remains for backward compatibility, but prefer the fields above.
+- Legacy: deprecated container remains for backward compatibility, but prefer the fields above.
 
 ### Observability via Metadata
 
-During streaming, built-in tool events are exposed as metadata-only updates:
+During streaming, server-side tool events are exposed as metadata-only updates:
 
 - Keys: `web_search`, `file_search`, `computer_use`, `code_interpreter`.
 - Structure: `{ stage: 'started' | 'result' | 'action', data: <event-payload> }`.
@@ -51,19 +51,19 @@ Rationale: keep tool outputs flowing directly to the model while giving apps hoo
 
 Request payload:
 
-- Include native built-ins under `tools`: `{ "type": "web_search", "name": "web_search" }`, etc.
+- Include native server-side tools under `tools`: `{ "type": "web_search", "name": "web_search" }`, etc.
 - Continue to include user function tools (`type: function`).
 
 SSE handling:
 
-- Recognize built-in events (e.g., `response.web_search_call.in_progress`, `response.web_search_call.searching`, `response.web_search_call.completed`, `response.code_interpreter.output`, `response.image_generation_call.partial_image`, `response.image_generation_call.completed`).
+- Recognize server-side tool events (e.g., `response.web_search_call.in_progress`, `response.web_search_call.searching`, `response.web_search_call.completed`, `response.code_interpreter.output`, `response.image_generation_call.partial_image`, `response.image_generation_call.completed`).
 - Emit metadata-only `ChatResult` slices for non-text events; stream media via parts where appropriate.
 - Image generation: `partial_image_b64` data is accumulated and emitted as `DataPart` on completion.
 
 ## Compatibility with Function Tools
 
 - Unchanged: function tools remain app-executed and return via tool results.
-- When switching providers mid-turn, `previous_response_id` is used only for function_call_output linking; built-ins do not require it.
+- When switching providers mid-turn, `previous_response_id` is used only for function_call_output linking; server-side tools do not require it.
 
 ## Performance & Reliability
 
@@ -73,10 +73,10 @@ SSE handling:
 ## Security & Governance
 
 - Metadata enables audit logging and UI disclosures (e.g., “searching web”).
-- App may filter prompts or disable certain built-ins via `serverSideTools`.
+- App may filter prompts or disable certain server-side tools via `serverSideTools`.
 
 ## Testing Strategy
 
-- Unit tests for request shaping (tools array contains built-ins; union logic in Agent).
+- Unit tests for request shaping (tools array contains server-side tools; union logic in Agent).
 - SSE event parsing tests for metadata exposure.
 - Manual/integration tests against OpenAI Responses for media events and end-to-end behavior.

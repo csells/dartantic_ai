@@ -42,7 +42,7 @@ void main() {
       expect(defaults.cacheConfig?.ttlSeconds, equals(60));
     });
 
-    test('request tools array includes built-ins with config', () {
+    test('request tools array includes server-side tools with config', () {
       const defaults = OpenAIResponsesChatOptions(
         serverSideTools: {
           OpenAIServerSideTool.webSearch,

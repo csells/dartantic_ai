@@ -30,7 +30,7 @@ enum ProviderCaps {
   /// via history.
   thinking,
 
-  /// The provider supports enabling built-in tools exposed by the API.
+  /// The provider supports enabling server-side tools exposed by the API.
   serverSideTools,
 
   /// The provider supports session-based prompt caching.

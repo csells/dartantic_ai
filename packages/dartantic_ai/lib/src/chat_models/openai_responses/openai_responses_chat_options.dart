@@ -1,8 +1,8 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
-import 'openai_responses_built_in_tools.dart';
 import 'openai_responses_cache_config.dart';
+import 'openai_responses_server_side_tools.dart';
 
 /// Generation options for the OpenAI Responses API chat model.
 @immutable
@@ -65,7 +65,7 @@ class OpenAIResponsesChatOptions extends ChatModelOptions {
   /// fileSearch).
   ///
   /// Provider-specific, akin to reasoning configuration. When supplied, these
-  /// are mapped to native built-ins in the Responses API request.
+  /// are mapped to native server-side tools in the Responses API request.
   final Set<OpenAIServerSideTool>? serverSideTools;
 
   /// Optional configuration for file_search.

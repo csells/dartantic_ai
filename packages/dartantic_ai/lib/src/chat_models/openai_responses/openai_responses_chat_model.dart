@@ -681,14 +681,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             } else if (currentEvent.startsWith('response.') &&
                 currentEvent.contains('_call.') &&
                 !currentEvent.startsWith('response.image_generation_call.')) {
-              // Map built-in tool call lifecycle events, e.g.:
+              // Map server-side tool call lifecycle events, e.g.:
               // response.web_search_call.in_progress/searching/completed
               final afterPrefix = currentEvent.substring('response.'.length);
               final toolName = afterPrefix.split('_call').first; // web_search
               final stage = afterPrefix.contains('.')
                   ? afterPrefix.split('.').last
                   : 'in_progress';
-              _logger.info('Built-in tool event: $toolName.$stage');
+              _logger.info('Server-side tool event: $toolName.$stage');
               lastResult = ChatResult<ChatMessage>(
                 output: const ChatMessage(
                   role: ChatMessageRole.model,
@@ -1281,7 +1281,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               final stage = afterPrefix.contains('.')
                   ? afterPrefix.split('.').last
                   : 'in_progress';
-              _logger.fine('Built-in tool event (boundary): $tool.$stage');
+              _logger.fine('Server-side tool event (boundary): $tool.$stage');
               lastResult = ChatResult<ChatMessage>(
                 output: const ChatMessage(
                   role: ChatMessageRole.model,
@@ -1342,7 +1342,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   mediaMime.remove(itemId);
                 }
               }
-              // Also surface completion for built-in calls via item.type
+              // Also surface completion for server-side calls via item.type
               final itemType = item?['type']?.toString() ?? '';
               if (itemType.endsWith('_call')) {
                 final tool = itemType.replaceAll('_call', '');

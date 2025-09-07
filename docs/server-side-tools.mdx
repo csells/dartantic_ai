@@ -1,6 +1,6 @@
 ---
 title: Server-Side Tools
-description: Enable and observe provider-native tools (e.g., OpenAI Responses built-ins) with a single switch.
+description: Enable and observe provider-native tools (e.g., OpenAI Responses server-side tools) with a single switch.
 ---
 
 Server-side tools are capabilities executed by the provider (not your app). Examples include web search, file/document search, browser/desktop control, image generation, and code interpreter. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
@@ -61,7 +61,7 @@ await for (final chunk in agent.sendStream('Search for recent news')) {
 
 Provider note (OpenAI Responses)
 
-- These map directly to OpenAI's built-ins (web_search, file_search, computer_use, image_generation, code_interpreter).
+- These map directly to OpenAI's server-side tools (web_search, file_search, computer_use, image_generation, code_interpreter).
 - Image generation streams `partial_image_b64` data which is accumulated and emitted as `DataPart` on completion.
 - Web search doesn't include the search query in metadata - the provider handles the search internally.
 

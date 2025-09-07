@@ -5,9 +5,9 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import '../../agent/tool_constants.dart';
-import 'openai_responses_built_in_tools.dart';
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_model_config.dart';
+import 'openai_responses_server_side_tools.dart';
 
 /// Builds a request payload for the OpenAI Responses API from unified messages.
 Map<String, dynamic> buildResponsesRequest(
@@ -224,19 +224,20 @@ Map<String, dynamic> buildResponsesRequest(
     }),
   ];
 
-  // Server-side built-in tools (Responses-specific)
-  final enabledBuiltIns = <OpenAIServerSideTool>{
+  // Server-side tools (Responses-specific)
+  final enabledServerSideTools = <OpenAIServerSideTool>{
     ...?defaultOptions.serverSideTools,
     ...?options?.serverSideTools,
   };
 
-  if (enabledBuiltIns.isNotEmpty) {
+  if (enabledServerSideTools.isNotEmpty) {
     // Merge per-tool configs (options override defaults)
     final fsCfg = options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
     final wsCfg = options?.webSearchConfig ?? defaultOptions.webSearchConfig;
 
-    for (final t in enabledBuiltIns) {
-      // Built-ins should not include a 'name' property per Responses API
+    for (final t in enabledServerSideTools) {
+      // Server-side tools should not include a 'name' property per
+      // Responses API
       final tool = <String, dynamic>{'type': t.apiName};
       if (t == OpenAIServerSideTool.fileSearch && fsCfg != null) {
         tool['config'] = fsCfg.toRequestJson();

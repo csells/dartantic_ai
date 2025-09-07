@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart';
 
-/// Built-in tools exposed by the OpenAI Responses API.
+/// Server-side tools exposed by the OpenAI Responses API.
 /// These require no external implementation and can be enabled in the request.
 enum OpenAIServerSideTool {
   /// Web search tool.
@@ -20,7 +20,7 @@ enum OpenAIServerSideTool {
 
   const OpenAIServerSideTool(this.apiName);
 
-  /// The API name of the built-in tool.
+  /// The API name of the server-side tool.
   final String apiName;
 }
 
