@@ -145,8 +145,6 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         'Authorization': 'Bearer $_apiKey',
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
-      // Required beta header for Responses API
-      'OpenAI-Beta': 'responses=v1',
       ...extraHeaders,
       ...?_headers,
     });
@@ -1004,10 +1002,32 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 currentEvent == 'response.file_search.result' ||
                 currentEvent == 'response.computer_use.action' ||
                 currentEvent == 'response.computer_use.result' ||
-                currentEvent == 'response.code_interpreter.output') {
+                currentEvent == 'response.code_interpreter.output' ||
+                currentEvent == 'response.code_interpreter_call.in_progress' ||
+                currentEvent == 'response.code_interpreter_call.interpreting' ||
+                currentEvent == 'response.code_interpreter_call.completed' ||
+                currentEvent == 'response.code_interpreter_call_code.delta' ||
+                currentEvent == 'response.code_interpreter_call_code.done') {
               final parts = currentEvent!.split('.');
-              final t = parts.length > 1 ? parts[1] : 'tool';
-              final stage = parts.length > 2 ? parts[2] : 'data';
+              // For code_interpreter_call events, normalize the tool name
+              String t;
+              String stage;
+              if (parts[1].startsWith('code_interpreter_call')) {
+                t = 'code_interpreter';
+                // Extract stage from event like
+                // 'response.code_interpreter_call.in_progress'
+                // or 'response.code_interpreter_call_code.delta'
+                if (parts[1] == 'code_interpreter_call') {
+                  stage = parts.length > 2 ? parts[2] : 'data';
+                } else if (parts[1] == 'code_interpreter_call_code') {
+                  stage = 'code_${parts.length > 2 ? parts[2] : "data"}';
+                } else {
+                  stage = 'data';
+                }
+              } else {
+                t = parts.length > 1 ? parts[1] : 'tool';
+                stage = parts.length > 2 ? parts[2] : 'data';
+              }
               lastResult = ChatResult<ChatMessage>(
                 output: const ChatMessage(
                   role: ChatMessageRole.model,

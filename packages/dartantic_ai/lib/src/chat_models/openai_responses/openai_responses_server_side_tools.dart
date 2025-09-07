@@ -15,7 +15,7 @@ enum OpenAIServerSideTool {
   /// Image generation tool.
   imageGeneration('image_generation'),
 
-  /// Code interpreter tool.
+  /// Code interpreter tool for executing Python code.
   codeInterpreter('code_interpreter');
 
   const OpenAIServerSideTool(this.apiName);
@@ -70,14 +70,15 @@ class WebSearchConfig {
 @immutable
 class CodeInterpreterConfig {
   /// Creates a new configuration instance for the code interpreter tool.
-  const CodeInterpreterConfig({this.containerId});
+  const CodeInterpreterConfig({this.files});
 
-  /// The container ID for code execution.
-  /// Containers can be created via OpenAI's API and cost $0.03 each.
-  final String? containerId;
+  /// List of file IDs available to the code interpreter.
+  /// Files must be uploaded through OpenAI's Files API first.
+  final List<String>? files;
 
   /// Converts the configuration to a request JSON object.
   Map<String, dynamic> toRequestJson() => {
-    if (containerId != null) 'container': containerId,
+    'type': 'auto',
+    if (files != null && files!.isNotEmpty) 'files': files,
   };
 }

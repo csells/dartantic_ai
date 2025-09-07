@@ -94,16 +94,16 @@
               "href": "/server-side-tools/image-generation"
             },
             {
-              "title": "Code Interpreter",
-              "href": "/server-side-tools/code-interpreter"
-            },
-            {
               "title": "File Search",
               "href": "/server-side-tools/file-search"
             },
             {
               "title": "Computer Use",
               "href": "/server-side-tools/computer-use"
+            },
+            {
+              "title": "Code Interpreter",
+              "href": "/server-side-tools/code-interpreter"
             }
           ]
         },

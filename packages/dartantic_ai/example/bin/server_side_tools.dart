@@ -12,9 +12,9 @@ Future<void> main(List<String> args) async {
 
   // await demoWebSearch();
   // await demoImageGeneration();
-  await demoCodeInterpreter();
   // await demoFileSearch();
   // await demoComputerUse();
+  await demoCodeInterpreter();
 }
 
 /// Demonstrates web search capabilities
@@ -114,85 +114,6 @@ Future<void> demoImageGeneration() async {
     }
   }
   print('\n');
-}
-
-/// Demonstrates code interpreter capabilities
-/// Note: Code interpreter requires a pre-created container ID
-Future<void> demoCodeInterpreter() async {
-  print('💻 Code Interpreter Demo\n');
-  print('This demo uses Python code execution for data analysis.\n');
-  print('⚠️  Note: Code interpreter requires a container ID.\n');
-  print(
-    '   See docs/server-side-tools/code-interpreter.mdx '
-    'for setup instructions.\n',
-  );
-
-  // To test, uncomment and add your container ID:
-  // final containerId = 'YOUR_CONTAINER_ID_HERE';
-  //
-  // final agent = Agent(
-  //   'openai-responses:gpt-4o',
-  //   chatModelOptions: OpenAIResponsesChatOptions(
-  //     serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-  //     codeInterpreterConfig: CodeInterpreterConfig(
-  //       containerId: containerId,
-  //     ),
-  //   ),
-  // );
-
-  // For now, show the error message when no container is configured:
-  try {
-    final agent = Agent(
-      'openai-responses:gpt-4o',
-      chatModelOptions: const OpenAIResponsesChatOptions(
-        serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        // codeInterpreterConfig not provided - will throw error
-      ),
-    );
-
-    const prompt = '''
-Create a simple data visualization:
-1. Generate sample data for monthly sales (12 months)
-2. Calculate basic statistics (mean, min, max)
-3. Create a simple ASCII bar chart
-4. Explain the trends you see
-''';
-
-    print('Prompt: $prompt\n');
-    print('Response:\n');
-
-    await for (final chunk in agent.sendStream(prompt)) {
-      // Stream the text response
-      if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
-      // Show code interpreter metadata
-      final ci = chunk.metadata['code_interpreter'];
-      if (ci != null) {
-        stdout.writeln('\n[code_interpreter/${ci['stage']}]');
-        if (ci['data'] != null) {
-          final data = ci['data'];
-          if (data is Map) {
-            // Show code being executed
-            if (data['code'] != null) {
-              stdout.writeln(
-                '  Code: ${truncateValue(data['code'], maxLength: 200)}',
-              );
-            }
-            // Show output from code execution
-            if (data['output'] != null) {
-              stdout.writeln(
-                '  Output: ${truncateValue(data['output'], maxLength: 200)}',
-              );
-            }
-          }
-        }
-      }
-    }
-    print('\n');
-  } on Exception catch (e) {
-    print('Expected error: $e\n');
-    print('To use code interpreter, create a container and provide its ID.');
-  }
 }
 
 /// Demonstrates file search capabilities
@@ -316,4 +237,66 @@ Future<void> demoComputerUse() async {
   print('\n');
   print('Note: Computer use requires special permissions and setup.');
   print('It may not be available in all environments.');
+}
+
+/// Demonstrates code interpreter capabilities
+Future<void> demoCodeInterpreter() async {
+  print('🐍 Code Interpreter Demo\n');
+  print('This demo executes Python code to solve mathematical problems.\n');
+
+  final agent = Agent(
+    'openai-responses',
+    chatModelOptions: const OpenAIResponsesChatOptions(
+      serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+    ),
+  );
+
+  const prompt =
+      'Calculate the first 10 Fibonacci numbers and plot them in a graph. '
+      'Also find the golden ratio from the sequence.';
+
+  print('Prompt: $prompt\n');
+  print('Response:\n');
+
+  await for (final chunk in agent.sendStream(prompt)) {
+    // Stream the text response
+    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+    // Show code interpreter metadata
+    final ci = chunk.metadata['code_interpreter'];
+    if (ci != null) {
+      final stage = ci['stage'] as String?;
+      if (stage != null) {
+        stdout.writeln('\n[code_interpreter/$stage]');
+
+        final data = ci['data'];
+        if (data is Map) {
+          // Show code being executed
+          if (data['code'] != null) {
+            stdout.writeln('  Code:');
+            final codeLines = data['code'].toString().split('\n');
+            for (final line in codeLines.take(5)) {
+              stdout.writeln('    $line');
+            }
+            if (codeLines.length > 5) {
+              stdout.writeln('    ... (${codeLines.length - 5} more lines)');
+            }
+          }
+
+          // Show container ID
+          if (data['container_id'] != null) {
+            stdout.writeln('  Container: ${data['container_id']}');
+          }
+
+          // Show output
+          if (data['output'] != null) {
+            stdout.writeln(
+              '  Output: ${truncateValue(data['output'], maxLength: 200)}',
+            );
+          }
+        }
+      }
+    }
+  }
+  print('\n');
 }

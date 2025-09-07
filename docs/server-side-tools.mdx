@@ -5,7 +5,7 @@ description: Enable and observe provider-native tools (e.g., OpenAI Responses se
 
 # Server-Side Tools Overview
 
-Server-side tools are capabilities executed by the provider (not your app). OpenAI's Responses API offers five powerful server-side tools that can be enabled with simple configuration: web search, image generation, code interpreter, file search, and computer use. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
+Server-side tools are capabilities executed by the provider (not your app). OpenAI's Responses API offers five server-side tools that can be enabled with simple configuration: web search, image generation, file search, computer use, and code interpreter. When enabled, the model decides when to use them, the provider runs them, and results appear in the streaming response.
 
 ## Available Tools
 
@@ -13,9 +13,9 @@ Server-side tools are capabilities executed by the provider (not your app). Open
 |------|-------------|--------------|
 | **Web Search** | Search the internet for current information | None |
 | **Image Generation** | Create images from text descriptions using DALL-E | None |
-| **Code Interpreter** | Execute Python code in a sandboxed environment | Container ID |
 | **File Search** | Search through uploaded documents | Pre-uploaded files |
 | **Computer Use** | Control browsers and desktop applications | Special permissions |
+| **Code Interpreter** | Execute Python code in a sandboxed environment | None |
 
 ## Key Benefits
 
@@ -32,7 +32,11 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 final agent = Agent(
   'openai-responses:gpt-4o',
   chatModelOptions: const OpenAIResponsesChatOptions(
-    serverSideTools: {OpenAIServerSideTool.webSearch, OpenAIServerSideTool.imageGeneration},
+    serverSideTools: {
+      OpenAIServerSideTool.webSearch,
+      OpenAIServerSideTool.imageGeneration,
+      OpenAIServerSideTool.codeInterpreter,
+    },
   ),
 );
 ```
@@ -78,17 +82,17 @@ Each tool has unique capabilities and configuration requirements:
 
 - [**Web Search**](/server-side-tools/web-search) - Search for current information beyond the model's training data
 - [**Image Generation**](/server-side-tools/image-generation) - Create images with DALL-E from text descriptions
-- [**Code Interpreter**](/server-side-tools/code-interpreter) - Execute Python code for data analysis and calculations
 - [**File Search**](/server-side-tools/file-search) - Search through your uploaded documents and knowledge base
 - [**Computer Use**](/server-side-tools/computer-use) - Automate browser and desktop interactions (requires special setup)
+- [**Code Interpreter**](/server-side-tools/code-interpreter) - Execute Python code for data analysis and computations
 
 ## Provider Notes (OpenAI Responses)
 
 - These map directly to OpenAI's server-side tools (web_search, file_search, computer_use, image_generation, code_interpreter)
 - Image generation streams `partial_image_b64` data which is accumulated and emitted as `DataPart` on completion
 - Web search doesn't include the search query in metadata - the provider handles the search internally
-- Code interpreter requires a pre-created container ID from OpenAI's API
 - File search requires files to be uploaded via OpenAI's Files API
+- Code interpreter runs Python code in OpenAI-managed containers with automatic lifecycle management
 
 ## Advanced Configuration
 
@@ -126,9 +130,6 @@ final agent = Agent(
       maxResults: 5,
       timeRange: 'past_week',
     ),
-    codeInterpreterConfig: CodeInterpreterConfig(
-      containerId: '<your_container_id>', // Required for code execution
-    ),
   ),
 );
 
@@ -136,7 +137,7 @@ final agent = Agent(
 final response = await agent.send('''
   1. Search for the latest Dart language features
   2. Generate a logo for a Dart package
-  3. Calculate the Fibonacci sequence up to 20 terms
+  3. Write Python code to analyze the popularity trends
 ''');
 ```
 
@@ -149,9 +150,9 @@ Server-side tools are already executed by the provider and feed the model direct
 Each server-side tool has different cost implications:
 - **Web Search**: Additional API calls
 - **Image Generation**: DALL-E generation costs
-- **Code Interpreter**: $0.03 per container
 - **File Search**: Storage and retrieval costs
 - **Computer Use**: Enterprise pricing
+- **Code Interpreter**: $0.03 per container session
 
 ## Getting Started
 
