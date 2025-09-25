@@ -140,13 +140,18 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
    - `List<ChatMessage>` to emit when `response.output_item.done` occurs.
 2. Event handling:
    - `response.output_text.delta`: append to stream buffer, yield `ChatResult`
-     with `output` and `metadata['thinking']` (current reasoning summary).
+     with `output` and `metadata['thinking']` (current reasoning summary). When
+     typed output is active, continue streaming partial JSON fragments so
+     clients receive incremental updates.
    - `response.output_item.added/done`: update ChatMessage parts; when done,
      push consolidated `ChatMessage` to `messages` list for the next yield.
    - Reasoning events (`response.reasoning_summary_text.*`, etc.): append to
      `thinkingBuffer` and track structured data (list of deltas with metadata).
    - Tool lifecycle events: update metadata maps and, when completed, emit
      `ToolPart` entries within the `ChatMessage` plus stream-level metadata.
+     Preserve the Responses `call_id` when constructing `ToolPart.call` and
+     carry it through to `ToolPart.result` so the orchestrator can route tool
+     results correctly.
    - Image generation partial/completed: create `LinkPart`/`DataPart` appended to
      message; track metadata under `image_generation`.
 3. Yield semantics:
@@ -154,6 +159,9 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
      `output` text and latest metadata/usage.
    - When a message finishes (`response.output_item.done` for an
      `OutputMessage`), emit `ChatResult` with `messages` list and empty output.
+     The consolidated `ChatMessage` must include every part (text, tool calls,
+     media) so the orchestrator can append it to history and keep state in
+     sync.
 4. Usage tracking:
    - On `response.completed`, read `response.usage` and include in the final
      `ChatResult.usage`.
@@ -199,10 +207,12 @@ parts:
 
 ## 8. Multi-modal Input Handling
 - Extend message mapper to detect `LinkPart`/`DataPart` MIME types:
-  - Image (png/jpeg/webp): `InputImageContent` with `detail` derived from
+-  - Image (png/jpeg/webp): `InputImageContent` with `detail` derived from
     options (`OpenAIResponsesChatOptions.imageDetail` default `auto`).
   - Audio (wav/mp3) and other binary attachments: `InputFileContent` with
     `file_data` base64 string and optional filename (from `DataPart.name`).
+  - Video (mp4/webm) or other supported media types follow the same
+    `InputFileContent` path so Responses can process or store them.
 - Provide option fields on `OpenAIResponsesChatOptions` to tune `ImageDetail`
   and other multi-modal settings if the Responses API exposes them.
 
@@ -247,8 +257,12 @@ Create tests under `packages/dartantic_ai/test/openai_responses/`:
 5. **Embeddings tests**: mock `OpenAIClient` to return sample vectors and assert
    conversion to `EmbeddingsResult`.
 6. **Capability tests**: confirm provider registry exposes `openai-responses`
-   with expected caps.
-7. **Example verification**: run sample scripts (thinking, server-side tools) in
+   with expected caps. Ensure capability-driven test suites (e.g.,
+   `tool_calling_test.dart`, `typed_output_with_tools_test.dart`,
+   `multi_provider_test.dart`, `system_integration_test.dart`) run against the
+   Responses provider without additional filtering.
+7. **Example verification**: run sample scripts (thinking, server-side tools,
+   multi-modal demo) in
    integration tests guarded by environment variables/API key availability.
 
 ## 13. Documentation & Example Updates
