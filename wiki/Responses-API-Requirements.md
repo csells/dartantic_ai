@@ -34,7 +34,7 @@
 ## 3. Provider Identity & Registration
 - Register the provider in
   `packages/dartantic_ai/lib/src/providers/providers.dart` with the prefix
-  `openai-responses` and an appropriate display name (e.g., “OpenAI Responses”).
+  `openai-responses` and an appropriate display name (e.g., "OpenAI Responses").
 - Reuse existing environment conventions: `OPENAI_API_KEY`, `OPENAI_BASE_URL`
   (if present), additional headers.
 - Default model names:
@@ -42,8 +42,12 @@
   - Embeddings: `text-embedding-3-small`.
 - Capabilities to advertise: `{chat, embeddings, multiToolCalls, typedOutput,
   typedOutputWithTools, thinking, vision}`.
-- Implement `listModels()` using `openai_core`’s client; surface `ModelKind`
+- Implement `listModels()` using `openai_core`'s client; surface `ModelKind`
   sets similar to the existing OpenAI provider.
+- Must be discoverable via `Providers.get('openai-responses')` and
+  `Providers.allWith({ProviderCaps.thinking})`.
+- Provider constructor must use lazy initialization pattern - API key validation
+  only at model creation time, not constructor time.
 
 ## 4. Dependencies & Packaging
 - Add `openai_core` to `packages/dartantic_ai/pubspec.yaml` with the most recent
@@ -91,6 +95,11 @@
     `ChatMessage` objects.
   - Always carry forward `metadata`, `usage`, `finishReason`, and `id`.
 - Ensure `model.dispose()` closes the `OpenAIClient` and SSE stream.
+- Streamed chunks must accumulate into coherent complete responses.
+- Tool results must integrate properly into message history during streaming.
+- Must pass dartantic's `validateMessageHistory()` utility function.
+- System messages only allowed at index 0, strict user/model/user/model
+  alternation thereafter.
 
 ### 5.3 Thinking Metadata
 - Capture all reasoning-related events:
@@ -197,10 +206,12 @@ appropriate.
 - Include response ID, created timestamp, model name, and usage tokens in
   `ChatResult.metadata`/`usage` for every chunk.
 - Bubble up `OpenAIRequestException` without suppression; map `code`, `message`,
-  `param`, and HTTP status into dartantic’s error structures.
+  `param`, and HTTP status into dartantic's error structures.
 - Add targeted logging (e.g., via
   `Logger('dartantic.chat.models.openai_responses')` and similar for embeddings)
   while avoiding noisy event-by-event logs unless at `FINE` level.
+- Must follow dartantic's exception transparency principle - no try-catch blocks
+  that suppress errors.
 
 ## 12. Testing Strategy
 - Unit tests for:

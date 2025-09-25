@@ -327,16 +327,27 @@ abstract class Provider {
 ## Key Implementation Rules
 
 1. **Parameter Naming**: Always use `name` for model names, not `model`, `modelId`, or `modelName`
-2. **API Key Handling**: 
+2. **API Key Handling**:
    - Cloud providers: use `tryGetEnv()` in constructor (allows lazy initialization)
    - Model creation: validate API key and throw if required but not found
    - Local providers: no API key parameter at all
 3. **Base URL**: Always nullable, models pass directly to client
 4. **Options Handling**: Create new options objects with merged values from parameters and options
 5. **Logging**: Include proper logging with `_logger.info()` calls
+   - Use hierarchical naming: `Logger('dartantic.chat.models.provider_name')`
+   - Log lifecycle milestones at INFO, detailed events at FINE
 6. **Capabilities**: Accurately declare what your provider supports
-7. **Error Handling**: Throw `Exception` for unsupported operations
+7. **Error Handling**:
+   - Follow exception transparency: no try-catch blocks that suppress errors
+   - Let exceptions bubble up for diagnosis
+   - Only wrap provider-specific exceptions at boundaries
 8. **ModelInfo**: Include `displayName` and `description` when available
+9. **HTTP Client**: Wrap HTTP clients with `RetryHttpClient` for automatic retry on transient failures
+10. **Message History**: Must pass `validateMessageHistory()` utility
+    - System messages only at index 0
+    - Strict user/model/user/model alternation thereafter
+11. **Metadata**: All metadata values must be JSON-serializable (String, num, bool, List, Map, null)
+12. **Tool ID Coordination**: Use `tool_id_helpers.dart` for providers that don't supply tool IDs
 
 ## Testing Your Provider
 

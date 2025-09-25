@@ -60,11 +60,14 @@ OpenAIResponsesEmbeddingsOptions>` and wires up:
   `ModelInfo` similar to `OpenAIProvider` but without completions-specific
   heuristics. Identify vision-capable models by `modalities` or metadata if
   present.
+- Factory methods must validate API keys using standard pattern:
+  `if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) throw ArgumentError(...)`
 
 ## 4. Chat Model Pipeline
 ### 4.1 Initialization
 `OpenAIResponsesChatModel` holds:
-- `OpenAIClient _client` (from `openai_core`) with merged headers/base URL.
+- `OpenAIClient _client` (from `openai_core`) wrapped with `RetryHttpClient` for
+  automatic retry on transient failures.
 - Default options (with `store` defaulted to `true`).
 - Resolved tool metadata set (function tools + server-side tools).
 
@@ -114,10 +117,25 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
 - During mapping, scan entire history (newest → oldest) for this key, even if it
   is not on the immediately preceding message, to support multi-agent or
   branching conversations.
+- Stop scanning at first `_responses_session` match for performance optimization.
 - Return `SessionReplayState(previousResponseId, pendingItems, replayMessages)`
   that informs controller initialization:
   - Set `previousResponseId` on controller.
   - Prepend `pendingItems` to the input if required by Responses.
+
+#### Message History Scanning Algorithm
+```mermaid
+flowchart TD
+  A[Start: Scan messages newest to oldest] --> B{Found _responses_session?}
+  B -->|Yes| C[Extract previousResponseId & pendingItems]
+  B -->|No| D{More messages?}
+  D -->|Yes| E[Check previous message]
+  D -->|No| F[No session found - full replay]
+  E --> B
+  C --> G[Collect all model messages after anchor]
+  G --> H[Build ResponseInputItems]
+  F --> I[Convert entire history to ResponseInputItems]
+```
 
 ### 4.4 Controller configuration
 - Provide callbacks to mirror `ResponsesSessionController` events into
@@ -132,6 +150,20 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
 
 ## 5. Streaming Event Processing
 `OpenAIResponsesEventMapper` handles translation to `ChatResult`:
+
+### Streaming State Machine
+```mermaid
+stateDiagram-v2
+  [*] --> Initializing
+  Initializing --> StreamingText: response.output_text.delta
+  Initializing --> ProcessingTool: response.tool_call.*
+  StreamingText --> StreamingText: more deltas
+  StreamingText --> MessageComplete: response.output_item.done
+  ProcessingTool --> ToolComplete: tool.done
+  ToolComplete --> StreamingText: continue
+  MessageComplete --> [*]: response.completed
+```
+
 1. Maintain in-flight `StreamingAccumulation` struct with:
    - Current `ChatMessage` under construction (parts list).
    - `StringBuffer` for streamed text.
@@ -177,7 +209,8 @@ After each completed turn:
   - `metadata['thinking_details']`: list of reasoning events (optional).
   - `metadata['web_search']`, `metadata['code_interpreter']`, etc. for tool
     telemetry.
-- Ensure metadata objects are JSON-serializable (Numbers/Strings/Maps/Lists).
+- All metadata values must be JSON-serializable (String, num, bool, List, Map,
+  null only).
 
 ## 7. Tool Integration Details
 ### 7.1 Function tools
@@ -186,6 +219,8 @@ After each completed turn:
 - On `FunctionCall` events, convert to `ToolPart.call` and let orchestrator
   invoke local tool handlers.
 - Capture `FunctionCallOutput` events and map them back to `ToolPart.result`.
+- Use `packages/dartantic_ai/lib/src/chat_models/helpers/tool_id_helpers.dart`
+  for providers that don't supply tool IDs to ensure proper tool result routing.
 
 ### 7.2 Server-side tools
 For each built-in tool, accumulate metadata and produce appropriate message
@@ -204,6 +239,8 @@ parts:
   - Track execution stages and result files.
   - When files produced, append metadata record to `metadata['code_interpreter']`
     and ensure container/file IDs are stored for downstream download.
+  - Container file download endpoint:
+    `https://api.openai.com/v1/containers/$containerId/files/$fileId/content`
 
 ## 8. Multi-modal Input Handling
 - Extend message mapper to detect `LinkPart`/`DataPart` MIME types:
@@ -257,10 +294,14 @@ Create tests under `packages/dartantic_ai/test/openai_responses/`:
 5. **Embeddings tests**: mock `OpenAIClient` to return sample vectors and assert
    conversion to `EmbeddingsResult`.
 6. **Capability tests**: confirm provider registry exposes `openai-responses`
-   with expected caps. Ensure capability-driven test suites (e.g.,
-   `tool_calling_test.dart`, `typed_output_with_tools_test.dart`,
-   `multi_provider_test.dart`, `system_integration_test.dart`) run against the
-   Responses provider without additional filtering.
+   with expected caps. Ensure capability-driven test suites run against the
+   Responses provider without additional filtering. Specific test files that must
+   pass without modification:
+   - `provider_capabilities_test.dart`
+   - `multi_provider_test.dart`
+   - `system_integration_test.dart`
+   - `tool_calling_test.dart`
+   - `typed_output_with_tools_test.dart`
 7. **Example verification**: run sample scripts (thinking, server-side tools,
    multi-modal demo) in
    integration tests guarded by environment variables/API key availability.
