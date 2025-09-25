@@ -20,14 +20,14 @@
   persistence and history hydration.
 - Support for all intrinsic Responses tools (web search, file search, image
   generation, computer use, MCP, local shell, code interpreter).
+- Vision/multi-modal chat input (image/file/audio attachments) handled through
+  the Responses API payload shapes.
 - Embeddings via `/embeddings` endpoint using `openai_core`.
 - Metadata surfacing for reasoning (“thinking”), tool progress, usage, response
   IDs, etc.
 - Tests, examples, and documentation updates reflecting the new provider.
 
 **Out of scope (for now)**
-- Vision/multi-modal features unless the Responses endpoint exposes them without
-  completions.
 - GUI or CLI helpers for downloading container files (examples can show usage
   via helper functions).
 
@@ -41,8 +41,7 @@
   - Chat: `gpt-4o` (adjust if we discover a better Responses default).
   - Embeddings: `text-embedding-3-small`.
 - Capabilities to advertise: `{chat, embeddings, multiToolCalls, typedOutput,
-  typedOutputWithTools, thinking}`. Add `vision` only if truly supported by
-  Responses without separate endpoints.
+  typedOutputWithTools, thinking, vision}`.
 - Implement `listModels()` using `openai_core`’s client; surface `ModelKind`
   sets similar to the existing OpenAI provider.
 
@@ -61,7 +60,10 @@
   URL.
 - Construct a `ResponsesSessionController` per `sendStream` call, feeding it:
   - `input`: derived from the incoming `List<ChatMessage>` history
-    (system/user/model) converted to `ResponseInputItems`.
+    (system/user/model) converted to `ResponseInputItems`, including mapping
+    text, image (inline/base64 or URL), and other binary attachments
+    (`DataPart`/`LinkPart`) into the appropriate `InputMessage` content
+    structures.
   - `tools`: Responses tool metadata built from dartantic tool definitions +
     server-side tool options (see §6).
   - Options (temperature, top-p, reasoning, metadata includes, `store`,
@@ -70,6 +72,8 @@
 - When `store == true`, pull `previousResponseId` and any pending outputs from
   the latest model message metadata; persist controller updates back into
   metadata (below).
+- Default the controller to `store = true` unless the caller explicitly opts
+  out so that Responses sessions remain server-side by default.
 
 ### 5.2 Streaming & Message Mapping
 - Consume `controller.serverEvents` until `ResponseCompleted`.
@@ -108,6 +112,11 @@
   conversation history (`ResponseInputItems`) respecting message roles.
 - Ensure instructions/system prompts are preserved when reconstructing the
   controller input.
+- When replaying a stored session, scan the entire conversation history (most
+  recent messages first) to locate the latest `previous_response_id` and
+  associated pending outputs, and include all intermediate model messages that
+  have not yet been acknowledged by the Responses API so that the server state
+  stays consistent even in multi-agent conversations.
 
 ## 6. Chat Options & Tool Configuration
 - Create `OpenAIResponsesChatOptions extends ChatModelOptions` with fields for:
@@ -131,6 +140,10 @@
     IDs).
 - Ensure options default sensibly (e.g., `serverSideTools = {}`) and integrate
   with provider default options.
+  - Multi-modal attachment encoding (image/data/file parts) should be mapped to
+    Responses `Input` content, including detail selection for images.
+- Default `store` to `true` in the options so that session persistence is the
+  standard behavior for the provider.
 
 ## 7. Intrinsic Tool Support
 For each Responses tool, implement mapping and metadata surfacing:
