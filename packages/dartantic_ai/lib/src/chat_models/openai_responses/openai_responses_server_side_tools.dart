@@ -67,17 +67,14 @@ class WebSearchConfig {
 }
 
 /// Configuration for the code interpreter tool.
-/// 
+///
 /// To reuse a container from a previous session, provide the containerId
 /// from a previous code_interpreter response. This will maintain state
 /// across requests by using the previous_response_id mechanism.
 @immutable
 class CodeInterpreterConfig {
   /// Creates a new configuration instance for the code interpreter tool.
-  const CodeInterpreterConfig({
-    this.containerId,
-    this.files,
-  });
+  const CodeInterpreterConfig({this.containerId, this.files});
 
   /// Optional container ID to reuse from a previous code_interpreter session.
   /// When provided, enables container reuse via previous_response_id.
@@ -94,8 +91,8 @@ class CodeInterpreterConfig {
     'type': 'auto',
     if (files != null && files!.isNotEmpty) 'files': files,
   };
-  
+
   /// Whether container reuse is requested.
-  bool get shouldReuseContainer => 
+  bool get shouldReuseContainer =>
       containerId != null && containerId!.isNotEmpty;
 }

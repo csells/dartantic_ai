@@ -86,22 +86,22 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     final hasAnyToolResults = messages.any(
       (m) => m.parts.any((p) => p is ToolPart && p.kind == ToolPartKind.result),
     );
-    
+
     // Check if container reuse is explicitly requested
-    final codeInterpreterConfig = options?.codeInterpreterConfig ?? 
-                                   defaultOptions.codeInterpreterConfig;
-    final shouldReuseContainer = 
+    final codeInterpreterConfig =
+        options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
+    final shouldReuseContainer =
         codeInterpreterConfig?.shouldReuseContainer ?? false;
     final requestedContainerId = codeInterpreterConfig?.containerId;
-    
+
     // Only look for previous_response_id if:
     // 1. We have tool results that need linking, OR
     // 2. Container reuse is explicitly requested
     //
     // NOTE: Container reuse via container_id alone does NOT work with the
-    // OpenAI Responses API. Testing confirmed that passing container_id 
-    // directly (e.g., "container": "cntr_...") is accepted by the API but 
-    // does NOT preserve container state. Only previous_response_id properly 
+    // OpenAI Responses API. Testing confirmed that passing container_id
+    // directly (e.g., "container": "cntr_...") is accepted by the API but
+    // does NOT preserve container state. Only previous_response_id properly
     // maintains container state across requests.
     if (hasAnyToolResults || shouldReuseContainer) {
       for (var i = messages.length - 1; i >= 0; i--) {
@@ -114,15 +114,15 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               )) {
             continue;
           }
-          
+
           // Try to get response_id from metadata
           final msgResponseId = msg.metadata['response_id'] as String?;
           final msgContainerId = msg.metadata['container_id'] as String?;
-          
-          // For container reuse, check if this message has the requested 
+
+          // For container reuse, check if this message has the requested
           // container
           if (shouldReuseContainer && requestedContainerId != null) {
-            if (msgContainerId == requestedContainerId && 
+            if (msgContainerId == requestedContainerId &&
                 msgResponseId != null) {
               previousResponseId = msgResponseId;
               _logger.info(
@@ -134,7 +134,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
             // Continue looking for matching container
             continue;
           }
-          
+
           // For tool results, just use the response_id if available
           if (hasAnyToolResults && msgResponseId != null) {
             previousResponseId = msgResponseId;
@@ -146,7 +146,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
           }
         }
       }
-      
+
       // Warn if container reuse was requested but no matching response found
       if (shouldReuseContainer && previousResponseId == null) {
         _logger.warning(
@@ -361,7 +361,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 if (containerId != null) {
                   streamingMetadata['container_id'] = containerId;
                 }
-                
+
                 final message = ChatMessage(
                   role: ChatMessageRole.model,
                   parts: [TextPart(delta)],
@@ -1076,17 +1076,17 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
               // Handle output_item events which contain container_id for
               // code_interpreter
               final itemData = data['item'];
-              if (itemData != null && 
+              if (itemData != null &&
                   itemData is Map &&
                   itemData['type'] == 'code_interpreter_call') {
                 final itemContainerId = itemData['container_id'];
                 final code = itemData['code'];
-                
+
                 // Capture the container ID for message metadata
                 if (itemContainerId != null) {
                   containerId = itemContainerId as String;
                 }
-                
+
                 lastResult = ChatResult<ChatMessage>(
                   output: const ChatMessage(
                     role: ChatMessageRole.model,
@@ -1096,11 +1096,11 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                   finishReason: FinishReason.unspecified,
                   metadata: {
                     'code_interpreter': {
-                      'stage': currentEvent == 'response.output_item.added' 
-                          ? 'started' 
+                      'stage': currentEvent == 'response.output_item.added'
+                          ? 'started'
                           : 'completed',
                       'data': {
-                        if (itemContainerId != null) 
+                        if (itemContainerId != null)
                           'container_id': itemContainerId,
                         if (code != null) 'code': code,
                       },
@@ -1123,7 +1123,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                         // Extract file citations from annotations
                         final fileCitations = <Map<String, dynamic>>[];
                         for (final ann in annotations) {
-                          if (ann is Map && 
+                          if (ann is Map &&
                               ann['type'] == 'container_file_citation') {
                             fileCitations.add({
                               'container_id': ann['container_id'],
@@ -1143,9 +1143,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                             metadata: {
                               'code_interpreter': {
                                 'stage': 'files_generated',
-                                'data': {
-                                  'files': fileCitations,
-                                },
+                                'data': {'files': fileCitations},
                               },
                             },
                             usage: lastResult.usage,
@@ -1273,7 +1271,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 if (containerId != null) {
                   streamingMetadata['container_id'] = containerId;
                 }
-                
+
                 final message = ChatMessage(
                   role: ChatMessageRole.model,
                   parts: [TextPart(delta)],

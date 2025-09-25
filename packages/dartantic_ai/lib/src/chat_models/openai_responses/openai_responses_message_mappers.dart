@@ -234,8 +234,8 @@ Map<String, dynamic> buildResponsesRequest(
     // Merge per-tool configs (options override defaults)
     final fsCfg = options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
     final wsCfg = options?.webSearchConfig ?? defaultOptions.webSearchConfig;
-    final ciCfg = options?.codeInterpreterConfig ??
-        defaultOptions.codeInterpreterConfig;
+    final ciCfg =
+        options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
 
     for (final t in enabledServerSideTools) {
       // Server-side tools should not include a 'name' property per

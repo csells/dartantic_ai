@@ -6,15 +6,16 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
+import 'package:http/http.dart' as http;
 
 Future<void> main(List<String> args) async {
   print('=== OpenAI Responses Server-Side Tools Demos ===\n');
 
-  // await demoWebSearch();
+  await demoWebSearch();
   // await demoImageGeneration();
   // await demoFileSearch();
   // await demoComputerUse();
-  await demoCodeInterpreter();
+  // await demoCodeInterpreter();
 }
 
 /// Demonstrates web search capabilities
@@ -23,14 +24,15 @@ Future<void> demoWebSearch() async {
   print('This demo searches for current information from the web.\n');
 
   final agent = Agent(
-    'openai-responses:gpt-4o',
+    'openai-responses',
     chatModelOptions: const OpenAIResponsesChatOptions(
       serverSideTools: {OpenAIServerSideTool.webSearch},
     ),
   );
 
   const prompt =
-      'What are the top 3 news articles about Dart? Just the headlines';
+      'What are the top 3 more recent news articles about Dart? '
+      'Just the headlines';
 
   print('Prompt: $prompt\n');
   print('Response:\n');
@@ -239,10 +241,58 @@ Future<void> demoComputerUse() async {
   print('It may not be available in all environments.');
 }
 
+/// Helper function to download container files
+/// Container files use a different endpoint than regular files
+Future<void> downloadContainerFile(
+  String containerId,
+  String fileId,
+  String filename,
+) async {
+  final apiKey = Platform.environment['OPENAI_API_KEY'];
+  if (apiKey == null) {
+    print('     ❌ OPENAI_API_KEY not set');
+    return;
+  }
+
+  try {
+    // Container files use this endpoint pattern
+    final url = Uri.parse(
+      'https://api.openai.com/v1/containers/$containerId/files/$fileId/content',
+    );
+
+    print('     📄 $filename (ID: $fileId)');
+    print('     📥 Downloading from container...');
+
+    final client = http.Client();
+    final response = await client.get(
+      url,
+      headers: {'Authorization': 'Bearer $apiKey'},
+    );
+
+    if (response.statusCode == 200) {
+      final outputPath = 'tmp/$filename';
+      final file = File(outputPath);
+      await file.create(recursive: true);
+      await file.writeAsBytes(response.bodyBytes);
+
+      // Get the absolute path for the file
+      final absolutePath = file.absolute.path;
+
+      print('     ✅ Downloaded to: $absolutePath');
+      print('        Size: ${response.bodyBytes.length} bytes');
+    } else {
+      print('     ❌ Failed to download: HTTP ${response.statusCode}');
+    }
+
+    client.close();
+  } on Exception catch (e) {
+    print('     ❌ Download error: $e');
+  }
+}
+
 /// Demonstrates code interpreter capabilities with container reuse
 Future<void> demoCodeInterpreter() async {
   print('🐍 Code Interpreter Demo with Container Reuse\n');
-  print('This demo shows how to reuse containers across sessions.\n');
 
   // First session: Calculate Fibonacci numbers and store in container
   print('=== Session 1: Calculate Fibonacci Numbers ===\n');
@@ -256,7 +306,7 @@ Future<void> demoCodeInterpreter() async {
 
   const prompt1 =
       'Calculate the first 10 Fibonacci numbers and store them in a variable '
-      'called "fib_sequence". Also create a simple plot of these numbers.';
+      'called "fib_sequence".';
 
   print('Prompt: $prompt1\n');
   print('Response:\n');
@@ -271,59 +321,15 @@ Future<void> demoCodeInterpreter() async {
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
 
-    // Check for images in message parts
-    for (final msg in chunk.messages) {
-      if (msg.role != ChatMessageRole.model) continue;
-      for (final part in msg.parts) {
-        if (part is LinkPart) {
-          stdout.writeln('\n📎 Image URL: ${part.url}');
-        } else if (part is DataPart && part.mimeType.startsWith('image/')) {
-          stdout.writeln(
-            '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
-          );
-        }
-      }
-    }
-
     // Capture and show code interpreter metadata
-    final ci = chunk.metadata['code_interpreter'];
-    if (ci != null) {
-      final stage = ci['stage'] as String?;
-      if (stage != null && stage != 'code_delta') {
-        stdout.writeln('\n[code_interpreter/$stage]');
+    final ci = chunk.metadata['code_interpreter'] as Map<String, dynamic>?;
+    final stage = ci?['stage'] as String?;
+    if (stage != null && stage != 'code_delta') {
+      // stdout.writeln('\n[code_interpreter/$stage]');
 
-        final data = ci['data'];
-        if (data is Map) {
-          // Capture container ID for reuse
-          if (data['container_id'] != null) {
-            capturedContainerId = data['container_id'] as String;
-            stdout.writeln('  📦 Container: $capturedContainerId');
-          }
-
-          // Show code (abbreviated)
-          if (data['code'] != null && stage == 'completed') {
-            stdout.writeln('  Code executed successfully');
-          }
-
-          // Show generated files with their URLs
-          if (data['files'] != null && data['files'] is List) {
-            final files = data['files'] as List;
-            stdout.writeln('  📊 Generated ${files.length} file(s)');
-            for (final file in files) {
-              if (file is Map) {
-                final fileId = file['file_id'];
-                final filename = file['filename'];
-                if (fileId != null) {
-                  stdout.writeln('     📄 $filename (ID: $fileId)');
-                }
-              } else if (file is String) {
-                // File might just be a string ID
-                stdout.writeln('     📄 File ID: $file');
-              }
-            }
-          }
-        }
-      }
+      // Capture container ID for reuse
+      final data = ci?['data'] as Map<String, dynamic>;
+      capturedContainerId = data['container_id'] as String?;
     }
   }
 
@@ -331,12 +337,9 @@ Future<void> demoCodeInterpreter() async {
 
   // Check if we captured a container ID
   if (capturedContainerId == null) {
-    print('❌ Failed to capture container ID from first session');
+    print('  ❌ Failed to capture container ID from first session');
     return;
   }
-
-  print('✅ Captured container ID: $capturedContainerId\n');
-  print('=== Session 2: Reuse Container for Golden Ratio ===\n');
 
   // Second session: Explicitly configure container reuse
   print('🔄 Configuring agent to reuse container: $capturedContainerId\n');
@@ -352,12 +355,14 @@ Future<void> demoCodeInterpreter() async {
   );
 
   const prompt2 =
-      'Using the fib_sequence variable we created earlier, '
-      'calculate the golden ratio by dividing consecutive terms. '
-      'Show how the ratio converges to the golden ratio (1.618...).';
+      'Using the fib_sequence variable we created earlier, calculate the '
+      'golden ratio (skipping the first term, since it is 0). '
+      'Create a plot showing how the ratio converges to the golden ratio.';
 
   print('Prompt: $prompt2\n');
   print('Response:\n');
+
+  final downloadedFiles = <String>{}; // Track already downloaded files
 
   await for (final chunk in agent2.sendStream(
     prompt2,
@@ -367,18 +372,18 @@ Future<void> demoCodeInterpreter() async {
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
 
     // Check for images in message parts
-    for (final msg in chunk.messages) {
-      if (msg.role != ChatMessageRole.model) continue;
-      for (final part in msg.parts) {
-        if (part is LinkPart) {
-          stdout.writeln('\n📎 Image URL: ${part.url}');
-        } else if (part is DataPart && part.mimeType.startsWith('image/')) {
-          stdout.writeln(
-            '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
-          );
-        }
-      }
-    }
+    // for (final msg in chunk.messages) {
+    //   if (msg.role != ChatMessageRole.model) continue;
+    //   for (final part in msg.parts) {
+    //     if (part is LinkPart) {
+    //       stdout.writeln('\n📎 Image URL: ${part.url}');
+    //     } else if (part is DataPart && part.mimeType.startsWith('image/')) {
+    //       stdout.writeln(
+    //         '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
+    //       );
+    //     }
+    //   }
+    // }
 
     // Show code interpreter metadata for second session
     final ci = chunk.metadata['code_interpreter'];
@@ -399,25 +404,37 @@ Future<void> demoCodeInterpreter() async {
             }
           }
 
-          // Show code execution status
-          if (data['code'] != null && stage == 'completed') {
-            stdout.writeln('  Code executed successfully');
-          }
+          // Show code
+          if (data['code'] != null) stdout.writeln('  Code: ${data['code']}');
 
-          // Show any new files generated with their URLs
+          // Show generated files and download them
           if (data['files'] != null && data['files'] is List) {
             final files = data['files'] as List;
-            stdout.writeln('  📊 Generated ${files.length} new file(s)');
+            stdout.writeln('  📊 Generated ${files.length} file(s)');
             for (final file in files) {
               if (file is Map) {
-                final fileId = file['file_id'];
-                final filename = file['filename'];
-                if (fileId != null) {
-                  stdout.writeln('     📄 $filename (ID: $fileId)');
+                final fileId = file['file_id'] as String?;
+                final filename = file['filename'] as String? ?? 'unnamed_file';
+                final containerId =
+                    file['container_id'] as String? ??
+                    data['container_id'] as String?;
+                if (fileId != null && containerId != null) {
+                  // Only download if we haven't already downloaded this file
+                  if (!downloadedFiles.contains(fileId)) {
+                    downloadedFiles.add(fileId);
+                    await downloadContainerFile(containerId, fileId, filename);
+                  }
                 }
               } else if (file is String) {
                 // File might just be a string ID
-                stdout.writeln('     📄 File ID: $file');
+                final containerId = data['container_id'] as String?;
+                if (containerId != null) {
+                  // Only download if we haven't already downloaded this file
+                  if (!downloadedFiles.contains(file)) {
+                    downloadedFiles.add(file);
+                    await downloadContainerFile(containerId, file, '$file.png');
+                  }
+                }
               }
             }
           }
@@ -425,26 +442,4 @@ Future<void> demoCodeInterpreter() async {
       }
     }
   }
-
-  print('\n\n');
-  print('✨ Demo complete!');
-  print('');
-  print('📝 Notes:');
-  print(
-    '  - Generated plot files can be downloaded using the OpenAI Files API',
-  );
-  print(
-    '  - Use the file IDs shown above with: '
-    'GET /v1/files/{file_id}/content',
-  );
-  print('  - Container reuse works via conversation history automatically');
-  print('  - If a new container was created, it could be due to:');
-  print('    • Container expiration (30-minute idle timeout)');
-  print('    • Container session limits');
-  print('    • API restrictions on container reuse');
-  print('');
-  print(
-    'The conversation history is maintained regardless of container '
-    'reuse!\n',
-  );
 }
