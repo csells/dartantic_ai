@@ -5,7 +5,6 @@ import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:example/src/dump_stuff.dart';
 import 'package:http/http.dart' as http;
 
 Future<void> main(List<String> args) async {
@@ -239,6 +238,30 @@ Future<void> demoComputerUse() async {
   print('\n');
   print('Note: Computer use requires special permissions and setup.');
   print('It may not be available in all environments.');
+}
+
+void dumpMetadata(
+  Map<String, Object?> metadata, {
+  String prefix = '',
+  int maxLength = 200,
+}) {
+  if (metadata.isEmpty) return;
+  const encoder = JsonEncoder.withIndent('  ');
+  final serialized = encoder.convert(metadata);
+  final clipped = _clip(serialized, maxLength: maxLength);
+  for (final line in clipped.split('\n')) {
+    stdout.writeln('$prefix$line');
+  }
+}
+
+String truncateValue(Object? value, {int maxLength = 200}) =>
+    _clip(value?.toString() ?? 'null', maxLength: maxLength);
+
+String _clip(String input, {int maxLength = 200}) {
+  if (input.length <= maxLength) return input;
+  final safeLength = maxLength <= 3 ? maxLength : maxLength - 3;
+  final prefix = safeLength <= 0 ? '' : input.substring(0, safeLength);
+  return '$prefix...';
 }
 
 /// Helper function to download container files
