@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../shared/openai_responses_metadata.dart';
@@ -15,6 +16,10 @@ class OpenAIResponsesEventMapper {
     required this.history,
   });
 
+  static final Logger _logger = Logger(
+    'dartantic.chat.models.openai_responses.event_mapper',
+  );
+
   /// Model name used for this stream.
   final String modelName;
 
@@ -26,6 +31,14 @@ class OpenAIResponsesEventMapper {
 
   final StringBuffer _thinkingBuffer = StringBuffer();
   final List<Map<String, Object?>> _thinkingDetails = [];
+
+  // Accumulate function calls during streaming
+  // Key is outputIndex as string, value is the function call being built
+  final Map<int, _StreamingFunctionCall> _functionCalls = {};
+
+  // Track what we've already streamed to avoid duplication
+  bool _hasStreamedText = false;
+  final StringBuffer _streamedTextBuffer = StringBuffer();
 
   final Map<String, List<Map<String, Object?>>> _toolEventLog = {
     'web_search': <Map<String, Object?>>[],
@@ -39,16 +52,81 @@ class OpenAIResponsesEventMapper {
 
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
   Iterable<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) sync* {
+    // Handle function call item creation
+    if (event is openai.ResponseOutputItemAdded) {
+      final item = event.item;
+      _logger.fine('ResponseOutputItemAdded: item type = ${item.runtimeType}');
+      if (item is openai.FunctionCall) {
+        // Store initial function call info indexed by outputIndex
+        _functionCalls[event.outputIndex] = _StreamingFunctionCall(
+          itemId: item.id ?? 'item_${event.outputIndex}',
+          callId: item.callId,
+          name: item.name,
+          outputIndex: event.outputIndex,
+        );
+        _logger.fine(
+          'Function call created: ${item.name} '
+          '(id=${item.callId}) at index ${event.outputIndex}',
+        );
+      }
+      return;
+    }
+
+    // Handle function call argument streaming
+    if (event is openai.ResponseFunctionCallArgumentsDelta) {
+      // Find the function call by outputIndex
+      final call = _functionCalls[event.outputIndex];
+      if (call != null) {
+        call.appendArguments(event.delta);
+        _logger.fine(
+          'Appended arguments delta to call at index '
+          '${event.outputIndex}: ${event.delta}',
+        );
+      } else {
+        _logger.warning(
+          'No function call found for outputIndex ${event.outputIndex}',
+        );
+      }
+      return;
+    }
+
+    // Handle function call completion
+    if (event is openai.ResponeFunctionCallArgumentsDone) {
+      // Note: typo in class name from openai_core
+      _logger.fine(
+        'ResponeFunctionCallArgumentsDone for index ${event.outputIndex}',
+      );
+      final call = _functionCalls[event.outputIndex];
+      if (call != null) {
+        // Set the complete arguments
+        call.arguments = event.arguments;
+        _logger.fine(
+          'Function call completed: ${call.name} '
+          'with args: ${event.arguments}',
+        );
+        // Keep the function call for the final result
+        // Don't emit here as it will be handled by ResponseCompleted
+      } else {
+        _logger.warning(
+          'No function call found for completion at index ${event.outputIndex}',
+        );
+      }
+      return;
+    }
     if (event is openai.ResponseOutputTextDelta) {
       if (event.delta.isEmpty) return;
-      // For streaming text, create a minimal ChatMessage with just the text
-      // delta
-      final message = ChatMessage(
+      // Track that we've streamed text and accumulate it
+      _hasStreamedText = true;
+      _streamedTextBuffer.write(event.delta);
+
+      // Yield ONLY the delta for streaming
+      final deltaMessage = ChatMessage(
         role: ChatMessageRole.model,
         parts: [TextPart(event.delta)],
       );
       yield ChatResult<ChatMessage>(
-        output: message,
+        output: deltaMessage,
+        messages: const [],  // Empty during streaming - in final result
         metadata: const {},
         usage: const LanguageModelUsage(),
       );
@@ -170,12 +248,18 @@ class OpenAIResponsesEventMapper {
     }
 
     for (final item in response.output ?? const <openai.ResponseItem>[]) {
+      _logger.fine('Processing response item: ${item.runtimeType}');
       if (item is openai.OutputMessage) {
+        // Always process the output message to get the complete text
         parts.addAll(_mapOutputMessage(item.content));
         continue;
       }
 
       if (item is openai.FunctionCall) {
+        _logger.fine(
+          'Adding function call to final result: ${item.name} '
+          '(id=${item.callId})',
+        );
         toolCallNames[item.callId] = item.name;
         parts.add(
           ToolPart.call(
@@ -327,6 +411,11 @@ class OpenAIResponsesEventMapper {
       );
     }
 
+    _logger.fine('Building final message with ${parts.length} parts');
+    for (final part in parts) {
+      _logger.fine('  Part: ${part.runtimeType}');
+    }
+
     final finalMessage = ChatMessage(
       role: ChatMessageRole.model,
       parts: parts,
@@ -340,20 +429,35 @@ class OpenAIResponsesEventMapper {
       if (response.status != null) 'status': response.status,
     };
 
-    // For the final result, use an empty message for output to avoid
-    // duplication
-    const emptyMessage = ChatMessage(
-      role: ChatMessageRole.model,
-      parts: [],
-    );
-    return ChatResult<ChatMessage>(
-      id: response.id,
-      output: emptyMessage,
-      messages: [finalMessage],
-      usage: usage,
-      finishReason: _mapFinishReason(response),
-      metadata: resultMetadata,
-    );
+    // Per Message-Handling-Architecture.md:
+    // Each ChatResult contains only NEW content from that specific chunk
+    // When we've streamed text, we've already sent it in chunks
+    // The final result should contain the complete message in messages array
+    // but empty output to avoid duplication
+
+    if (_hasStreamedText) {
+      // We've already streamed the text content
+      // Return empty output but include full message in messages array
+      return ChatResult<ChatMessage>(
+        id: response.id,
+        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+        messages: [finalMessage],  // Full message for history
+        usage: usage,
+        finishReason: _mapFinishReason(response),
+        metadata: resultMetadata,
+      );
+    } else {
+      // No streaming occurred (e.g., tool-only response)
+      // Include message in both output and messages
+      return ChatResult<ChatMessage>(
+        id: response.id,
+        output: finalMessage,
+        messages: [finalMessage],
+        usage: usage,
+        finishReason: _mapFinishReason(response),
+        metadata: resultMetadata,
+      );
+    }
   }
 
   Map<String, Object?> _ensureTelemetryMap(
@@ -560,4 +664,26 @@ class OpenAIResponsesEventMapper {
         return FinishReason.unspecified;
     }
   }
+}
+
+/// Helper class to accumulate function call arguments during streaming.
+class _StreamingFunctionCall {
+  _StreamingFunctionCall({
+    required this.itemId,
+    required this.callId,
+    required this.name,
+    required this.outputIndex,
+  });
+
+  final String itemId;
+  final String callId;
+  final String name;
+  final int outputIndex;
+  String arguments = '';
+
+  void appendArguments(String delta) {
+    arguments += delta;
+  }
+
+  bool get isComplete => arguments.isNotEmpty;
 }

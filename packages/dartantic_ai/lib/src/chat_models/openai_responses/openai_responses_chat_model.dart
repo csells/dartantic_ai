@@ -176,6 +176,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
 
     try {
       await for (final event in responseStream.events) {
+        _logger.fine('Received event: ${event.runtimeType}');
         final results = mapper.handle(event);
         for (final result in results) {
           yield result;

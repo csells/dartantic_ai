@@ -7,22 +7,23 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  final agent = Agent('openai-responses');
+  const model = 'openai-responses';
+  final agent = Agent(model);
 
   const prompt1 = 'What is the capital of England?';
-  print('\nnon-streaming example: $prompt1');
+  print('\n${agent.displayName} non-streaming example: $prompt1');
   final response = await agent.send(prompt1);
   print(response.output);
   dumpMessages(response.messages);
 
   final history = <ChatMessage>[];
   const prompt2 = 'Count from 1 to 5, one number at a time';
-  print('\nstreaming example: $prompt2');
+  print('\n${agent.displayName} streaming example: $prompt2');
   await for (final chunk in agent.sendStream(prompt2)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
   }
-  print('\n');
+  stdout.writeln();
   dumpMessages(history);
 
   exit(0);
