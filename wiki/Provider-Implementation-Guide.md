@@ -1,26 +1,42 @@
 This guide shows the correct patterns for implementing providers and models in dartantic 1.0.
 
+## Critical Patterns Summary
+
+**Every provider MUST:**
+1. Have a private static final logger: `static final Logger _logger = ...`
+2. Define a public defaultBaseUrl: `static final defaultBaseUrl = Uri.parse('...')`
+3. Use `super.baseUrl` in constructor (not `baseUrl: baseUrl`)
+4. Pass `baseUrl ?? defaultBaseUrl` to models in create methods
+5. Models should accept required `Uri baseUrl` from provider
+
 ## Provider Implementation Pattern
 
 ```dart
 class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOptions> {
+  // IMPORTANT: Logger must be private (_logger not log) and static final
   static final Logger _logger = Logger('dartantic.chat.providers.example');
 
+  /// Default base URL for the Example API.
+  /// IMPORTANT: All providers must have a public defaultBaseUrl constant
+  static final defaultBaseUrl = Uri.parse('https://api.example.com/v1');
+
+  /// Environment variable name for API key
+  static const defaultApiKeyName = 'EXAMPLE_API_KEY';
+
   /// Creates a provider instance with optional overrides.
-  /// 
+  ///
   /// API key resolution:
   /// - Constructor: Uses tryGetEnv() to allow lazy initialization without throwing
   /// - Model creation: Validates API key and throws if required but not found
   ExampleProvider({
     String? apiKey,
-    Uri? baseUrl,
+    super.baseUrl,  // Use super.baseUrl, don't provide defaults here
   }) : super(
-          apiKey: apiKey ?? tryGetEnv('EXAMPLE_API_KEY'),
-          baseUrl: baseUrl,
+          apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
           name: 'example',
           displayName: 'Example AI',
           aliases: const ['ex', 'example-ai'],
-          apiKeyName: 'EXAMPLE_API_KEY',  // null for local providers
+          apiKeyName: defaultApiKeyName,  // null for local providers
           defaultModelNames: const {
             ModelKind.chat: 'example-chat-v1',
             ModelKind.embeddings: 'example-embed-v1',
@@ -59,7 +75,7 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
     return ExampleChatModel(
       name: modelName,  // Pass as 'name'
       apiKey: apiKey,  // Now validated to be non-null
-      baseUrl: baseUrl,  // Nullable, model knows default
+      baseUrl: baseUrl ?? defaultBaseUrl,  // IMPORTANT: Pass baseUrl with fallback
       tools: tools,
       temperature: temperature,
       defaultOptions: ExampleChatOptions(
@@ -91,17 +107,21 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
     return ExampleEmbeddingsModel(
       name: modelName,
       apiKey: apiKey,  // Now validated to be non-null
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? defaultBaseUrl,  // Use provider's default
       defaultOptions: options,  // Pass options directly
     );
   }
 
   @override
   Stream<ModelInfo> listModels() async* {
-    _logger.info('Fetching models from Example API');
-    
+    // Use defaultBaseUrl when baseUrl is null
+    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+    final url = appendPath(resolvedBaseUrl, 'models');
+
+    _logger.info('Fetching models from Example API: $url');
+
     // Implementation to list available models
-    // This is a simplified example - real implementations would make HTTP calls
+    // Real implementations would make HTTP calls with the resolved URL
     
     yield ModelInfo(
       name: 'example-chat-v1',
@@ -129,20 +149,24 @@ class ExampleChatModel extends ChatModel<ExampleChatOptions> {
   ExampleChatModel({
     required super.name,  // Always 'name', passed to super
     required this.apiKey,  // Non-null for cloud providers
-    this.baseUrl,  // Nullable
+    required this.baseUrl,  // Required from provider (already has fallback)
     super.tools,
     super.temperature,
     super.defaultOptions,
   }) : _client = ExampleClient(
           apiKey: apiKey,
-          baseUrl: baseUrl,  // Client knows its default
+          // How to pass baseUrl depends on client library:
+          // If client accepts nullable String:
+          baseUrl: baseUrl.toString(),
+          // If client requires non-nullable String and you need different default:
+          // baseUrl: baseUrl.toString() ?? 'https://api.example.com/v1',
         );
 
   /// The API key (required for cloud providers).
   final String apiKey;
 
-  /// Optional base URL override.
-  final Uri? baseUrl;
+  /// Base URL for API requests (provider supplies with fallback).
+  final Uri baseUrl;
 
   final ExampleClient _client;
 
@@ -178,17 +202,17 @@ class ExampleEmbeddingsModel extends EmbeddingsModel<ExampleEmbeddingsOptions> {
   ExampleEmbeddingsModel({
     required super.name,  // Always 'name'
     required this.apiKey,
-    this.baseUrl,
+    required this.baseUrl,  // Required from provider
     super.defaultOptions,
     super.dimensions,
     super.batchSize,
   }) : _client = ExampleClient(
           apiKey: apiKey,
-          baseUrl: baseUrl,
+          baseUrl: baseUrl.toString(),
         );
 
   final String apiKey;
-  final Uri? baseUrl;
+  final Uri baseUrl;
   final ExampleClient _client;
 
   @override
@@ -238,10 +262,17 @@ class ExampleEmbeddingsModel extends EmbeddingsModel<ExampleEmbeddingsOptions> {
 }
 ```
 
-## Local Provider Pattern (No API Key)
+## Local Provider Pattern (No API Key or Base URL)
 
 ```dart
 class LocalProvider extends Provider<LocalChatOptions, EmbeddingsModelOptions> {
+  // Logger must still be private and static final
+  static final Logger _logger = Logger('dartantic.chat.providers.local');
+
+  // Local providers typically connect to localhost, so may have a default
+  // But some may not need any URL at all
+  static final defaultBaseUrl = Uri.parse('http://localhost:11434/api');
+
   LocalProvider() : super(
     name: 'local',
     displayName: 'Local Model',
@@ -257,11 +288,9 @@ class LocalProvider extends Provider<LocalChatOptions, EmbeddingsModelOptions> {
       ProviderCaps.typedOutput,
       ProviderCaps.vision,
     },
-    baseUrl: null,
+    baseUrl: null,  // No base URL override in constructor
     apiKey: null,
   );
-
-  static final Logger _logger = Logger('dartantic.chat.providers.local');
 
   @override
   ChatModel createChatModel({
@@ -282,7 +311,7 @@ class LocalProvider extends Provider<LocalChatOptions, EmbeddingsModelOptions> {
       name: modelName,
       tools: tools,
       temperature: temperature,
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? defaultBaseUrl,  // Even local providers should follow pattern
       defaultOptions: LocalChatOptions(
         temperature: temperature ?? options?.temperature,
         // Add other options as needed
@@ -331,10 +360,16 @@ abstract class Provider {
    - Cloud providers: use `tryGetEnv()` in constructor (allows lazy initialization)
    - Model creation: validate API key and throw if required but not found
    - Local providers: no API key parameter at all
-3. **Base URL**: Always nullable, models pass directly to client
+3. **Base URL Management**:
+   - Provider: Define public `static final defaultBaseUrl = Uri.parse('...')`
+   - Constructor: Use `super.baseUrl` parameter (no defaults)
+   - Model creation: Pass `baseUrl ?? defaultBaseUrl` to models
+   - Models: Accept required `Uri baseUrl` from provider
 4. **Options Handling**: Create new options objects with merged values from parameters and options
-5. **Logging**: Include proper logging with `_logger.info()` calls
-   - Use hierarchical naming: `Logger('dartantic.chat.models.provider_name')`
+5. **Logger Convention**:
+   - MUST be private: `static final Logger _logger = ...` (not `log` or public)
+   - Place immediately after class declaration
+   - Use hierarchical naming: `Logger('dartantic.chat.providers.example')`
    - Log lifecycle milestones at INFO, detailed events at FINE
 6. **Capabilities**: Accurately declare what your provider supports
 7. **Error Handling**:
@@ -348,6 +383,63 @@ abstract class Provider {
     - Strict user/model/user/model alternation thereafter
 11. **Metadata**: All metadata values must be JSON-serializable (String, num, bool, List, Map, null)
 12. **Tool ID Coordination**: Use `tool_id_helpers.dart` for providers that don't supply tool IDs
+
+## Special Cases
+
+### Different API Endpoints
+
+If your provider needs different endpoints for different operations (e.g., OpenAI Responses):
+
+```dart
+class SpecialProvider extends Provider<...> {
+  // Primary endpoint (e.g., for chat)
+  static final defaultBaseUrl = Uri.parse('https://api.example.com/v1/special');
+
+  // Secondary endpoint (e.g., for embeddings or model listing)
+  static final _standardApiUrl = Uri.parse('https://api.example.com/v1');
+
+  @override
+  ChatModel createChatModel(...) {
+    // Uses special endpoint
+    return SpecialChatModel(
+      baseUrl: baseUrl ?? defaultBaseUrl,
+      ...
+    );
+  }
+
+  @override
+  EmbeddingsModel createEmbeddingsModel(...) {
+    // Uses standard endpoint
+    return SpecialEmbeddingsModel(
+      baseUrl: baseUrl ?? _standardApiUrl,
+      ...
+    );
+  }
+
+  @override
+  Stream<ModelInfo> listModels() async* {
+    // Uses standard endpoint for listing
+    final resolvedBaseUrl = baseUrl ?? _standardApiUrl;
+    ...
+  }
+}
+```
+
+### Client Library Requirements
+
+Different HTTP client libraries have different requirements:
+
+```dart
+// If client accepts nullable String:
+ExampleClient(
+  baseUrl: baseUrl?.toString(),
+)
+
+// If client requires non-nullable String:
+OpenAIClient(
+  baseUrl: baseUrl.toString() ?? 'https://default.url',
+)
+```
 
 ## Testing Your Provider
 
