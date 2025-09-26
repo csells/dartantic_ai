@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
@@ -8,21 +6,34 @@ import 'package:example/example.dart';
 
 void main() async {
   const model = 'openai-responses';
+  await singleToolCall(model);
+  await singleToolCallStream(model);
+  exit(0);
+}
+
+Future<void> singleToolCall(String model) async {
+  stdout.writeln('\n## Single Tool Call');
+
   final agent = Agent(model, tools: [weatherTool]);
   const prompt = 'What is the weather in Boston?';
-  print('\n${agent.displayName} single tool call: $prompt');
+  stdout.writeln('Human: $prompt');
   final response = await agent.send(prompt);
-  print(response.output);
+  stdout.writeln('${agent.displayName}: ${response.output}');
   dumpMessages(response.messages);
+}
 
+Future<void> singleToolCallStream(String model) async {
+  stdout.writeln('\n## Single Tool Call Streaming');
+
+  final agent = Agent(model, tools: [weatherTool]);
+  const prompt = 'What is the weather in Boston?';
   final history = <ChatMessage>[];
-  print('\n${agent.displayName} single tool call streaming: $prompt');
+  stdout.writeln('Human: $prompt');
+  stdout.write('${agent.displayName}: ');
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
   }
   stdout.writeln();
   dumpMessages(history);
-
-  exit(0);
 }
