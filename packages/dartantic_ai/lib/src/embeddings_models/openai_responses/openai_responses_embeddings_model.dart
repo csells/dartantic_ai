@@ -24,14 +24,14 @@ class OpenAIResponsesEmbeddingsModel
            client ??
            openai.OpenAIClient(
              apiKey: apiKey,
-             baseUrl: (baseUrl ?? _fallbackBaseUrl).toString(),
+             // openai_core requires non-nullable baseUrl, embeddings use
+             // standard endpoint
+             baseUrl: baseUrl?.toString() ?? 'https://api.openai.com/v1',
              httpClient: RetryHttpClient(inner: httpClient ?? http.Client()),
            );
 
-  /// Logger for embeddings lifecycle events.
-  static final Logger log = Logger('dartantic.embeddings.openai_responses');
-
-  static final Uri _fallbackBaseUrl = Uri.parse('https://api.openai.com/v1');
+  static final Logger _logger =
+      Logger('dartantic.embeddings.openai_responses');
 
   final openai.OpenAIClient _client;
 
@@ -43,7 +43,7 @@ class OpenAIResponsesEmbeddingsModel
     final effectiveOptions = options ?? defaultOptions;
     final dims = effectiveOptions.dimensions ?? dimensions;
 
-    log.fine('Embedding query with "$name" (dimensions: $dims)');
+    _logger.fine('Embedding query with "$name" (dimensions: $dims)');
 
     final result = await _client.createEmbeddings(
       input: query,

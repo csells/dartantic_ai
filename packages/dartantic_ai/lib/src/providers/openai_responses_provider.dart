@@ -16,7 +16,7 @@ class OpenAIResponsesProvider
     extends
         Provider<OpenAIResponsesChatOptions, OpenAIResponsesEmbeddingsOptions> {
   /// Creates a new OpenAI Responses provider instance.
-  OpenAIResponsesProvider({String? apiKey, Uri? baseUrl, super.aliases})
+  OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
     : super(
         name: providerName,
         displayName: providerDisplayName,
@@ -34,15 +34,12 @@ class OpenAIResponsesProvider
           ProviderCaps.vision,
         },
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
-        baseUrl:
-            baseUrl ??
-            _parseBaseUrl(tryGetEnv(defaultBaseUrlEnvName)) ??
-            defaultBaseUrl,
         apiKeyName: defaultApiKeyName,
       );
 
-  /// Logger for provider lifecycle events.
-  static final Logger log = Logger('dartantic.chat.providers.openai_responses');
+  static final Logger _logger = Logger(
+    'dartantic.chat.providers.openai_responses',
+  );
 
   /// Canonical provider name.
   static const providerName = 'openai-responses';
@@ -59,16 +56,12 @@ class OpenAIResponsesProvider
   /// Environment variable used to read the API key.
   static const defaultApiKeyName = 'OPENAI_API_KEY';
 
-  /// Environment variable used to read the base URL override.
-  static const defaultBaseUrlEnvName = 'OPENAI_BASE_URL';
-
   /// Default base URL for the OpenAI Responses API.
-  static final Uri defaultBaseUrl = Uri.parse('https://api.openai.com/v1');
-
-  static Uri? _parseBaseUrl(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    return Uri.tryParse(raw);
-  }
+  /// Note: Points to the Responses API endpoint to work around a bug
+  /// in openai_core v0.4.0 where it incorrectly constructs the URL path.
+  static final defaultBaseUrl = Uri.parse(
+    'https://api.openai.com/v1/responses',
+  );
 
   @override
   ChatModel<OpenAIResponsesChatOptions> createChatModel({
@@ -79,7 +72,7 @@ class OpenAIResponsesProvider
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
-    log.info(
+    _logger.info(
       'Creating OpenAI Responses chat model: $modelName '
       'with ${(tools ?? const []).length} tools, temp: $temperature',
     );
@@ -93,7 +86,7 @@ class OpenAIResponsesProvider
       tools: tools,
       temperature: temperature,
       apiKey: apiKey,
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? defaultBaseUrl,
       defaultOptions: OpenAIResponsesChatOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
@@ -129,16 +122,19 @@ class OpenAIResponsesProvider
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
 
-    log.info('Creating OpenAI Responses embeddings model: $modelName');
+    _logger.info('Creating OpenAI Responses embeddings model: $modelName');
 
     if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
       throw ArgumentError('$apiKeyName is required for $displayName provider');
     }
 
+    // Embeddings use the standard API endpoint, not Responses
+    final embeddingsBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
+
     return OpenAIResponsesEmbeddingsModel(
       name: modelName,
       apiKey: apiKey,
-      baseUrl: baseUrl,
+      baseUrl: embeddingsBaseUrl,
       dimensions: options?.dimensions,
       batchSize: options?.batchSize,
       defaultOptions: OpenAIResponsesEmbeddingsOptions(
@@ -153,7 +149,8 @@ class OpenAIResponsesProvider
 
   @override
   Stream<ModelInfo> listModels() async* {
-    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+    // Use standard API endpoint for listing models, not the Responses endpoint
+    final resolvedBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
     final url = appendPath(resolvedBaseUrl, 'models');
     final headers = <String, String>{
       if (apiKey != null && apiKey!.isNotEmpty)
@@ -161,11 +158,11 @@ class OpenAIResponsesProvider
       'Content-Type': 'application/json',
     };
 
-    log.info('Fetching OpenAI Responses models from $url');
+    _logger.info('Fetching OpenAI Responses models from $url');
 
     final response = await http.get(url, headers: headers);
     if (response.statusCode != 200) {
-      log.warning(
+      _logger.warning(
         'Failed to fetch models: HTTP ${response.statusCode}, '
         'body: ${response.body}',
       );

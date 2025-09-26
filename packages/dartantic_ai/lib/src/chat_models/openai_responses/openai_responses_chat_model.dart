@@ -27,14 +27,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     http.Client? httpClient,
   }) : _client = openai.OpenAIClient(
          apiKey: apiKey,
-         baseUrl: (baseUrl ?? _fallbackBaseUrl).toString(),
+         // openai_core requires non-nullable baseUrl, use Responses endpoint
+         // as default
+         baseUrl: baseUrl?.toString() ?? 'https://api.openai.com/v1/responses',
          httpClient: RetryHttpClient(inner: httpClient ?? http.Client()),
        );
 
-  /// Logger for chat model lifecycle events.
-  static final Logger log = Logger('dartantic.chat.models.openai_responses');
-
-  static final Uri _fallbackBaseUrl = Uri.parse('https://api.openai.com/v1');
+  static final Logger _logger =
+      Logger('dartantic.chat.models.openai_responses');
 
   final openai.OpenAIClient _client;
 
@@ -131,7 +131,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
 
     if ((codeInterpreterConfig?.shouldReuseContainer ?? false) && !store) {
-      log.warning(
+      _logger.warning(
         'Code interpreter container reuse requested but store=false; '
         'previous_response_id will not be persisted.',
       );
@@ -182,7 +182,11 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         }
       }
     } on Object catch (error, stackTrace) {
-      log.severe('OpenAI Responses stream error: $error', error, stackTrace);
+      _logger.severe(
+        'OpenAI Responses stream error: $error',
+        error,
+        stackTrace,
+      );
       rethrow;
     }
   }
@@ -220,14 +224,14 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         case OpenAIServerSideTool.fileSearch:
           final config = fileSearchConfig;
           if (config == null) {
-            log.warning(
+            _logger.warning(
               'File search tool requested but no FileSearchConfig provided; '
               'skipping.',
             );
             continue;
           }
           if (!config.hasVectorStores) {
-            log.warning(
+            _logger.warning(
               'File search tool requested but no vectorStoreIds provided; '
               'skipping.',
             );
@@ -241,7 +245,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
                 Map<String, dynamic>.from(config.filters!),
               );
             } on Object catch (error, stackTrace) {
-              log.warning(
+              _logger.warning(
                 'Failed to parse file search filters: $error',
                 error,
                 stackTrace,
@@ -319,7 +323,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
         resolvedEffort = parsed.effort;
         resolvedSummary = parsed.summary;
       } on Object catch (error, stackTrace) {
-        log.warning(
+        _logger.warning(
           'Failed to parse reasoning options map: $error',
           error,
           stackTrace,

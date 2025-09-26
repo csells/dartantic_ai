@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../shared/openai_responses_metadata.dart';
@@ -15,11 +14,6 @@ class OpenAIResponsesEventMapper {
     required this.storeSession,
     required this.history,
   });
-
-  /// Logger for streaming transformations.
-  static final Logger log = Logger(
-    'dartantic.chat.mappers.openai_responses.events',
-  );
 
   /// Model name used for this stream.
   final String modelName;
@@ -47,11 +41,13 @@ class OpenAIResponsesEventMapper {
   Iterable<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) sync* {
     if (event is openai.ResponseOutputTextDelta) {
       if (event.delta.isEmpty) return;
+      // For streaming text, create a minimal ChatMessage with just the text
+      // delta
       final message = ChatMessage(
         role: ChatMessageRole.model,
         parts: [TextPart(event.delta)],
       );
-      yield ChatResult(
+      yield ChatResult<ChatMessage>(
         output: message,
         metadata: const {},
         usage: const LanguageModelUsage(),
@@ -344,9 +340,15 @@ class OpenAIResponsesEventMapper {
       if (response.status != null) 'status': response.status,
     };
 
-    return ChatResult(
+    // For the final result, use an empty message for output to avoid
+    // duplication
+    const emptyMessage = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: [],
+    );
+    return ChatResult<ChatMessage>(
       id: response.id,
-      output: finalMessage,
+      output: emptyMessage,
       messages: [finalMessage],
       usage: usage,
       finishReason: _mapFinishReason(response),
