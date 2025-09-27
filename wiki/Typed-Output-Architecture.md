@@ -64,6 +64,7 @@ flowchart LR
 | Provider   | Typed Output | Method | Simultaneous Tools+Output |
 |------------|--------------|--------|---------------------------|
 | OpenAI     | ✅          | Native response_format | ✅ |
+| OpenAI Responses | ✅     | Native text_format (stateful) | ✅ |
 | OpenRouter | ✅          | Native (OpenAI-compatible) | ✅ |
 | Anthropic  | ✅          | return_result tool | ✅ |
 | Google     | ✅          | Native responseSchema | ❌ (TODO: add return_result) |
@@ -93,6 +94,25 @@ ResponseFormat.jsonSchema(
   ),
 )
 ```
+
+#### OpenAI Responses Provider
+
+The OpenAI Responses provider uses the stateful Responses API with session management:
+
+```dart
+// OpenAI Responses uses text_format with session continuations
+TextFormatJsonSchema(
+  name: 'dartantic_output',
+  schema: outputSchema.schemaMap,
+  strict: true,
+)
+```
+
+Key differences from regular OpenAI:
+- **Stateful Sessions**: Maintains conversation state across requests with `previousResponseId`
+- **Message Validation**: Enforces strict user/model message alternation
+- **Session Metadata**: Stores session IDs in message metadata for continuations
+- **Native JSON Support**: Like OpenAI, it has native typed output support without `return_result`
 
 The Agent always adds the return_result tool when outputSchema is provided, regardless of provider. 
 

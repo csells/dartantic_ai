@@ -2,12 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "agent",
-      "request": "launch",
-      "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/agent.dart"
-    },
-    {
       "name": "chat",
       "request": "launch",
       "type": "dart",

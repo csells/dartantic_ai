@@ -44,14 +44,24 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   /// API key used for authentication.
   final String? apiKey;
 
+  @override
+  List<Tool>? get tools {
+    // Filter out return_result from the tools list since we handle
+    // outputSchema natively
+    final baseTools = super.tools;
+    if (baseTools == null) return null;
+    return baseTools
+        .where((tool) => tool.name != kReturnResultToolName)
+        .toList();
+  }
+
   List<openai.Tool> _buildFunctionTools() {
-    final registeredTools = tools;
+    final registeredTools = tools;  // Already filtered by the getter
     if (registeredTools == null || registeredTools.isEmpty) {
       return const [];
     }
 
     final mapped = registeredTools
-        .where((tool) => tool.name != kReturnResultToolName)
         .map(
           (tool) => openai.FunctionTool(
             name: tool.name,

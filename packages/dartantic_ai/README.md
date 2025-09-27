@@ -9,8 +9,8 @@ with generative AI easier and more fun!
 - **Agentic behavior with multi-step tool calling:** Let your AI agents
   autonomously chain tool calls together to solve multi-step problems without
   human intervention.
-- **Multiple Providers Out of the Box** - OpenAI, Google, Anthropic, Mistral,
-  Cohere, Ollama, and more
+- **Multiple Providers Out of the Box** - OpenAI, OpenAI Responses, Google,
+  Anthropic, Mistral, Cohere, Ollama, and more
 - **Streaming Output** - Real-time response generation
 - **Typed Outputs and Tool Calling** - Uses Dart types and JSON serialization
 - **Multimedia Input** - Process text, images, and files

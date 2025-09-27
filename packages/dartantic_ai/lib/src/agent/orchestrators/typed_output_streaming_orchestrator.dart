@@ -41,9 +41,19 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
   }) async* {
     state.resetForNewMessage();
 
+    _logger.fine(
+      'TypedOutputOrchestrator.processIteration starting with '
+      '${state.conversationHistory.length} messages',
+    );
+    for (var i = 0; i < state.conversationHistory.length; i++) {
+      _logger.fine('  [$i]: ${state.conversationHistory[i].role.name}');
+    }
+
     // Stream the model response
+    // Pass an immutable copy since we may modify state.conversationHistory
+    // during processing (e.g., adding tool results)
     await for (final result in model.sendStream(
-      state.conversationHistory,
+      List.unmodifiable(state.conversationHistory),
       outputSchema: outputSchema,
     )) {
       // Check if we should stream native JSON text
@@ -111,11 +121,11 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       _logger.fine('Suppressing return_result tool call message');
     } else if (provider.caps.contains(ProviderCaps.typedOutputWithTools) &&
         consolidatedMessage.parts.whereType<ToolPart>().isEmpty) {
-      // For providers using return_result pattern, don't stream AI text
-      // that comes before tool calls (it's usually explanatory)
-      // Still yield the message but without text output
+      // For native JSON providers, the text was already streamed above
+      // For return_result providers, don't include text (it's usually
+      // explanatory)
       yield StreamingIterationResult(
-        output: '',
+        output: '',  // Already streamed above for native JSON
         messages: [consolidatedMessage],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
@@ -123,7 +133,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
         usage: state.lastResult.usage,
       );
     } else {
-      // Normal message for native typed output - yield it
+      // Normal message - yield it
       yield StreamingIterationResult(
         output: '',
         messages: [consolidatedMessage],

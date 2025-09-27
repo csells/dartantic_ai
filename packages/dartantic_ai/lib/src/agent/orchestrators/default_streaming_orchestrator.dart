@@ -44,8 +44,10 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
     state.resetForNewMessage();
 
     // Stream the model response until the stream closes
+    // Pass an immutable copy since we may modify state.conversationHistory
+    // during processing (e.g., adding tool results)
     await for (final result in model.sendStream(
-      state.conversationHistory,
+      List.unmodifiable(state.conversationHistory),
       outputSchema: outputSchema,
     )) {
       // Extract text content for streaming

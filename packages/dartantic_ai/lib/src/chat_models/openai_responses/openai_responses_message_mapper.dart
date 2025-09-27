@@ -56,7 +56,8 @@ class OpenAIResponsesMessageMapper {
   }) {
     log.fine('mapHistory called with ${messages.length} messages');
     for (var i = 0; i < messages.length; i++) {
-      log.fine('  [$i]: ${messages[i].role.name}');
+      final parts = messages[i].parts.map((p) => p.runtimeType).join(', ');
+      log.fine('  [$i]: ${messages[i].role.name} ($parts)');
     }
 
     if (messages.isEmpty) {

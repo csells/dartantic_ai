@@ -284,10 +284,17 @@ class Agent {
     );
 
     try {
-      // Create and yield user message
+      // Create user message
       final newUserMessage = ChatMessage.user(prompt, parts: attachments);
-
       _assertNoMultipleTextParts([newUserMessage]);
+
+      // Initialize state BEFORE yielding to prevent race conditions
+      final conversationHistory = List<ChatMessage>.from([
+        ...history,
+        newUserMessage,
+      ]);
+
+      // Now yield the user message
       yield ChatResult<String>(
         id: '',
         output: '',
@@ -297,21 +304,16 @@ class Agent {
         usage: const LanguageModelUsage(),
       );
 
-      // Initialize state
-      final conversationHistory = List<ChatMessage>.from([
-        ...history,
-        newUserMessage,
-      ]);
-
       final state = StreamingState(
         conversationHistory: conversationHistory,
         toolMap: {for (final tool in model.tools ?? <Tool>[]) tool.name: tool},
       );
 
       // Select and configure orchestrator
+      // Use the model's actual tools list (after any filtering by the model)
       final orchestrator = _selectOrchestrator(
         outputSchema: outputSchema,
-        tools: model.tools,
+        tools: model.tools,  // This is the filtered list from the model
       );
 
       orchestrator.initialize(state);
@@ -389,6 +391,7 @@ class Agent {
     if (outputSchema != null) {
       final hasReturnResultTool =
           tools?.any((t) => t.name == kReturnResultToolName) ?? false;
+
 
       return TypedOutputStreamingOrchestrator(
         provider: _provider,
