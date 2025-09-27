@@ -191,11 +191,24 @@ class OpenAIResponsesMessageMapper {
   }) {
     final items = <openai.ResponseItem>[];
     final content = <openai.ResponseContent>[];
-    final role = message.role == ChatMessageRole.user ? 'user' : 'assistant';
+    final isUserMessage = message.role == ChatMessageRole.user;
+    final role = isUserMessage ? 'user' : 'assistant';
 
     void flushContent() {
       if (content.isEmpty) return;
-      items.add(openai.InputMessage(role: role, content: List.of(content)));
+      if (isUserMessage) {
+        items.add(openai.InputMessage(role: role, content: List.of(content)));
+      } else {
+        // Model messages need to use OutputMessage
+        items.add(
+          openai.OutputMessage(
+            role: role,
+            content: List.of(content),
+            id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+            status: 'completed',
+          ),
+        );
+      }
       content.clear();
     }
 
@@ -203,7 +216,17 @@ class OpenAIResponsesMessageMapper {
       switch (part) {
         case TextPart(:final text):
           if (text.isNotEmpty) {
-            content.add(openai.InputTextContent(text: text));
+            if (isUserMessage) {
+              content.add(openai.InputTextContent(text: text));
+            } else {
+              // Model messages use OutputTextContent
+              content.add(
+                openai.OutputTextContent(
+                  text: text,
+                  annotations: const [],
+                ),
+              );
+            }
           }
         case DataPart(:final bytes, :final mimeType, :final name):
           if (mimeType.toLowerCase().startsWith('image/')) {
@@ -231,7 +254,16 @@ class OpenAIResponsesMessageMapper {
               ),
             );
           } else {
-            content.add(openai.InputTextContent(text: url.toString()));
+            if (isUserMessage) {
+              content.add(openai.InputTextContent(text: url.toString()));
+            } else {
+              content.add(
+                openai.OutputTextContent(
+                  text: url.toString(),
+                  annotations: const [],
+                ),
+              );
+            }
           }
         case ToolPart(:final kind):
           flushContent();

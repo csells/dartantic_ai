@@ -50,7 +50,9 @@ Future<void> multiTurnChatStream(String model) async {
   const prompt2 = 'What is my name?';
   stdout.writeln('Human: $prompt2');
   stdout.write('${agent.displayName}: ');
-  await for (final chunk in agent.sendStream(prompt2, history: messages)) {
+  // Pass a copy of messages as history to avoid mutation issues
+  final history = List<ChatMessage>.from(messages);
+  await for (final chunk in agent.sendStream(prompt2, history: history)) {
     stdout.write(chunk.output);
     messages.addAll(chunk.messages);
   }
