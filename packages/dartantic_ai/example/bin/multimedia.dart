@@ -6,17 +6,18 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() async {
-  final agent = Agent('openai');
-
-  await summarizeTextFile(agent);
-  await analyzeImages(agent);
-  await processTextWithImages(agent);
-  await multiModalConversation(agent);
-  await useLinkAttachment(agent);
+  const model = 'openai-responses';
+  // const model = 'openai'; // Testing with standard OpenAI API for now
+  await summarizeTextFile(model);
+  await analyzeImages(model);
+  await processTextWithImages(model);
+  await multiModalConversation(model);
+  await useLinkAttachment(model);
   exit(0);
 }
 
-Future<void> summarizeTextFile(Agent agent) async {
+Future<void> summarizeTextFile(String model) async {
+  final agent = Agent(model);
   print('\n${agent.displayName} Summarize Text File\n');
 
   const path = 'bin/files/bio.txt';
@@ -32,7 +33,8 @@ Future<void> summarizeTextFile(Agent agent) async {
   stdout.writeln();
 }
 
-Future<void> analyzeImages(Agent agent) async {
+Future<void> analyzeImages(String model) async {
+  final agent = Agent(model);
   print('\n${agent.displayName} Analyze Multiple Images');
 
   const fridgePath = 'bin/files/fridge.png';
@@ -61,7 +63,8 @@ Future<void> analyzeImages(Agent agent) async {
   stdout.writeln();
 }
 
-Future<void> processTextWithImages(Agent agent) async {
+Future<void> processTextWithImages(String model) async {
+  final agent = Agent(model);
   print('\n${agent.displayName} Combine Text File and Image Analysis');
 
   const bioPath = 'bin/files/bio.txt';
@@ -89,7 +92,8 @@ Future<void> processTextWithImages(Agent agent) async {
   stdout.writeln();
 }
 
-Future<void> multiModalConversation(Agent agent) async {
+Future<void> multiModalConversation(String model) async {
+  final agent = Agent(model);
   print('\n${agent.displayName} Multi-modal Conversation');
 
   const fridgePath = 'bin/files/fridge.png';
@@ -122,7 +126,8 @@ Future<void> multiModalConversation(Agent agent) async {
   stdout.writeln('');
 }
 
-Future<void> useLinkAttachment(Agent agent) async {
+Future<void> useLinkAttachment(String model) async {
+  final agent = Agent(model);
   print('\n${agent.displayName} Link Attachments');
 
   try {

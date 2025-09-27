@@ -264,6 +264,7 @@ class OpenAIResponsesMessageMapper {
           }
         case DataPart(:final bytes, :final mimeType, :final name):
           if (mimeType.toLowerCase().startsWith('image/')) {
+            // Images: Use InputImageContent
             final base64Data = base64Encode(bytes);
             content.add(
               openai.InputImageContent(
@@ -271,12 +272,39 @@ class OpenAIResponsesMessageMapper {
                 imageUrl: 'data:$mimeType;base64,$base64Data',
               ),
             );
-          } else {
+          } else if (mimeType == 'application/pdf') {
+            // PDFs: Use InputFileContent
+            // (only file type supported by Responses API)
             final base64Data = base64Encode(bytes);
-            final filename = name ?? Part.nameFromMimeType(mimeType);
+            final fileName = name ?? Part.nameFromMimeType(mimeType);
+            final fileDataUrl = 'data:$mimeType;base64,$base64Data';
             content.add(
-              openai.InputFileContent(fileData: base64Data, filename: filename),
+              openai.InputFileContent(
+                filename: fileName,
+                fileData: fileDataUrl,
+              ),
             );
+          } else {
+            // All other files: Include as text with base64 data URL
+            final base64Data = base64Encode(bytes);
+            final fileDataUrl = 'data:$mimeType;base64,$base64Data';
+
+            // Build prefix with optional filename
+            final prefix = name != null
+                ? '[file: $name, media: $mimeType]'
+                : '[media: $mimeType]';
+            final fileContent = '$prefix $fileDataUrl';
+
+            if (isUserMessage) {
+              content.add(openai.InputTextContent(text: fileContent));
+            } else {
+              content.add(
+                openai.OutputTextContent(
+                  text: fileContent,
+                  annotations: const [],
+                ),
+              );
+            }
           }
         case LinkPart(:final url, :final mimeType):
           final resolvedMime = mimeType ?? '';
