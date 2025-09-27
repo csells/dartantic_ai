@@ -1,80 +1,83 @@
-// ignore_for_file: avoid_print
-
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  print('=== Multiple Tool Call Example ===\n');
+  const model = 'openai-responses';
+  await multipleTools(model);
+  await multipleToolsStream(model);
+  await multipleDependentTools(model);
+  await multipleDependentToolsStream(model);
+  exit(0);
+}
 
-  // Example with multiple independent tools
-  print('--- Multiple Independent Tools (OpenAI) ---');
-  var agent = Agent(
-    'openai:gpt-4o-mini',
+Future<void> multipleTools(String model) async {
+  stdout.writeln('\n## Multiple Tools');
+
+  final agent = Agent(
+    model,
     tools: [currentDateTimeTool, weatherTool, stockPriceTool],
   );
 
-  print(
-    'User: Tell me the current time, the weather in NYC, '
-    'and the price of GOOGL stock.',
-  );
-  var response = await agent.send(
-    'Tell me the current time, the weather in NYC, '
-    'and the price of GOOGL stock.',
-  );
-  print('Assistant: ${response.output}\n');
+  const prompt =
+      'Tell me the current time, the weather in NYC, '
+      'and the price of GOOGL stock.';
+
+  stdout.writeln('User: $prompt');
+  final response = await agent.send(prompt);
+  stdout.writeln('${agent.displayName}: ${response.output}\n');
   dumpMessages(response.messages);
+}
 
-  // Example with dependent tool calls
-  print('--- Dependent Tool Calls (Anthropic) ---');
-  agent = Agent(
-    'anthropic:claude-3-5-haiku-latest',
-    tools: [weatherTool, temperatureConverterTool],
-  );
+Future<void> multipleToolsStream(String model) async {
+  stdout.writeln('\n## Multiple Tools Streaming');
 
-  print(
-    'User: What is the temperature in Miami? Then convert it to Fahrenheit.',
-  );
-  response = await agent.send(
-    'What is the temperature in Miami? Then convert it to Fahrenheit.',
-  );
-  print('Assistant: ${response.output}\n');
-
-  // Example with calculation tools
-  print('--- Travel Planning Tools (Google) ---');
-  agent = Agent(
-    'google:gemini-2.0-flash',
-    tools: [distanceCalculatorTool, weatherTool, currentDateTimeTool],
+  final agent = Agent(
+    model,
+    tools: [currentDateTimeTool, weatherTool, stockPriceTool],
   );
 
-  print('User: I want to travel from New York to Boston...');
-  response = await agent.send(
-    'I want to travel from New York to Boston. '
-    'Tell me the distance, current weather in both cities, '
-    'and what time it is now.',
-  );
-  print('Assistant: ${response.output}\n');
-
-  // Streaming with multiple tools
-  print('--- Streaming Multiple Tool Calls (Anthropic) ---');
-  agent = Agent(
-    'anthropic:claude-3-5-haiku-latest',
-    tools: exampleTools, // All tools available
-  );
-
-  print(
-    'User: Check the weather in Seattle and tell me the distance from Seattle '
-    'to Portland.',
-  );
-  print('Assistant: ');
-  await for (final chunk in agent.sendStream(
-    'Check the weather in Seattle and tell me the distance from Seattle '
-    'to Portland.',
-  )) {
+  const prompt =
+      'Tell me the current time, the weather in NYC, '
+      'and the price of GOOGL stock.';
+  stdout.writeln('User: $prompt');
+  stdout.write('${agent.displayName}: ');
+  final history = <ChatMessage>[];
+  await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
+    history.addAll(chunk.messages);
   }
-  print('\n');
+  stdout.writeln();
+  dumpMessages(history);
+}
 
-  exit(0);
+Future<void> multipleDependentTools(String model) async {
+  stdout.writeln('\n## Multiple Dependent Tools');
+
+  final agent = Agent(model, tools: [weatherTool, temperatureConverterTool]);
+
+  const prompt = 'What is the temperature in Miami in Fahrenheit?';
+  stdout.writeln('User: $prompt');
+  final response = await agent.send(prompt);
+  stdout.writeln('${agent.displayName}: ${response.output}\n');
+  dumpMessages(response.messages);
+}
+
+Future<void> multipleDependentToolsStream(String model) async {
+  stdout.writeln('\n## Multiple Dependent Tools Streaming');
+
+  final agent = Agent(model, tools: [weatherTool, temperatureConverterTool]);
+
+  const prompt = 'What is the temperature in Miami in Fahrenheit?';
+  stdout.writeln('User: $prompt');
+  stdout.write('${agent.displayName}: ');
+  final history = <ChatMessage>[];
+  await for (final chunk in agent.sendStream(prompt)) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  }
+  stdout.writeln();
+  dumpMessages(history);
 }
