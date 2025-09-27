@@ -25,12 +25,12 @@ Future<void> multiTurnChat(String model) async {
   stdout.writeln('User: $prompt');
   final result = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result.output.trim()}');
-  dumpMessages(chat.history);
 
   prompt = 'Is that typical for this time of year?';
   stdout.writeln('User: $prompt');
   stdout.write('${chat.displayName}: ');
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
+
   dumpMessages(chat.history);
 }
 

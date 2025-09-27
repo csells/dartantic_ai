@@ -54,7 +54,10 @@ class OpenAIResponsesMessageMapper {
     bool store = true,
     openai.ImageDetail imageDetail = openai.ImageDetail.auto,
   }) {
-    _validateHistory(messages);
+    log.fine('mapHistory called with ${messages.length} messages');
+    for (var i = 0; i < messages.length; i++) {
+      log.fine('  [$i]: ${messages[i].role.name}');
+    }
 
     if (messages.isEmpty) {
       return const OpenAIResponsesHistorySegment(
@@ -101,6 +104,17 @@ class OpenAIResponsesMessageMapper {
       'pending=${pendingItems.length}, hasPrevId=${previousResponseId != null}',
     );
 
+    // When using session continuation, we only send new messages
+    // So we should only validate the new portion of the conversation
+    if (previousResponseId != null) {
+      // With a session, validate only the new messages being added
+      final newMessages = messages.sublist(firstMessageIndex);
+      _validateNewMessages(newMessages);
+    } else {
+      // Without a session, validate the full conversation structure
+      _validateHistory(messages);
+    }
+
     for (var i = firstMessageIndex; i < messages.length; i++) {
       final message = messages[i];
       if (message.role == ChatMessageRole.system) {
@@ -127,6 +141,23 @@ class OpenAIResponsesMessageMapper {
       anchorIndex: session?.index ?? -1,
       pendingItems: pendingItems,
     );
+  }
+
+  /// Validates that new messages being added to an existing session are valid.
+  /// This is more lenient than _validateHistory since we're continuing a
+  /// session.
+  static void _validateNewMessages(List<ChatMessage> newMessages) {
+    // New messages in a session continuation should generally just be
+    // user or model messages, no system messages
+    for (final message in newMessages) {
+      if (message.role == ChatMessageRole.system) {
+        throw ArgumentError(
+          'System messages cannot be added mid-conversation in a session',
+        );
+      }
+    }
+    // We don't enforce strict alternation here because the orchestrator
+    // may add multiple messages in sequence during tool execution
   }
 
   /// Ensures the conversation follows `system? -> user/model alternating`.
