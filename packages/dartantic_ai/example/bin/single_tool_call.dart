@@ -17,9 +17,9 @@ Future<void> singleToolCall(String model) async {
   final agent = Agent(model, tools: [weatherTool]);
   const prompt = 'What is the weather in Boston?';
   stdout.writeln('User: $prompt');
-  final response = await agent.send(prompt);
-  stdout.writeln('${agent.displayName}: ${response.output}');
-  dumpMessages(response.messages);
+  final result = await agent.send(prompt);
+  stdout.writeln('${agent.displayName}: ${result.output}');
+  dumpMessages(result.messages);
 }
 
 Future<void> singleToolCallStream(String model) async {

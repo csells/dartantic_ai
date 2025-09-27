@@ -1,3 +1,9 @@
+## 1.0.9
+
+- TODO: add the respository to the pubspec
+- TODO: finish responses API
+- TODO: doc the Chat class
+
 ## 1.0.8
 
 - fix a intermittent anthropic tool-calling error with streaming responses

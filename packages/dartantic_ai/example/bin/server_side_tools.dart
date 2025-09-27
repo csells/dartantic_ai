@@ -287,24 +287,24 @@ Future<void> downloadContainerFile(
     print('     📥 Downloading from container...');
 
     final client = http.Client();
-    final response = await client.get(
+    final result = await client.get(
       url,
       headers: {'Authorization': 'Bearer $apiKey'},
     );
 
-    if (response.statusCode == 200) {
+    if (result.statusCode == 200) {
       final outputPath = 'tmp/$filename';
       final file = File(outputPath);
       await file.create(recursive: true);
-      await file.writeAsBytes(response.bodyBytes);
+      await file.writeAsBytes(result.bodyBytes);
 
       // Get the absolute path for the file
       final absolutePath = file.absolute.path;
 
       print('     ✅ Downloaded to: $absolutePath');
-      print('        Size: ${response.bodyBytes.length} bytes');
+      print('        Size: ${result.bodyBytes.length} bytes');
     } else {
-      print('     ❌ Failed to download: HTTP ${response.statusCode}');
+      print('     ❌ Failed to download: HTTP ${result.statusCode}');
     }
 
     client.close();

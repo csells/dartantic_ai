@@ -26,9 +26,9 @@ Future<void> multipleTools(String model) async {
       'and the price of GOOGL stock.';
 
   stdout.writeln('User: $prompt');
-  final response = await agent.send(prompt);
-  stdout.writeln('${agent.displayName}: ${response.output}\n');
-  dumpMessages(response.messages);
+  final result = await agent.send(prompt);
+  stdout.writeln('${agent.displayName}: ${result.output}\n');
+  dumpMessages(result.messages);
 }
 
 Future<void> multipleToolsStream(String model) async {
@@ -60,9 +60,9 @@ Future<void> multipleDependentTools(String model) async {
 
   const prompt = 'What is the temperature in Miami in Fahrenheit?';
   stdout.writeln('User: $prompt');
-  final response = await agent.send(prompt);
-  stdout.writeln('${agent.displayName}: ${response.output}\n');
-  dumpMessages(response.messages);
+  final result = await agent.send(prompt);
+  stdout.writeln('${agent.displayName}: ${result.output}\n');
+  dumpMessages(result.messages);
 }
 
 Future<void> multipleDependentToolsStream(String model) async {
