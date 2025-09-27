@@ -83,8 +83,10 @@ class OpenAIResponsesMessageMapper {
         ? _findLatestSession(messages, from: startIndex)
         : null;
 
+    // Get the response ID from the most recent message's session metadata.
+    // This becomes the "previous" response ID for the current request.
     final previousResponseId = store
-        ? OpenAIResponsesMetadata.previousResponseId(session?.data)
+        ? OpenAIResponsesMetadata.responseId(session?.data)
         : null;
 
     final pendingItems = store

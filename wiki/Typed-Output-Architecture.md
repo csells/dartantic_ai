@@ -397,6 +397,28 @@ try {
 - **Tools**: Can use tools and typed output simultaneously
 - **Verified**: Testing shows OpenAI uses native response_format even when return_result tool is present
 
+### OpenAI Responses
+- **Method**: Native `text_format` parameter with stateful session management
+- **Behavior**: Uses native format and returns JSON directly (filters out return_result tool)
+- **Tools**: Can use tools and typed output simultaneously
+- **Session Management**:
+  - Maintains conversation state across requests using `responseId`
+  - Stores session metadata in message.metadata for conversation continuations
+  - Only sends new messages after the session anchor point to reduce token usage
+- **Message Validation**:
+  - Enforces strict user/model message alternation synchronously
+  - Validates messages before sending to API (unlike other providers)
+  - Exposed race conditions in Agent that other providers missed
+- **Key Differences from Regular OpenAI**:
+  - Uses stateful Responses API instead of stateless Chat Completions
+  - Requires session ID tracking for multi-turn conversations
+  - Validates message structure more strictly
+  - Filters out return_result tool since it has native JSON support
+- **Implementation Notes**:
+  - OpenAIResponsesChatModel overrides `tools` getter to filter return_result
+  - OpenAIResponsesMessageMapper handles session metadata and message mapping
+  - OpenAIResponsesEventMapper processes streaming events and builds results
+
 ### Anthropic
 - **Method**: return_result tool pattern
 - **Behavior**: Model calls return_result tool with JSON

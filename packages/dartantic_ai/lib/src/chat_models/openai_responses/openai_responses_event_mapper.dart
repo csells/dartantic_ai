@@ -405,7 +405,7 @@ class OpenAIResponsesEventMapper {
       OpenAIResponsesMetadata.setSessionData(
         messageMetadata,
         OpenAIResponsesMetadata.buildSession(
-          previousResponseId: response.id,
+          responseId: response.id,  // Store THIS response's ID
           pending: const [],
         ),
       );

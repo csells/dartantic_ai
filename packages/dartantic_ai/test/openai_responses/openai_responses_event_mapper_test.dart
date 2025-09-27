@@ -166,7 +166,7 @@ void main() {
 
       final session = OpenAIResponsesMetadata.getSessionData(message.metadata)!;
       expect(
-        session[OpenAIResponsesMetadata.previousResponseIdKey],
+        session[OpenAIResponsesMetadata.responseIdKey],
         equals('resp_123'),
       );
 

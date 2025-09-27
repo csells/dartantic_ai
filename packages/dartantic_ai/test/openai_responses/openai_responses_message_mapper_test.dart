@@ -57,7 +57,7 @@ void main() {
     test('respects session metadata when resuming conversations', () {
       final sessionMetadata = {
         OpenAIResponsesMetadata.sessionKey: {
-          OpenAIResponsesMetadata.previousResponseIdKey: 'resp_123',
+          OpenAIResponsesMetadata.responseIdKey: 'resp_123',
           OpenAIResponsesMetadata.pendingItemsKey: [
             {
               'type': 'function_call_output',

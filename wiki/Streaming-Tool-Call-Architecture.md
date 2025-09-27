@@ -91,6 +91,7 @@ flowchart TB
 | Provider   | Streaming | Tools | Tool IDs | Streaming Format |
 |------------|-----------|-------|----------|------------------|
 | OpenAI     | ✅        | ✅    | ✅       | Partial chunks   |
+| OpenAI Responses | ✅   | ✅    | ✅       | Event-based (stateful) |
 | OpenRouter | ✅        | ✅    | ✅       | OpenAI-compatible|
 | Anthropic  | ✅        | ✅    | ✅       | Event-based      |
 | Google     | ✅        | ✅    | ❌       | Complete chunks  |
@@ -419,6 +420,28 @@ catch (error, stackTrace) {
 - **Tool IDs**: Provided by API
 - **Arguments**: Streamed as raw JSON string, parsed by mapper when complete
 - **ToolPart Creation**: Only after streaming completes with parsed arguments
+
+### OpenAI Responses
+- **Streaming**: Event-based with stateful session management
+- **Tool IDs**: Provided by API with `call_id` field
+- **Arguments**: Streamed as deltas via `function_call_arguments_delta` events
+- **Session Management**:
+  - Maintains tool execution state across session continuations
+  - Stores `responseId` for resuming conversations
+  - Handles pending tool outputs in session metadata
+- **Tool Flow Differences**:
+  - Validates message alternation before accepting tool results
+  - Supports server-side tools (web search, file search, code interpreter)
+  - Can resume mid-tool-execution with pending outputs
+- **Special Features**:
+  - Code interpreter with container management
+  - Web search with staged progress events
+  - File search with result telemetry
+  - MCP (Model Context Protocol) tool support
+- **Implementation Notes**:
+  - Uses OpenAIResponsesEventMapper to handle tool-related events
+  - Accumulates tool metadata in streaming state
+  - Preserves tool call IDs for proper result routing
 
 ### Anthropic
 - **Streaming**: Event-based with explicit stages

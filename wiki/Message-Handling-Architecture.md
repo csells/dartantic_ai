@@ -277,6 +277,57 @@ graph TD
   {"role": "tool", "tool_call_id": "2", "content": "result2"}
   ```
 
+### OpenAI Responses
+- **Requirement**: Stateful session management with message continuity
+- **Session Persistence (`store` parameter)**:
+  - `store: true` (default): Maintains conversation state across requests
+  - `store: false`: Stateless operation, sends full history each time
+- **Format**: Event-based streaming with session metadata
+- **Key Behaviors**:
+  - **With `store: true`**:
+    - First request: Sends full conversation history
+    - Subsequent requests: Only sends new messages after session anchor point
+    - Stores `responseId` in message metadata for continuations
+    - Reduces token usage by avoiding redundant message transmission
+  - **With `store: false`**:
+    - Every request sends complete conversation history
+    - No session metadata stored or retrieved
+    - Higher token usage but simpler state management
+- **Message Validation**:
+  - Enforces strict user/model alternation before accepting messages
+  - Validates synchronously (unlike other providers)
+  - Exposed race conditions other providers missed
+- **Session Metadata Storage**:
+  ```json
+  {
+    "_responses_session": {
+      "response_id": "resp_123abc",
+      "pending_items": [...],
+      "timestamp": 1732231000
+    }
+  }
+  ```
+- **History Scanning Algorithm**:
+  - Scans messages newest to oldest for session metadata
+  - Stops at first `_responses_session` found for performance
+  - Uses session anchor to determine which messages to send
+- **Example Session Flow**:
+  ```
+  Turn 1 (store: true):
+    → Send: [system, user1]
+    ← Response: model1 with responseId="resp_001"
+    ← Metadata stored: {"response_id": "resp_001"}
+
+  Turn 2 (store: true):
+    → Send: user2 only (previousResponseId="resp_001")
+    ← Response: model2 with responseId="resp_002"
+    ← Metadata updated: {"response_id": "resp_002"}
+
+  Turn 3 (store: false):
+    → Send: [system, user1, model1, user2, model2, user3]
+    ← Response: model3 (no metadata stored)
+  ```
+
 ### Anthropic
 - **Requirement**: Tool results can be in a single user message
 - **Format**: One user message with multiple tool_result blocks

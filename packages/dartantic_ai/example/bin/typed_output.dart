@@ -289,10 +289,6 @@ Future<void> typedOutputWithToolCallsAndMultipleTurnsStreaming(
 
   // Second turn: Modify the recipe (streaming with runStream)
   print('Second turn - streaming JSON for recipe modification:');
-  print('History before second turn: ${history.length} messages');
-  for (var i = 0; i < history.length; i++) {
-    print('  [$i]: ${history[i].role.name}');
-  }
   final secondJsonChunks = <String>[];
   await for (final result in agent.sendStream(
     'Can you update it to replace the mushrooms with ham?',

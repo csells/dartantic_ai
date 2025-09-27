@@ -7,8 +7,8 @@ class OpenAIResponsesMetadata {
   /// Metadata key used to store session state on chat messages.
   static const sessionKey = '_responses_session';
 
-  /// Key for `previousResponseId` persisted in session metadata.
-  static const previousResponseIdKey = 'previous_response_id';
+  /// Key for `responseId` persisted in session metadata.
+  static const responseIdKey = 'response_id';
 
   /// Key for pending items persisted in session metadata.
   static const pendingItemsKey = 'pending';
@@ -36,19 +36,19 @@ class OpenAIResponsesMetadata {
 
   /// Creates a serialisable session map from the provided fields.
   static Map<String, Object?> buildSession({
-    required String? previousResponseId,
+    required String? responseId,
     Iterable<openai.ResponseItem>? pending,
   }) => {
-    if (previousResponseId != null) previousResponseIdKey: previousResponseId,
+    if (responseId != null) responseIdKey: responseId,
     if (pending != null)
       pendingItemsKey: pending
           .map((item) => item.toJson())
           .toList(growable: false),
   };
 
-  /// Reads the stored previous response identifier from [session].
-  static String? previousResponseId(Map<String, Object?>? session) =>
-      session?[previousResponseIdKey] as String?;
+  /// Reads the stored response identifier from [session].
+  static String? responseId(Map<String, Object?>? session) =>
+      session?[responseIdKey] as String?;
 
   /// Reads any stored pending [openai.ResponseItem] JSON payloads from
   /// [session].
