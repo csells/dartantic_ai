@@ -45,7 +45,7 @@ execution (minimal prompts, `apply_patch` usage, small toolset).
 - Class: `OpenAIResponsesChatOptions` with fields (temperature, topP, reasoning,
   toolChoice, store, intrinsic tool configs, etc.).
 - File: `src/embeddings_models/openai_responses/..._embeddings_model.dart`.
-- Class: `OpenAIResponsesEmbeddingsOptions` with dimensions, encoding, user,
+- Class: `OpenAIEmbeddingsModelOptions` with dimensions, encoding, user,
   batchSize.
 
 ### M3 — Module Layout Scaffolding
@@ -84,7 +84,7 @@ execution (minimal prompts, `apply_patch` usage, small toolset).
 - Support partial JSON streaming; no `return_result` tool injection.
 
 ### M10 — Embeddings Model
-- Implement `OpenAIResponsesEmbeddingsModel` with `embedQuery` and
+- Implement `OpenAIEmbeddingsModel` with `embedQuery` and
   `embedDocuments`.
 - Use `OpenAIClient.createEmbeddings`; propagate usage/errors.
 

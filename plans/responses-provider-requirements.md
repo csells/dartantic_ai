@@ -194,9 +194,9 @@ appropriate.
 - Remove the need for the `return_result` tool in this provider.
 
 ## 10. Embeddings Model
-- Implement `OpenAIResponsesEmbeddingsModel` using
+- Implement `OpenAIEmbeddingsModel` using
   `OpenAIClient.createEmbeddings`:
-  - Accept `OpenAIResponsesEmbeddingsOptions` (dimensions, encoding format,
+  - Accept `OpenAIEmbeddingsModelOptions` (dimensions, encoding format,
     user, batch size if needed).
   - Translate success into `EmbeddingsResult` with usage metadata.
   - Propagate `OpenAIRequestException` details on failure.

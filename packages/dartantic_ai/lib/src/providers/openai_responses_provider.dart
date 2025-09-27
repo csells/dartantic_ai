@@ -7,14 +7,13 @@ import 'package:logging/logging.dart';
 import '../chat_models/chat_utils.dart';
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
-import '../embeddings_models/openai_responses/openai_responses_embeddings_model.dart';
-import '../embeddings_models/openai_responses/openai_responses_embeddings_options.dart';
+import '../embeddings_models/openai_embeddings/openai_embeddings_model.dart';
+import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.dart';
 import '../platform/platform.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
-    extends
-        Provider<OpenAIResponsesChatOptions, OpenAIResponsesEmbeddingsOptions> {
+    extends Provider<OpenAIResponsesChatOptions, OpenAIEmbeddingsModelOptions> {
   /// Creates a new OpenAI Responses provider instance.
   OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
     : super(
@@ -116,9 +115,9 @@ class OpenAIResponsesProvider
   }
 
   @override
-  EmbeddingsModel<OpenAIResponsesEmbeddingsOptions> createEmbeddingsModel({
+  EmbeddingsModel<OpenAIEmbeddingsModelOptions> createEmbeddingsModel({
     String? name,
-    OpenAIResponsesEmbeddingsOptions? options,
+    OpenAIEmbeddingsModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
 
@@ -131,18 +130,16 @@ class OpenAIResponsesProvider
     // Embeddings use the standard API endpoint, not Responses
     final embeddingsBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
 
-    return OpenAIResponsesEmbeddingsModel(
+    return OpenAIEmbeddingsModel(
       name: modelName,
       apiKey: apiKey,
       baseUrl: embeddingsBaseUrl,
       dimensions: options?.dimensions,
       batchSize: options?.batchSize,
-      defaultOptions: OpenAIResponsesEmbeddingsOptions(
+      options: OpenAIEmbeddingsModelOptions(
         dimensions: options?.dimensions,
         batchSize: options?.batchSize,
         user: options?.user,
-        encodingFormat: options?.encodingFormat,
-        extraBody: options?.extraBody,
       ),
     );
   }

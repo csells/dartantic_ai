@@ -42,7 +42,7 @@ Supporting additions:
 ## 3. Provider Responsibilities
 ### 3.1 Provider metadata
 `OpenAIResponsesProvider` extends `Provider<OpenAIResponsesChatOptions,
-OpenAIResponsesEmbeddingsOptions>` and wires up:
+OpenAIEmbeddingsModelOptions>` and wires up:
 - `name = 'openai-responses'`, `displayName = 'OpenAI Responses'`.
 - `defaultModelNames` per requirements (`gpt-4o`, `text-embedding-3-small`).
 - `caps = {chat, embeddings, multiToolCalls, typedOutput, typedOutputWithTools,
@@ -54,7 +54,7 @@ OpenAIResponsesEmbeddingsOptions>` and wires up:
 - `createChatModel`: instantiate `OpenAIResponsesChatModel` with
   `OpenAIResponsesChatOptions` merged from defaults + caller options, and map
   dartantic `Tool` list to Responses tool metadata (function tool wrappers).
-- `createEmbeddingsModel`: instantiate `OpenAIResponsesEmbeddingsModel` with
+- `createEmbeddingsModel`: instantiate `OpenAIEmbeddingsModel` with
   merged options.
 - `listModels`: reuse `openai_core` client to fetch `/models`, mapping to
   `ModelInfo` similar to `OpenAIProvider` but without completions-specific
@@ -262,9 +262,9 @@ parts:
   responses when typed output is requested.
 
 ## 10. Embeddings Model
-`OpenAIResponsesEmbeddingsModel`:
+`OpenAIEmbeddingsModel`:
 - Wraps `OpenAIClient.createEmbeddings` with options for `dimensions`,
-  `encodingFormat`, `user` (from `OpenAIResponsesEmbeddingsOptions`).
+  `encodingFormat`, `user` (from `OpenAIEmbeddingsModelOptions`).
 - Converts returned vectors to `EmbeddingsResult`, mapping usage tokens.
 - Propagates `OpenAIRequestException` with message/param/status details.
 - Supports batch embedding (use `input` as `List<String>` or tokens depending on
