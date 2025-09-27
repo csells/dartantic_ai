@@ -17,93 +17,67 @@ void main() async {
   // Note: This example copies from Platform.environment to demonstrate the
   // feature while still working with your existing environment setup.
   Agent.environment['OPENAI_API_KEY'] = Platform.environment['OPENAI_API_KEY']!;
-  Agent.environment['GEMINI_API_KEY'] = Platform.environment['GEMINI_API_KEY']!;
 
-  print('Multi-Provider Conversation Demo\n');
   final history = <ChatMessage>[];
 
-  // Step 1: Start with Gemini
-  print('═══ Step 1: Starting with Gemini ═══');
-  final gemini = Agent('google');
-  final result1 = await gemini.send(
+  // agent 1
+  final agent1 = Agent('google');
+  print('## Starting with ${agent1.displayName}');
+  final result1 = await agent1.send(
     'Hi! My name is Alice and I work as a software engineer in Seattle. '
     'I love hiking and coffee.',
   );
   history.addAll(result1.messages);
-  print('Gemini: ${result1.output}\n');
+  print('${agent1.displayName}: ${result1.output}\n');
 
-  // Step 2: Continue with Claude
-  print('═══ Step 2: Switching to Claude ═══');
-  final claude = Agent('anthropic');
-  final result2 = await claude.send(
+  // agent 2
+  final agent2 = Agent('anthropic');
+  print('## Switching to ${agent2.displayName}');
+  final result2 = await agent2.send(
     'What do you remember about me?',
     history: history,
   );
   history.addAll(result2.messages);
-  print('Claude: ${result2.output}\n');
+  print('${agent2.displayName}: ${result2.output}\n');
 
-  // Step 3: Use OpenAI with tools
-  print('═══ Step 3: OpenAI with Tools ═══');
-  final openai = Agent('openai', tools: [weatherTool, temperatureTool]);
-  final result3 = await openai.send(
+  // agent 3
+  final agent3 = Agent('openai', tools: [weatherTool, temperatureTool]);
+  print('## Using ${agent3.displayName} with tools');
+  final result3 = await agent3.send(
     'Can you check the weather where I live?',
     history: history,
   );
   history.addAll(result3.messages);
-  print('OpenAI: ${result3.output}\n');
+  print('${agent3.displayName}: ${result3.output}\n');
 
-  // Step 4: Back to Gemini to reference the tool results
-  print('═══ Step 4: Back to Gemini ═══');
-  final gemini2 = Agent('google');
-  final result4 = await gemini2.send(
-    'Based on the weather, what outdoor activities would you recommend '
-    'for someone who loves hiking?',
+  // agent 4
+  final agent4 = Agent('google');
+  print('## Back to ${agent4.displayName} to reference the tool results');
+  final result4 = await agent4.send(
+    'Based on the weather, what outdoor activities would you recommend for me?',
     history: history,
   );
   history.addAll(result4.messages);
-  print('Gemini: ${result4.output}\n');
+  print('${agent4.displayName}: ${result4.output}\n');
 
-  // Step 5: Use Claude for a final summary
-  print('═══ Step 5: Claude for Summary ═══');
-  final claude2 = Agent('anthropic');
-  final result5 = await claude2.send(
-    'Can you summarize our entire conversation, including what you '
-    'learned about me and any information we looked up?',
+  // agent 5
+  final agent5 = Agent('openai-responses');
+  print('## Using ${agent5.displayName} for a final summary');
+  final result5 = await agent5.send(
+    'Can you summarize our conversation?',
     history: history,
   );
   history.addAll(result5.messages);
-  print('Claude: ${result5.output}\n');
+  print('${agent5.displayName}: ${result5.output}\n');
 
-  // Show the complete message history
-  print('═══ Complete Message History ═══');
+  print('## Message History');
+  print('Total messages: ${history.length}');
   dumpMessages(history);
 
-  print('Total messages: ${history.length}');
-  print('Provider sequence:');
-  var lastProvider = '';
-  for (var i = 0; i < history.length; i += 2) {
-    if (i < result1.messages.length) {
-      if (lastProvider != 'Gemini') print('  → Gemini');
-      lastProvider = 'Gemini';
-    } else if (i < result1.messages.length + result2.messages.length) {
-      if (lastProvider != 'Claude') print('  → Claude');
-      lastProvider = 'Claude';
-    } else if (i <
-        result1.messages.length +
-            result2.messages.length +
-            result3.messages.length) {
-      if (lastProvider != 'OpenAI') print('  → OpenAI (with tools)');
-      lastProvider = 'OpenAI';
-    } else if (i <
-        result1.messages.length +
-            result2.messages.length +
-            result3.messages.length +
-            result4.messages.length) {
-      if (lastProvider != 'Gemini') print('  → Gemini');
-      lastProvider = 'Gemini';
-    } else {
-      if (lastProvider != 'Claude') print('  → Claude');
-      lastProvider = 'Claude';
-    }
-  }
+  print('## Provider sequence:');
+  print('  → ${agent1.displayName}');
+  print('  → ${agent2.displayName}');
+  print('  → ${agent3.displayName}');
+  print('  → ${agent4.displayName}');
+  print('  → ${agent5.displayName}');
 }
