@@ -16,7 +16,7 @@ Future<void> singleTurnChat(String model) async {
 
   final agent = Agent(model);
   const prompt = 'What is the capital of England?';
-  stdout.writeln('Human: $prompt');
+  stdout.writeln('User: $prompt');
   final response = await agent.send(prompt);
   stdout.writeln('${agent.displayName}: ${response.output}');
   dumpMessages(response.messages);
@@ -28,7 +28,7 @@ Future<void> singleTurnChatStream(String model) async {
   final agent = Agent(model);
   final history = <ChatMessage>[];
   const prompt = 'Count from 1 to 5, one number at a time';
-  stdout.writeln('Human: $prompt');
+  stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);

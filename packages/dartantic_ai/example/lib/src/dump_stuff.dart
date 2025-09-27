@@ -1,7 +1,6 @@
 // ignore_for_file: avoid_print
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 
@@ -146,9 +145,4 @@ String _messageToSummary(ChatMessage message) {
   }
 
   return '${message.role.name}: [${parts.join(', ')}]';
-}
-
-Future<void> dumpStream(Stream<ChatResult<String>> stream) async {
-  await stream.forEach((r) => stdout.write(r.output));
-  stdout.write('\n');
 }
