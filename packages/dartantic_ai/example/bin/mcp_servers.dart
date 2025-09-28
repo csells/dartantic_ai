@@ -5,119 +5,63 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
-import 'package:json_schema/json_schema.dart';
+
+late final List<Tool> hgTools;
 
 void main() async {
-  await singleMcpServer();
-  await multipleToolsAndMcpServers();
-  await oneRequestMultiTool();
+  hgTools = await McpClient.remote(
+    'huggingface',
+    url: Uri.parse('https://huggingface.co/mcp'),
+    headers: {
+      'Authorization': 'Bearer ${Platform.environment['HUGGINGFACE_TOKEN']!}',
+    },
+  ).listTools();
+
+  const model = 'openai-responses';
+  await singleMcpServer(model);
+  await multipleToolsAndMcpServers(model);
   exit(0);
 }
 
-Future<void> singleMcpServer() async {
+Future<void> singleMcpServer(String model) async {
   print('\nSingle MCP Server');
 
-  final huggingFace = McpClient.remote(
-    'huggingface',
-    url: Uri.parse('https://hf.co/mcp'),
-  );
-
-  final hgTools = await huggingFace.listTools();
-  dumpTools('huggingface', hgTools);
-
-  final agent = Agent('google', tools: [...hgTools]);
-
+  final agent = Agent(model, tools: hgTools);
   const query = 'Who is hugging face?';
-  await agent.sendStream(query).forEach((r) => stdout.write(r.output));
+  await agent
+      .sendStream(query, history: [ChatMessage.system('be brief')])
+      .forEach((r) => stdout.write(r.output));
   stdout.writeln();
 }
 
-Future<void> multipleToolsAndMcpServers() async {
+Future<void> multipleToolsAndMcpServers(String model) async {
   print('\nMultiple Tools and MCP Servers');
 
-  final localTime = Tool(
-    name: 'local_time',
-    description: 'Returns the current local time in ISO 8601 format.',
-    onCall: (args) async => {'result': DateTime.now().toIso8601String()},
-  );
-
-  final location = Tool(
-    name: 'location',
-    description: 'Returns the current location.',
-    onCall: (args) async => {'result': 'Portland, OR'},
-  );
-
-  final deepwiki = McpClient.remote(
-    'deepwiki',
-    url: Uri.parse('https://mcp.deepwiki.com/mcp'),
-  );
-
-  final dwTools = await deepwiki.listTools();
-  dumpTools('deepwiki', dwTools);
-
-  final huggingFace = McpClient.remote(
-    'huggingface',
-    url: Uri.parse('https://huggingface.co/mcp'),
-  );
-
-  final hgTools = await huggingFace.listTools();
+  final c7Tools = await McpClient.remote(
+    'context7',
+    url: Uri.parse('https://mcp.context7.com/mcp'),
+    headers: {'CONTEXT7_API_KEY': Platform.environment['CONTEXT7_API_KEY']!},
+  ).listTools();
 
   final agent = Agent(
-    'google',
-    tools: [localTime, location, ...dwTools, ...hgTools],
+    model,
+    tools: [localTimeTool, locationTool, ...hgTools, ...c7Tools],
   );
 
   const query =
       'Where am I and what time is it and '
       'who is hugging face and '
-      'what model providers does csells/dartantic_ai currently support?';
+      'what does context7 say about whether dartantic_ai support tool calling '
+      '(yes or no)?';
 
   final history = <ChatMessage>[];
-  await agent.sendStream(query).forEach((r) {
-    stdout.write(r.output);
-    history.addAll(r.messages);
-  });
+  await agent
+      .sendStream(query, history: [ChatMessage.system('be brief')])
+      .forEach((r) {
+        stdout.write(r.output);
+        history.addAll(r.messages);
+      });
   stdout.writeln();
 
   dumpMessages(history);
-}
-
-Future<void> oneRequestMultiTool() async {
-  print('\nOne Request, Multi Tool Calls');
-
-  final agent = Agent(
-    'openai',
-    tools: [
-      Tool(
-        name: 'get-current-date-time',
-        description: 'Get the current local date and time in ISO-8601 format',
-        onCall: (_) async => {'datetime': DateTime.now().toIso8601String()},
-      ),
-      Tool<Map<String, dynamic>>(
-        name: 'get-calendar-schedule',
-        description: 'Get the schedule for the day',
-        inputSchema: JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'date': {'type': 'string', 'format': 'date'},
-          },
-          'required': ['date'],
-        }),
-
-        onCall: (args) async => {
-          'result': '[${args['date']}: You have a meeting at 10:00 AM',
-        },
-      ),
-    ],
-  );
-
-  final messages = <ChatMessage>[];
-  await agent
-      .sendStream("What's on my schedule today?", history: messages)
-      .forEach((r) {
-        messages.addAll(r.messages);
-        stdout.write(r.output);
-      });
-
-  dumpMessages(messages);
 }

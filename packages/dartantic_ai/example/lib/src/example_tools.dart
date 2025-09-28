@@ -3,6 +3,20 @@ import 'dart:math';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 
+/// Tool that returns the current location
+final locationTool = Tool<Map<String, dynamic>>(
+  name: 'location',
+  description: 'Returns the current location.',
+  onCall: (args) async => {'result': 'Portland, OR'},
+);
+
+/// Tool that returns the current local time in ISO 8601 format
+final localTimeTool = Tool<Map<String, dynamic>>(
+  name: 'local_time',
+  description: 'Returns the current local time in ISO 8601 format.',
+  onCall: (args) async => {'result': DateTime.now().toIso8601String()},
+);
+
 /// Tool that returns the current date and time
 final currentDateTimeTool = Tool<Map<String, dynamic>>(
   name: 'current_date_time',
@@ -183,17 +197,6 @@ final stockPriceTool = Tool<Map<String, dynamic>>(
   },
 );
 
-/// Returns example tools for demonstrations
-List<Tool> get exampleTools => [
-  currentDateTimeTool,
-  weatherTool,
-  fahrenheitToCelsiusTool,
-  temperatureTool,
-  temperatureConverterTool,
-  distanceCalculatorTool,
-  stockPriceTool,
-];
-
 /// Recipe lookup tool for chef scenario
 final recipeLookupTool = Tool<Map<String, dynamic>>(
   name: 'lookup_recipe',
@@ -244,3 +247,17 @@ final recipeLookupTool = Tool<Map<String, dynamic>>(
     };
   },
 );
+
+/// Returns example tools for demonstrations
+List<Tool> get exampleTools => [
+  locationTool,
+  localTimeTool,
+  currentDateTimeTool,
+  weatherTool,
+  fahrenheitToCelsiusTool,
+  temperatureTool,
+  temperatureConverterTool,
+  distanceCalculatorTool,
+  stockPriceTool,
+  recipeLookupTool,
+];
