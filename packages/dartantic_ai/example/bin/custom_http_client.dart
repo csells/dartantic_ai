@@ -8,12 +8,12 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  final agent = Agent.forProvider(LoggingGoogleProvider());
-
-  final stream = agent.sendStream('Count from 1 to 5, one number at a time');
-  await for (final chunk in stream) {
-    stdout.write(chunk.output);
-  }
+  final agent = Agent.forProvider(LoggingProvider());
+  const prompt = 'Count from 1 to 5, one number at a time';
+  stdout.writeln('User: $prompt');
+  stdout.write('${agent.displayName}: ');
+  final stream = agent.sendStream(prompt);
+  await stream.forEach((chunk) => stdout.write(chunk.output));
   stdout.writeln();
   exit(0);
 }
@@ -104,36 +104,40 @@ class LoggingHttpClient extends http.BaseClient {
   void close() => _inner.close();
 }
 
-/// Custom Google provider that uses a logging HTTP client
-class LoggingGoogleProvider extends GoogleProvider {
-  LoggingGoogleProvider({super.apiKey});
+/// Custom provider that uses a logging HTTP client
+class LoggingProvider extends OpenAIResponsesProvider {
+  LoggingProvider({super.apiKey});
 
   @override
-  ChatModel<GoogleChatModelOptions> createChatModel({
+  ChatModel<OpenAIResponsesChatOptions> createChatModel({
     String? name,
     List<Tool>? tools,
     double? temperature,
-    GoogleChatModelOptions? options,
+    OpenAIResponsesChatOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
-    return GoogleChatModel(
+    return OpenAIResponsesChatModel(
       name: modelName,
       tools: tools,
       temperature: temperature,
-      apiKey: apiKey!,
-      client: LoggingHttpClient(),
-      defaultOptions: GoogleChatModelOptions(
-        topP: options?.topP,
-        topK: options?.topK,
-        candidateCount: options?.candidateCount,
-        maxOutputTokens: options?.maxOutputTokens,
+      apiKey: apiKey,
+      httpClient: LoggingHttpClient(),
+      defaultOptions: OpenAIResponsesChatOptions(
         temperature: temperature ?? options?.temperature,
-        stopSequences: options?.stopSequences,
-        responseMimeType: options?.responseMimeType,
-        responseSchema: options?.responseSchema,
-        safetySettings: options?.safetySettings,
-        enableCodeExecution: options?.enableCodeExecution,
+        topP: options?.topP,
+        maxOutputTokens: options?.maxOutputTokens,
+        store: options?.store ?? true,
+        metadata: options?.metadata,
+        include: options?.include,
+        parallelToolCalls: options?.parallelToolCalls,
+        toolChoice: options?.toolChoice,
+        reasoning: options?.reasoning,
+        reasoningEffort: options?.reasoningEffort,
+        reasoningSummary: options?.reasoningSummary,
+        responseFormat: options?.responseFormat,
+        truncationStrategy: options?.truncationStrategy,
+        user: options?.user,
       ),
     );
   }
