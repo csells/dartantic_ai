@@ -169,17 +169,16 @@ Providers can be discovered by:
 
 Each provider defines its own environment variable for API keys:
 
-| Provider | apiKeyName | Example |
-|----------|------------|---------|
-| OpenAI | `OPENAI_API_KEY` | `sk-...` |
-| Anthropic | `ANTHROPIC_API_KEY` | `sk-ant-...` |
-| Google | `GEMINI_API_KEY` | `...` |
-| Mistral | `MISTRAL_API_KEY` | `...` |
-| Cohere | `COHERE_API_KEY` | `...` |
-| OpenRouter | `OPENROUTER_API_KEY` | `sk-or-...` |
-| Together | `TOGETHER_API_KEY` | `...` |
-| Lambda | `LAMBDA_API_KEY` | `...` |
-| Ollama | `null` | No API key needed |
+| Provider   | apiKeyName           | Example           |
+| ---------- | -------------------- | ----------------- |
+| OpenAI     | `OPENAI_API_KEY`     | `sk-...`          |
+| Anthropic  | `ANTHROPIC_API_KEY`  | `sk-ant-...`      |
+| Google     | `GEMINI_API_KEY`     | `...`             |
+| Mistral    | `MISTRAL_API_KEY`    | `...`             |
+| Cohere     | `COHERE_API_KEY`     | `...`             |
+| OpenRouter | `OPENROUTER_API_KEY` | `sk-or-...`       |
+| Together   | `TOGETHER_API_KEY`   | `...`             |
+| Ollama     | `null`               | No API key needed |
 
 ## Interaction Rules
 

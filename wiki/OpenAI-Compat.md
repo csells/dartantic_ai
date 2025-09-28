@@ -8,7 +8,6 @@ flowchart TB
         OAI[OpenAI<br/>gpt-4o]
         OR[OpenRouter<br/>google/gemini-2.0-flash]
         TOG[Together AI<br/>meta-llama/Llama-3.2-3B]
-        LAM[Lambda<br/>hermes-3-llama-3.1-405b-fp8]
         GOA[Google AI OpenAI<br/>gemini-2.0-flash]
         OLL[Ollama OpenAI<br/>llama3.2]
     end
@@ -57,26 +56,25 @@ flowchart TB
 
 ## OpenAI-Compatible Providers
 
-| Provider                   | Base URL                                                  | API Key Name         | Default Model                                       | Get API Key                                                           | Notes |
-| -------------------------- | --------------------------------------------------------- | -------------------- | --------------------------------------------------- | --------------------------------------------------------------------- | ----- |
-| **OpenAI**                 | `https://api.openai.com/v1`                               | `OPENAI_API_KEY`     | `gpt-4o`                                            | [OpenAI API Keys](https://platform.openai.com/api-keys)               |       |
-| **OpenRouter**             | `https://openrouter.ai/api/v1`                            | `OPENROUTER_API_KEY` | `google/gemini-2.0-flash`                           | [OpenRouter API Keys](https://openrouter.ai/keys)                     |       |
-| **Together AI**            | `https://api.together.xyz/v1`                             | `TOGETHER_API_KEY`   | `meta-llama/Llama-3.2-3B-Instruct-Turbo`           | [Together API Keys](https://api.together.ai/)                         | Tool support disabled due to non-standard streaming format |
-| **Lambda**                 | `https://api.lambda.ai/v1`                                | `LAMBDA_API_KEY`     | `hermes-3-llama-3.1-405b-fp8`                      | [Lambda API Keys](https://cloud.lambda.ai/api-keys/cloud-api)         |       |
-| **Google AI (OpenAI)**     | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY`     | `gemini-2.0-flash`                                  | [Google AI Studio API Keys](https://makersuite.google.com/app/apikey) | OpenAI-compatible Gemini endpoint |
-| **Ollama (OpenAI-compat)** | `http://localhost:11434/v1`                               | (none)               | `llama3.2`                                          | [Ollama Docs](https://github.com/ollama/ollama/blob/main/docs/api.md) | Local OpenAI-compatible endpoint |
+| Provider                   | Base URL                                                  | API Key Name         | Default Model                            | Get API Key                                                           | Notes                                                      |
+| -------------------------- | --------------------------------------------------------- | -------------------- | ---------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **OpenAI**                 | `https://api.openai.com/v1`                               | `OPENAI_API_KEY`     | `gpt-4o`                                 | [OpenAI API Keys](https://platform.openai.com/api-keys)               |                                                            |
+| **OpenRouter**             | `https://openrouter.ai/api/v1`                            | `OPENROUTER_API_KEY` | `google/gemini-2.0-flash`                | [OpenRouter API Keys](https://openrouter.ai/keys)                     |                                                            |
+| **Together AI**            | `https://api.together.xyz/v1`                             | `TOGETHER_API_KEY`   | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | [Together API Keys](https://api.together.ai/)                         | Tool support disabled due to non-standard streaming format |
+| **Google AI (OpenAI)**     | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY`     | `gemini-2.0-flash`                       | [Google AI Studio API Keys](https://makersuite.google.com/app/apikey) | OpenAI-compatible Gemini endpoint                          |
+| **Ollama (OpenAI-compat)** | `http://localhost:11434/v1`                               | (none)               | `llama3.2`                               | [Ollama Docs](https://github.com/ollama/ollama/blob/main/docs/api.md) | Local OpenAI-compatible endpoint                           |
 
 ## Native API Providers (Not OpenAI-Compatible)
 
 These providers use their own native APIs in dartantic and are not OpenAI-compatible:
 
-| Provider       | API Key Name         | Default Model                   | Notes |
-| -------------- | -------------------- | ------------------------------- | ----- |
-| **Google**     | `GEMINI_API_KEY`     | `gemini-2.0-flash`              | Native Gemini API |
-| **Anthropic**  | `ANTHROPIC_API_KEY`  | `claude-3-5-sonnet-20241022`    | Native Claude API |
-| **Mistral**    | `MISTRAL_API_KEY`    | `mistral-7b-instruct`           | Native Mistral API |
-| **Cohere**     | `COHERE_API_KEY`     | `command-r-plus`                | Native Cohere API with some OpenAI compatibility |
-| **Ollama**     | (none)               | `qwen2.5:7b-instruct`           | Native Ollama API at `/api` endpoint |
+| Provider      | API Key Name        | Default Model                | Notes                                            |
+| ------------- | ------------------- | ---------------------------- | ------------------------------------------------ |
+| **Google**    | `GEMINI_API_KEY`    | `gemini-2.0-flash`           | Native Gemini API                                |
+| **Anthropic** | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-20241022` | Native Claude API                                |
+| **Mistral**   | `MISTRAL_API_KEY`   | `mistral-7b-instruct`        | Native Mistral API                               |
+| **Cohere**    | `COHERE_API_KEY`    | `command-r-plus`             | Native Cohere API with some OpenAI compatibility |
+| **Ollama**    | (none)              | `qwen2.5:7b-instruct`        | Native Ollama API at `/api` endpoint             |
 
 **Notes:**
 - All OpenAI-compatible providers use the `/chat/completions` endpoint and the `Authorization: Bearer <API_KEY>` header.

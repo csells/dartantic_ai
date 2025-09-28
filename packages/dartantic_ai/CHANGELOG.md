@@ -1,11 +1,14 @@
 ## 1.1.0
 
-- TODO: add the respository to the pubspec
-- TODO: doc the Chat class
-- TODO: finish responses API
+### TODO
+- add the respository to the pubspec
+- doc the Chat class
+- openai responses API implementation via Jesse's most excellent openai_core package
   - store: true => only send new messages (default)
   - store: false => send the entire stack
-- TODO: a lot of time on the examples -- check 'em out!
+- a lot of time on the examples -- check 'em out!
+- moved lambda to the openai_compat.dart example and out of the list of supported providers
+- added docs + example apps for all of these (including in launch.json)
 
 ## 1.0.8
 

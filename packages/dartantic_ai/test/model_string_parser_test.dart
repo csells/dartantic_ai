@@ -324,13 +324,6 @@ void main() {
       expect(parser.embeddingsModelName, 'embed-v4.0');
     });
 
-    test('Lambda chat model with slash', () {
-      final parser = ModelStringParser.parse('lambda/lfm-7b');
-      expect(parser.providerName, 'lambda');
-      expect(parser.chatModelName, 'lfm-7b');
-      expect(parser.embeddingsModelName, null);
-    });
-
     test('Ollama chat model with colon in model name', () {
       final parser = ModelStringParser.parse('ollama:llama3.2:latest');
       expect(parser.providerName, 'ollama');

@@ -64,7 +64,6 @@ void main() {
         expect(Providers.get('mistral'), equals(Providers.mistral));
         expect(Providers.get('ollama'), equals(Providers.ollama));
         expect(Providers.get('together'), equals(Providers.together));
-        expect(Providers.get('lambda'), equals(Providers.lambda));
         expect(Providers.get('cohere'), equals(Providers.cohere));
         expect(Providers.get('openrouter'), equals(Providers.openrouter));
       });

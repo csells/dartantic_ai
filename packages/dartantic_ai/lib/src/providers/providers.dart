@@ -25,7 +25,6 @@ class Providers {
   static OpenAIProvider? _together;
   static MistralProvider? _mistral;
   static CohereProvider? _cohere;
-  static OpenAIProvider? _lambda;
   static OpenAIProvider? _googleOpenAI;
   static GoogleProvider? _google;
   static AnthropicProvider? _anthropic;
@@ -76,16 +75,6 @@ class Providers {
 
   /// Cohere provider (OpenAI-compatible, cloud).
   static CohereProvider get cohere => _cohere ??= CohereProvider();
-
-  /// Lambda provider (OpenAI-compatible, cloud).
-  static OpenAIProvider get lambda => _lambda ??= OpenAIProvider(
-    name: 'lambda',
-    displayName: 'Lambda',
-    defaultModelNames: {ModelKind.chat: 'hermes-3-llama-3.1-405b-fp8'},
-    baseUrl: Uri.parse('https://api.lambda.ai/v1'),
-    apiKeyName: 'LAMBDA_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput, ProviderCaps.vision},
-  );
 
   /// Gemini (OpenAI-compatible) provider (Google AI, OpenAI API).
   static OpenAIProvider get googleOpenAI => _googleOpenAI ??= OpenAIProvider(
@@ -157,7 +146,6 @@ class Providers {
     together,
     mistral,
     cohere,
-    lambda,
     google,
     googleOpenAI,
     anthropic,

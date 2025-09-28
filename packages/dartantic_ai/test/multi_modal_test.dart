@@ -38,7 +38,6 @@ void main() {
   const visionOnlyProviders = {
     'mistral',
     'cohere',
-    'lambda',
     'together',
     'ollama',
     'ollama-openai',
@@ -47,7 +46,6 @@ void main() {
   // Helper to get vision-capable model name for vision-only providers
   String getVisionModelName(Provider provider) => switch (provider.name) {
     'together' => 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
-    'lambda' => 'llama3.2-11b-vision-instruct',
     'ollama' => 'llava:7b',
     'ollama-openai' => 'llava:7b',
     'cohere' => 'c4ai-aya-vision-8b',
@@ -307,7 +305,7 @@ void main() {
 
       runVisionOnlyTest('handles multiple images', (provider, agent) async {
         // Skip providers that don't support multiple images
-        if (provider.name == 'together' || provider.name == 'lambda') {
+        if (provider.name == 'together') {
           markTestSkipped(
             'Provider ${provider.name} does not support multiple images',
           );
