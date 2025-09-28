@@ -10,6 +10,10 @@ The project is organized as a monorepo with multiple packages:
 - `packages/dartantic_interface/` - Core interfaces and types
 - `packages/dartantic_ai/` - Main implementation with provider integrations
 
+## Documentation Guidelines
+
+- **Design documents should NOT include code implementations** - Specifications in the `wiki/` folder should describe algorithms, data flow, and architecture without including actual code, as code in documentation immediately goes stale. Implementation details belong in the code itself, not in design docs.
+
 ## Development Commands
 
 ### Building and Testing

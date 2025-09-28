@@ -267,9 +267,12 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       }
       
       // Accumulate the complete message
+      // Note: Orchestrator checks if output is empty but messages contains
+      // the actual content (e.g., OpenAI Responses text streaming pattern)
+      // to ensure metadata preservation
       state.accumulatedMessage = state.accumulator.accumulate(
         state.accumulatedMessage,
-        result.output,
+        result.output, // or result.messages[0] if output is empty
       );
       state.lastResult = result;
     }

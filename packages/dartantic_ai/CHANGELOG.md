@@ -1,10 +1,11 @@
-## 1.0.9
+## 1.1.0
 
 - TODO: add the respository to the pubspec
 - TODO: doc the Chat class
 - TODO: finish responses API
   - store: true => only send new messages (default)
   - store: false => send the entire stack
+- TODO: a lot of time on the examples -- check 'em out!
 
 ## 1.0.8
 

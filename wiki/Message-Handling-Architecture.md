@@ -283,6 +283,10 @@ graph TD
   - `store: true` (default): Maintains conversation state across requests
   - `store: false`: Stateless operation, sends full history each time
 - **Format**: Event-based streaming with session metadata
+- **Unique Streaming Behavior**:
+  - **Text streaming**: Returns empty `output` with full message in `messages[0]` to preserve metadata
+  - **Tool-only responses**: Returns full message in both `output` and `messages`
+  - This pattern ensures session metadata is preserved during accumulation
 - **Key Behaviors**:
   - **With `store: true`**:
     - First request: Sends full conversation history
@@ -344,6 +348,37 @@ graph TD
 ### Ollama
 - **Requirement**: Varies by endpoint (native vs OpenAI-compatible)
 - **Format**: Adapts based on endpoint type
+
+## ChatResult Streaming Patterns
+
+Providers return `ChatResult` with different patterns for `output` and `messages` fields during streaming:
+
+### Standard Pattern (Most Providers)
+- **Behavior**: Same message in both `output` and `messages`
+- **Example**: OpenAI, Google, Anthropic (non-streaming cases)
+- **Accumulation**: Uses `output` field
+- **Metadata**: Present in both fields
+
+### OpenAI Responses Pattern (Text Streaming)
+- **Behavior**: Empty `output`, full message with metadata in `messages[0]`
+- **Example**: OpenAI Responses when streaming text content
+- **Accumulation**: Must use `messages[0]` to preserve session metadata
+- **Metadata**: Only in `messages[0]`, lost if using `output`
+
+### OpenAI Responses Pattern (Tool-Only)
+- **Behavior**: Full message in both `output` and `messages`
+- **Example**: OpenAI Responses when only executing tools (no text)
+- **Accumulation**: Can use either field
+- **Metadata**: Present in both fields
+
+### Empty Response Pattern
+- **Behavior**: Empty `output`, empty or minimal `messages`
+- **Example**: Anthropic during certain streaming chunks
+- **Accumulation**: Uses empty `output`
+- **Metadata**: None or minimal
+
+### Orchestrator Accumulation Strategy
+The orchestrator must check if `output.parts.isEmpty && messages.isNotEmpty` and use `messages[0]` for accumulation to ensure metadata preservation across all provider patterns. This adaptive approach ensures session state and other metadata are never lost during streaming.
 
 ## Mapper Transformations
 

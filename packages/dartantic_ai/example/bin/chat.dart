@@ -39,7 +39,7 @@ Future<void> multiTurnChatStream(String model) async {
   stdout.writeln('\n## Multi-Turn Chat Streaming');
 
   final chat = Chat(
-    Agent(model),
+    Agent(model, tools: [weatherTool, temperatureConverterTool]),
     history: [ChatMessage.system('You are a helpful weather assistant.')],
   );
 
