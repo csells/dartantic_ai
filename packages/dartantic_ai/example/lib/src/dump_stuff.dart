@@ -1,19 +1,18 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 void dumpMessages(List<ChatMessage> history) {
-  print('--------------------------------');
-  print('# Message History:');
+  stdout.writeln('--------------------------------');
+  stdout.writeln('# Message History:');
   for (final message in history) {
-    print('- ${_messageToSingleLine(message)}');
+    stdout.writeln('- ${_messageToSingleLine(message)}');
     if (message.metadata.isNotEmpty) {
-      print('  Metadata: ${message.metadata}');
+      stdout.writeln('  Metadata: ${message.metadata}');
     }
   }
-  print('--------------------------------');
+  stdout.writeln('--------------------------------');
 }
 
 String _messageToSingleLine(ChatMessage message) {
@@ -41,29 +40,29 @@ String _messageToSingleLine(ChatMessage message) {
 }
 
 void dumpTools(String name, Iterable<Tool> tools) {
-  print('\n# $name');
+  stdout.writeln('\n# $name');
   for (final tool in tools) {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(jsonDecode(tool.inputSchema.toJson()));
-    print('\n## Tool');
-    print('- name: ${tool.name}');
-    print('- description: ${tool.description}');
-    print('- inputSchema: $json');
+    stdout.writeln('\n## Tool');
+    stdout.writeln('- name: ${tool.name}');
+    stdout.writeln('- description: ${tool.description}');
+    stdout.writeln('- inputSchema: $json');
   }
 }
 
 /// Dumps a ChatResult with its metadata for debugging
 void dumpChatResult(ChatResult result, {String? label}) {
   if (label != null) {
-    print('\n=== $label ===');
+    stdout.writeln('\n=== $label ===');
   }
 
-  print('Result ID: ${result.id}');
+  stdout.writeln('Result ID: ${result.id}');
 
   // Show usage if available
   if (result.usage.totalTokens != null) {
-    print(
+    stdout.writeln(
       'Usage: ${result.usage.promptTokens ?? 0} prompt + '
       '${result.usage.responseTokens ?? 0} response = '
       '${result.usage.totalTokens} total tokens',
@@ -72,33 +71,33 @@ void dumpChatResult(ChatResult result, {String? label}) {
 
   // Show metadata if present
   if (result.metadata.isNotEmpty) {
-    print('\nMetadata:');
+    stdout.writeln('\nMetadata:');
     const encoder = JsonEncoder.withIndent('  ');
-    print(encoder.convert(result.metadata));
+    stdout.writeln(encoder.convert(result.metadata));
   }
 
   // Show messages
   if (result.messages.isNotEmpty) {
-    print('\nMessages:');
+    stdout.writeln('\nMessages:');
     for (var i = 0; i < result.messages.length; i++) {
       final msg = result.messages[i];
-      print('  [$i] ${_messageToSummary(msg)}');
+      stdout.writeln('  [$i] ${_messageToSummary(msg)}');
     }
   }
 
   // Show output if it's a ChatMessage
   if (result.output is ChatMessage) {
     final outputSummary = _messageToSummary(result.output as ChatMessage);
-    print('\nOutput: $outputSummary');
+    stdout.writeln('\nOutput: $outputSummary');
   } else {
-    print('\nOutput: ${result.output}');
+    stdout.writeln('\nOutput: ${result.output}');
   }
 }
 
 /// Dumps streaming results with metadata tracking
 void dumpStreamingResults(List<ChatResult> results) {
-  print('\n=== Streaming Results Summary ===');
-  print('Total chunks: ${results.length}');
+  stdout.writeln('\n=== Streaming Results Summary ===');
+  stdout.writeln('Total chunks: ${results.length}');
 
   // Collect all unique metadata keys
   final allMetadataKeys = <String>{};
@@ -107,7 +106,7 @@ void dumpStreamingResults(List<ChatResult> results) {
   }
 
   if (allMetadataKeys.isNotEmpty) {
-    print('\nMetadata keys found: ${allMetadataKeys.join(', ')}');
+    stdout.writeln('\nMetadata keys found: ${allMetadataKeys.join(', ')}');
 
     // Show interesting metadata
     for (final result in results) {
@@ -115,8 +114,8 @@ void dumpStreamingResults(List<ChatResult> results) {
       if (meta.containsKey('suppressed_text') ||
           meta.containsKey('suppressed_tool_calls') ||
           meta.containsKey('extra_return_results')) {
-        print('\nChunk with suppressed content:');
-        print(const JsonEncoder.withIndent('  ').convert(meta));
+        stdout.writeln('\nChunk with suppressed content:');
+        stdout.writeln(const JsonEncoder.withIndent('  ').convert(meta));
       }
     }
   }
@@ -145,4 +144,11 @@ String _messageToSummary(ChatMessage message) {
   }
 
   return '${message.role.name}: [${parts.join(', ')}]';
+}
+
+void dumpUsage(LanguageModelUsage usage) {
+  stdout.writeln('\n### Usage:');
+  stdout.writeln('- Prompt tokens: ${usage.promptTokens}');
+  stdout.writeln('- Response tokens: ${usage.responseTokens}');
+  stdout.writeln('- Total tokens: ${usage.totalTokens}');
 }
