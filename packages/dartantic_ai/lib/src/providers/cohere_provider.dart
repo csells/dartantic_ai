@@ -21,7 +21,7 @@ class CohereProvider extends OpenAIProvider {
         name: 'cohere',
         displayName: 'Cohere',
         defaultModelNames: {
-          ModelKind.chat: 'command-r-plus',
+          ModelKind.chat: 'command-r-08-2024',
           ModelKind.embeddings: 'embed-v4.0',
         },
         caps: {
@@ -128,6 +128,12 @@ class CohereProvider extends OpenAIProvider {
       if (cells.isEmpty) continue;
       final id = cells[0].text.trim();
       final description = cells.length > 1 ? cells[1].text.trim() : null;
+
+      // Only include live models
+      if (!_isLiveModel(id, cells, headers)) {
+        _logger.info('Skipping non-live model: $id');
+        continue;
+      }
       final kinds = <ModelKind>{};
       final idLower = id.toLowerCase();
       // Heuristics based on model name
@@ -196,5 +202,28 @@ class CohereProvider extends OpenAIProvider {
         },
       );
     }
+  }
+
+  // Check if a model is explicitly marked as live in the table
+  bool _isLiveModel(
+    String modelId,
+    List<dom.Element> cells,
+    List<String> headers,
+  ) {
+    // Find the status column
+    final statusIndex = headers.indexWhere(
+      (h) =>
+          h.toLowerCase().contains('status') ||
+          h.toLowerCase().contains('availability'),
+    );
+
+    if (statusIndex != -1 && cells.length > statusIndex) {
+      final statusText = cells[statusIndex].text.trim().toLowerCase();
+      // Only return true if explicitly marked as live
+      return statusText.contains('live');
+    }
+
+    // No status column found - model is not confirmed as live
+    return false;
   }
 }
