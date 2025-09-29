@@ -264,7 +264,7 @@ void main() {
         if (provider.name == 'together') {
           expect(
             agent.model,
-            contains('meta-llama/meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
+            contains('meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
           );
         }
 

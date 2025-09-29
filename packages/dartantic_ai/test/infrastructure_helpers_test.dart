@@ -164,11 +164,11 @@ void main() {
       test('agent uses custom model name when specified', () {
         // Test that Agent correctly parses "provider:model" format
         final agent1 = Agent(
-          'together:meta-llama/meta-llama/Llama-Guard-3-11B-Vision-Turbo',
+          'together:meta-llama/Llama-Guard-3-11B-Vision-Turbo',
         );
         expect(
           agent1.model,
-          contains('meta-llama/meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
+          contains('meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
         );
 
         final agent2 = Agent('openai:gpt-4o');

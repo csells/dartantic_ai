@@ -26,14 +26,28 @@ void main() {
       final segment = OpenAIResponsesMessageMapper.mapHistory(messages);
 
       expect(segment.previousResponseId, isNull);
-      expect(segment.instructions, equals('You are helpful.'));
+      expect(segment.instructions, isNull); // System messages are now regular items
       expect(segment.input, isA<openai.ResponseInputItems>());
 
       final input = segment.input as openai.ResponseInputItems?;
       expect(input, isNotNull);
-      expect(input!.items, hasLength(1));
+      expect(input!.items, hasLength(2)); // Now has system + user messages
 
-      final messageItem = input.items.first as openai.InputMessage;
+      // Check system message first
+      final systemItem = input.items.first as openai.InputMessage;
+      expect(systemItem.role, equals('system'));
+      expect(systemItem.content, hasLength(1));
+      expect(
+        systemItem.content.first,
+        isA<openai.InputTextContent>().having(
+          (c) => c.text,
+          'text',
+          equals('You are helpful.'),
+        ),
+      );
+
+      // Check user message second
+      final messageItem = input.items[1] as openai.InputMessage;
       expect(messageItem.role, equals('user'));
       expect(messageItem.content, hasLength(2));
       expect(

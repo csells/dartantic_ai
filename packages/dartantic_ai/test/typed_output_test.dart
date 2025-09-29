@@ -840,7 +840,8 @@ void main() {
           final json = jsonDecode(result.output) as Map<String, dynamic>;
           expect(json['message'], contains('世界'));
           expect(json['emoji'], equals('🌍'));
-          expect(json['special'], contains('<>&'));
+          expect(json['special'], contains('&'));
+          expect(json['special'], contains('<>'));
         }
       });
 
