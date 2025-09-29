@@ -15,7 +15,7 @@ Future<void> multiTurnChat(String model) async {
   stdout.writeln('\n## Multi-Turn Chat');
 
   final agent = Agent(model);
-  final messages = <ChatMessage>[ChatMessage.system("You're a pirate. Arrr!")];
+  final messages = <ChatMessage>[];
 
   const prompt1 = 'My name is Alice.';
   stdout.writeln('User: $prompt1');

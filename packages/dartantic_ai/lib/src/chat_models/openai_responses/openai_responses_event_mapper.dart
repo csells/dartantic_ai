@@ -40,6 +40,9 @@ class OpenAIResponsesEventMapper {
   bool _hasStreamedText = false;
   final StringBuffer _streamedTextBuffer = StringBuffer();
 
+  // Track whether we've already built the final result
+  bool _finalResultBuilt = false;
+
   final Map<String, List<Map<String, Object?>>> _toolEventLog = {
     'web_search': <Map<String, Object?>>[],
     'file_search': <Map<String, Object?>>[],
@@ -163,7 +166,11 @@ class OpenAIResponsesEventMapper {
     }
 
     if (event is openai.ResponseCompleted) {
-      yield _buildFinalResult(event.response);
+      // Only build final result once to avoid duplication
+      if (!_finalResultBuilt) {
+        _finalResultBuilt = true;
+        yield _buildFinalResult(event.response);
+      }
       return;
     }
 
@@ -247,11 +254,25 @@ class OpenAIResponsesEventMapper {
       }
     }
 
+    _logger.info(
+      'Building final result, response.output has '
+      '${response.output?.length ?? 0} items',
+    );
     for (final item in response.output ?? const <openai.ResponseItem>[]) {
-      _logger.fine('Processing response item: ${item.runtimeType}');
+      _logger.info('Processing response item: ${item.runtimeType}');
       if (item is openai.OutputMessage) {
         // Always process the output message to get the complete text
-        parts.addAll(_mapOutputMessage(item.content));
+        final messageParts = _mapOutputMessage(item.content);
+        _logger.info(
+          'OutputMessage has ${item.content.length} content items, '
+          'mapped to ${messageParts.length} parts',
+        );
+        for (final part in messageParts) {
+          if (part is TextPart) {
+            _logger.info('Adding TextPart with text: "${part.text}"');
+          }
+        }
+        parts.addAll(messageParts);
         continue;
       }
 
@@ -436,11 +457,13 @@ class OpenAIResponsesEventMapper {
 
     if (_hasStreamedText) {
       // We've already streamed the text content
-      // Return empty output but include full message in messages array
+      // The orchestrator will consolidate the accumulated chunks
+      // So we return empty output and empty messages to avoid duplication
       return ChatResult<ChatMessage>(
         id: response.id,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: [finalMessage], // Full message for history
+        // Empty - orchestrator builds from accumulated chunks
+        messages: const [],
         usage: usage,
         finishReason: _mapFinishReason(response),
         metadata: resultMetadata,
