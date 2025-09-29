@@ -9,6 +9,7 @@ import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../agent/tool_constants.dart';
 import '../../retry_http_client.dart';
+import '../../shared/openai_utils.dart';
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_event_mapper.dart';
 import 'openai_responses_message_mapper.dart';
@@ -398,7 +399,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   ) {
     if (outputSchema != null) {
       final raw = outputSchema.schemaMap ?? const <String, dynamic>{};
-      final schema = _prepareSchemaForResponses(Map<String, dynamic>.from(raw));
+      final schema = OpenAIUtils.prepareSchemaForOpenAI(
+        Map<String, dynamic>.from(raw),
+      );
       return openai.TextFormatJsonSchema(
         name: 'dartantic_output',
         schema: schema,
@@ -408,57 +411,6 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
     }
     if (responseFormat == null) return null;
     return openai.TextFormat.fromJson(responseFormat);
-  }
-
-  /// Prepares a JsonSchema for the OpenAI Responses API.
-  ///
-  /// The Responses API requires:
-  /// - additionalProperties: false at every object level
-  /// - format field removed from all properties
-  static Map<String, dynamic> _prepareSchemaForResponses(
-    Map<String, dynamic> schema,
-  ) {
-    final result = Map<String, dynamic>.from(schema);
-
-    // Handle type arrays (e.g., ['string', 'null'])
-    if (result['type'] is List) {
-      final types = result['type'] as List;
-      // If it's a nullable type, just use the non-null type
-      final nonNullTypes = types.where((t) => t != 'null').toList();
-      if (nonNullTypes.length == 1) {
-        result['type'] = nonNullTypes.first;
-      }
-    }
-
-    // Remove format field if present
-    result.remove('format');
-
-    // If this is an object, ensure additionalProperties: false
-    if (result['type'] == 'object') {
-      result['additionalProperties'] = false;
-
-      // Recursively process properties
-      final properties = result['properties'] as Map<String, dynamic>?;
-      if (properties != null && properties.isNotEmpty) {
-        final processedProperties = <String, dynamic>{};
-        for (final entry in properties.entries) {
-          processedProperties[entry.key] = _prepareSchemaForResponses(
-            entry.value as Map<String, dynamic>,
-          );
-        }
-        result['properties'] = processedProperties;
-      }
-    }
-
-    // Process items for arrays
-    if (result['type'] == 'array') {
-      final items = result['items'] as Map<String, dynamic>?;
-      if (items != null) {
-        result['items'] = _prepareSchemaForResponses(items);
-      }
-    }
-
-    return result;
   }
 
   static openai.SearchContextSize? _mapSearchContextSize(

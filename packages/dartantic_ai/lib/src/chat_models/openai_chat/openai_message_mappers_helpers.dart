@@ -2,6 +2,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:openai_dart/openai_dart.dart';
 
+import '../../shared/openai_utils.dart';
 import 'openai_chat_options.dart';
 import 'openai_message_mappers.dart';
 
@@ -37,82 +38,12 @@ ResponseFormat? _createResponseFormat(JsonSchema? outputSchema) {
     jsonSchema: JsonSchemaObject(
       name: 'output_schema',
       description: 'Generated response following the provided schema',
-      schema: _openaiSchemaFrom(
+      schema: OpenAIUtils.prepareSchemaForOpenAI(
         Map<String, dynamic>.from(outputSchema.schemaMap ?? {}),
       ),
       strict: true,
     ),
   );
-}
-
-/// Converts JsonSchema to OpenAI-compatible schema format.
-///
-/// OpenAI requires:
-/// - additionalProperties: false at every object level
-/// - format field removed from all properties
-/// - required array with all property keys for objects
-Map<String, dynamic> _openaiSchemaFrom(Map<String, dynamic> schema) {
-  final result = Map<String, dynamic>.from(schema);
-
-  // Handle type arrays (e.g., ['string', 'null'])
-  if (result['type'] is List) {
-    final types = result['type'] as List;
-    // If it's a nullable type, just use the non-null type
-    final nonNullTypes = types.where((t) => t != 'null').toList();
-    if (nonNullTypes.length == 1) {
-      result['type'] = nonNullTypes.first;
-    }
-  }
-
-  // Remove format field if present
-  result.remove('format');
-
-  // If this is an object, ensure additionalProperties: false and required array
-  if (result['type'] == 'object') {
-    result['additionalProperties'] = false;
-
-    // Recursively process properties
-    final properties = result['properties'] as Map<String, dynamic>?;
-    if (properties != null && properties.isNotEmpty) {
-      final processedProperties = <String, dynamic>{};
-      for (final entry in properties.entries) {
-        processedProperties[entry.key] = _openaiSchemaFrom(
-          entry.value as Map<String, dynamic>,
-        );
-      }
-      result['properties'] = processedProperties;
-
-      // OpenAI's strict mode requires ALL properties to be in the required
-      // array. This is a limitation of their API, not a bug in our code
-      result['required'] = properties.keys.toList();
-    } else {
-      // For empty objects, ensure we have an empty properties map
-      result['properties'] = <String, dynamic>{};
-      result['required'] = <String>[];
-    }
-  }
-
-  // Process array items
-  if (result['type'] == 'array') {
-    final items = result['items'] as Map<String, dynamic>?;
-    if (items != null) {
-      result['items'] = _openaiSchemaFrom(items);
-    }
-  }
-
-  // Process definitions if present
-  final definitions = result['definitions'] as Map<String, dynamic>?;
-  if (definitions != null) {
-    final processedDefinitions = <String, dynamic>{};
-    for (final entry in definitions.entries) {
-      processedDefinitions[entry.key] = _openaiSchemaFrom(
-        entry.value as Map<String, dynamic>,
-      );
-    }
-    result['definitions'] = processedDefinitions;
-  }
-
-  return result;
 }
 
 /// Creates a ChatCompletionRequest from the given input

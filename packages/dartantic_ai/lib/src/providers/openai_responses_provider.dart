@@ -1,15 +1,12 @@
-import 'dart:convert';
-
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
-import '../chat_models/chat_utils.dart';
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
 import '../embeddings_models/openai_embeddings/openai_embeddings_model.dart';
 import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.dart';
 import '../platform/platform.dart';
+import '../shared/openai_utils.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
@@ -148,60 +145,11 @@ class OpenAIResponsesProvider
   Stream<ModelInfo> listModels() async* {
     // Use standard API endpoint for listing models, not the Responses endpoint
     final resolvedBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
-    final url = appendPath(resolvedBaseUrl, 'models');
-    final headers = <String, String>{
-      if (apiKey != null && apiKey!.isNotEmpty)
-        'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-    };
-
-    _logger.info('Fetching OpenAI Responses models from $url');
-
-    final response = await http.get(url, headers: headers);
-    if (response.statusCode != 200) {
-      _logger.warning(
-        'Failed to fetch models: HTTP ${response.statusCode}, '
-        'body: ${response.body}',
-      );
-      throw Exception('Failed to fetch models: ${response.body}');
-    }
-
-    final decoded = jsonDecode(response.body);
-    final models = decoded is Map<String, dynamic>
-        ? decoded['data'] as List<dynamic>? ?? const []
-        : decoded is List
-        ? decoded
-        : const [];
-
-    for (final entry in models) {
-      if (entry is! Map<String, dynamic>) continue;
-      final id = entry['id'] as String?;
-      if (id == null) continue;
-      final kinds = _inferKinds(entry);
-      yield ModelInfo(
-        name: id,
-        providerName: name,
-        kinds: kinds,
-        description: entry['object']?.toString(),
-        extra: entry,
-      );
-    }
-  }
-
-  Set<ModelKind> _inferKinds(Map<String, dynamic> model) {
-    final id = model['id']?.toString() ?? '';
-    final kinds = <ModelKind>{};
-
-    if (id.contains('embedding')) kinds.add(ModelKind.embeddings);
-    if (id.contains('audio')) kinds.add(ModelKind.audio);
-    if (id.contains('vision') || id.contains('image')) {
-      kinds.add(ModelKind.image);
-    }
-    if (id.contains('tts')) kinds.add(ModelKind.tts);
-    if (id.contains('count-tokens')) kinds.add(ModelKind.countTokens);
-    if (!kinds.contains(ModelKind.embeddings)) {
-      kinds.add(ModelKind.chat);
-    }
-    return kinds;
+    yield* OpenAIUtils.listOpenAIModels(
+      baseUrl: resolvedBaseUrl,
+      providerName: name,
+      logger: _logger,
+      apiKey: apiKey,
+    );
   }
 }

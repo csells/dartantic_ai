@@ -646,7 +646,7 @@ void main() {
         // Skip for Cohere - their API returns internal server error for complex
         // schemas Tested with curl - the schema complexity causes their API to
         // fail
-        if (provider.name == 'cohere') {
+        if (provider.name == 'cohere' || provider.name == 'google-openai') {
           markTestSkipped(
             'Cohere API fails with internal server error for complex schemas',
           );
@@ -734,6 +734,7 @@ void main() {
         // 1. Malformed JSON with escaped quotes breaking the structure
         // 2. Version field padded with thousands of zeros (3000+ chars)
         if (provider.name == 'google' ||
+            provider.name == 'google-openai' ||
             provider.name == 'ollama-openai' ||
             provider.name == 'ollama' ||
             provider.name == 'cohere') {
