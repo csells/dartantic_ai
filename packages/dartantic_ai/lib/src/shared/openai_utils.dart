@@ -115,8 +115,8 @@ class OpenAIUtils {
       final models = data is List
           ? data
           : data is Map<String, dynamic>
-              ? data['data'] as List<dynamic>? ?? const []
-              : const [];
+          ? data['data'] as List<dynamic>? ?? const []
+          : const [];
 
       for (final model in models) {
         if (model is! Map<String, dynamic>) continue;

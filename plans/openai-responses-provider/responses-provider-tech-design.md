@@ -197,11 +197,13 @@ stateDiagram-v2
 3. Yield semantics:
    - Whenever text buffer changes, emit `ChatResult<String>` chunk with
      `output` text and latest metadata/usage.
-   - When a message finishes (`response.output_item.done` for an
-     `OutputMessage`), emit `ChatResult` with `messages` list and empty output.
-     The consolidated `ChatMessage` must include every part (text, tool calls,
-     media) so the orchestrator can append it to history and keep state in
-     sync.
+   - When streaming completes (`response.completed`):
+     - If text was streamed: emit `ChatResult` with metadata-only message in
+       `output` field (empty parts array but full metadata including session).
+       This allows the orchestrator's accumulator to merge metadata without
+       duplicating already-streamed text.
+     - If no streaming occurred: emit `ChatResult` with complete message in both
+       `output` and `messages` fields.
 4. Usage tracking:
    - On `response.completed`, read `response.usage` and include in the final
      `ChatResult.usage`.
@@ -290,20 +292,28 @@ parts:
   initialization, completion) and detailed events at `FINE`.
 
 ## 12. Testing Strategy
-Create tests under `packages/dartantic_ai/test/openai_responses/`:
+Create tests under `packages/dartantic_ai/test/openai_responses/` and `test/chat_models/`:
 1. **Message mapping tests**: verify multi-modal attachments, tool parts, and
    metadata round-trips convert correctly to Responses input payloads.
 2. **Session persistence tests**: simulate stored metadata across multi-agent
    history (responses interleaved with other providers) and ensure mapper picks
    up the right `previousResponseId` and pending items.
-3. **Streaming event tests**: feed synthetic `ResponseEvent` sequences into the
+   - Use logging listeners to track exact message counts sent to API
+   - Verify previousResponseId usage across provider switches
+   - Ensure most recent session is found (not just any session)
+3. **Streaming tests**:
+   - **Text duplication detection**: Ensure no text is duplicated during streaming
+     by checking if first half equals second half or if phrases repeat
+   - **Metadata preservation**: Verify session metadata survives streaming
+   - **Accumulation correctness**: Accumulated text should match final message
+4. **Streaming event tests**: feed synthetic `ResponseEvent` sequences into the
    mapper and assert emitted `ChatResult` values (text chunks, thinking
    aggregation, tool metadata, message assembly).
-4. **Code interpreter tests**: ensure container IDs and file metadata are stored
+5. **Code interpreter tests**: ensure container IDs and file metadata are stored
    and retrievable.
-5. **Embeddings tests**: mock `OpenAIClient` to return sample vectors and assert
+6. **Embeddings tests**: mock `OpenAIClient` to return sample vectors and assert
    conversion to `EmbeddingsResult`.
-6. **Capability tests**: confirm provider registry exposes `openai-responses`
+7. **Capability tests**: confirm provider registry exposes `openai-responses`
    with expected caps. Ensure capability-driven test suites run against the
    Responses provider without additional filtering. Specific test files that must
    pass without modification:
@@ -312,7 +322,9 @@ Create tests under `packages/dartantic_ai/test/openai_responses/`:
    - `system_integration_test.dart`
    - `tool_calling_test.dart`
    - `typed_output_with_tools_test.dart`
-7. **Example verification**: run sample scripts (thinking, server-side tools,
+   - `openai_responses_streaming_test.dart` (duplication detection)
+   - `openai_responses_session_persistence_test.dart` (session tracking)
+8. **Example verification**: run sample scripts (thinking, server-side tools,
    multi-modal demo) in
    integration tests guarded by environment variables/API key availability.
 

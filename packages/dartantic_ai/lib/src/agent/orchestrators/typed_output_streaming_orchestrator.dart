@@ -133,7 +133,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
       // For return_result providers, don't include text (it's usually
       // explanatory)
       yield StreamingIterationResult(
-        output: '',  // Already streamed above for native JSON
+        output: '', // Already streamed above for native JSON
         messages: [consolidatedMessage],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,

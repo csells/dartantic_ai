@@ -313,7 +313,7 @@ class Agent {
       // Use the model's actual tools list (after any filtering by the model)
       final orchestrator = _selectOrchestrator(
         outputSchema: outputSchema,
-        tools: model.tools,  // This is the filtered list from the model
+        tools: model.tools, // This is the filtered list from the model
       );
 
       orchestrator.initialize(state);
@@ -391,7 +391,6 @@ class Agent {
     if (outputSchema != null) {
       final hasReturnResultTool =
           tools?.any((t) => t.name == kReturnResultToolName) ?? false;
-
 
       return TypedOutputStreamingOrchestrator(
         provider: _provider,

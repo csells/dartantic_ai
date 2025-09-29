@@ -72,6 +72,25 @@ flowchart TB
 
 ## Core Concepts
 
+### Metadata Preservation in Streaming
+
+A critical aspect of streaming is preserving metadata through the accumulation process:
+
+1. **During Streaming**: Metadata flows through chunks via `ChatResult.metadata`
+2. **Message Accumulation**: The `MessageAccumulator` merges metadata from chunks:
+   - Text parts are accumulated and consolidated
+   - Metadata from each chunk is merged into the accumulated message
+   - Provider-specific metadata (e.g., session IDs) must be preserved
+
+3. **Final Message Construction**: When streaming completes:
+   - **With streamed text**: Provider returns metadata-only message in `output` field
+     (empty parts array but full metadata) to avoid text duplication
+   - **Without streaming**: Provider returns complete message with metadata
+   - The orchestrator's accumulator merges this final metadata
+
+This ensures critical metadata like OpenAI Responses' `_responses_session` is preserved
+for features like session persistence.
+
 ### Streaming Message Flow
 - **Text Streaming**: Immediate output of text chunks to users
 - **Tool Accumulation**: Building complete tool calls across chunks

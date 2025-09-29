@@ -50,13 +50,26 @@ class OpenAIResponsesMessageMapper {
     bool store = true,
     openai.ImageDetail imageDetail = openai.ImageDetail.auto,
   }) {
-    log.fine('mapHistory called with ${messages.length} messages');
+    log.info('━━━ OpenAI Responses Message Mapping ━━━');
+    log.info('Total messages in history: ${messages.length}');
+    log.info('Store enabled: $store');
+
     for (var i = 0; i < messages.length; i++) {
       final parts = messages[i].parts.map((p) => p.runtimeType).join(', ');
-      log.fine('  [$i]: ${messages[i].role.name} ($parts)');
+      final metadata = messages[i].metadata;
+      final hasSession = metadata.containsKey(
+        OpenAIResponsesMetadata.sessionKey,
+      );
+      final sessionInfo = hasSession
+          ? ' [HAS SESSION: ${OpenAIResponsesMetadata.responseId(
+              OpenAIResponsesMetadata.getSessionData(metadata),
+            )}]'
+          : '';
+      log.info('  [$i]: ${messages[i].role.name} ($parts)$sessionInfo');
     }
 
     if (messages.isEmpty) {
+      log.info('No messages to map - returning empty segment');
       return const OpenAIResponsesHistorySegment(
         items: [],
         input: null,
@@ -87,6 +100,24 @@ class OpenAIResponsesMessageMapper {
       firstMessageIndex = messages.length;
     }
 
+    if (previousResponseId != null) {
+      log.info('✓ Found previous session at index ${session?.index}');
+      log.info('  Previous response ID: $previousResponseId');
+      log.info(
+        '  Will send messages from index $firstMessageIndex '
+        'to ${messages.length - 1}',
+      );
+      log.info(
+        '  → Sending only ${messages.length - firstMessageIndex} '
+        'NEW messages (not ${messages.length} total)',
+      );
+    } else {
+      log.info(
+        '✗ No previous session found - '
+        'sending all $firstMessageIndex messages',
+      );
+    }
+
     log.fine(
       'Mapping history: total=${messages.length}, startIndex=$startIndex, '
       'anchorIndex=${session?.index}, firstMessageIndex=$firstMessageIndex, '
@@ -113,10 +144,15 @@ class OpenAIResponsesMessageMapper {
         ? null
         : openai.ResponseInputItems(List.of(items));
 
+    log.info('━━━ Mapping Complete ━━━');
+    log.info('Actual items to send: ${items.length}');
+    log.info('Using previousResponseId: ${previousResponseId ?? "none"}');
+    log.info('');
+
     return OpenAIResponsesHistorySegment(
       items: items,
       input: input,
-      instructions: null,  // Not using instructions parameter anymore
+      instructions: null, // Not using instructions parameter anymore
       previousResponseId: previousResponseId,
       anchorIndex: session?.index ?? -1,
     );
@@ -208,8 +244,8 @@ class OpenAIResponsesMessageMapper {
     final role = isSystemMessage
         ? 'system'
         : isUserMessage
-            ? 'user'
-            : 'assistant';
+        ? 'user'
+        : 'assistant';
 
     void flushContent() {
       if (content.isEmpty) return;
@@ -237,10 +273,7 @@ class OpenAIResponsesMessageMapper {
             if (isModelMessage) {
               // Model messages use OutputTextContent
               content.add(
-                openai.OutputTextContent(
-                  text: text,
-                  annotations: const [],
-                ),
+                openai.OutputTextContent(text: text, annotations: const []),
               );
             } else {
               // User and system messages use InputTextContent

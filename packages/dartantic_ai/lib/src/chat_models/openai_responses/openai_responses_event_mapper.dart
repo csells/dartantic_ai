@@ -423,12 +423,16 @@ class OpenAIResponsesEventMapper {
     };
 
     if (storeSession) {
+      _logger.info('━━━ Storing Session Metadata ━━━');
+      _logger.info('Response ID being stored: ${response.id}');
       OpenAIResponsesMetadata.setSessionData(
         messageMetadata,
         OpenAIResponsesMetadata.buildSession(
           responseId: response.id, // Store THIS response's ID
         ),
       );
+      _logger.info('Session metadata saved to model message');
+      _logger.info('');
     }
 
     _logger.fine('Building final message with ${parts.length} parts');
@@ -458,11 +462,17 @@ class OpenAIResponsesEventMapper {
     if (_hasStreamedText) {
       // We've already streamed the text content
       // The orchestrator will consolidate the accumulated chunks
-      // So we return empty output and empty messages to avoid duplication
+      // Return a message with ONLY metadata (no text) to avoid duplication
+      final metadataOnlyMessage = ChatMessage(
+        role: ChatMessageRole.model,
+        parts: const [], // Empty parts - text already streamed
+        metadata: messageMetadata, // Include the session metadata
+      );
+
       return ChatResult<ChatMessage>(
         id: response.id,
-        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        // Empty - orchestrator builds from accumulated chunks
+        output: metadataOnlyMessage, // Metadata-only message for accumulator
+        // Empty messages array - orchestrator builds from accumulated chunks
         messages: const [],
         usage: usage,
         finishReason: _mapFinishReason(response),
