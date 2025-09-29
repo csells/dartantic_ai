@@ -24,7 +24,7 @@ Future<void> demoWebSearch() async {
 
   final agent = Agent(
     'openai-responses',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.webSearch},
     ),
   );
@@ -59,7 +59,7 @@ Future<void> demoImageGeneration() async {
 
   final agent = Agent(
     'openai-responses:gpt-4o',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.imageGeneration},
     ),
   );
@@ -126,7 +126,7 @@ Future<void> demoFileSearch() async {
 
   final agent = Agent(
     'openai-responses:gpt-4o',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.fileSearch},
       fileSearchConfig: FileSearchConfig(maxResults: 5),
     ),
@@ -194,7 +194,7 @@ Future<void> demoComputerUse() async {
 
   final agent = Agent(
     'openai-responses:gpt-4o',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.computerUse},
     ),
   );
@@ -322,7 +322,7 @@ Future<void> demoCodeInterpreter() async {
 
   final agent1 = Agent(
     'openai-responses',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.codeInterpreter},
     ),
   );
@@ -369,7 +369,7 @@ Future<void> demoCodeInterpreter() async {
 
   final agent2 = Agent(
     'openai-responses',
-    chatModelOptions: OpenAIResponsesChatOptions(
+    chatModelOptions: OpenAIResponsesChatModelOptions(
       serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
       codeInterpreterConfig: CodeInterpreterConfig(
         containerId: capturedContainerId, // Explicitly request container reuse

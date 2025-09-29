@@ -10,7 +10,11 @@ import '../shared/openai_utils.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
-    extends Provider<OpenAIResponsesChatOptions, OpenAIEmbeddingsModelOptions> {
+    extends
+        Provider<
+          OpenAIResponsesChatModelOptions,
+          OpenAIEmbeddingsModelOptions
+        > {
   /// Creates a new OpenAI Responses provider instance.
   OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
     : super(
@@ -60,11 +64,11 @@ class OpenAIResponsesProvider
   );
 
   @override
-  ChatModel<OpenAIResponsesChatOptions> createChatModel({
+  ChatModel<OpenAIResponsesChatModelOptions> createChatModel({
     String? name,
     List<Tool>? tools,
     double? temperature,
-    OpenAIResponsesChatOptions? options,
+    OpenAIResponsesChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
@@ -83,7 +87,7 @@ class OpenAIResponsesProvider
       temperature: temperature,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultBaseUrl,
-      defaultOptions: OpenAIResponsesChatOptions(
+      defaultOptions: OpenAIResponsesChatModelOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
         maxOutputTokens: options?.maxOutputTokens,

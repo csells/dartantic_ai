@@ -109,11 +109,11 @@ class LoggingProvider extends OpenAIResponsesProvider {
   LoggingProvider({super.apiKey});
 
   @override
-  ChatModel<OpenAIResponsesChatOptions> createChatModel({
+  ChatModel<OpenAIResponsesChatModelOptions> createChatModel({
     String? name,
     List<Tool>? tools,
     double? temperature,
-    OpenAIResponsesChatOptions? options,
+    OpenAIResponsesChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
@@ -123,7 +123,7 @@ class LoggingProvider extends OpenAIResponsesProvider {
       temperature: temperature,
       apiKey: apiKey,
       httpClient: LoggingHttpClient(),
-      defaultOptions: OpenAIResponsesChatOptions(
+      defaultOptions: OpenAIResponsesChatModelOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
         maxOutputTokens: options?.maxOutputTokens,

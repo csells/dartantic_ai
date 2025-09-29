@@ -6,9 +6,9 @@ import 'openai_responses_server_side_tools.dart';
 
 /// Options for configuring the OpenAI Responses chat model.
 @immutable
-class OpenAIResponsesChatOptions extends ChatModelOptions {
+class OpenAIResponsesChatModelOptions extends ChatModelOptions {
   /// Creates a new set of options for the OpenAI Responses chat model.
-  const OpenAIResponsesChatOptions({
+  const OpenAIResponsesChatModelOptions({
     this.temperature,
     this.topP,
     this.maxOutputTokens,

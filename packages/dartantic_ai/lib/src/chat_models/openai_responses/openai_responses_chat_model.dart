@@ -16,7 +16,8 @@ import 'openai_responses_message_mapper.dart';
 import 'openai_responses_server_side_tools.dart';
 
 /// Chat model backed by the OpenAI Responses API.
-class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
+class OpenAIResponsesChatModel
+    extends ChatModel<OpenAIResponsesChatModelOptions> {
   /// Creates a new OpenAI Responses chat model instance.
   OpenAIResponsesChatModel({
     required super.name,
@@ -34,8 +35,9 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
          httpClient: RetryHttpClient(inner: httpClient ?? http.Client()),
        );
 
-  static final Logger _logger =
-      Logger('dartantic.chat.models.openai_responses');
+  static final Logger _logger = Logger(
+    'dartantic.chat.models.openai_responses',
+  );
 
   final openai.OpenAIClient _client;
 
@@ -57,7 +59,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   }
 
   List<openai.Tool> _buildFunctionTools() {
-    final registeredTools = tools;  // Already filtered by the getter
+    final registeredTools = tools; // Already filtered by the getter
     if (registeredTools == null || registeredTools.isEmpty) {
       return const [];
     }
@@ -79,7 +81,7 @@ class OpenAIResponsesChatModel extends ChatModel<OpenAIResponsesChatOptions> {
   @override
   Stream<ChatResult<ChatMessage>> sendStream(
     List<ChatMessage> messages, {
-    OpenAIResponsesChatOptions? options,
+    OpenAIResponsesChatModelOptions? options,
     JsonSchema? outputSchema,
   }) async* {
     final store = options?.store ?? defaultOptions.store ?? true;

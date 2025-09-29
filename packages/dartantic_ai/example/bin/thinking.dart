@@ -8,7 +8,7 @@ void main() async {
   // enable thinking output
   final agent = Agent(
     'openai-responses:gpt-5',
-    chatModelOptions: const OpenAIResponsesChatOptions(
+    chatModelOptions: const OpenAIResponsesChatModelOptions(
       reasoningSummary: OpenAIReasoningSummary.detailed,
     ),
   );
