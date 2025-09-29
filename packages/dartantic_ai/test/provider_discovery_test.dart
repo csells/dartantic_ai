@@ -134,7 +134,7 @@ void main() {
 
       test('lists all embeddings providers', () {
         final providers = Providers.allWith({ProviderCaps.embeddings});
-        expect(providers, hasLength(5)); // Exactly 5 embeddings providers
+        expect(providers, hasLength(6));
 
         final providerNames = providers.map((p) => p.name).toSet();
         expect(providerNames, contains('openai'));

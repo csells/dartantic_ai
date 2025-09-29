@@ -7,6 +7,8 @@
 /// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
+import 'dart:convert';
+
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
@@ -211,11 +213,16 @@ void main() {
 
         // Turn 1
         var result = await agent.send('What is 2+2?', history: history);
-        expect(result.output.toLowerCase(), contains('fantastic'));
         history.addAll(result.messages);
+        expect(result.output.toLowerCase(), contains('fantastic'));
 
         // Turn 2
         result = await agent.send('What color is the sky?', history: history);
+        history.addAll(result.messages);
+
+        // pretty print the history using json
+        print(const JsonEncoder.withIndent('  ').convert(history));
+
         expect(result.output.toLowerCase(), contains('fantastic'));
       });
     });

@@ -7,7 +7,7 @@ import 'package:example/src/dump_stuff.dart';
 void main() async {
   const model = 'openai-responses';
   await multiTurnChat(model);
-  await multiTurnChatStream(model);
+  // await multiTurnChatStream(model);
   exit(0);
 }
 
@@ -15,7 +15,7 @@ Future<void> multiTurnChat(String model) async {
   stdout.writeln('\n## Multi-Turn Chat');
 
   final agent = Agent(model);
-  final messages = <ChatMessage>[];
+  final messages = <ChatMessage>[ChatMessage.system("You're a pirate. Arrr!")];
 
   const prompt1 = 'My name is Alice.';
   stdout.writeln('User: $prompt1');

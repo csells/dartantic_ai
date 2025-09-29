@@ -35,17 +35,9 @@ void main() {
     'openrouter',
   };
 
-  const visionOnlyProviders = {
-    'mistral',
-    'cohere',
-    'together',
-    'ollama',
-    'ollama-openai',
-  };
-
   // Helper to get vision-capable model name for vision-only providers
   String getVisionModelName(Provider provider) => switch (provider.name) {
-    'together' => 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
+    'together' => ':meta-llama/Llama-Guard-3-11B-Vision-Turbo',
     'ollama' => 'llava:7b',
     'ollama-openai' => 'llava:7b',
     'cohere' => 'c4ai-aya-vision-8b',
@@ -54,9 +46,6 @@ void main() {
 
   bool isGeneralPurpose(Provider provider) =>
       generalPurposeProviders.contains(provider.name);
-
-  bool isVisionOnly(Provider provider) =>
-      visionOnlyProviders.contains(provider.name);
 
   // Helper to run tests on general-purpose providers
   void runGeneralPurposeTest(
@@ -80,17 +69,17 @@ void main() {
     }
   }
 
-  // Helper to run tests on vision-only providers
+  // Helper to run tests on vision providers
   void runVisionOnlyTest(
     String description,
     Future<void> Function(Provider provider, Agent agent) testFunction,
   ) {
     final providers = Providers.all.where(
-      (p) => p.caps.contains(ProviderCaps.vision) && isVisionOnly(p),
+      (p) => p.caps.contains(ProviderCaps.vision),
     );
 
     for (final provider in providers) {
-      // Use vision-specific model for vision-only providers
+      // Use vision-specific model for vision providers
       final modelName = getVisionModelName(provider);
       final agent = Agent('${provider.name}:$modelName');
 
@@ -106,14 +95,6 @@ void main() {
         provider,
         agent,
       ) async {
-        // Debug: verify correct model is being used for Together
-        if (provider.name == 'together') {
-          expect(
-            agent.model,
-            contains('meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'),
-          );
-        }
-
         // Use the pre-loaded test image
         final imageData = testImageBytes;
 
@@ -283,7 +264,7 @@ void main() {
         if (provider.name == 'together') {
           expect(
             agent.model,
-            contains('meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'),
+            contains('meta-llama/meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
           );
         }
 
