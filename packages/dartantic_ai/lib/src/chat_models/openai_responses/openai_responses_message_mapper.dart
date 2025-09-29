@@ -15,7 +15,6 @@ class OpenAIResponsesHistorySegment {
     required this.instructions,
     required this.previousResponseId,
     required this.anchorIndex,
-    required this.pendingItems,
   });
 
   /// Concrete [openai.ResponseItem] payloads that will be sent to the API.
@@ -32,9 +31,6 @@ class OpenAIResponsesHistorySegment {
 
   /// Index of the conversation message that supplied session metadata.
   final int anchorIndex;
-
-  /// Any pending items recovered from the stored session metadata.
-  final List<openai.ResponseItem> pendingItems;
 
   /// Whether there is any concrete input to send to the API.
   bool get hasInput => input != null;
@@ -67,7 +63,6 @@ class OpenAIResponsesMessageMapper {
         instructions: null,
         previousResponseId: null,
         anchorIndex: -1,
-        pendingItems: [],
       );
     }
 
@@ -89,11 +84,8 @@ class OpenAIResponsesMessageMapper {
         ? OpenAIResponsesMetadata.responseId(session?.data)
         : null;
 
-    final pendingItems = store
-        ? OpenAIResponsesMetadata.pendingItems(session?.data)
-        : const <openai.ResponseItem>[];
-
-    final items = <openai.ResponseItem>[...pendingItems];
+    // No pending items in dartantic - tools are executed synchronously
+    final items = <openai.ResponseItem>[];
 
     var firstMessageIndex = session == null ? startIndex : session.index + 1;
     if (firstMessageIndex < startIndex) firstMessageIndex = startIndex;
@@ -104,7 +96,7 @@ class OpenAIResponsesMessageMapper {
     log.fine(
       'Mapping history: total=${messages.length}, startIndex=$startIndex, '
       'anchorIndex=${session?.index}, firstMessageIndex=$firstMessageIndex, '
-      'pending=${pendingItems.length}, hasPrevId=${previousResponseId != null}',
+      'hasPrevId=${previousResponseId != null}',
     );
 
     // When using session continuation, we only send new messages
@@ -142,7 +134,6 @@ class OpenAIResponsesMessageMapper {
       instructions: resolvedInstructions,
       previousResponseId: previousResponseId,
       anchorIndex: session?.index ?? -1,
-      pendingItems: pendingItems,
     );
   }
 

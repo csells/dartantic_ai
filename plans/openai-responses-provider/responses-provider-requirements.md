@@ -73,8 +73,10 @@
   - Options (temperature, top-p, reasoning, metadata includes, `store`,
     `parallel_tool_calls`, `tool_choice`, instructions, etc.) sourced from
     `OpenAIResponsesChatOptions`.
-- When `store == true`, pull `previousResponseId` and any pending outputs from
-  the latest model message metadata; persist controller updates back into
+- When `store == true`, pull `previousResponseId` from the latest model message
+  metadata. Note: Pending outputs are always empty in dartantic because the
+  orchestrator executes all tools synchronously, unlike ResponsesSessionController
+  which may have async tool executions. Persist controller updates back into
   metadata (below).
 - Default the controller to `store = true` unless the caller explicitly opts
   out so that Responses sessions remain server-side by default.
@@ -115,17 +117,19 @@
 - When `store` is true, persist the following into the latest model message
   metadata:
   - `previous_response_id` from the controller.
-  - Any pending tool outputs or `ResponseItem`s (needed to resume from the
-    server).
+  - An empty `pending_items` list. Note: This field exists for compatibility but
+    is always empty because dartantic's orchestrator executes all tools
+    synchronously before the response completes.
 - When `store` is false, rebuild the controller input each turn from the entire
   conversation history (`ResponseInputItems`) respecting message roles.
 - Ensure instructions/system prompts are preserved when reconstructing the
   controller input.
 - When replaying a stored session, scan the entire conversation history (most
-  recent messages first) to locate the latest `previous_response_id` and
-  associated pending outputs, and include all intermediate model messages that
-  have not yet been acknowledged by the Responses API so that the server state
-  stays consistent even in multi-agent conversations.
+  recent messages first) to locate the latest `previous_response_id`. The
+  associated pending outputs will always be empty since dartantic executes all
+  tools synchronously. Include all intermediate model messages that have not yet
+  been acknowledged by the Responses API so that the server state stays
+  consistent even in multi-agent conversations.
 
 ## 6. Chat Options & Tool Configuration
 - Create `OpenAIResponsesChatOptions extends ChatModelOptions` with fields for:

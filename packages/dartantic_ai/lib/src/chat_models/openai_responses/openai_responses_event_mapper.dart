@@ -126,7 +126,7 @@ class OpenAIResponsesEventMapper {
       );
       yield ChatResult<ChatMessage>(
         output: deltaMessage,
-        messages: const [],  // Empty during streaming - in final result
+        messages: const [], // Empty during streaming - in final result
         metadata: const {},
         usage: const LanguageModelUsage(),
       );
@@ -405,8 +405,7 @@ class OpenAIResponsesEventMapper {
       OpenAIResponsesMetadata.setSessionData(
         messageMetadata,
         OpenAIResponsesMetadata.buildSession(
-          responseId: response.id,  // Store THIS response's ID
-          pending: const [],
+          responseId: response.id, // Store THIS response's ID
         ),
       );
     }
@@ -441,7 +440,7 @@ class OpenAIResponsesEventMapper {
       return ChatResult<ChatMessage>(
         id: response.id,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: [finalMessage],  // Full message for history
+        messages: [finalMessage], // Full message for history
         usage: usage,
         finishReason: _mapFinishReason(response),
         metadata: resultMetadata,

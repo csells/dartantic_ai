@@ -58,13 +58,6 @@ void main() {
       final sessionMetadata = {
         OpenAIResponsesMetadata.sessionKey: {
           OpenAIResponsesMetadata.responseIdKey: 'resp_123',
-          OpenAIResponsesMetadata.pendingItemsKey: [
-            {
-              'type': 'function_call_output',
-              'call_id': 'tool-1',
-              'output': jsonEncode({'status': 'ok'}),
-            },
-          ],
         },
       };
 
@@ -91,18 +84,16 @@ void main() {
 
       final input = segment.input as openai.ResponseInputItems?;
       expect(input, isNotNull);
-      expect(input!.items, hasLength(2));
+      // Since pending items are always empty, only the new tool result
+      // is mapped
+      expect(input!.items, hasLength(1));
 
       expect(input.items.first, isA<openai.FunctionCallOutput>());
-      expect(input.items.last, isA<openai.FunctionCallOutput>());
 
-      final first = input.items.first as openai.FunctionCallOutput;
-      expect(first.callId, equals('tool-1'));
-
-      final second = input.items.last as openai.FunctionCallOutput;
-      expect(second.callId, equals('tool-1'));
+      final toolResult = input.items.first as openai.FunctionCallOutput;
+      expect(toolResult.callId, equals('tool-1'));
       expect(
-        jsonDecode(second.output) as Map<String, dynamic>,
+        jsonDecode(toolResult.output) as Map<String, dynamic>,
         containsPair('value', 42),
       );
     });

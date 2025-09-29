@@ -71,16 +71,21 @@ OpenAIEmbeddingsModelOptions>` and wires up:
 - Default options (with `store` defaulted to `true`).
 - Resolved tool metadata set (function tools + server-side tools).
 
+**Implementation Note**: The provider uses `_client.streamResponse` directly instead
+of `ResponsesSessionController` because dartantic's orchestrator handles all tool
+execution synchronously. ResponsesSessionController is designed for async tool
+execution with pending states, which doesn't align with dartantic's architecture.
+
 On `sendStream(messages, options, outputSchema)`:
 1. Merge options: request-level overrides > default options > provider defaults.
-2. Build `ResponsesSessionConfig` (custom struct) capturing
+2. Build request parameters capturing:
    - `store` (default `true` unless explicitly set `false`).
    - Model name, reasoning options, temperature/topP, truncation, etc.
    - Text format (switch to `TextFormatJsonSchema` when `outputSchema != null`).
    - `include` list derived from `OpenAIResponsesChatOptions.include` plus
      fields needed for tool metadata (`usage`, `reasoning`, etc.).
    - Intrinsic tool configs (web search, file search, computer use, etc.).
-3. Construct `ResponsesSessionController` with the config and mapped tools.
+3. Call `_client.streamResponse` with the mapped messages, tools, and options.
 
 ### 4.2 Mapping conversation history → Responses input
 Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
@@ -110,7 +115,7 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
   ```json
   {
     "response_id": "resp_...",
-    "pending_items": [ ... ],
+    "pending_items": [],  // Always empty - dartantic handles all tools synchronously
     "timestamp": 1732231
   }
   ```
@@ -121,13 +126,15 @@ Implement `OpenAIResponsesMessageMapper.toResponsesInput(List<ChatMessage>)`:
 - Return `SessionReplayState(previousResponseId, pendingItems, replayMessages)`
   that informs controller initialization:
   - Set `previousResponseId` on controller.
-  - Prepend `pendingItems` to the input if required by Responses.
+  - `pendingItems` is always empty in dartantic since the orchestrator executes
+    all tools synchronously, unlike ResponsesSessionController which may have
+    pending async tool executions.
 
 #### Message History Scanning Algorithm
 ```mermaid
 flowchart TD
   A[Start: Scan messages newest to oldest] --> B{Found _responses_session?}
-  B -->|Yes| C[Extract previousResponseId & pendingItems]
+  B -->|Yes| C[Extract previousResponseId & pendingItems (always empty)]
   B -->|No| D{More messages?}
   D -->|Yes| E[Check previous message]
   D -->|No| F[No session found - full replay]
@@ -145,8 +152,9 @@ flowchart TD
   - Register handlers for intrinsic tool events (web search, file search, etc.)
     to populate metadata accumulators.
 - For `store = true`, after `ResponseCompleted`, capture controller state via
-  helper `SessionStateSnapshot` (id, pending outputs) and return it for metadata
-  persistence (see §5).
+  helper `SessionStateSnapshot` (id, empty pending list) and return it for metadata
+  persistence (see §5). Note: Pending outputs are always empty because dartantic's
+  orchestrator executes all tools synchronously before the response completes.
 
 ## 5. Streaming Event Processing
 `OpenAIResponsesEventMapper` handles translation to `ChatResult`:
@@ -200,8 +208,10 @@ stateDiagram-v2
 
 ## 6. Metadata Persistence
 After each completed turn:
-- Build `SessionStateSnapshot` containing `responseId`, `pendingItems`, and any
-  outstanding controller inputs.
+- Build `SessionStateSnapshot` containing `responseId` and empty `pendingItems`
+  list. Note: Unlike ResponsesSessionController which may have pending async tool
+  executions, dartantic's orchestrator executes all tools synchronously, so there
+  are never any pending items to persist.
 - Store snapshot under `message.metadata['_responses_session']` (namespaced)
   in the last model message of the turn.
 - Maintain public-facing metadata keys:

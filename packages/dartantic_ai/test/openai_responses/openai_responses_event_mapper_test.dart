@@ -19,7 +19,6 @@ void main() {
           instructions: null,
           previousResponseId: null,
           anchorIndex: -1,
-          pendingItems: [],
         ),
       );
 
@@ -50,7 +49,6 @@ void main() {
         instructions: null,
         previousResponseId: 'resp_prev',
         anchorIndex: 1,
-        pendingItems: [],
       );
 
       final mapper = OpenAIResponsesEventMapper(
