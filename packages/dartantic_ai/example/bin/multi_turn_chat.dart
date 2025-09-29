@@ -7,7 +7,7 @@ import 'package:example/src/dump_stuff.dart';
 void main() async {
   const model = 'openai-responses';
   await multiTurnChat(model);
-  // await multiTurnChatStream(model);
+  await multiTurnChatStream(model);
   exit(0);
 }
 

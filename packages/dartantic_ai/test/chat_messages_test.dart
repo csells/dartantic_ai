@@ -66,13 +66,11 @@ void main() {
 
             final agent = Agent(provider.name);
 
-            final response = await agent.send(
-              'Reply with exactly: "Test ${provider.name} OK"',
-            );
+            final response = await agent.send('what is 7*6?');
 
             expect(
               response.output,
-              contains('Test ${provider.name} OK'),
+              contains('42'),
               reason: 'Provider ${provider.name} should respond correctly',
             );
           }
@@ -333,13 +331,11 @@ void main() {
           () async {
             final agent = Agent(provider.name);
 
-            final response = await agent.send(
-              'Respond with exactly: "Provider test passed"',
-            );
+            final response = await agent.send('what is 7*6?');
 
             expect(
               response.output.toLowerCase(),
-              contains('provider test passed'),
+              contains('42'),
               reason: 'Provider ${provider.name} should respond correctly',
             );
           },

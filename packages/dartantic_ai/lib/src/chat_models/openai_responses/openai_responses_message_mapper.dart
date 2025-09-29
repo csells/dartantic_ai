@@ -66,13 +66,7 @@ class OpenAIResponsesMessageMapper {
       );
     }
 
-    var startIndex = 0;
-    String? instructions;
-    final first = messages.first;
-    if (first.role == ChatMessageRole.system) {
-      instructions = first.text.trim().isEmpty ? null : first.text;
-      startIndex = 1;
-    }
+    const startIndex = 0;
 
     final session = store
         ? _findLatestSession(messages, from: startIndex)
@@ -112,10 +106,6 @@ class OpenAIResponsesMessageMapper {
 
     for (var i = firstMessageIndex; i < messages.length; i++) {
       final message = messages[i];
-      if (message.role == ChatMessageRole.system) {
-        // System messages must only appear at index 0; skip any stray ones.
-        continue;
-      }
       items.addAll(_mapMessageParts(message, imageDetail: imageDetail));
     }
 
@@ -123,15 +113,10 @@ class OpenAIResponsesMessageMapper {
         ? null
         : openai.ResponseInputItems(List.of(items));
 
-    // Only send instructions when starting a new session.
-    final resolvedInstructions = previousResponseId == null
-        ? instructions
-        : null;
-
     return OpenAIResponsesHistorySegment(
       items: items,
       input: input,
-      instructions: resolvedInstructions,
+      instructions: null,  // Not using instructions parameter anymore
       previousResponseId: previousResponseId,
       anchorIndex: session?.index ?? -1,
     );
@@ -141,54 +126,53 @@ class OpenAIResponsesMessageMapper {
   /// This is more lenient than _validateHistory since we're continuing a
   /// session.
   static void _validateNewMessages(List<ChatMessage> newMessages) {
-    // New messages in a session continuation should generally just be
-    // user or model messages, no system messages
-    for (final message in newMessages) {
-      if (message.role == ChatMessageRole.system) {
-        throw ArgumentError(
-          'System messages cannot be added mid-conversation in a session',
-        );
-      }
-    }
+    // Allow any message types when continuing a session
+    // System messages are now supported mid-conversation
     // We don't enforce strict alternation here because the orchestrator
     // may add multiple messages in sequence during tool execution
   }
 
-  /// Ensures the conversation follows `system? -> user/model alternating`.
+  /// Ensures the conversation follows reasonable structure.
   static void _validateHistory(List<ChatMessage> messages) {
     if (messages.isEmpty) return;
 
-    var index = 0;
-
-    if (messages.first.role == ChatMessageRole.system) {
-      index = 1;
-      for (var i = index; i < messages.length; i++) {
-        if (messages[i].role == ChatMessageRole.system) {
-          throw ArgumentError(
-            'Multiple system messages detected. Only index 0 may be system.',
-          );
-        }
+    // Find the first non-system message
+    var firstNonSystemIndex = -1;
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].role != ChatMessageRole.system) {
+        firstNonSystemIndex = i;
+        break;
       }
     }
 
-    if (index < messages.length &&
-        messages[index].role != ChatMessageRole.user) {
+    // If there are non-system messages, the first one should be from user
+    if (firstNonSystemIndex >= 0 &&
+        messages[firstNonSystemIndex].role != ChatMessageRole.user) {
       throw ArgumentError(
         'First non-system message must be from user. '
-        'Found ${messages[index].role.name} at index $index.',
+        'Found ${messages[firstNonSystemIndex].role.name} '
+        'at index $firstNonSystemIndex.',
       );
     }
 
+    // Check for reasonable alternation between user and model messages
+    // (system messages can appear anywhere)
     var expectingUser = true;
-    for (var i = index; i < messages.length; i++) {
+    for (var i = firstNonSystemIndex; i < messages.length; i++) {
+      final message = messages[i];
+      if (message.role == ChatMessageRole.system) {
+        // System messages don't affect alternation
+        continue;
+      }
+
       final expected = expectingUser
           ? ChatMessageRole.user
           : ChatMessageRole.model;
-      final actual = messages[i].role;
-      if (actual != expected) {
+      if (message.role != expected) {
         throw ArgumentError(
-          'Conversation must alternate user/model. '
-          'Expected ${expected.name} at index $i, found ${actual.name}.',
+          'Conversation must alternate user/model '
+          '(system messages allowed anywhere). '
+          'Expected ${expected.name} at index $i, found ${message.role.name}.',
         );
       }
       expectingUser = !expectingUser;
@@ -217,13 +201,19 @@ class OpenAIResponsesMessageMapper {
     final items = <openai.ResponseItem>[];
     final content = <openai.ResponseContent>[];
     final isUserMessage = message.role == ChatMessageRole.user;
-    final role = isUserMessage ? 'user' : 'assistant';
+    final isSystemMessage = message.role == ChatMessageRole.system;
+    final isModelMessage = message.role == ChatMessageRole.model;
+
+    // Determine the role string for the API
+    final role = isSystemMessage
+        ? 'system'
+        : isUserMessage
+            ? 'user'
+            : 'assistant';
 
     void flushContent() {
       if (content.isEmpty) return;
-      if (isUserMessage) {
-        items.add(openai.InputMessage(role: role, content: List.of(content)));
-      } else {
+      if (isModelMessage) {
         // Model messages need to use OutputMessage
         items.add(
           openai.OutputMessage(
@@ -233,6 +223,9 @@ class OpenAIResponsesMessageMapper {
             status: 'completed',
           ),
         );
+      } else {
+        // User and system messages use InputMessage
+        items.add(openai.InputMessage(role: role, content: List.of(content)));
       }
       content.clear();
     }
@@ -241,9 +234,7 @@ class OpenAIResponsesMessageMapper {
       switch (part) {
         case TextPart(:final text):
           if (text.isNotEmpty) {
-            if (isUserMessage) {
-              content.add(openai.InputTextContent(text: text));
-            } else {
+            if (isModelMessage) {
               // Model messages use OutputTextContent
               content.add(
                 openai.OutputTextContent(
@@ -251,6 +242,9 @@ class OpenAIResponsesMessageMapper {
                   annotations: const [],
                 ),
               );
+            } else {
+              // User and system messages use InputTextContent
+              content.add(openai.InputTextContent(text: text));
             }
           }
         case DataPart(:final bytes, :final mimeType, :final name):
@@ -286,15 +280,15 @@ class OpenAIResponsesMessageMapper {
                 : '[media: $mimeType]';
             final fileContent = '$prefix $fileDataUrl';
 
-            if (isUserMessage) {
-              content.add(openai.InputTextContent(text: fileContent));
-            } else {
+            if (isModelMessage) {
               content.add(
                 openai.OutputTextContent(
                   text: fileContent,
                   annotations: const [],
                 ),
               );
+            } else {
+              content.add(openai.InputTextContent(text: fileContent));
             }
           }
         case LinkPart(:final url, :final mimeType):
@@ -307,15 +301,15 @@ class OpenAIResponsesMessageMapper {
               ),
             );
           } else {
-            if (isUserMessage) {
-              content.add(openai.InputTextContent(text: url.toString()));
-            } else {
+            if (isModelMessage) {
               content.add(
                 openai.OutputTextContent(
                   text: url.toString(),
                   annotations: const [],
                 ),
               );
+            } else {
+              content.add(openai.InputTextContent(text: url.toString()));
             }
           }
         case ToolPart(:final kind):
