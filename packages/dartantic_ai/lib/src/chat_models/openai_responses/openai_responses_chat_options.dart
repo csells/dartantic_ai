@@ -30,7 +30,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
     this.serverSideTools,
     this.fileSearchConfig,
     this.webSearchConfig,
-    this.computerUseConfig,
     this.codeInterpreterConfig,
     this.imageGenerationConfig,
   });
@@ -97,9 +96,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
 
   /// Additional configuration for the `web_search` server-side tool.
   final WebSearchConfig? webSearchConfig;
-
-  /// Additional configuration for the `computer_use` server-side tool.
-  final ComputerUseConfig? computerUseConfig;
 
   /// Additional configuration for the `code_interpreter` server-side tool.
   final CodeInterpreterConfig? codeInterpreterConfig;

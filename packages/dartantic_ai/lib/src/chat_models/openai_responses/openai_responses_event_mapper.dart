@@ -46,7 +46,6 @@ class OpenAIResponsesEventMapper {
     'web_search': <Map<String, Object?>>[],
     'file_search': <Map<String, Object?>>[],
     'image_generation': <Map<String, Object?>>[],
-    'computer_use': <Map<String, Object?>>[],
     'local_shell': <Map<String, Object?>>[],
     'mcp': <Map<String, Object?>>[],
     'code_interpreter': <Map<String, Object?>>[],

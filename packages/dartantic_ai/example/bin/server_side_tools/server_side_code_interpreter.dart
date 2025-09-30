@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:example/example.dart';
 import 'package:http/http.dart' as http;
 
 void main(List<String> args) async {
@@ -36,31 +35,34 @@ void main(List<String> args) async {
 
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
-    // Capture container ID from code interpreter metadata (always a list)
-    final ciEvents = chunk.metadata['code_interpreter'] as List?;
-    if (ciEvents != null) {
-      for (final event in ciEvents) {
-        // Look for container_id in any event
-        if (event['container_id'] != null) {
-          capturedContainerId = event['container_id'] as String?;
-        }
-      }
-    }
   }
 
   stdout.writeln();
 
-  // Check if we captured a container ID
+  // Extract container_id from message metadata (synthetic summary events)
+  for (final msg in messages) {
+    final ciEvents = msg.metadata['code_interpreter'] as List?;
+    if (ciEvents != null) {
+      for (final event in ciEvents) {
+        if (event['container_id'] != null) {
+          capturedContainerId = event['container_id'] as String?;
+          break;
+        }
+      }
+    }
+    if (capturedContainerId != null) break;
+  }
+
   if (capturedContainerId == null) {
-    stdout.writeln('  ❌ Failed to capture container ID from first session');
+    stdout.writeln('❌ Failed to capture container ID from first session');
     return;
   }
 
+  stdout.writeln('✅ Captured container ID: $capturedContainerId');
+  stdout.writeln();
+
   // Second session: Explicitly configure container reuse
-  stdout.writeln(
-    '🔄 Configuring agent to reuse container: $capturedContainerId',
-  );
+  stdout.writeln('=== Session 2: Calculate Golden Ratio ===');
 
   final agent2 = Agent(
     'openai-responses',
@@ -82,68 +84,53 @@ void main(List<String> args) async {
 
   final downloadedFiles = <String>{}; // Track already downloaded files
 
+  final session2Messages = <ChatMessage>[];
+
   await for (final chunk in agent2.sendStream(
     prompt2,
     history: messages, // Pass conversation history here
   )) {
+    session2Messages.addAll(chunk.messages);
+
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+  }
 
-    // Check for images in message parts
-    // for (final msg in chunk.messages) {
-    //   if (msg.role != ChatMessageRole.model) continue;
-    //   for (final part in msg.parts) {
-    //     if (part is LinkPart) {
-    //       stdout.writeln('\n📎 Image URL: ${part.url}');
-    //     } else if (part is DataPart && part.mimeType.startsWith('image/')) {
-    //       stdout.writeln(
-    //         '\n📎 Image data: ${part.mimeType}, ${part.bytes.length} bytes',
-    //       );
-    //     }
-    //   }
-    // }
+  stdout.writeln();
 
-    // Show code interpreter metadata for second session (always a list)
-    final ciEvents = chunk.metadata['code_interpreter'] as List?;
+  // Verify container reuse by checking session 2 message metadata
+  for (final msg in session2Messages) {
+    final ciEvents = msg.metadata['code_interpreter'] as List?;
     if (ciEvents != null) {
       for (final event in ciEvents) {
-        final eventType = event['type'] as String? ?? 'unknown';
-
-        // Skip code_delta events (too verbose)
-        if (eventType == 'response.code_interpreter_call.code_delta') continue;
-
-        stdout.writeln('[code_interpreter/$eventType]');
-
-        // Verify we're using the same container
         if (event['container_id'] != null) {
           final currentContainerId = event['container_id'] as String;
           if (currentContainerId == capturedContainerId) {
-            stdout.writeln('  ✅ Reusing container: $currentContainerId');
+            stdout.writeln('✅ Container reused: $currentContainerId');
           } else {
-            stdout.writeln('  ⚠️ New container: $currentContainerId');
+            stdout.writeln(
+              '⚠️  New container: $currentContainerId '
+              '(expected: $capturedContainerId)',
+            );
           }
-        }
 
-        // Show code from synthetic summary event
-        if (event['code'] != null) {
-          stdout.writeln('  Code: ${clipWithNull(event['code'])}');
-        }
+          // Download generated files
+          if (event['results'] != null && event['results'] is List) {
+            final results = event['results'] as List;
+            for (final result in results) {
+              if (result is Map && result['type'] == 'file') {
+                final fileId = result['file_id'] as String?;
+                final filename =
+                    result['filename'] as String? ?? 'unnamed_file';
 
-        // Show generated files from synthetic summary event
-        if (event['results'] != null && event['results'] is List) {
-          final results = event['results'] as List;
-          for (final result in results) {
-            if (result is Map && result['type'] == 'file') {
-              final fileId = result['file_id'] as String?;
-              final filename = result['filename'] as String? ?? 'unnamed_file';
-              final containerId = event['container_id'] as String?;
-
-              if (fileId != null && containerId != null) {
-                // Only download if we haven't already downloaded this file
-                if (!downloadedFiles.contains(fileId)) {
+                if (fileId != null && !downloadedFiles.contains(fileId)) {
                   downloadedFiles.add(fileId);
-                  stdout.writeln('  📊 Generated file: $filename');
-                  await downloadContainerFile(containerId, fileId, filename);
+                  stdout.writeln('📊 Downloading: $filename');
+                  await downloadContainerFile(
+                    currentContainerId,
+                    fileId,
+                    filename,
+                  );
                 }
               }
             }

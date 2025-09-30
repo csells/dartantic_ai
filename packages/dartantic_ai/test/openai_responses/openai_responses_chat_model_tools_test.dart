@@ -49,18 +49,6 @@ void main() {
       expect(tool.rankingOptions?.scoreThreshold, 0.42);
     });
 
-    test('builds computer use tool with defaults', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
-        serverSideTools: const {OpenAIServerSideTool.computerUse},
-      );
-
-      expect(tools, hasLength(1));
-      final tool = tools.single as openai.ComputerUsePreviewTool;
-      expect(tool.displayHeight, 720);
-      expect(tool.displayWidth, 1280);
-      expect(tool.environment, 'browser');
-    });
-
     test('builds code interpreter tool with container reuse', () {
       final tools = OpenAIResponsesChatModel.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.codeInterpreter},

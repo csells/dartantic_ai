@@ -8,9 +8,6 @@ enum OpenAIServerSideTool {
   /// File search across uploaded documents / vector stores.
   fileSearch('file_search'),
 
-  /// Remote computer use / browser control.
-  computerUse('computer_use'),
-
   /// Image generation (text-to-image) capability.
   imageGeneration('image_generation'),
 
@@ -132,24 +129,4 @@ class CodeInterpreterConfig {
   /// Returns true when a reusable container was requested explicitly.
   bool get shouldReuseContainer =>
       containerId != null && containerId!.trim().isNotEmpty;
-}
-
-/// Configuration for the OpenAI Responses `computer_use` tool.
-@immutable
-class ComputerUseConfig {
-  /// Creates a new computer use configuration.
-  const ComputerUseConfig({
-    this.displayHeight = 720,
-    this.displayWidth = 1280,
-    this.environment = 'browser',
-  });
-
-  /// Reported viewport height in pixels.
-  final int displayHeight;
-
-  /// Reported viewport width in pixels.
-  final int displayWidth;
-
-  /// Target environment (e.g. `browser`, `desktop`).
-  final String environment;
 }

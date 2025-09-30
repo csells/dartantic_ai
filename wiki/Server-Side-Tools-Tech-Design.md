@@ -191,7 +191,7 @@ await for (final chunk in agent.sendStream(prompt)) {
 Events are accumulated in an internal event log map that tracks events for each tool type (web_search, file_search, image_generation, etc.).
 
 **Algorithm:**
-1. Maintain a map with keys for each tool type: 'web_search', 'file_search', 'image_generation', 'computer_use', 'local_shell', 'mcp', 'code_interpreter'
+1. Maintain a map with keys for each tool type: 'web_search', 'file_search', 'image_generation', 'local_shell', 'mcp', 'code_interpreter'
 2. Each key maps to a list of event objects (JSON maps)
 3. When a server-side tool event arrives during streaming:
    - Convert the event to JSON
@@ -228,7 +228,6 @@ Some tools have additional data in `response.output` items that isn't available 
 | ImageGeneration | Partial images | resultBase64 (redundant) |
 | FileSearch | Progress stages | **queries, results** |
 | CodeInterpreter | Progress stages | **code, results, containerId** |
-| ComputerUse | Screenshots, actions | Nothing |
 | MCP | Progress stages | Nothing |
 | LocalShell | Command, output | Nothing |
 
@@ -454,9 +453,10 @@ final agent = Agent(
 - **Image Generation**: Generate images using gpt-image-1
 - **File Search**: Search through uploaded files/vector stores
 - **Code Interpreter**: Execute Python code with file handling
-- **Computer Use**: Control a remote desktop environment
 - **MCP (Model Context Protocol)**: Connect to MCP servers
 - **Local Shell**: Execute shell commands server-side
+
+**Note**: OpenAI's Responses API also provides a **Computer Use** tool for remote desktop/browser control, but this is currently out of scope for Dartantic and not implemented.
 
 ### Tool-Specific Configuration Classes
 
@@ -480,11 +480,6 @@ final agent = Agent(
 - **containerId**: Specific container ID to reuse
 - **fileIds**: Files to make available in container
 
-#### ComputerUseConfig
-- **displayWidth**: Virtual display width
-- **displayHeight**: Virtual display height
-- **environment**: Desktop environment configuration
-
 ### Provider-Specific Details
 
 #### Event Types
@@ -503,9 +498,9 @@ Tools requiring synthetic events:
 - ✅ **CodeInterpreter**: Append `CodeInterpreterCall` (has code + results + containerId)
 - ❌ **WebSearch**: Ignore `WebSearchCall` (no additional data)
 - ❌ **ImageGeneration**: Ignore `ImageGenerationCall` (resultBase64 redundant)
-- ❌ **ComputerUse**: Ignore `ComputerCall` (no additional data)
 - ❌ **MCP**: Ignore `McpCall` (no additional data)
 - ❌ **LocalShell**: Ignore `LocalShellCall` (no additional data)
+- 🚫 **ComputerUse**: Not supported (out of scope for Dartantic)
 
 #### Image Generation Details
 

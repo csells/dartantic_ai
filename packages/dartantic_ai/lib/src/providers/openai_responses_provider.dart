@@ -109,7 +109,6 @@ class OpenAIResponsesProvider
         serverSideTools: options?.serverSideTools,
         fileSearchConfig: options?.fileSearchConfig,
         webSearchConfig: options?.webSearchConfig,
-        computerUseConfig: options?.computerUseConfig,
         codeInterpreterConfig: options?.codeInterpreterConfig,
       ),
     );

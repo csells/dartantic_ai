@@ -138,8 +138,6 @@ class OpenAIResponsesChatModel
         options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
     final webSearchConfig =
         options?.webSearchConfig ?? defaultOptions.webSearchConfig;
-    final computerUseConfig =
-        options?.computerUseConfig ?? defaultOptions.computerUseConfig;
     final codeInterpreterConfig =
         options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
     final imageGenerationConfig =
@@ -158,7 +156,6 @@ class OpenAIResponsesChatModel
         serverSideTools: serverSideTools,
         fileSearchConfig: fileSearchConfig,
         webSearchConfig: webSearchConfig,
-        computerUseConfig: computerUseConfig,
         codeInterpreterConfig: codeInterpreterConfig,
         imageGenerationConfig: imageGenerationConfig,
       ),
@@ -226,7 +223,6 @@ class OpenAIResponsesChatModel
     required Set<OpenAIServerSideTool> serverSideTools,
     FileSearchConfig? fileSearchConfig,
     WebSearchConfig? webSearchConfig,
-    ComputerUseConfig? computerUseConfig,
     CodeInterpreterConfig? codeInterpreterConfig,
     ImageGenerationConfig? imageGenerationConfig,
   }) {
@@ -291,16 +287,6 @@ class OpenAIResponsesChatModel
               filters: parsedFilter == null ? null : [parsedFilter],
               maxNumResults: config.maxResults,
               rankingOptions: rankingOptions,
-            ),
-          );
-          continue;
-        case OpenAIServerSideTool.computerUse:
-          final config = computerUseConfig ?? const ComputerUseConfig();
-          tools.add(
-            openai.ComputerUsePreviewTool(
-              displayHeight: config.displayHeight,
-              displayWidth: config.displayWidth,
-              environment: config.environment,
             ),
           );
           continue;
