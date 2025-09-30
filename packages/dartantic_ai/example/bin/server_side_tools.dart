@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 void main(List<String> args) async {
   stdout.writeln('=== OpenAI Responses Server-Side Tools Demos ===\n');
 
-  await demoWebSearch();
+  // await demoWebSearch();
   await demoImageGeneration();
   // await demoFileSearch();
   // await demoCodeInterpreter();
@@ -51,10 +51,11 @@ Future<void> demoImageGeneration() async {
     'openai-responses',
     chatModelOptions: const OpenAIResponsesChatModelOptions(
       serverSideTools: {OpenAIServerSideTool.imageGeneration},
+      // Request partial images, low quality, small size
       imageGenerationConfig: ImageGenerationConfig(
-        // Request progressive previews during generation (0-3)
-        // 0 = no previews, just final; 1-3 = show intermediate renders
         partialImages: 3,
+        quality: ImageGenerationQuality.low,
+        size: ImageGenerationSize.square256,
       ),
     ),
   );
@@ -77,16 +78,13 @@ Future<void> demoImageGeneration() async {
     // Collect messages for history
     history.addAll(chunk.messages);
 
+    // Show event metadata (truncated to avoid huge base64 dumps)
+    dumpMetadata(chunk.metadata);
+
     // Progressive images arrive via metadata during streaming (always a list)
     final imageEvents = chunk.metadata['image_generation'] as List?;
     if (imageEvents != null) {
       for (final event in imageEvents) {
-        final stage = event['type'] as String? ?? 'unknown';
-        stdout.writeln('\n[image_generation/$stage]');
-
-        // Show event metadata (truncated to avoid huge base64 dumps)
-        dumpMetadata(event as Map<String, Object?>, prefix: '  ');
-
         // Progressive/partial images show intermediate render stages
         if (event['partial_image_b64'] != null) {
           final b64 = event['partial_image_b64']! as String;

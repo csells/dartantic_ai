@@ -157,7 +157,7 @@ void dumpUsage(LanguageModelUsage usage) {
 void dumpMetadata(
   Map<String, Object?> metadata, {
   String prefix = '',
-  int maxLength = 256,
+  int maxLength = 64,
 }) {
   if (metadata.isEmpty) return;
   final trimmed = _recursiveTrimJson(metadata, maxLength: maxLength);
