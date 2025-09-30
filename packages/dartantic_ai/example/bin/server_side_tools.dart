@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -29,7 +30,7 @@ Future<void> demoWebSearch() async {
   );
 
   const prompt = 'What are the top 3 more recent news headlines about Dart?';
-  stdout.writeln('User: $prompt\n');
+  stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
 
   final history = <ChatMessage>[];
@@ -65,91 +66,32 @@ Future<void> demoImageGeneration() async {
       'AI startup called "NeuralFlow". Use geometric shapes and '
       'a modern color palette with blue and purple gradients.';
 
-  stdout.writeln('User: $prompt\n');
+  stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
-
-  var partialImageCount = 0;
 
   final history = <ChatMessage>[];
   await for (final chunk in agent.sendStream(prompt)) {
-    // Stream the text response
-    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
-    // Collect messages for history
+    stdout.write(chunk.output);
     history.addAll(chunk.messages);
-
-    // Show event metadata (truncated to avoid huge base64 dumps)
-    dumpMetadata(chunk.metadata);
-
-    // Progressive images arrive via metadata during streaming (always a list)
-    final imageEvents = chunk.metadata['image_generation'] as List?;
-    if (imageEvents != null) {
-      for (final event in imageEvents) {
-        // Progressive/partial images show intermediate render stages
-        if (event['partial_image_b64'] != null) {
-          final b64 = event['partial_image_b64']! as String;
-          final index = event['partial_image_index']! as int;
-
-          // Decode and save the progressive image
-          final bytes = base64.decode(b64);
-          final filename =
-              'tmp/partial_image_$index'
-              '_${DateTime.now().millisecondsSinceEpoch}.png';
-          final out = File(filename);
-          out.createSync(recursive: true);
-          out.writeAsBytesSync(bytes);
-
-          stdout.writeln(
-            '  🎨 Partial image #$index saved: '
-            '$filename (${bytes.length} bytes)',
-          );
-          partialImageCount++;
-        }
-      }
-    }
+    dumpMetadata(chunk.metadata, prefix: '\n');
+    dumpPartialImages(chunk.metadata);
   }
+  stdout.writeln();
 
-  if (partialImageCount > 0) {
-    stdout.writeln('\nShowed $partialImageCount progressive render(s)');
-  }
-
-  // Final image arrives as a DataPart in the message history
-  // Look through all messages for the image part
-  DataPart? imagePart;
-  for (final msg in history) {
-    final dataParts = msg.parts.whereType<DataPart>();
-    for (final part in dataParts) {
-      if (part.mimeType.startsWith('image/')) {
-        imagePart = part;
-        break;
-      }
-    }
-    if (imagePart != null) break;
-  }
-
-  if (imagePart != null) {
-    final filename =
-        'tmp/final_image'
-        '_${DateTime.now().millisecondsSinceEpoch}.png';
-    final out = File(filename);
-    out.createSync(recursive: true);
-    out.writeAsBytesSync(imagePart.bytes);
-
-    stdout.writeln(
-      '\n💾 Final image saved: $filename (${imagePart.bytes.length} bytes)',
-    );
-  } else {
-    stdout.writeln('\n⚠️ No final image found in message history');
-  }
+  // Final image arrives as a DataPart in the model's response
+  final imagePart = history.last.parts.whereType<DataPart>().singleWhere(
+    (p) => p.mimeType.startsWith('image/'),
+  );
+  dumpImage('Final', 'final_image', imagePart.bytes);
 
   dumpMessages(history);
 }
 
 /// Note: This requires files to be uploaded to OpenAI first
 Future<void> demoFileSearch() async {
-  stdout.writeln('🔍 File Search Demo\n');
-  stdout.writeln('This demo searches through uploaded files.\n');
-  stdout.writeln('Note: This requires files to be pre-uploaded to OpenAI.\n');
+  stdout.writeln('🔍 File Search Demo');
+  stdout.writeln('This demo searches through uploaded files.');
+  stdout.writeln('Note: This requires files to be pre-uploaded to OpenAI.');
 
   final agent = Agent(
     'openai-responses:gpt-4o',
@@ -163,7 +105,7 @@ Future<void> demoFileSearch() async {
       'Search for information about error handling best practices '
       'in the uploaded documentation files.';
 
-  stdout.writeln('Prompt: $prompt\n');
+  stdout.writeln('Prompt: $prompt');
   stdout.writeln('Response:\n');
 
   await for (final chunk in agent.sendStream(prompt)) {
@@ -209,19 +151,17 @@ Future<void> demoFileSearch() async {
 
 /// Note: This tool allows the model to control a browser/desktop
 Future<void> demoComputerUse() async {
-  stdout.writeln('🖥️ Computer Use Demo\n');
-  stdout.writeln(
-    'Note: Computer use requires special setup and permissions.\n',
-  );
+  stdout.writeln('🖥️ Computer Use Demo');
+  stdout.writeln('Note: Computer use requires special setup and permissions.');
   stdout.writeln(
     'This feature requires enterprise access and '
-    'additional configuration.\n',
+    'additional configuration.',
   );
-  stdout.writeln('See docs/server-side-tools/computer-use.mdx for details.\n');
+  stdout.writeln('See docs/server-side-tools/computer-use.mdx for details.');
 
   // Computer use is typically not available without special permissions
   stdout.writeln(
-    'This demo demonstrates browser/desktop control capabilities.\n',
+    'This demo demonstrates browser/desktop control capabilities.',
   );
 
   final agent = Agent(
@@ -235,7 +175,7 @@ Future<void> demoComputerUse() async {
       'Navigate to a website and take a screenshot of the homepage. '
       'Describe what you see on the page.';
 
-  stdout.writeln('Prompt: $prompt\n');
+  stdout.writeln('Prompt: $prompt');
   stdout.writeln('Response:\n');
 
   await for (final chunk in agent.sendStream(prompt)) {
@@ -319,10 +259,10 @@ Future<void> downloadContainerFile(
 }
 
 Future<void> demoCodeInterpreter() async {
-  stdout.writeln('🐍 Code Interpreter Demo with Container Reuse\n');
+  stdout.writeln('🐍 Code Interpreter Demo with Container Reuse');
 
   // First session: Calculate Fibonacci numbers and store in container
-  stdout.writeln('=== Session 1: Calculate Fibonacci Numbers ===\n');
+  stdout.writeln('=== Session 1: Calculate Fibonacci Numbers ===');
 
   final agent1 = Agent(
     'openai-responses',
@@ -335,8 +275,8 @@ Future<void> demoCodeInterpreter() async {
       'Calculate the first 10 Fibonacci numbers and store them in a variable '
       'called "fib_sequence".';
 
-  stdout.writeln('Prompt: $prompt1\n');
-  stdout.writeln('Response:\n');
+  stdout.writeln('Prompt: $prompt1');
+  stdout.writeln('Response:');
 
   String? capturedContainerId;
   final messages = <ChatMessage>[];
@@ -360,7 +300,7 @@ Future<void> demoCodeInterpreter() async {
     }
   }
 
-  stdout.writeln('\n\n');
+  stdout.writeln();
 
   // Check if we captured a container ID
   if (capturedContainerId == null) {
@@ -370,7 +310,7 @@ Future<void> demoCodeInterpreter() async {
 
   // Second session: Explicitly configure container reuse
   stdout.writeln(
-    '🔄 Configuring agent to reuse container: $capturedContainerId\n',
+    '🔄 Configuring agent to reuse container: $capturedContainerId',
   );
 
   final agent2 = Agent(
@@ -388,8 +328,8 @@ Future<void> demoCodeInterpreter() async {
       'golden ratio (skipping the first term, since it is 0). '
       'Create a plot showing how the ratio converges to the golden ratio.';
 
-  stdout.writeln('Prompt: $prompt2\n');
-  stdout.writeln('Response:\n');
+  stdout.writeln('Prompt: $prompt2');
+  stdout.writeln('Response:');
 
   final downloadedFiles = <String>{}; // Track already downloaded files
 
@@ -423,7 +363,7 @@ Future<void> demoCodeInterpreter() async {
         // Skip code_delta events (too verbose)
         if (eventType == 'response.code_interpreter_call.code_delta') continue;
 
-        stdout.writeln('\n[code_interpreter/$eventType]');
+        stdout.writeln('[code_interpreter/$eventType]');
 
         // Verify we're using the same container
         if (event['container_id'] != null) {
@@ -437,7 +377,7 @@ Future<void> demoCodeInterpreter() async {
 
         // Show code from synthetic summary event
         if (event['code'] != null) {
-          stdout.writeln('  Code: ${event['code']}');
+          stdout.writeln('  Code: ${clipWithNull(event['code'])}');
         }
 
         // Show generated files from synthetic summary event
@@ -463,4 +403,27 @@ Future<void> demoCodeInterpreter() async {
       }
     }
   }
+}
+
+void dumpPartialImages(Map<String, dynamic> metadata) {
+  final imageEvents = metadata['image_generation'] as List?;
+  if (imageEvents != null) {
+    for (final event in imageEvents) {
+      // Progressive/partial images show intermediate render stages
+      if (event['partial_image_b64'] != null) {
+        final base64 = event['partial_image_b64']! as String;
+        final index = event['partial_image_index']! as int;
+        dumpImage('Partial', 'partial_image_$index', base64Decode(base64));
+      }
+    }
+  }
+}
+
+void dumpImage(String name, String baseFilename, Uint8List bytes) {
+  final filename =
+      'tmp/${baseFilename}_${DateTime.now().millisecondsSinceEpoch}.png';
+  final out = File(filename);
+  out.createSync(recursive: true);
+  out.writeAsBytesSync(bytes);
+  stdout.writeln('  🎨 $name mage saved: $filename (${bytes.length} bytes)');
 }

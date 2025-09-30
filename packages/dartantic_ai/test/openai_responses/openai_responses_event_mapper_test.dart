@@ -118,7 +118,7 @@ void main() {
           const openai.McpCall(
             id: 'mcp-1',
             name: 'list',
-            argumentsJson: '{}',
+            arguments: '{}',
             serverLabel: 'server-a',
             output: 'ok',
           ),

@@ -82,6 +82,24 @@ class OpenAIResponsesEventMapper {
         // Track that this outputIndex contains reasoning text
         _logger.fine('Reasoning item at index ${event.outputIndex}');
         _reasoningOutputIndices.add(event.outputIndex);
+      } else if (item is openai.ImageGenerationCall) {
+        // Track the output index for image generation
+        _logger.fine('Image generation call at index ${event.outputIndex}');
+      }
+      return;
+    }
+
+    if (event is openai.ResponseOutputItemDone) {
+      final item = event.item;
+      _logger.fine('ResponseOutputItemDone: item type = ${item.runtimeType}');
+
+      // Check if this is image generation completion
+      if (item is openai.ImageGenerationCall) {
+        _logger.fine(
+          'Image generation completed at index ${event.outputIndex}',
+        );
+        // Mark that image generation is done - the last partial image is final
+        _imageGenerationCompleted = true;
       }
       return;
     }
@@ -248,10 +266,16 @@ class OpenAIResponsesEventMapper {
       if (event is openai.ResponseImageGenerationCallPartialImage) {
         _lastPartialImageB64 = event.partialImageB64;
         _lastPartialImageIndex = event.partialImageIndex;
+        _logger.fine('Stored partial image index: $_lastPartialImageIndex');
       }
 
-      // Mark completion so we know the last partial is the final image
+      // Note: ResponseImageGenerationCallCompleted is defined in openai_core
+      // but OpenAI never actually sends it. Image generation completion is
+      // signaled by ResponseOutputItemDone with an ImageGenerationCall item.
       if (event is openai.ResponseImageGenerationCallCompleted) {
+        _logger.warning(
+          'Received unexpected ResponseImageGenerationCallCompleted event',
+        );
         _imageGenerationCompleted = true;
       }
 
@@ -308,23 +332,11 @@ class OpenAIResponsesEventMapper {
     String toolKey,
     openai.ResponseEvent event,
   ) sync* {
-    // Extract stage from event type
+    // Convert event to JSON - this is the raw event data
     final eventJson = event.toJson();
-    final stage = eventJson['type'] as String? ?? 'unknown';
 
-    // Build metadata with event details
-    final metadata = <String, Object?>{
-      'stage': stage,
-      'data': eventJson,
-    };
-
-    // For image generation partial images, include the base64 data
-    if (event is openai.ResponseImageGenerationCallPartialImage) {
-      metadata['partial_image_b64'] = event.partialImageB64;
-      metadata['partial_image_index'] = event.partialImageIndex;
-    }
-
-    // Yield a metadata-only chunk with the tool event
+    // Yield a metadata-only chunk with the event as a single-item list
+    // Following the thinking pattern: always emit as list for consistency
     yield ChatResult<ChatMessage>(
       output: const ChatMessage(
         role: ChatMessageRole.model,
@@ -332,7 +344,7 @@ class OpenAIResponsesEventMapper {
       ),
       messages: const [],
       metadata: {
-        toolKey: metadata,
+        toolKey: [eventJson], // Single-item list
       },
       usage: const LanguageModelUsage(),
     );
@@ -341,13 +353,14 @@ class OpenAIResponsesEventMapper {
   ChatResult<ChatMessage> _buildFinalResult(openai.Response response) {
     final parts = <Part>[];
     final toolCallNames = <String, String>{};
-    final telemetry = <String, Object?>{};
 
-    for (final entry in _toolEventLog.entries) {
-      if (entry.value.isNotEmpty) {
-        telemetry[entry.key] = entry.value;
-      }
-    }
+    // Start with accumulated event logs (will add synthetic events below)
+    final messageMetadata = <String, Object?>{
+      if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
+      // Copy all non-empty tool event lists to message metadata
+      for (final entry in _toolEventLog.entries)
+        if (entry.value.isNotEmpty) entry.key: entry.value,
+    };
 
     _logger.info(
       'Building final result, response.output has '
@@ -406,114 +419,66 @@ class OpenAIResponsesEventMapper {
         continue;
       }
 
+      // CodeInterpreter has additional data (code, results, containerId)
+      // Add as synthetic summary event
       if (item is openai.CodeInterpreterCall) {
-        final codeInterpreterTelemetry = _ensureTelemetryMap(
-          telemetry,
-          'code_interpreter',
-        );
-        _appendCodeInterpreterCall(codeInterpreterTelemetry, item);
+        final codeInterpreterEvents =
+            messageMetadata['code_interpreter'] as List<Map<String, Object?>>?;
+        codeInterpreterEvents?.add({
+          'type': 'code_interpreter_call',
+          'id': item.id,
+          'code': item.code,
+          if (item.results != null)
+            'results': item.results!
+                .map((r) => r.toJson())
+                .toList(growable: false),
+          if (item.containerId != null) 'container_id': item.containerId,
+          'status': item.status.toJson(),
+        });
         continue;
       }
 
+      // ImageGenerationCall has no additional data beyond streaming events
+      // The final image is already added as DataPart - ignore this item
       if (item is openai.ImageGenerationCall) {
-        final imageTelemetry = _ensureTelemetryMap(
-          telemetry,
-          'image_generation',
-        );
-        _appendImageCall(imageTelemetry, item, parts);
         continue;
       }
 
+      // WebSearchCall has no additional data beyond streaming events - ignore
       if (item is openai.WebSearchCall) {
-        final webTelemetry = _ensureTelemetryMap(telemetry, 'web_search');
-        _appendSimpleCall(webTelemetry, item.id, item.status.toJson());
         continue;
       }
 
+      // FileSearch has additional data (queries, results)
+      // Add as synthetic summary event
       if (item is openai.FileSearchCall) {
-        final fileTelemetry = _ensureTelemetryMap(telemetry, 'file_search');
-        _appendFileSearchCall(fileTelemetry, item);
-        continue;
-      }
-
-      if (item is openai.LocalShellCall) {
-        final shellTelemetry = _ensureTelemetryMap(telemetry, 'local_shell');
-        _appendLocalShellCall(shellTelemetry, item);
-        continue;
-      }
-
-      if (item is openai.LocalShellCallOutput) {
-        final shellTelemetry = _ensureTelemetryMap(telemetry, 'local_shell');
-        _appendLocalShellOutput(shellTelemetry, item);
-        continue;
-      }
-
-      if (item is openai.ComputerCallOutput) {
-        final computerTelemetry = _ensureTelemetryMap(
-          telemetry,
-          'computer_use',
-        );
-        _appendComputerUseOutput(computerTelemetry, item);
-        continue;
-      }
-
-      if (item is openai.McpCall) {
-        final mcpTelemetry = _ensureTelemetryMap(telemetry, 'mcp');
-        _appendMcpEntry(mcpTelemetry, {
-          'type': 'call',
+        final fileSearchEvents =
+            messageMetadata['file_search'] as List<Map<String, Object?>>?;
+        fileSearchEvents?.add({
+          'type': 'file_search_call',
           'id': item.id,
-          'name': item.name,
-          'arguments': item.argumentsJson,
-          'server_label': item.serverLabel,
-          if (item.output != null) 'output': item.output,
-          if (item.error != null) 'error': item.error,
+          'queries': item.queries,
+          if (item.results != null)
+            'results': item.results!
+                .map((r) => r.toJson())
+                .toList(growable: false),
+          'status': item.status.toJson(),
         });
         continue;
       }
 
-      if (item is openai.McpListTools) {
-        final mcpTelemetry = _ensureTelemetryMap(telemetry, 'mcp');
-        _appendMcpEntry(mcpTelemetry, {
-          'type': 'list_tools',
-          'id': item.id,
-          'server_label': item.serverLabel,
-          'tools': item.tools
-              .map((tool) => tool.toJson())
-              .toList(growable: false),
-          if (item.error != null) 'error': item.error,
-        });
-        continue;
-      }
-
-      if (item is openai.McpApprovalRequest) {
-        final mcpTelemetry = _ensureTelemetryMap(telemetry, 'mcp');
-        _appendMcpEntry(mcpTelemetry, {
-          'type': 'approval_request',
-          'id': item.id,
-          'name': item.name,
-          'arguments': item.arguments,
-          'server_label': item.serverLabel,
-        });
-        continue;
-      }
-
-      if (item is openai.McpApprovalResponse) {
-        final mcpTelemetry = _ensureTelemetryMap(telemetry, 'mcp');
-        _appendMcpEntry(mcpTelemetry, {
-          'type': 'approval_response',
-          'id': item.id,
-          'approval_request_id': item.approvalRequestId,
-          'approve': item.approve,
-          if (item.reason != null) 'reason': item.reason,
-        });
+      // LocalShell, ComputerUse, MCP - no additional data beyond streaming
+      // events Ignore these items
+      if (item is openai.LocalShellCall ||
+          item is openai.LocalShellCallOutput ||
+          item is openai.ComputerCallOutput ||
+          item is openai.McpCall ||
+          item is openai.McpListTools ||
+          item is openai.McpApprovalRequest ||
+          item is openai.McpApprovalResponse) {
         continue;
       }
     }
-
-    final messageMetadata = <String, Object?>{
-      if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
-      if (telemetry.isNotEmpty) ...telemetry,
-    };
 
     if (storeSession) {
       _logger.info('━━━ Storing Session Metadata ━━━');
@@ -528,7 +493,10 @@ class OpenAIResponsesEventMapper {
       _logger.info('');
     }
 
-    // Add the last partial image as a DataPart if generation completed
+    // Add the last partial image as a DataPart if image generation completed.
+    // OpenAI signals completion via ResponseOutputItemDone (not the
+    // ResponseImageGenerationCallCompleted event which is never sent).
+    // The last partial image received IS the final image.
     if (_imageGenerationCompleted && _lastPartialImageB64 != null) {
       try {
         final bytes = base64Decode(_lastPartialImageB64!);
@@ -573,8 +541,9 @@ class OpenAIResponsesEventMapper {
       // We've already streamed the text content
       // The orchestrator will consolidate the accumulated chunks
       // Return metadata and any non-text parts (like images) in messages only
-      final nonTextParts =
-          parts.where((p) => p is! TextPart).toList(growable: false);
+      final nonTextParts = parts
+          .where((p) => p is! TextPart)
+          .toList(growable: false);
 
       // Empty output to avoid duplication with streamed text
       final metadataOnlyOutput = ChatMessage(
@@ -614,157 +583,6 @@ class OpenAIResponsesEventMapper {
         metadata: resultMetadata,
       );
     }
-  }
-
-  Map<String, Object?> _ensureTelemetryMap(
-    Map<String, Object?> telemetry,
-    String key,
-  ) {
-    final existing = telemetry[key];
-    if (existing is Map<String, Object?>) return existing;
-    final created = <String, Object?>{};
-    telemetry[key] = created;
-    return created;
-  }
-
-  void _appendCodeInterpreterCall(
-    Map<String, Object?> telemetry,
-    openai.CodeInterpreterCall call,
-  ) {
-    final calls =
-        (telemetry['calls'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    calls.add({
-      'id': call.id,
-      'code': call.code,
-      'status': call.status.toJson(),
-      if (call.containerId != null) 'container_id': call.containerId,
-      if (call.results != null)
-        'results': call.results!
-            .map((result) => result.toJson())
-            .toList(growable: false),
-    });
-    telemetry['calls'] = calls;
-  }
-
-  void _appendImageCall(
-    Map<String, Object?> telemetry,
-    openai.ImageGenerationCall call,
-    List<Part> parts,
-  ) {
-    final calls =
-        (telemetry['calls'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    final callMetadata = <String, Object?>{
-      'id': call.id,
-      'status': call.status.toJson(),
-    };
-
-    final result = call.resultBase64;
-    if (result != null) {
-      try {
-        final bytes = base64Decode(result);
-        parts.add(DataPart(bytes, mimeType: 'image/png', name: 'image.png'));
-        callMetadata['result'] = {'bytes': bytes.length};
-      } on FormatException catch (_) {
-        callMetadata['result'] = {'raw': result};
-      }
-    }
-
-    calls.add(callMetadata);
-    telemetry['calls'] = calls;
-  }
-
-  void _appendSimpleCall(
-    Map<String, Object?> telemetry,
-    String id,
-    String status,
-  ) {
-    final calls =
-        (telemetry['calls'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    calls.add({'id': id, 'status': status});
-    telemetry['calls'] = calls;
-  }
-
-  void _appendFileSearchCall(
-    Map<String, Object?> telemetry,
-    openai.FileSearchCall call,
-  ) {
-    final calls =
-        (telemetry['calls'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    calls.add({
-      'id': call.id,
-      'status': call.status.toJson(),
-      'queries': call.queries,
-      if (call.results != null)
-        'results': call.results!
-            .map((result) => result.toJson())
-            .toList(growable: false),
-    });
-    telemetry['calls'] = calls;
-  }
-
-  void _appendLocalShellCall(
-    Map<String, Object?> telemetry,
-    openai.LocalShellCall call,
-  ) {
-    final calls =
-        (telemetry['calls'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    calls.add({
-      'id': call.id,
-      'call_id': call.callId,
-      'status': call.status.toJson(),
-      'action': call.action.toJson(),
-    });
-    telemetry['calls'] = calls;
-  }
-
-  void _appendLocalShellOutput(
-    Map<String, Object?> telemetry,
-    openai.LocalShellCallOutput output,
-  ) {
-    final outputs =
-        (telemetry['outputs'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    outputs.add({
-      'call_id': output.callId,
-      'output': output.output,
-      if (output.status != null) 'status': output.status!.toJson(),
-    });
-    telemetry['outputs'] = outputs;
-  }
-
-  void _appendComputerUseOutput(
-    Map<String, Object?> telemetry,
-    openai.ComputerCallOutput output,
-  ) {
-    final outputs =
-        (telemetry['outputs'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    outputs.add({
-      'call_id': output.callId,
-      'output': output.output.toJson(),
-      if (output.status != null) 'status': output.status!.toJson(),
-      if (output.acknowledgedSafetyChecks != null)
-        'acknowledged_safety_checks': output.acknowledgedSafetyChecks!
-            .map((check) => check.toJson())
-            .toList(growable: false),
-    });
-    telemetry['outputs'] = outputs;
-  }
-
-  void _appendMcpEntry(
-    Map<String, Object?> telemetry,
-    Map<String, Object?> entry,
-  ) {
-    final entries =
-        (telemetry['entries'] as List<Map<String, Object?>>?)?.toList() ??
-        <Map<String, Object?>>[];
-    entries.add(entry);
-    telemetry['entries'] = entries;
   }
 
   List<Part> _mapOutputMessage(List<openai.ResponseContent> content) {
