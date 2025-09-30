@@ -12,7 +12,7 @@ import 'package:http/http.dart' as http;
 void main(List<String> args) async {
   stdout.writeln('=== OpenAI Responses Server-Side Tools Demos ===\n');
 
-  // await demoWebSearch();
+  await demoWebSearch();
   await demoImageGeneration();
   // await demoFileSearch();
   // await demoCodeInterpreter();
@@ -37,7 +37,7 @@ Future<void> demoWebSearch() async {
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata);
+    dumpMetadata(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 

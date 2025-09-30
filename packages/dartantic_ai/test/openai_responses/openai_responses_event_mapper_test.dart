@@ -182,5 +182,120 @@ void main() {
       expect(result.metadata['response_id'], equals('resp_123'));
       expect(result.metadata['status'], equals('completed'));
     });
+
+    test('handles streaming image generation with ResponseOutputItemDone', () {
+      final mapper = OpenAIResponsesEventMapper(
+        modelName: 'gpt-4o',
+        storeSession: false,
+        history: const OpenAIResponsesHistorySegment(
+          items: [],
+          input: null,
+          instructions: null,
+          previousResponseId: null,
+          anchorIndex: -1,
+        ),
+      );
+
+      // Step 1: ResponseOutputItemAdded with ImageGenerationCall
+      var results = mapper
+          .handle(
+            const openai.ResponseOutputItemAdded(
+              outputIndex: 0,
+              sequenceNumber: 1,
+              item: openai.ImageGenerationCall(
+                id: 'img-1',
+                status: openai.ImageGenerationCallStatus.inProgress,
+              ),
+            ),
+          )
+          .toList();
+      expect(results, isEmpty); // No output yet
+
+      // Step 2: ResponseImageGenerationCallInProgress
+      results = mapper
+          .handle(
+            const openai.ResponseImageGenerationCallInProgress(
+              itemId: 'img-1',
+              outputIndex: 0,
+              sequenceNumber: 2,
+            ),
+          )
+          .toList();
+      expect(results, hasLength(1)); // Metadata chunk emitted
+      expect(results.first.metadata['image_generation'], isNotNull);
+
+      // Step 3: ResponseImageGenerationCallGenerating
+      results = mapper
+          .handle(
+            const openai.ResponseImageGenerationCallGenerating(
+              itemId: 'img-1',
+              outputIndex: 0,
+              sequenceNumber: 3,
+            ),
+          )
+          .toList();
+      expect(results, hasLength(1)); // Metadata chunk emitted
+
+      // Step 4: ResponseImageGenerationCallPartialImage
+      final fakeImageData = base64Encode(utf8.encode('fake-image-data'));
+      results = mapper
+          .handle(
+            openai.ResponseImageGenerationCallPartialImage(
+              itemId: 'img-1',
+              outputIndex: 0,
+              sequenceNumber: 4,
+              partialImageB64: fakeImageData,
+              partialImageIndex: 0,
+            ),
+          )
+          .toList();
+      expect(results, hasLength(1)); // Metadata chunk emitted
+
+      // Step 5: ResponseOutputItemDone marks completion
+      results = mapper
+          .handle(
+            openai.ResponseOutputItemDone(
+              outputIndex: 0,
+              sequenceNumber: 5,
+              item: openai.ImageGenerationCall(
+                id: 'img-1',
+                status: openai.ImageGenerationCallStatus.completed,
+                resultBase64: fakeImageData,
+              ),
+            ),
+          )
+          .toList();
+      expect(results, isEmpty); // Just marks completion, no output yet
+
+      // Step 6: ResponseCompleted should include the image as a DataPart
+      final response = openai.Response(
+        id: 'resp_img',
+        model: openai.ChatModel.gpt4o,
+        status: 'completed',
+        output: [
+          openai.ImageGenerationCall(
+            id: 'img-1',
+            status: openai.ImageGenerationCallStatus.completed,
+            resultBase64: fakeImageData,
+          ),
+        ],
+      );
+
+      results = mapper
+          .handle(
+            openai.ResponseCompleted(response: response, sequenceNumber: 6),
+          )
+          .toList();
+
+      expect(results, hasLength(1));
+      final finalResult = results.single;
+      final message = finalResult.output;
+
+      // Verify the image was added as a DataPart
+      final dataParts = message.parts.whereType<DataPart>().toList();
+      expect(dataParts, hasLength(1));
+      expect(dataParts.first.mimeType, equals('image/png'));
+      expect(dataParts.first.bytes, equals(utf8.encode('fake-image-data')));
+    });
   });
 }
