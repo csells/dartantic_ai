@@ -19,8 +19,7 @@ void main(List<String> args) async {
 }
 
 Future<void> demoWebSearch() async {
-  stdout.writeln('📡 Web Search Demo\n');
-  stdout.writeln('This demo searches for current information from the web.\n');
+  stdout.writeln('\n Server-Side Web Search');
 
   final agent = Agent(
     'openai-responses',
@@ -30,27 +29,16 @@ Future<void> demoWebSearch() async {
   );
 
   const prompt = 'What are the top 3 more recent news headlines about Dart?';
-
   stdout.writeln('User: $prompt\n');
-  stdout.writeln('${agent.displayName}:\n');
+  stdout.write('${agent.displayName}: ');
 
   final history = <ChatMessage>[];
   await for (final chunk in agent.sendStream(prompt)) {
-    // Stream the text response
-    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
-    // Collect messages for history
+    stdout.write(chunk.output);
     history.addAll(chunk.messages);
-
-    // Show web search metadata
-    final web = chunk.metadata['web_search'];
-    if (web != null) {
-      stdout.writeln('\n[web_search/${web['stage']}]');
-      if (web['data'] != null) {
-        dumpMetadata({'data': web['data']}, prefix: '  ', maxLength: 200);
-      }
-    }
+    dumpMetadata(chunk.metadata);
   }
+  stdout.writeln();
 
   dumpMessages(history);
 }
@@ -77,7 +65,7 @@ Future<void> demoImageGeneration() async {
       'a modern color palette with blue and purple gradients.';
 
   stdout.writeln('User: $prompt\n');
-  stdout.writeln('${agent.displayName}:\n');
+  stdout.write('${agent.displayName}: ');
 
   var partialImageCount = 0;
 
@@ -89,30 +77,36 @@ Future<void> demoImageGeneration() async {
     // Collect messages for history
     history.addAll(chunk.messages);
 
-    // Progressive images arrive via metadata during streaming
-    final ig = chunk.metadata['image_generation'];
-    if (ig != null) {
-      final stage = ig['stage'];
-      stdout.writeln('\n[image_generation/$stage]');
+    // Progressive images arrive via metadata during streaming (always a list)
+    final imageEvents = chunk.metadata['image_generation'] as List?;
+    if (imageEvents != null) {
+      for (final event in imageEvents) {
+        final stage = event['type'] as String? ?? 'unknown';
+        stdout.writeln('\n[image_generation/$stage]');
 
-      // Progressive/partial images show intermediate render stages
-      if (ig['partial_image_b64'] != null) {
-        final b64 = ig['partial_image_b64'] as String;
-        final index = ig['partial_image_index'] as int;
+        // Show event metadata (truncated to avoid huge base64 dumps)
+        dumpMetadata(event as Map<String, Object?>, prefix: '  ');
 
-        // Decode and save the progressive image
-        final bytes = base64.decode(b64);
-        final filename =
-            'tmp/partial_image_$index'
-            '_${DateTime.now().millisecondsSinceEpoch}.png';
-        final out = File(filename);
-        out.createSync(recursive: true);
-        out.writeAsBytesSync(bytes);
+        // Progressive/partial images show intermediate render stages
+        if (event['partial_image_b64'] != null) {
+          final b64 = event['partial_image_b64']! as String;
+          final index = event['partial_image_index']! as int;
 
-        stdout.writeln(
-          '  🎨 Partial image #$index saved: $filename (${bytes.length} bytes)',
-        );
-        partialImageCount++;
+          // Decode and save the progressive image
+          final bytes = base64.decode(b64);
+          final filename =
+              'tmp/partial_image_$index'
+              '_${DateTime.now().millisecondsSinceEpoch}.png';
+          final out = File(filename);
+          out.createSync(recursive: true);
+          out.writeAsBytesSync(bytes);
+
+          stdout.writeln(
+            '  🎨 Partial image #$index saved: '
+            '$filename (${bytes.length} bytes)',
+          );
+          partialImageCount++;
+        }
       }
     }
   }
@@ -121,19 +115,34 @@ Future<void> demoImageGeneration() async {
     stdout.writeln('\nShowed $partialImageCount progressive render(s)');
   }
 
-  // Final image arrives as a DataPart in the final message
-  final imagePart = history.last.parts.whereType<DataPart>().single;
-  assert(imagePart.mimeType.startsWith('image/'));
-  final filename =
-      'tmp/final_image'
-      '_${DateTime.now().millisecondsSinceEpoch}.png';
-  final out = File(filename);
-  out.createSync(recursive: true);
-  out.writeAsBytesSync(imagePart.bytes);
+  // Final image arrives as a DataPart in the message history
+  // Look through all messages for the image part
+  DataPart? imagePart;
+  for (final msg in history) {
+    final dataParts = msg.parts.whereType<DataPart>();
+    for (final part in dataParts) {
+      if (part.mimeType.startsWith('image/')) {
+        imagePart = part;
+        break;
+      }
+    }
+    if (imagePart != null) break;
+  }
 
-  stdout.writeln(
-    '\n💾 Final image saved: $filename (${imagePart.bytes.length} bytes)',
-  );
+  if (imagePart != null) {
+    final filename =
+        'tmp/final_image'
+        '_${DateTime.now().millisecondsSinceEpoch}.png';
+    final out = File(filename);
+    out.createSync(recursive: true);
+    out.writeAsBytesSync(imagePart.bytes);
+
+    stdout.writeln(
+      '\n💾 Final image saved: $filename (${imagePart.bytes.length} bytes)',
+    );
+  } else {
+    stdout.writeln('\n⚠️ No final image found in message history');
+  }
 
   dumpMessages(history);
 }
@@ -184,7 +193,7 @@ Future<void> demoFileSearch() async {
               if (first is Map && first['content'] != null) {
                 stdout.writeln(
                   '  Preview: '
-                  '${truncateValue(first['content'], maxLength: 100)}',
+                  '${clipWithNull(first['content'])}',
                 );
               }
             }
@@ -248,9 +257,7 @@ Future<void> demoComputerUse() async {
           }
           // Show target element or coordinates
           if (data['target'] != null) {
-            stdout.writeln(
-              '  Target: ${truncateValue(data['target'], maxLength: 100)}',
-            );
+            stdout.writeln('  Target: ${clipWithNull(data['target'])}');
           }
           // Show result or screenshot info
           if (data['screenshot'] != null) {
@@ -263,30 +270,6 @@ Future<void> demoComputerUse() async {
   stdout.writeln('\n');
   stdout.writeln('Note: Computer use requires special permissions and setup.');
   stdout.writeln('It may not be available in all environments.');
-}
-
-void dumpMetadata(
-  Map<String, Object?> metadata, {
-  String prefix = '',
-  int maxLength = 200,
-}) {
-  if (metadata.isEmpty) return;
-  const encoder = JsonEncoder.withIndent('  ');
-  final serialized = encoder.convert(metadata);
-  final clipped = _clip(serialized, maxLength: maxLength);
-  for (final line in clipped.split('\n')) {
-    stdout.writeln('$prefix$line');
-  }
-}
-
-String truncateValue(Object? value, {int maxLength = 200}) =>
-    _clip(value?.toString() ?? 'null', maxLength: maxLength);
-
-String _clip(String input, {int maxLength = 200}) {
-  if (input.length <= maxLength) return input;
-  final safeLength = maxLength <= 3 ? maxLength : maxLength - 3;
-  final prefix = safeLength <= 0 ? '' : input.substring(0, safeLength);
-  return '$prefix...';
 }
 
 /// Container files use a different endpoint than regular files
@@ -367,15 +350,15 @@ Future<void> demoCodeInterpreter() async {
     // Stream the text response
     if (chunk.output.isNotEmpty) stdout.write(chunk.output);
 
-    // Capture and show code interpreter metadata
-    final ci = chunk.metadata['code_interpreter'] as Map<String, dynamic>?;
-    final stage = ci?['stage'] as String?;
-    if (stage != null && stage != 'code_delta') {
-      // stdout.writeln('\n[code_interpreter/$stage]');
-
-      // Capture container ID for reuse
-      final data = ci?['data'] as Map<String, dynamic>;
-      capturedContainerId = data['container_id'] as String?;
+    // Capture container ID from code interpreter metadata (always a list)
+    final ciEvents = chunk.metadata['code_interpreter'] as List?;
+    if (ciEvents != null) {
+      for (final event in ciEvents) {
+        // Look for container_id in any event
+        if (event['container_id'] != null) {
+          capturedContainerId = event['container_id'] as String?;
+        }
+      }
     }
   }
 
@@ -433,55 +416,47 @@ Future<void> demoCodeInterpreter() async {
     //   }
     // }
 
-    // Show code interpreter metadata for second session
-    final ci = chunk.metadata['code_interpreter'];
-    if (ci != null) {
-      final stage = ci['stage'] as String?;
-      if (stage != null && stage != 'code_delta') {
-        stdout.writeln('\n[code_interpreter/$stage]');
+    // Show code interpreter metadata for second session (always a list)
+    final ciEvents = chunk.metadata['code_interpreter'] as List?;
+    if (ciEvents != null) {
+      for (final event in ciEvents) {
+        final eventType = event['type'] as String? ?? 'unknown';
 
-        final data = ci['data'];
-        if (data is Map) {
-          // Verify we're using the same container
-          if (data['container_id'] != null) {
-            final currentContainerId = data['container_id'] as String;
-            if (currentContainerId == capturedContainerId) {
-              stdout.writeln('  ✅ Reusing container: $currentContainerId');
-            } else {
-              stdout.writeln('  ⚠️ New container: $currentContainerId');
-            }
+        // Skip code_delta events (too verbose)
+        if (eventType == 'response.code_interpreter_call.code_delta') continue;
+
+        stdout.writeln('\n[code_interpreter/$eventType]');
+
+        // Verify we're using the same container
+        if (event['container_id'] != null) {
+          final currentContainerId = event['container_id'] as String;
+          if (currentContainerId == capturedContainerId) {
+            stdout.writeln('  ✅ Reusing container: $currentContainerId');
+          } else {
+            stdout.writeln('  ⚠️ New container: $currentContainerId');
           }
+        }
 
-          // Show code
-          if (data['code'] != null) stdout.writeln('  Code: ${data['code']}');
+        // Show code from synthetic summary event
+        if (event['code'] != null) {
+          stdout.writeln('  Code: ${event['code']}');
+        }
 
-          // Show generated files and download them
-          if (data['files'] != null && data['files'] is List) {
-            final files = data['files'] as List;
-            stdout.writeln('  📊 Generated ${files.length} file(s)');
-            for (final file in files) {
-              if (file is Map) {
-                final fileId = file['file_id'] as String?;
-                final filename = file['filename'] as String? ?? 'unnamed_file';
-                final containerId =
-                    file['container_id'] as String? ??
-                    data['container_id'] as String?;
-                if (fileId != null && containerId != null) {
-                  // Only download if we haven't already downloaded this file
-                  if (!downloadedFiles.contains(fileId)) {
-                    downloadedFiles.add(fileId);
-                    await downloadContainerFile(containerId, fileId, filename);
-                  }
-                }
-              } else if (file is String) {
-                // File might just be a string ID
-                final containerId = data['container_id'] as String?;
-                if (containerId != null) {
-                  // Only download if we haven't already downloaded this file
-                  if (!downloadedFiles.contains(file)) {
-                    downloadedFiles.add(file);
-                    await downloadContainerFile(containerId, file, '$file.png');
-                  }
+        // Show generated files from synthetic summary event
+        if (event['results'] != null && event['results'] is List) {
+          final results = event['results'] as List;
+          for (final result in results) {
+            if (result is Map && result['type'] == 'file') {
+              final fileId = result['file_id'] as String?;
+              final filename = result['filename'] as String? ?? 'unnamed_file';
+              final containerId = event['container_id'] as String?;
+
+              if (fileId != null && containerId != null) {
+                // Only download if we haven't already downloaded this file
+                if (!downloadedFiles.contains(fileId)) {
+                  downloadedFiles.add(fileId);
+                  stdout.writeln('  📊 Generated file: $filename');
+                  await downloadContainerFile(containerId, fileId, filename);
                 }
               }
             }

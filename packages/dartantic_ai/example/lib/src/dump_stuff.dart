@@ -9,7 +9,8 @@ void dumpMessages(List<ChatMessage> history) {
   for (final message in history) {
     stdout.writeln('- ${_messageToSingleLine(message)}');
     if (message.metadata.isNotEmpty) {
-      stdout.writeln('  Metadata: ${message.metadata}');
+      stdout.write('  Metadata: ');
+      dumpMetadata(message.metadata);
     }
   }
   stdout.writeln('--------------------------------');
@@ -152,3 +153,63 @@ void dumpUsage(LanguageModelUsage usage) {
   stdout.writeln('- Response tokens: ${usage.responseTokens}');
   stdout.writeln('- Total tokens: ${usage.totalTokens}');
 }
+
+void dumpMetadata(
+  Map<String, Object?> metadata, {
+  String prefix = '',
+  int maxLength = 256,
+}) {
+  if (metadata.isEmpty) return;
+  final trimmed = _recursiveTrimJson(metadata, maxLength: maxLength);
+  const encoder = JsonEncoder();
+  final serialized = encoder.convert(trimmed);
+  stdout.writeln('$prefix$serialized');
+}
+
+/// Recursively processes a JSON structure, trimming string values and
+/// parsing string values that contain JSON
+Object? _recursiveTrimJson(Object? value, {required int maxLength}) {
+  if (value == null) return null;
+
+  // Handle strings: try to parse as JSON, otherwise trim
+  if (value is String) {
+    // Try to parse as JSON
+    try {
+      final parsed = jsonDecode(value);
+      // Recursively process the parsed JSON
+      return _recursiveTrimJson(parsed, maxLength: maxLength);
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      // Not JSON, just trim the string
+      return _clip(value, maxLength: maxLength);
+    }
+  }
+
+  // Handle lists recursively
+  if (value is List) {
+    return value
+        .map((item) => _recursiveTrimJson(item, maxLength: maxLength))
+        .toList();
+  }
+
+  // Handle maps recursively
+  if (value is Map) {
+    return value.map(
+      (key, val) =>
+          MapEntry(key, _recursiveTrimJson(val, maxLength: maxLength)),
+    );
+  }
+
+  // All other primitives (numbers, bools, etc.) pass through unchanged
+  return value;
+}
+
+String _clip(String input, {required int maxLength}) {
+  if (input.length <= maxLength) return input;
+  final safeLength = maxLength <= 3 ? maxLength : maxLength - 3;
+  final prefix = safeLength <= 0 ? '' : input.substring(0, safeLength);
+  return '$prefix...';
+}
+
+String clipWithNull(Object? value, {int maxLength = 256}) =>
+    _clip(value?.toString() ?? 'null', maxLength: maxLength);

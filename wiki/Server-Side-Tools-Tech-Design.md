@@ -1,99 +1,38 @@
 # Server-Side Tools Technical Design
 
-This document describes the architecture and implementation patterns for server-side tools in the OpenAI Responses provider, including web search, image generation, file search, code interpreter, computer use, MCP, and local shell.
+This document describes the architecture and implementation patterns for server-side tools in Dartantic AI providers. Server-side tools are capabilities executed by the provider's infrastructure (not client-side) that stream progress events during execution.
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Configuration](#configuration)
-3. [Metadata vs Message Output](#metadata-vs-message-output)
-4. [Metadata Flow Pattern](#metadata-flow-pattern)
-5. [Streaming Events](#streaming-events)
-6. [Final Message Metadata](#final-message-metadata)
-7. [Synthetic Summary Events](#synthetic-summary-events)
-8. [Image Generation Special Handling](#image-generation-special-handling)
-9. [Implementation Guidelines](#implementation-guidelines)
+2. [Generic Patterns](#generic-patterns)
+   - [Metadata vs Message Output](#metadata-vs-message-output)
+   - [Metadata Flow Pattern](#metadata-flow-pattern)
+   - [Streaming Events](#streaming-events)
+   - [Final Message Metadata](#final-message-metadata)
+   - [Synthetic Summary Events](#synthetic-summary-events)
+   - [Content Deliverables](#content-deliverables)
+3. [Implementation Guidelines](#implementation-guidelines)
+4. [OpenAI Responses Provider](#openai-responses-provider)
+   - [Configuration](#configuration)
+   - [Supported Tools](#supported-tools)
+   - [Provider-Specific Details](#provider-specific-details)
+5. [Testing Strategy](#testing-strategy)
 
 ## Overview
 
-Server-side tools are capabilities provided by the OpenAI Responses API that execute on the server rather than requiring client-side implementation. Unlike client-side tools (user-defined functions), server-side tools are:
+Server-side tools are capabilities provided by AI providers that execute on the provider's infrastructure rather than requiring client-side implementation. Unlike client-side tools (user-defined functions), server-side tools:
 
-- Executed by OpenAI's infrastructure
-- Configured via the `serverSideTools` option
+- Execute on the provider's infrastructure
+- Are configured via provider-specific options
 - Stream progress events during execution
-- Require special metadata handling to expose their operation to applications
+- Require standardized metadata handling to expose their operation to applications
 
-### Supported Tools
+This document establishes generic patterns that apply across providers, with provider-specific details documented separately.
 
-- **Web Search**: Search the web for current information
-- **Image Generation**: Generate images using gpt-image-1
-- **File Search**: Search through uploaded files/vector stores
-- **Code Interpreter**: Execute Python code with file handling
-- **Computer Use**: Control a remote desktop environment
-- **MCP (Model Context Protocol)**: Connect to MCP servers
-- **Local Shell**: Execute shell commands server-side
+## Generic Patterns
 
-## Configuration
+The following patterns apply to all providers with server-side tools.
 
-### Agent-Level Configuration
-
-Server-side tools are configured when creating an Agent via `OpenAIResponsesChatModelOptions`:
-
-```dart
-final agent = Agent(
-  'openai-responses:gpt-4o',
-  chatModelOptions: OpenAIResponsesChatModelOptions(
-    serverSideTools: {
-      OpenAIServerSideTool.webSearch,
-      OpenAIServerSideTool.imageGeneration,
-    },
-    webSearchConfig: WebSearchConfig(
-      contextSize: WebSearchContextSize.medium,
-      location: WebSearchLocation(city: 'Seattle', country: 'US'),
-    ),
-    imageGenerationConfig: ImageGenerationConfig(
-      partialImages: 2,  // Request 2 progressive previews
-      quality: ImageGenerationQuality.high,
-      size: ImageGenerationSize.square1024,
-    ),
-  ),
-);
-```
-
-### Tool-Specific Configuration Classes
-
-Each tool that supports configuration has a dedicated config class:
-
-#### WebSearchConfig
-- **contextSize**: Search context size (small, medium, large)
-- **location**: User location metadata (city, region, country, timezone)
-
-#### ImageGenerationConfig
-- **partialImages**: Number of progressive previews (0-3, default: 0)
-- **quality**: Image quality (low, medium, high, auto - default: auto)
-- **size**: Image dimensions (square1024, portrait, landscape, etc. - default: auto)
-
-#### FileSearchConfig
-- **vectorStoreIds**: List of vector store IDs to search
-- **maxResults**: Maximum number of results to return
-- **ranker**: Ranking algorithm to use
-- **scoreThreshold**: Minimum relevance score
-
-#### CodeInterpreterConfig
-- **shouldReuseContainer**: Whether to reuse previous container
-- **containerId**: Specific container ID to reuse
-- **fileIds**: Files to make available in container
-
-#### ComputerUseConfig
-- **displayWidth**: Virtual display width
-- **displayHeight**: Virtual display height
-- **environment**: Desktop environment configuration
-
-### Design Principles for Config Classes
-
-1. **Non-nullable with sensible defaults**: All config fields have default values to avoid null checks
-2. **Type-safe enums**: Use enums for well-known option sets (quality, size, etc.)
-3. **Model parameter excluded**: Model selection is handled by Agent, not tool configs
-4. **Immutable**: All config classes are `@immutable` with `final` fields
 
 ## Metadata vs Message Output
 
@@ -116,115 +55,56 @@ The distinction ensures:
 - Message content is always accessible through standard part iteration
 - Conversation history remains clean and focused on actual content
 
+### Metadata and Model Context
+
+**Critical**: Metadata is **never** sent to the model. It exists purely for application/developer use. This means:
+- ✅ Safe to keep in message history for debugging/transparency
+- ✅ Safe to strip from messages before sending to reduce token usage
+- ✅ Does not affect model behavior or responses
+- ✅ Can contain verbose debugging information without cost
+
+Developers can choose to:
+- Keep metadata for full transparency and debugging
+- Strip metadata to reduce memory/storage footprint
+- Selectively preserve certain metadata fields
+
 ### Metadata: Partial/Progress Information
 
-Metadata contains information about tool execution and intermediate states:
+Metadata contains information about tool execution and intermediate states. Typical metadata includes:
 
-| Tool | Metadata Contains | Purpose |
-|------|------------------|---------|
-| Web Search | in_progress, searching, completed events | Show search progress to user |
-| Image Generation | in_progress, generating, partial_image events | Show rendering progress, intermediate previews |
-| File Search | in_progress, searching, completed events, queries, results | Show search progress and what was found |
-| Code Interpreter | in_progress, interpreting, completed events, code, logs | Show execution progress and steps |
-| Computer Use | in_progress, screenshot events, action events | Show UI automation progress |
+- **Progress events**: in_progress, processing, completed
+- **Intermediate states**: Partial results, status updates
+- **Execution details**: What was searched, code executed, queries run
 
 **Key characteristic**: Metadata is about the **journey** - it shows what the tool is doing or did.
 
 ### Message Output: Final Deliverables
 
-Message parts contain final content that is part of the conversation:
+Message parts contain final content that is part of the conversation. Content belongs in message parts when:
 
-| Tool | Message Parts Contain | Why It's a Part |
-|------|----------------------|----------------|
-| Image Generation | `DataPart` with final image bytes | The image IS the response content |
-| Computer Use | `DataPart` with screenshots (sometimes) | Visual evidence of actions |
-| Code Interpreter | (Text only, results in metadata) | Code output is contextual, not primary content |
-| Web Search | (Text only, no parts) | Search results inform the text response |
-| File Search | (Text only, no parts) | Search results inform the text response |
+- The content is a primary deliverable (images, files, documents)
+- Users will want to see/save/use it directly
+- It should appear in conversation history naturally
+- It's standalone content that makes sense without context
 
 **Key characteristic**: Message parts are **deliverables** - they are the actual content being communicated.
 
-### Image Generation: Detailed Example
+### Examples by Tool Type
 
-Image generation demonstrates both clearly:
+**Image Generation:**
+- Metadata: Progress events, partial preview images
+- Message Parts: Final generated image as `DataPart`
+- Rationale: The image IS the response content
 
-#### Metadata (Progress):
-```dart
-// During streaming:
-chunk.metadata['image_generation'] = [
-  {'type': 'response.image_generation_call.in_progress', ...},
-  {'type': 'response.image_generation_call.generating', ...},
-  {'type': 'response.image_generation_call.partial_image',
-   'partial_image_b64': '<base64>', 'partial_image_index': 0},  // Preview #1
-  {'type': 'response.image_generation_call.partial_image',
-   'partial_image_b64': '<base64>', 'partial_image_index': 1},  // Preview #2
-]
+**Code Execution:**
+- Metadata: Execution events, code, logs, results
+- Message Parts: Text synthesis only
+- Rationale: Code output is contextual, model synthesizes into natural language
 
-// Final message:
-message.metadata['image_generation'] = [
-  // All events above, plus:
-  {'type': 'response.image_generation_call.completed', ...},
-]
-```
-
-**Purpose**: Show generation progress, allow saving intermediate previews
-
-#### Message Output (Final Deliverable):
-```dart
-// Final message:
-message.parts = [
-  TextPart('Here is the logo for NeuralFlow.'),
-  DataPart(imageBytes, mimeType: 'image/png', name: 'image.png'),  // THE actual image
-]
-```
-
-**Purpose**: The image is the primary content - it should be in the message for history/display
-
-#### Developer Usage Pattern:
-```dart
-await for (final chunk in agent.sendStream('Generate a logo')) {
-  // Show progress (optional):
-  final events = chunk.metadata['image_generation'] as List?;
-  if (events != null) {
-    for (final event in events) {
-      if (event['partial_image_b64'] != null) {
-        // Show preview to user
-        displayPreview(base64Decode(event['partial_image_b64']));
-      }
-    }
-  }
-
-  // Get final image (required):
-  for (final msg in chunk.messages) {
-    for (final part in msg.parts) {
-      if (part is DataPart && part.mimeType.startsWith('image/')) {
-        // This is the actual deliverable
-        saveImage(part.bytes);
-        displayFinal(part.bytes);
-      }
-    }
-  }
-}
-```
-
-### Code Interpreter: Counter-Example
-
-Code interpreter does NOT put output in message parts because:
-- The code and logs are contextual information, not primary content
-- The model's text response synthesizes the results into a natural answer
-- Raw code output would clutter the conversation history
-
-```dart
-// Code interpreter results stay in metadata:
-message.metadata['code_interpreter'] = [
-  {..., 'type': 'code_interpreter_call', 'code': '...', 'results': [{logs: '...'}]}
-]
-
-// The message parts contain only the synthesized response:
-message.parts = [
-  TextPart('The result is 354224848179261915075'),  // Synthesized from code output
-]
-```
+**Search (Web/File):**
+- Metadata: Search events, queries, results
+- Message Parts: Text synthesis only
+- Rationale: Search informs the text response
 
 ### Decision Matrix: Metadata vs Message Output
 
@@ -371,64 +251,53 @@ For tools with additional data (FileSearch and CodeInterpreter), append the `res
 
 ### Final Metadata Structure
 
-The complete event list includes both streaming events and the synthetic summary:
+The complete event list includes both streaming events and any synthetic summary events with additional data not available during streaming.
 
-```dart
-metadata['code_interpreter'] = [
-  {'type': 'response.code_interpreter_call.in_progress', 'item_id': '...', ...},
-  {'type': 'response.code_interpreter_call.interpreting', 'item_id': '...', ...},
-  {'type': 'response.code_interpreter_call.completed', 'item_id': '...', ...},
-  {'type': 'code_interpreter_call', 'id': '...', 'code': '...', 'results': [...], 'status': {...}},  // Synthetic
-]
-```
+### Determining Which Tools Need Synthetic Events
 
-### Which Tools Need Synthetic Events?
+For each tool, evaluate:
+1. Does the provider's final response contain data not available during streaming?
+2. Is this data valuable for debugging, transparency, or application logic?
+3. If yes: append a synthetic summary event with the additional data
 
-- ✅ **FileSearch**: Append `FileSearchCall` (has queries + results)
-- ✅ **CodeInterpreter**: Append `CodeInterpreterCall` (has code + results + containerId)
-- ❌ **WebSearch**: Ignore `WebSearchCall` (no additional data)
-- ❌ **ImageGeneration**: Ignore `ImageGenerationCall` (resultBase64 redundant with partial image handling)
-- ❌ **ComputerUse**: Ignore `ComputerCall` (no additional data)
-- ❌ **MCP**: Ignore `McpCall` (no additional data)
-- ❌ **LocalShell**: Ignore `LocalShellCall` (no additional data)
+**Common examples:**
+- File search: final queries and results
+- Code execution: final code, outputs, execution context
+- Multi-step processes: final summary of all steps
 
-## Image Generation Special Handling
+## Content Deliverables
 
-Image generation has unique requirements beyond standard metadata:
+Some server-side tools generate content that should appear as message parts, not just metadata.
 
-### Progressive Rendering (Partial Images)
+### When to Create DataParts
 
-When `partialImages > 0`, the API streams intermediate render stages as events. Each partial image event includes base64-encoded image data and an index. The sequence progresses from in_progress → generating → partial_image (possibly multiple times) → completed.
+Content should be added as a `DataPart` when:
+1. It's the primary deliverable of the tool (images, documents, files)
+2. It should persist in conversation history
+3. Users expect to access it as message content
 
-### Final Image as DataPart
+### Progressive Content (Partial Results)
 
-The last partial image is added to the final message as a `DataPart`.
+For tools that support progressive rendering/generation:
 
 **Algorithm:**
 1. During streaming, track state:
-   - Store the base64 data and index from each `ResponseImageGenerationCallPartialImage` event
-   - Each new partial image overwrites the previous one
-   - Set a completion flag when `ResponseImageGenerationCallCompleted` event arrives
+   - Store partial content as it arrives
+   - Each new partial may overwrite or append to previous
+   - Set a completion flag when the completion event arrives
 2. When building the final result:
-   - Check if image generation completed AND we have partial image data
-   - If yes: decode the last partial image base64 to bytes
-   - Create a DataPart with the bytes, mimeType 'image/png', and name including the image index
+   - Check if tool completed AND we have final content
+   - Decode/process the content into appropriate format
+   - Create a DataPart with the content and appropriate MIME type
    - Add the DataPart to the message parts list
-3. The completion event is critical - only add DataPart after receiving it to ensure we have the truly final image
+3. Wait for completion event - only add DataPart after receiving it
 
 ### Why DataPart and Not Just Metadata?
 
-1. **Semantic correctness**: Generated images are primary response content, not metadata
-2. **Consistency**: Images from vision models appear as parts, so generated images should too
-3. **Developer ergonomics**: Standard message part handling works for all images
-4. **History persistence**: Images naturally persist in conversation history
-
-### Completion Event is Critical
-
-Only add the DataPart after seeing `ResponseImageGenerationCallCompleted`. This ensures:
-- We have the truly final image (last partial)
-- We don't add incomplete/intermediate renders as the "final" image
-- Proper synchronization between streaming and final result
+1. **Semantic correctness**: Generated content is primary response material, not metadata
+2. **Consistency**: Content from all sources should appear as parts
+3. **Developer ergonomics**: Standard message part handling works uniformly
+4. **History persistence**: Content naturally persists in conversation history
 
 ## Implementation Guidelines
 
@@ -466,21 +335,23 @@ The single-item list format is critical for consistency with final metadata stru
 
 **Algorithm:**
 1. After all streaming events processed
-2. Iterate through `response.output` items
-3. For FileSearchCall: append synthetic event to 'file_search' list
-4. For CodeInterpreterCall: append synthetic event to 'code_interpreter' list
-5. Ignore all other item types
+2. Iterate through provider's final response structure
+3. For tools with additional data not in streaming events:
+   - Extract the additional data
+   - Create a synthetic summary event
+   - Append to the tool's event list in message metadata
+4. Ignore tools that have no additional data
 
-See [Synthetic Summary Events](#synthetic-summary-events) section for detailed algorithm.
+See [Synthetic Summary Events](#synthetic-summary-events) section for details.
 
-### 5. Image Generation DataPart
+### 5. Content Deliverables
 
 **Algorithm:**
-1. During streaming: track last partial image base64, index, and completion status
+1. During streaming: track partial content and completion status
 2. When building final result: check completion flag
-3. If completed: decode base64 to bytes and add DataPart to message parts
+3. If completed: process content and add DataPart to message parts
 
-See [Image Generation Special Handling](#image-generation-special-handling) section for detailed algorithm.
+See [Content Deliverables](#content-deliverables) section for details.
 
 ### 6. Non-Text Parts in Streamed Responses
 
@@ -495,91 +366,206 @@ See [Image Generation Special Handling](#image-generation-special-handling) sect
 3. If no text was streamed:
    - Include all parts (text and non-text) in output message
 
-## Example: Developer Usage
+## Developer Usage Patterns
 
-### Handling Web Search Events
+### Consuming Tool Metadata During Streaming
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  if (chunk.output.isNotEmpty) stdout.write(chunk.output);
+
+  // Access tool events (always a list)
+  final toolEvents = chunk.metadata['tool_name'] as List?;
+  if (toolEvents != null) {
+    for (final event in toolEvents) {
+      // Process event based on its structure
+      final eventType = event['type'] as String?;
+      // Handle event...
+    }
+  }
+}
+```
+
+### Accessing Complete Tool History
+
+```dart
+final result = await agent.send(prompt);
+final lastMessage = agent.messages.last;
+
+// Tool metadata accumulated in message
+final toolEvents = lastMessage.metadata['tool_name'] as List?;
+if (toolEvents != null) {
+  for (final event in toolEvents) {
+    // Process complete event history
+  }
+}
+```
+
+### Handling Content Deliverables
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  // Check for content parts in messages
+  for (final msg in chunk.messages) {
+    for (final part in msg.parts) {
+      if (part is DataPart) {
+        // Handle generated content (images, files, etc.)
+        processContent(part.bytes, part.mimeType);
+      }
+    }
+  }
+}
+```
+
+## OpenAI Responses Provider
+
+This section contains OpenAI Responses API specific implementation details. The generic patterns defined above apply here, but this section documents the provider-specific configuration, event types, and behaviors.
+
+Future providers with server-side tools should follow the same generic patterns while documenting their own provider-specific details in separate sections.
+
+### Configuration
+
+Server-side tools are configured when creating an Agent via `OpenAIResponsesChatModelOptions`:
+
+```dart
+final agent = Agent(
+  'openai-responses:gpt-4o',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: {
+      OpenAIServerSideTool.webSearch,
+      OpenAIServerSideTool.imageGeneration,
+    },
+    webSearchConfig: WebSearchConfig(
+      contextSize: WebSearchContextSize.medium,
+      location: WebSearchLocation(city: 'Seattle', country: 'US'),
+    ),
+    imageGenerationConfig: ImageGenerationConfig(
+      partialImages: 2,  // Request 2 progressive previews
+      quality: ImageGenerationQuality.high,
+      size: ImageGenerationSize.square1024,
+    ),
+  ),
+);
+```
+
+### Supported Tools
+
+- **Web Search**: Search the web for current information
+- **Image Generation**: Generate images using gpt-image-1
+- **File Search**: Search through uploaded files/vector stores
+- **Code Interpreter**: Execute Python code with file handling
+- **Computer Use**: Control a remote desktop environment
+- **MCP (Model Context Protocol)**: Connect to MCP servers
+- **Local Shell**: Execute shell commands server-side
+
+### Tool-Specific Configuration Classes
+
+#### WebSearchConfig
+- **contextSize**: Search context size (small, medium, large)
+- **location**: User location metadata (city, region, country, timezone)
+
+#### ImageGenerationConfig
+- **partialImages**: Number of progressive previews (0-3, default: 0)
+- **quality**: Image quality (low, medium, high, auto - default: auto)
+- **size**: Image dimensions (square1024, portrait, landscape, etc. - default: auto)
+
+#### FileSearchConfig
+- **vectorStoreIds**: List of vector store IDs to search
+- **maxResults**: Maximum number of results to return
+- **ranker**: Ranking algorithm to use
+- **scoreThreshold**: Minimum relevance score
+
+#### CodeInterpreterConfig
+- **shouldReuseContainer**: Whether to reuse previous container
+- **containerId**: Specific container ID to reuse
+- **fileIds**: Files to make available in container
+
+#### ComputerUseConfig
+- **displayWidth**: Virtual display width
+- **displayHeight**: Virtual display height
+- **environment**: Desktop environment configuration
+
+### Provider-Specific Details
+
+#### Event Types
+
+OpenAI Responses uses event types like:
+- `response.web_search_call.in_progress`
+- `response.web_search_call.searching`
+- `response.web_search_call.completed`
+- `response.image_generation_call.partial_image`
+- `response.code_interpreter_call.interpreting`
+
+#### Synthetic Summary Events
+
+Tools requiring synthetic events:
+- ✅ **FileSearch**: Append `FileSearchCall` (has queries + results)
+- ✅ **CodeInterpreter**: Append `CodeInterpreterCall` (has code + results + containerId)
+- ❌ **WebSearch**: Ignore `WebSearchCall` (no additional data)
+- ❌ **ImageGeneration**: Ignore `ImageGenerationCall` (resultBase64 redundant)
+- ❌ **ComputerUse**: Ignore `ComputerCall` (no additional data)
+- ❌ **MCP**: Ignore `McpCall` (no additional data)
+- ❌ **LocalShell**: Ignore `LocalShellCall` (no additional data)
+
+#### Image Generation Details
+
+When `partialImages > 0`, the API streams intermediate render stages:
+1. Track each `ResponseImageGenerationCallPartialImage` event
+2. Store base64 data and index (each overwrites previous)
+3. Set completion flag on `ResponseImageGenerationCallCompleted`
+4. Add last partial as DataPart only after completion
+
+### Example Usage
+
+#### Web Search
 
 ```dart
 await for (final chunk in agent.sendStream('What are the latest Dart news?')) {
-  if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
   final webSearchEvents = chunk.metadata['web_search'] as List?;
   if (webSearchEvents != null) {
     for (final event in webSearchEvents) {
-      final stage = event['type'] as String;
-      print('Web search: $stage');
+      print('Stage: ${event['type']}');
     }
   }
 }
 ```
 
-### Accessing Complete History
-
-```dart
-final result = await agent.send('What are the latest Dart news?');
-final history = agent.messages;
-final lastMessage = history.last;
-
-final webSearchEvents = lastMessage.metadata['web_search'] as List?;
-if (webSearchEvents != null) {
-  print('Complete web search flow:');
-  for (final event in webSearchEvents) {
-    print('  - ${event['type']}');
-  }
-}
-```
-
-### Image Generation with Progressive Previews
+#### Image Generation with Previews
 
 ```dart
 await for (final chunk in agent.sendStream('Generate a logo')) {
-  if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
   final imageEvents = chunk.metadata['image_generation'] as List?;
   if (imageEvents != null) {
     for (final event in imageEvents) {
-      final stage = event['type'] as String;
-      print('Image generation: $stage');
-
-      // Save partial images during generation
+      // Save partial images
       if (event['partial_image_b64'] != null) {
         final bytes = base64Decode(event['partial_image_b64']);
-        File('partial_${event['partial_image_index']}.png').writeAsBytesSync(bytes);
+        savePreview(bytes, event['partial_image_index']);
       }
     }
   }
 
-  // Final image arrives as DataPart in message
+  // Final image as DataPart
   for (final msg in chunk.messages) {
     for (final part in msg.parts) {
       if (part is DataPart && part.mimeType.startsWith('image/')) {
-        File('final_image.png').writeAsBytesSync(part.bytes);
+        saveFinal(part.bytes);
       }
     }
   }
 }
 ```
 
-### Code Interpreter with Results
+#### Code Interpreter
 
 ```dart
 final result = await agent.send('Calculate fibonacci(100)');
-final lastMessage = agent.messages.last;
-
-final codeEvents = lastMessage.metadata['code_interpreter'] as List?;
+final codeEvents = agent.messages.last.metadata['code_interpreter'] as List?;
 if (codeEvents != null) {
-  // Last event is the synthetic summary with code and results
+  // Last event is synthetic summary
   final summary = codeEvents.last;
-  print('Code executed:\n${summary['code']}');
-
-  final results = summary['results'] as List?;
-  if (results != null) {
-    for (final result in results) {
-      if (result['type'] == 'logs') {
-        print('Output: ${result['logs']}');
-      }
-    }
-  }
+  print('Code: ${summary['code']}');
+  print('Container: ${summary['container_id']}');
 }
 ```
 
@@ -606,9 +592,9 @@ if (codeEvents != null) {
 Tests should verify:
 - Streaming chunks contain single-item event lists for each tool event
 - Final result contains complete accumulated event lists in message metadata
-- Event types match expected progression (in_progress → specific stages → completed)
-- Synthetic events are properly appended for FileSearch and CodeInterpreter
-- Generated images appear as DataPart in message parts
+- Event types match expected progression for the provider
+- Synthetic events are properly appended when tools have additional data
+- Content deliverables appear as DataPart in message parts
 - Result metadata does NOT contain tool events (only response-level metadata)
 
 ## Related Documentation
