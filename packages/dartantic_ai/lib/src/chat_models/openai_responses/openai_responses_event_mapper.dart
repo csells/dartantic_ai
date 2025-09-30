@@ -55,6 +55,11 @@ class OpenAIResponsesEventMapper {
   // Track which outputIndex contains reasoning text
   final Set<int> _reasoningOutputIndices = {};
 
+  // Track the last partial image for adding to final result
+  String? _lastPartialImageB64;
+  int? _lastPartialImageIndex;
+  bool _imageGenerationCompleted = false;
+
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
   Iterable<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) sync* {
     // Handle function call item creation
@@ -238,6 +243,18 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseImageGenerationCallGenerating ||
         event is openai.ResponseImageGenerationCallCompleted) {
       _recordToolEvent('image_generation', event);
+
+      // Track partial images as they arrive
+      if (event is openai.ResponseImageGenerationCallPartialImage) {
+        _lastPartialImageB64 = event.partialImageB64;
+        _lastPartialImageIndex = event.partialImageIndex;
+      }
+
+      // Mark completion so we know the last partial is the final image
+      if (event is openai.ResponseImageGenerationCallCompleted) {
+        _imageGenerationCompleted = true;
+      }
+
       yield* _yieldToolMetadataChunk('image_generation', event);
       return;
     }
@@ -295,6 +312,18 @@ class OpenAIResponsesEventMapper {
     final eventJson = event.toJson();
     final stage = eventJson['type'] as String? ?? 'unknown';
 
+    // Build metadata with event details
+    final metadata = <String, Object?>{
+      'stage': stage,
+      'data': eventJson,
+    };
+
+    // For image generation partial images, include the base64 data
+    if (event is openai.ResponseImageGenerationCallPartialImage) {
+      metadata['partial_image_b64'] = event.partialImageB64;
+      metadata['partial_image_index'] = event.partialImageIndex;
+    }
+
     // Yield a metadata-only chunk with the tool event
     yield ChatResult<ChatMessage>(
       output: const ChatMessage(
@@ -303,10 +332,7 @@ class OpenAIResponsesEventMapper {
       ),
       messages: const [],
       metadata: {
-        toolKey: {
-          'stage': stage,
-          'data': eventJson,
-        },
+        toolKey: metadata,
       },
       usage: const LanguageModelUsage(),
     );
@@ -502,6 +528,23 @@ class OpenAIResponsesEventMapper {
       _logger.info('');
     }
 
+    // Add the last partial image as a DataPart if generation completed
+    if (_imageGenerationCompleted && _lastPartialImageB64 != null) {
+      try {
+        final bytes = base64Decode(_lastPartialImageB64!);
+        parts.add(
+          DataPart(
+            bytes,
+            mimeType: 'image/png',
+            name: 'image_$_lastPartialImageIndex.png',
+          ),
+        );
+        _logger.fine('Added final image as DataPart (${bytes.length} bytes)');
+      } on FormatException catch (e) {
+        _logger.warning('Failed to decode final image base64: $e');
+      }
+    }
+
     _logger.fine('Building final message with ${parts.length} parts');
     for (final part in parts) {
       _logger.fine('  Part: ${part.runtimeType}');
@@ -529,18 +572,32 @@ class OpenAIResponsesEventMapper {
     if (_hasStreamedText) {
       // We've already streamed the text content
       // The orchestrator will consolidate the accumulated chunks
-      // Return a message with ONLY metadata (no text) to avoid duplication
-      final metadataOnlyMessage = ChatMessage(
+      // Return metadata and any non-text parts (like images) in messages only
+      final nonTextParts =
+          parts.where((p) => p is! TextPart).toList(growable: false);
+
+      // Empty output to avoid duplication with streamed text
+      final metadataOnlyOutput = ChatMessage(
         role: ChatMessageRole.model,
-        parts: const [], // Empty parts - text already streamed
-        metadata: messageMetadata, // Include the session metadata
+        parts: const [], // No parts in output - text already streamed
+        metadata: messageMetadata, // Include metadata for orchestrator
       );
+
+      // If there are non-text parts, include them in messages
+      final messages = nonTextParts.isNotEmpty
+          ? [
+              ChatMessage(
+                role: ChatMessageRole.model,
+                parts: nonTextParts,
+                metadata: messageMetadata,
+              ),
+            ]
+          : const <ChatMessage>[];
 
       return ChatResult<ChatMessage>(
         id: response.id,
-        output: metadataOnlyMessage, // Metadata-only message for accumulator
-        // Empty messages array - orchestrator builds from accumulated chunks
-        messages: const [],
+        output: metadataOnlyOutput, // Empty parts, just metadata
+        messages: messages, // Non-text parts here to avoid duplication
         usage: usage,
         finishReason: _mapFinishReason(response),
         metadata: resultMetadata,

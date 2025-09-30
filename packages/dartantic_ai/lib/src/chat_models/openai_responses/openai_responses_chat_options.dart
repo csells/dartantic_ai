@@ -32,6 +32,7 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
     this.webSearchConfig,
     this.computerUseConfig,
     this.codeInterpreterConfig,
+    this.imageGenerationConfig,
   });
 
   /// Sampling temperature passed to the Responses API.
@@ -102,6 +103,9 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
 
   /// Additional configuration for the `code_interpreter` server-side tool.
   final CodeInterpreterConfig? codeInterpreterConfig;
+
+  /// Additional configuration for the `image_generation` server-side tool.
+  final ImageGenerationConfig? imageGenerationConfig;
 }
 
 /// Reasoning effort levels for OpenAI Responses models that support thinking.
@@ -129,4 +133,71 @@ enum OpenAIReasoningSummary {
 
   /// Do not request a reasoning summary channel.
   none,
+}
+
+/// Configuration for the image_generation server-side tool.
+@immutable
+class ImageGenerationConfig {
+  /// Creates a new image generation configuration.
+  const ImageGenerationConfig({
+    this.partialImages = 0,
+    this.quality = ImageGenerationQuality.auto,
+    this.size = ImageGenerationSize.auto,
+  });
+
+  /// Number of partial/preview images to generate during streaming (0-3).
+  /// - 0: No progressive previews, only final image (default)
+  /// - 1-3: Show intermediate render stages during generation
+  /// Higher values show more progressive rendering but use more bandwidth.
+  final int partialImages;
+
+  /// Image quality setting.
+  /// Default is auto, which lets the model choose the best quality.
+  final ImageGenerationQuality quality;
+
+  /// Output image size.
+  /// Default is auto, which lets the model choose the appropriate size.
+  final ImageGenerationSize size;
+}
+
+/// Quality levels for image generation.
+enum ImageGenerationQuality {
+  /// Low quality (fastest generation).
+  low,
+
+  /// Medium quality (balanced speed/quality).
+  medium,
+
+  /// High quality (slowest, best quality).
+  high,
+
+  /// Automatic quality selection.
+  auto,
+}
+
+/// Size options for generated images.
+enum ImageGenerationSize {
+  /// Automatic size selection.
+  auto,
+
+  /// Square 256x256 (DALL·E-2 only).
+  square256,
+
+  /// Square 512x512 (DALL·E-2 only).
+  square512,
+
+  /// Square 1024x1024 (all models).
+  square1024,
+
+  /// Landscape 1536x1024 (gpt-image-1).
+  landscape1536x1024,
+
+  /// Landscape 1792x1024 (DALL·E-3).
+  landscape1792x1024,
+
+  /// Portrait 1024x1536 (gpt-image-1).
+  portrait1024x1536,
+
+  /// Portrait 1024x1792 (DALL·E-3).
+  portrait1024x1792,
 }

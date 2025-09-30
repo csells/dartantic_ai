@@ -142,6 +142,8 @@ class OpenAIResponsesChatModel
         options?.computerUseConfig ?? defaultOptions.computerUseConfig;
     final codeInterpreterConfig =
         options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
+    final imageGenerationConfig =
+        options?.imageGenerationConfig ?? defaultOptions.imageGenerationConfig;
 
     if ((codeInterpreterConfig?.shouldReuseContainer ?? false) && !store) {
       _logger.warning(
@@ -158,6 +160,7 @@ class OpenAIResponsesChatModel
         webSearchConfig: webSearchConfig,
         computerUseConfig: computerUseConfig,
         codeInterpreterConfig: codeInterpreterConfig,
+        imageGenerationConfig: imageGenerationConfig,
       ),
     ];
 
@@ -225,6 +228,7 @@ class OpenAIResponsesChatModel
     WebSearchConfig? webSearchConfig,
     ComputerUseConfig? computerUseConfig,
     CodeInterpreterConfig? codeInterpreterConfig,
+    ImageGenerationConfig? imageGenerationConfig,
   }) {
     if (serverSideTools.isEmpty) return const [];
 
@@ -301,7 +305,14 @@ class OpenAIResponsesChatModel
           );
           continue;
         case OpenAIServerSideTool.imageGeneration:
-          tools.add(const openai.ImageGenerationTool());
+          final config = imageGenerationConfig ?? const ImageGenerationConfig();
+          tools.add(
+            openai.ImageGenerationTool(
+              partialImages: config.partialImages,
+              quality: _mapImageQuality(config.quality),
+              imageOutputSize: _mapImageSize(config.size),
+            ),
+          );
           continue;
         case OpenAIServerSideTool.codeInterpreter:
           final config = codeInterpreterConfig;
@@ -447,4 +458,29 @@ class OpenAIResponsesChatModel
       timezone: location.timezone,
     );
   }
+
+  static openai.ImageOutputQuality _mapImageQuality(
+    ImageGenerationQuality quality,
+  ) => switch (quality) {
+    ImageGenerationQuality.low => openai.ImageOutputQuality.low,
+    ImageGenerationQuality.medium => openai.ImageOutputQuality.medium,
+    ImageGenerationQuality.high => openai.ImageOutputQuality.high,
+    ImageGenerationQuality.auto => openai.ImageOutputQuality.auto,
+  };
+
+  static openai.ImageOutputSize _mapImageSize(ImageGenerationSize size) =>
+      switch (size) {
+        ImageGenerationSize.auto => openai.ImageOutputSize.auto,
+        ImageGenerationSize.square256 => openai.ImageOutputSize.square256,
+        ImageGenerationSize.square512 => openai.ImageOutputSize.square512,
+        ImageGenerationSize.square1024 => openai.ImageOutputSize.square1024,
+        ImageGenerationSize.landscape1536x1024 =>
+          openai.ImageOutputSize.landscape1536x1024,
+        ImageGenerationSize.landscape1792x1024 =>
+          openai.ImageOutputSize.landscape1792x1024,
+        ImageGenerationSize.portrait1024x1536 =>
+          openai.ImageOutputSize.portrait1024x1536,
+        ImageGenerationSize.portrait1024x1792 =>
+          openai.ImageOutputSize.portrait1024x1792,
+      };
 }
