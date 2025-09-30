@@ -1,9 +1,9 @@
 ## 1.1.0
 
 ### TODO
-- add the respository to the pubspec
-- doc the Chat class
-- openai responses API implementation via Jesse's most excellent openai_core package
+- add the homepage and repo to the pubspec
+- openai responses API implementation via Jesse's most excellent openai_core
+  package
   - store: true => only send new messages (default)
   - store: false => send the entire stack
 - a lot of time on the examples -- check 'em out!
@@ -12,7 +12,6 @@
 - added docs + example apps for all of these (including in launch.json)
 - only list Live models for the cohere provider; update the default chat model
 - exposed thinking via chatresult and chatmessage metadata
-- 
 
 ## 1.0.8
 

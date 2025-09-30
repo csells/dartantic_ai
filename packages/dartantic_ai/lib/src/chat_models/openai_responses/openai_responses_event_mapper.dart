@@ -227,15 +227,18 @@ class OpenAIResponsesEventMapper {
       );
     }
 
-    _recordToolEventIfNeeded(event);
+    yield* _recordToolEventIfNeeded(event);
   }
 
-  void _recordToolEventIfNeeded(openai.ResponseEvent event) {
+  Iterable<ChatResult<ChatMessage>> _recordToolEventIfNeeded(
+    openai.ResponseEvent event,
+  ) sync* {
     if (event is openai.ResponseImageGenerationCallPartialImage ||
         event is openai.ResponseImageGenerationCallInProgress ||
         event is openai.ResponseImageGenerationCallGenerating ||
         event is openai.ResponseImageGenerationCallCompleted) {
       _recordToolEvent('image_generation', event);
+      yield* _yieldToolMetadataChunk('image_generation', event);
       return;
     }
 
@@ -243,6 +246,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseWebSearchCallSearching ||
         event is openai.ResponseWebSearchCallCompleted) {
       _recordToolEvent('web_search', event);
+      yield* _yieldToolMetadataChunk('web_search', event);
       return;
     }
 
@@ -250,6 +254,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseFileSearchCallSearching ||
         event is openai.ResponseFileSearchCallCompleted) {
       _recordToolEvent('file_search', event);
+      yield* _yieldToolMetadataChunk('file_search', event);
       return;
     }
 
@@ -262,6 +267,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseMcpListToolsCompleted ||
         event is openai.ResponseMcpListToolsFailed) {
       _recordToolEvent('mcp', event);
+      yield* _yieldToolMetadataChunk('mcp', event);
       return;
     }
 
@@ -271,6 +277,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseCodeInterpreterCallCompleted ||
         event is openai.ResponseCodeInterpreterCallInterpreting) {
       _recordToolEvent('code_interpreter', event);
+      yield* _yieldToolMetadataChunk('code_interpreter', event);
       return;
     }
   }
@@ -280,6 +287,31 @@ class OpenAIResponsesEventMapper {
     _toolEventLog.putIfAbsent(key, () => []).add(logEntry);
   }
 
+  Iterable<ChatResult<ChatMessage>> _yieldToolMetadataChunk(
+    String toolKey,
+    openai.ResponseEvent event,
+  ) sync* {
+    // Extract stage from event type
+    final eventJson = event.toJson();
+    final stage = eventJson['type'] as String? ?? 'unknown';
+
+    // Yield a metadata-only chunk with the tool event
+    yield ChatResult<ChatMessage>(
+      output: const ChatMessage(
+        role: ChatMessageRole.model,
+        parts: [], // No text parts - just metadata
+      ),
+      messages: const [],
+      metadata: {
+        toolKey: {
+          'stage': stage,
+          'data': eventJson,
+        },
+      },
+      usage: const LanguageModelUsage(),
+    );
+  }
+
   ChatResult<ChatMessage> _buildFinalResult(openai.Response response) {
     final parts = <Part>[];
     final toolCallNames = <String, String>{};
@@ -287,7 +319,7 @@ class OpenAIResponsesEventMapper {
 
     for (final entry in _toolEventLog.entries) {
       if (entry.value.isNotEmpty) {
-        telemetry['${entry.key}_events'] = entry.value;
+        telemetry[entry.key] = entry.value;
       }
     }
 

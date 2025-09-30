@@ -110,6 +110,18 @@
       "program": "packages/dartantic_ai/example/bin/custom_http_client.dart"
     },
     {
+      "name": "thinking",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/thinking.dart"
+    },
+    {
+      "name": "server-side tools",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools.dart"
+    },
+    {
       "name": "chatarang",
       "request": "launch",
       "type": "dart",

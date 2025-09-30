@@ -13,8 +13,8 @@ Future<void> main(List<String> args) async {
   await demoWebSearch();
   // await demoImageGeneration();
   // await demoFileSearch();
-  // await demoComputerUse();
   // await demoCodeInterpreter();
+  // await demoComputerUse();
 }
 
 /// Demonstrates web search capabilities
