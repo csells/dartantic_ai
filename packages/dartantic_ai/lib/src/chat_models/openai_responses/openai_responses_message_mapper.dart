@@ -60,11 +60,10 @@ class OpenAIResponsesMessageMapper {
       final hasSession = metadata.containsKey(
         OpenAIResponsesMetadata.sessionKey,
       );
-      final sessionInfo = hasSession
-          ? ' [HAS SESSION: ${OpenAIResponsesMetadata.responseId(
-              OpenAIResponsesMetadata.getSessionData(metadata),
-            )}]'
-          : '';
+      final responseIdInfo = OpenAIResponsesMetadata.responseId(
+        OpenAIResponsesMetadata.getSessionData(metadata),
+      );
+      final sessionInfo = hasSession ? ' [HAS SESSION: $responseIdInfo]' : '';
       log.info('  [$i]: ${messages[i].role.name} ($parts)$sessionInfo');
     }
 

@@ -148,7 +148,8 @@ void main() {
         expect(
           sentMessageCounts.first,
           equals(5),
-          reason: 'Second Responses call should only send messages '
+          reason:
+              'Second Responses call should only send messages '
               'after first session',
         );
 

@@ -91,6 +91,7 @@ Each provider follows a consistent pattern:
 
 ## Testing Strategy
 
+- **ALWAYS check for existing tests before creating new ones** - Search the test directory for related tests using grep/glob before creating new test files. Update existing tests rather than duplicating functionality.
 - Tests use `validateMessageHistory()` helper to ensure proper message alternation (user/model/user/model)
 - Integration tests connect to actual providers when API keys are available
 - Mock tools and utilities in `test/test_tools.dart` and `test/test_utils.dart`

@@ -50,22 +50,44 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       List.unmodifiable(state.conversationHistory),
       outputSchema: outputSchema,
     )) {
+      // Debug log the incoming result
+      if (result.metadata.containsKey('thinking')) {
+        _logger.fine(
+          'Orchestrator received result with thinking: '
+          '"${result.metadata['thinking']}"',
+        );
+      }
+
       // Extract text content for streaming
       final textOutput = result.output.parts
           .whereType<TextPart>()
           .map((p) => p.text)
           .join();
 
-      // Stream text if available
-      if (textOutput.isNotEmpty) {
-        _logger.fine('Streaming text chunk: ${textOutput.length} chars');
+      // Check if we have content to stream (text or metadata)
+      final hasText = textOutput.isNotEmpty;
+      final hasMetadata = result.metadata.isNotEmpty;
 
-        // Handle newline prefixing for better UX
-        final streamOutput = _shouldPrefixNewline(state)
-            ? '\n$textOutput'
-            : textOutput;
+      // Stream text and/or metadata if available
+      if (hasText || hasMetadata) {
+        _logger.fine(
+          'Streaming chunk: text=${textOutput.length} chars, '
+          'metadata=${result.metadata.keys}',
+        );
+        if (result.metadata.containsKey('thinking')) {
+          _logger.fine(
+            '  Found thinking in metadata: "${result.metadata['thinking']}"',
+          );
+        }
 
-        state.markMessageStarted();
+        var streamOutput = '';
+        if (hasText) {
+          // Handle newline prefixing for better UX
+          streamOutput = _shouldPrefixNewline(state)
+              ? '\n$textOutput'
+              : textOutput;
+          state.markMessageStarted();
+        }
 
         yield StreamingIterationResult(
           output: streamOutput,

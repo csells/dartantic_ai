@@ -168,8 +168,6 @@ void main() {
         equals('resp_123'),
       );
 
-      expect(message.metadata['thinking'], contains('Thinking'));
-
       final codeInterpreter =
           (message.metadata['code_interpreter'] as Map<String, Object?>?) ?? {};
       expect(codeInterpreter['calls'], isNotEmpty);

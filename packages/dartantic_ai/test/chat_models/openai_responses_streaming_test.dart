@@ -14,6 +14,77 @@ void main() {
       Agent.environment['OPENAI_API_KEY'] = apiKey;
     });
 
+    test('should stream thinking metadata for reasoning models', () async {
+      // Test with gpt-5 which supports thinking/reasoning
+      final agent = Agent(
+        'openai-responses:gpt-5',
+        chatModelOptions: const OpenAIResponsesChatModelOptions(
+          reasoningSummary: OpenAIReasoningSummary.detailed,
+        ),
+      );
+
+      final streamedThinking = <String>[];
+      final streamedOutput = <String>[];
+      ChatMessage? finalMessage;
+
+      await for (final chunk in agent.sendStream(
+        'In one sentence: explain quicksort.',
+      )) {
+        // Collect thinking metadata during streaming
+        final thinking = chunk.metadata['thinking'] as String?;
+        if (thinking != null && thinking.isNotEmpty) {
+          streamedThinking.add(thinking);
+        }
+
+        // Collect regular output
+        if (chunk.output.isNotEmpty) {
+          streamedOutput.add(chunk.output);
+        }
+
+        // Save final message
+        if (chunk.messages.isNotEmpty) {
+          finalMessage = chunk.messages.last;
+        }
+      }
+
+      final combinedThinking = streamedThinking.join();
+      final combinedOutput = streamedOutput.join();
+
+      // With gpt-5 and reasoningSummary enabled, we MUST get thinking
+      expect(
+        streamedThinking,
+        isNotEmpty,
+        reason: 'gpt-5 with detailed reasoning MUST produce thinking metadata',
+      );
+      expect(
+        combinedThinking,
+        isNotEmpty,
+        reason: 'Thinking metadata should contain content',
+      );
+      expect(
+        combinedThinking.length,
+        greaterThan(20),
+        reason: 'Thinking should be substantial for detailed reasoning',
+      );
+      expect(
+        finalMessage?.metadata['thinking'],
+        equals(combinedThinking),
+        reason: 'Final message should contain complete thinking',
+      );
+
+      // Verify the actual response
+      expect(
+        combinedOutput,
+        isNotEmpty,
+        reason: 'Should have actual response output',
+      );
+      expect(
+        combinedOutput.toLowerCase(),
+        contains('quicksort'),
+        reason: 'Response should address the question',
+      );
+    });
+
     test('should not duplicate text in streaming responses', () async {
       final agent = Agent('openai-responses');
       final history = <ChatMessage>[];
@@ -200,6 +271,66 @@ void main() {
           firstSession['response_id'],
           isNot(equals(secondSession['response_id'])),
           reason: 'Each turn should have a unique response ID',
+        );
+      },
+    );
+
+    test(
+      'should provide thinking metadata in result.metadata for non-streaming',
+      () async {
+        // Test with gpt-5 which supports thinking/reasoning
+        final agent = Agent(
+          'openai-responses:gpt-5',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            reasoningSummary: OpenAIReasoningSummary.detailed,
+          ),
+        );
+
+        final result = await agent.send('In one sentence: explain merge sort.');
+
+        // Check thinking is in result.metadata for consistency with streaming
+        final resultThinking = result.metadata['thinking'] as String?;
+
+        // Check thinking is also in message metadata for consistency
+        final messageThinking =
+            result.messages.last.metadata['thinking'] as String?;
+
+        // With gpt-5 and reasoningSummary enabled, we MUST get thinking
+        expect(
+          resultThinking,
+          isNotNull,
+          reason:
+              'gpt-5 with detailed reasoning MUST produce thinking in '
+              'result.metadata',
+        );
+        expect(
+          resultThinking!.isNotEmpty,
+          isTrue,
+          reason: 'Result thinking metadata should contain content',
+        );
+        expect(
+          resultThinking.length,
+          greaterThan(20),
+          reason: 'Thinking should be substantial for detailed reasoning',
+        );
+        expect(
+          messageThinking,
+          equals(resultThinking),
+          reason:
+              'Message and result should have same thinking metadata for '
+              'consistency',
+        );
+
+        // Verify we got a real response
+        expect(
+          result.output,
+          isNotEmpty,
+          reason: 'Should have actual response output',
+        );
+        expect(
+          result.output.toLowerCase(),
+          contains('merge'),
+          reason: 'Response should address merge sort',
         );
       },
     );

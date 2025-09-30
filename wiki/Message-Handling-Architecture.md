@@ -554,4 +554,48 @@ Agent → StreamingOrchestrator → ChatModel → Provider API
 StreamingState → ToolExecutor → MessageAccumulator
 ```
 
+## Thinking/Reasoning Metadata
+
+### Overview
+
+Some providers (like OpenAI Responses with reasoning models) support "thinking" or "reasoning" metadata that represents the model's internal thought process before generating a response. This metadata flows through the system in a specific way to ensure consistency and avoid duplication.
+
+### Metadata Flow
+
+1. **Streaming Events**: Thinking arrives as `ResponseReasoningSummaryTextDelta` events during streaming
+2. **Event Mapper**:
+   - Routes thinking to `ChatResult.metadata['thinking']` instead of output text
+   - Tracks reasoning output indices to filter reasoning text from regular output stream
+   - Skips `Reasoning` items in final `ResponseCompleted` event to prevent duplication
+   - Only accumulates thinking from streaming delta events
+3. **Orchestrator**: Forwards metadata-only chunks (not just text chunks)
+4. **Agent**: Yields ChatResults when metadata OR text is present
+5. **Final Result**: Copies thinking from message metadata to result metadata for API consistency
+
+### Consistent API
+
+Thinking metadata is accessible in the same location for both `sendStream()` and `send()`:
+
+- **sendStream()**: `chunk.metadata['thinking']` - arrives in real-time as the model thinks
+- **send()**: `result.metadata['thinking']` - contains complete accumulated thinking
+- **Message metadata**: `message.metadata['thinking']` - also preserved for backwards compatibility
+
+Both methods receive thinking because `send()` is implemented using `sendStream()` internally.
+
+### Reasoning Text Filtering
+
+The event mapper prevents reasoning text from appearing in the regular output stream:
+
+- Tracks reasoning output indices via `ResponseReasoningDone` events
+- Filters `ResponseOutputTextDelta` events that match reasoning indices
+- Ensures only the actual response text streams to the user
+- Reasoning text is available exclusively via `thinking` metadata
+
+### Implementation Notes
+
+- The thinking text is clean metadata without any formatting
+- Display formatting (like `[[...]]` brackets) should be added by the presentation layer
+- Only specific models (gpt-5, o1, o3, etc.) with reasoning capabilities generate this metadata
+- Thinking is never duplicated - it's only accumulated from streaming delta events, never from the final `Reasoning` items in `ResponseCompleted`
+
 

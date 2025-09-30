@@ -26,7 +26,10 @@ void main() {
       final segment = OpenAIResponsesMessageMapper.mapHistory(messages);
 
       expect(segment.previousResponseId, isNull);
-      expect(segment.instructions, isNull); // System messages are now regular items
+      expect(
+        segment.instructions,
+        isNull, // System messages are regular items
+      );
       expect(segment.input, isA<openai.ResponseInputItems>());
 
       final input = segment.input as openai.ResponseInputItems?;

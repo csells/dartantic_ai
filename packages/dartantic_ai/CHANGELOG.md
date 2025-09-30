@@ -7,9 +7,12 @@
   - store: true => only send new messages (default)
   - store: false => send the entire stack
 - a lot of time on the examples -- check 'em out!
-- moved lambda to the openai_compat.dart example and out of the list of supported providers
+- removed lambda in favor of an openai_compat.dart example so you can can see
+  how to plug in any openai-compatible model (all of them?)
 - added docs + example apps for all of these (including in launch.json)
 - only list Live models for the cohere provider; update the default chat model
+- exposed thinking via chatresult and chatmessage metadata
+- 
 
 ## 1.0.8
 

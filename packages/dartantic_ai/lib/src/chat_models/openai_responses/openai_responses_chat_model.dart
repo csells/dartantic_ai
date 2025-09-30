@@ -192,6 +192,12 @@ class OpenAIResponsesChatModel
         _logger.fine('Received event: ${event.runtimeType}');
         final results = mapper.handle(event);
         for (final result in results) {
+          if (result.metadata.containsKey('thinking')) {
+            _logger.fine(
+              'Yielding result with thinking metadata: '
+              '"${result.metadata['thinking']}"',
+            );
+          }
           yield result;
         }
       }

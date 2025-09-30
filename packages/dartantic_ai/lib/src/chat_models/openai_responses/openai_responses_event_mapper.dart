@@ -30,7 +30,6 @@ class OpenAIResponsesEventMapper {
   final OpenAIResponsesHistorySegment history;
 
   final StringBuffer _thinkingBuffer = StringBuffer();
-  final List<Map<String, Object?>> _thinkingDetails = [];
 
   // Accumulate function calls during streaming
   // Key is outputIndex as string, value is the function call being built
@@ -53,6 +52,9 @@ class OpenAIResponsesEventMapper {
     'code_interpreter': <Map<String, Object?>>[],
   };
 
+  // Track which outputIndex contains reasoning text
+  final Set<int> _reasoningOutputIndices = {};
+
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
   Iterable<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) sync* {
     // Handle function call item creation
@@ -71,6 +73,10 @@ class OpenAIResponsesEventMapper {
           'Function call created: ${item.name} '
           '(id=${item.callId}) at index ${event.outputIndex}',
         );
+      } else if (item is openai.Reasoning) {
+        // Track that this outputIndex contains reasoning text
+        _logger.fine('Reasoning item at index ${event.outputIndex}');
+        _reasoningOutputIndices.add(event.outputIndex);
       }
       return;
     }
@@ -118,6 +124,24 @@ class OpenAIResponsesEventMapper {
     }
     if (event is openai.ResponseOutputTextDelta) {
       if (event.delta.isEmpty) return;
+
+      // Check if this text delta belongs to a reasoning item
+      if (_reasoningOutputIndices.contains(event.outputIndex)) {
+        // This is reasoning text - skip it, it will come through
+        // ResponseReasoningSummaryTextDelta
+        _logger.fine(
+          'Skipping reasoning text delta at index ${event.outputIndex}: '
+          '"${event.delta}"',
+        );
+        return;
+      }
+
+      // Log the delta to understand what's being streamed
+      _logger.fine(
+        'ResponseOutputTextDelta: outputIndex=${event.outputIndex}, '
+        'delta="${event.delta}"',
+      );
+
       // Track that we've streamed text and accumulate it
       _hasStreamedText = true;
       _streamedTextBuffer.write(event.delta);
@@ -142,26 +166,39 @@ class OpenAIResponsesEventMapper {
 
     if (event is openai.ResponseReasoningSummaryTextDelta) {
       _thinkingBuffer.write(event.delta);
+      _logger.info('ResponseReasoningSummaryTextDelta: "${event.delta}"');
+      // Emit the thinking delta in metadata so it can stream
+      yield ChatResult<ChatMessage>(
+        output: const ChatMessage(
+          role: ChatMessageRole.model,
+          parts: [], // No text parts - just metadata
+        ),
+        messages: const [],
+        metadata: {
+          'thinking': event.delta, // Stream the thinking delta
+        },
+        usage: const LanguageModelUsage(),
+      );
       return;
     }
 
     if (event is openai.ResponseReasoningSummaryPartAdded) {
-      _thinkingDetails.add({'summary_part_added': event.part.toJson()});
+      // Just skip - we don't need to track these details
       return;
     }
 
     if (event is openai.ResponseReasoningSummaryPartDone) {
-      _thinkingDetails.add({'summary_part_done': event.part.toJson()});
+      // Just skip - we don't need to track these details
       return;
     }
 
     if (event is openai.ResponseReasoningDelta) {
-      _thinkingDetails.add({'reasoning_delta': event.delta});
+      // Just skip - we don't need to track these details
       return;
     }
 
     if (event is openai.ResponseReasoningDone) {
-      _thinkingDetails.add({'reasoning_done': event.text});
+      // Just skip - we don't need to track these details
       return;
     }
 
@@ -305,10 +342,9 @@ class OpenAIResponsesEventMapper {
       }
 
       if (item is openai.Reasoning) {
-        if (item.summary.isNotEmpty) {
-          final summary = item.summary.map((s) => s.text).join('\n');
-          _thinkingBuffer.write(summary);
-        }
+        // Don't add summary to buffer here - it's already been accumulated
+        // via ResponseReasoningSummaryTextDelta events during streaming
+        // Just skip this item
         continue;
       }
 
@@ -418,7 +454,6 @@ class OpenAIResponsesEventMapper {
 
     final messageMetadata = <String, Object?>{
       if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
-      if (_thinkingDetails.isNotEmpty) 'thinking_details': _thinkingDetails,
       if (telemetry.isNotEmpty) ...telemetry,
     };
 
@@ -643,15 +678,28 @@ class OpenAIResponsesEventMapper {
     telemetry['entries'] = entries;
   }
 
-  static List<Part> _mapOutputMessage(List<openai.ResponseContent> content) {
+  List<Part> _mapOutputMessage(List<openai.ResponseContent> content) {
     final parts = <Part>[];
     for (final entry in content) {
+      _logger.info('Processing ResponseContent: ${entry.runtimeType}');
       if (entry is openai.OutputTextContent) {
+        _logger.info('OutputTextContent text: "${entry.text}"');
         parts.add(TextPart(entry.text));
       } else if (entry is openai.RefusalContent) {
         parts.add(TextPart(entry.refusal));
       } else {
-        parts.add(TextPart(jsonEncode(entry.toJson())));
+        final json = entry.toJson();
+        _logger.info('OtherResponseContent: $json');
+        // Check if this is reasoning content that shouldn't be in output
+        if (json['type'] == 'reasoning_summary_text') {
+          _logger.info(
+            'Skipping reasoning_summary_text from output - '
+            'already in thinking buffer',
+          );
+          // Skip - already accumulated via ResponseReasoningSummaryTextDelta
+          continue;
+        }
+        parts.add(TextPart(jsonEncode(json)));
       }
     }
     return parts;

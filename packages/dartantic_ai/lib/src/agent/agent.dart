@@ -184,13 +184,29 @@ class Agent {
       finalResult = result;
     }
 
+    // Extract thinking metadata from the model message if present
+    ChatMessage? modelMessage;
+    for (var i = allNewMessages.length - 1; i >= 0; i--) {
+      if (allNewMessages[i].role == ChatMessageRole.model) {
+        modelMessage = allNewMessages[i];
+        break;
+      }
+    }
+
+    // Merge thinking metadata into result metadata for consistency
+    final mergedMetadata = <String, dynamic>{
+      ...finalResult.metadata,
+      if (modelMessage != null && modelMessage.metadata.containsKey('thinking'))
+        'thinking': modelMessage.metadata['thinking'],
+    };
+
     // Return final result with all accumulated messages
     finalResult = ChatResult<String>(
       id: finalResult.id,
       output: finalOutput,
       messages: allNewMessages,
       finishReason: finalResult.finishReason,
-      metadata: finalResult.metadata,
+      metadata: mergedMetadata,
       usage: finalResult.usage,
     );
 
@@ -326,8 +342,8 @@ class Agent {
             state,
             outputSchema: outputSchema,
           )) {
-            // Yield streaming text
-            if (result.output.isNotEmpty) {
+            // Yield streaming text or metadata
+            if (result.output.isNotEmpty || result.metadata.isNotEmpty) {
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: result.output,
