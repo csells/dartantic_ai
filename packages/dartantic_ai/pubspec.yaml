@@ -21,7 +21,7 @@ dependencies:
   meta: ^1.16.0
   mistralai_dart: ^0.0.5
   ollama_dart: ^0.2.4
-  openai_core: ^0.10.0
+  openai_core: ^0.10.1
   openai_dart: ^0.5.3
   rxdart: ^0.28.0
   uuid: ^4.2.2

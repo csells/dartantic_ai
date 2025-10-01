@@ -21,8 +21,6 @@ void main(List<String> args) async {
   stdout.writeln();
   stdout.writeln('Creating agent with vector store...');
 
-  // TODO: waiting on a bug fix for file search from openai_core:
-  // https://github.com/meshagent/openai_core/issues/5
   final agent = Agent(
     'openai-responses',
     chatModelOptions: OpenAIResponsesChatModelOptions(
@@ -43,38 +41,10 @@ void main(List<String> args) async {
   stdout.write('${agent.displayName}: ');
 
   await for (final chunk in agent.sendStream(prompt)) {
-    // Stream the text response
-    if (chunk.output.isNotEmpty) stdout.write(chunk.output);
-
-    // Show file search metadata (always a list of events)
-    final fsEvents = chunk.metadata['file_search'] as List?;
-    if (fsEvents != null) {
-      for (final event in fsEvents) {
-        final eventType = event['type'] as String? ?? 'unknown';
-        stdout.writeln('\n[file_search/$eventType]');
-
-        // Show query if present
-        if (event['query'] != null) {
-          stdout.writeln('  Query: ${event['query']}');
-        }
-
-        // Show results if present
-        if (event['results'] != null && event['results'] is List) {
-          final results = event['results'] as List;
-          stdout.writeln('  Found: ${results.length} results');
-
-          // Show first result preview
-          if (results.isNotEmpty) {
-            final first = results[0];
-            if (first is Map && first['content'] != null) {
-              stdout.writeln('  Preview: ${clipWithNull(first['content'])}');
-            }
-          }
-        }
-      }
-    }
+    stdout.write(chunk.output);
+    dumpMetadata(chunk.metadata, prefix: '\n');
   }
-  stdout.writeln('\n');
+  stdout.writeln('');
 }
 
 /// Sets up a vector store with the specified documentation files.

@@ -57,6 +57,10 @@ class OpenAIResponsesEventMapper {
   // Track the last partial image for adding to final result
   String? _lastPartialImageB64;
   int? _lastPartialImageIndex;
+
+  // Accumulate code interpreter code deltas
+  // Key is item_id, value is the accumulated code string
+  final Map<String, StringBuffer> _codeInterpreterCodeBuffers = {};
   bool _imageGenerationCompleted = false;
 
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
@@ -311,9 +315,39 @@ class OpenAIResponsesEventMapper {
       return;
     }
 
-    if (event is openai.ResponseCodeInterpreterCallCodeDelta ||
-        event is openai.ResponseCodeInterpreterCallCodeDone ||
-        event is openai.ResponseCodeInterpreterCallInProgress ||
+    if (event is openai.ResponseCodeInterpreterCallCodeDelta) {
+      // Accumulate code deltas instead of recording each one
+      final itemId = event.itemId;
+      _codeInterpreterCodeBuffers.putIfAbsent(itemId, StringBuffer.new)
+        ..write(event.delta);
+      // Don't yield individual deltas
+      return;
+    }
+
+    if (event is openai.ResponseCodeInterpreterCallCodeDone) {
+      // Emit a single code delta event with the complete accumulated code
+      final itemId = event.itemId;
+      final accumulatedCode = _codeInterpreterCodeBuffers[itemId]?.toString();
+
+      // Record a single code_delta event with complete code
+      final completeEvent = {
+        'type': 'response.code_interpreter_call_code.delta',
+        'item_id': itemId,
+        'output_index': event.outputIndex,
+        'delta': accumulatedCode ?? event.code,
+      };
+
+      _toolEventLog['code_interpreter']!.add(completeEvent);
+      yield* _yieldToolMetadataChunk('code_interpreter', completeEvent);
+      _codeInterpreterCodeBuffers.remove(itemId);
+
+      // Now record and yield the actual done event
+      _recordToolEvent('code_interpreter', event);
+      yield* _yieldToolMetadataChunk('code_interpreter', event);
+      return;
+    }
+
+    if (event is openai.ResponseCodeInterpreterCallInProgress ||
         event is openai.ResponseCodeInterpreterCallCompleted ||
         event is openai.ResponseCodeInterpreterCallInterpreting) {
       _recordToolEvent('code_interpreter', event);
@@ -329,10 +363,19 @@ class OpenAIResponsesEventMapper {
 
   Iterable<ChatResult<ChatMessage>> _yieldToolMetadataChunk(
     String toolKey,
-    openai.ResponseEvent event,
+    Object eventOrMap,
   ) sync* {
-    // Convert event to JSON - this is the raw event data
-    final eventJson = event.toJson();
+    // Convert to JSON - handle both event objects and maps
+    final Map<String, Object?> eventJson;
+    if (eventOrMap is openai.ResponseEvent) {
+      eventJson = eventOrMap.toJson();
+    } else if (eventOrMap is Map<String, Object?>) {
+      eventJson = eventOrMap;
+    } else {
+      throw ArgumentError(
+        'Expected ResponseEvent or Map, got ${eventOrMap.runtimeType}',
+      );
+    }
 
     // Yield a metadata-only chunk with the event as a single-item list
     // Following the thinking pattern: always emit as list for consistency
