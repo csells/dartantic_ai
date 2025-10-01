@@ -5,6 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
+import '../../platform/platform.dart';
 import '../../shared/openai_responses_metadata.dart';
 import 'openai_responses_message_mapper.dart';
 
@@ -15,8 +16,9 @@ class OpenAIResponsesEventMapper {
     required this.modelName,
     required this.storeSession,
     required this.history,
-    required openai.OpenAIClient client,
-  }) : _client = client;
+    openai.OpenAIClient? client,
+  }) : _client =
+           client ?? openai.OpenAIClient(apiKey: getEnv('OPENAI_API_KEY'));
 
   static final Logger _logger = Logger(
     'dartantic.chat.models.openai_responses.event_mapper',
@@ -490,8 +492,9 @@ class OpenAIResponsesEventMapper {
       // Add as synthetic summary event
       if (item is openai.CodeInterpreterCall) {
         final codeInterpreterEvents =
-            messageMetadata['code_interpreter'] as List<Map<String, Object?>>?;
-        codeInterpreterEvents?.add({
+            (messageMetadata['code_interpreter'] ??= <Map<String, Object?>>[])
+                as List<Map<String, Object?>>;
+        codeInterpreterEvents.add({
           'type': 'code_interpreter_call',
           'id': item.id,
           'code': item.code,
@@ -520,8 +523,9 @@ class OpenAIResponsesEventMapper {
       // Add as synthetic summary event
       if (item is openai.FileSearchCall) {
         final fileSearchEvents =
-            messageMetadata['file_search'] as List<Map<String, Object?>>?;
-        fileSearchEvents?.add({
+            (messageMetadata['file_search'] ??= <Map<String, Object?>>[])
+                as List<Map<String, Object?>>;
+        fileSearchEvents.add({
           'type': 'file_search_call',
           'id': item.id,
           'queries': item.queries,
@@ -582,27 +586,18 @@ class OpenAIResponsesEventMapper {
 
     // Download container files and add as DataParts
     for (final file in _containerFiles) {
-      try {
-        _logger.info(
-          'Downloading container file: ${file.fileId} from ${file.containerId}',
-        );
-        final bytes = await _downloadContainerFile(
-          file.containerId,
-          file.fileId,
-        );
-        parts.add(
-          DataPart(
-            Uint8List.fromList(bytes),
-            mimeType: 'image/png', // Assume PNG for now
-            name: '${file.fileId}.png',
-          ),
-        );
-        _logger.info(
-          'Added container file as DataPart (${bytes.length} bytes)',
-        );
-      } catch (e) {
-        _logger.warning('Failed to download container file ${file.fileId}: $e');
-      }
+      _logger.info(
+        'Downloading container file: ${file.fileId} from ${file.containerId}',
+      );
+      final bytes = await _downloadContainerFile(file.containerId, file.fileId);
+      parts.add(
+        DataPart(
+          Uint8List.fromList(bytes),
+          mimeType: 'image/png', // Assume PNG for now
+          name: '${file.fileId}.png',
+        ),
+      );
+      _logger.info('Added container file as DataPart (${bytes.length} bytes)');
     }
 
     _logger.fine('Building final message with ${parts.length} parts');
@@ -783,9 +778,7 @@ class OpenAIResponsesEventMapper {
   Future<List<int>> _downloadContainerFile(
     String containerId,
     String fileId,
-  ) async {
-    return _client.retrieveContainerFileContent(containerId, fileId);
-  }
+  ) async => _client.retrieveContainerFileContent(containerId, fileId);
 }
 
 /// Helper class to accumulate function call arguments during streaming.

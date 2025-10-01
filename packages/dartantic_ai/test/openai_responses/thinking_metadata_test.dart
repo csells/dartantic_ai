@@ -4,9 +4,16 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
+// Helper to create a test client (won't be used in these unit tests)
+openai.OpenAIClient _createTestClient() => openai.OpenAIClient(
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1',
+    );
+
 void main() {
   group('OpenAIResponsesEventMapper thinking metadata', () {
-    test('emits thinking text in ChatResult metadata during streaming', () {
+    test('emits thinking text in ChatResult metadata during streaming',
+        () async {
       final mapper = OpenAIResponsesEventMapper(
         modelName: 'gpt-4o',
         storeSession: false,
@@ -17,6 +24,7 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
+        client: _createTestClient(),
       );
 
       // Simulate reasoning summary text delta event
@@ -28,7 +36,7 @@ void main() {
         sequenceNumber: 1,
       );
 
-      final results = mapper.handle(thinkingEvent).toList();
+      final results = await mapper.handle(thinkingEvent).toList();
 
       expect(results, hasLength(1));
       final result = results.first;
@@ -42,7 +50,7 @@ void main() {
       expect(result.messages, isEmpty);
     });
 
-    test('filters reasoning text from regular output stream', () {
+    test('filters reasoning text from regular output stream', () async {
       final mapper = OpenAIResponsesEventMapper(
         modelName: 'gpt-4o',
         storeSession: false,
@@ -53,6 +61,7 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
+        client: _createTestClient(),
       );
 
       // First, add a Reasoning item at outputIndex 0
@@ -61,7 +70,7 @@ void main() {
         outputIndex: 0,
         sequenceNumber: 1,
       );
-      mapper.handle(reasoningItemEvent).toList();
+      await mapper.handle(reasoningItemEvent).toList();
 
       // Then, text delta at outputIndex 0 should be skipped (not emitted)
       // because reasoning text comes through ResponseReasoningSummaryTextDelta
@@ -72,7 +81,7 @@ void main() {
         delta: 'This is reasoning text',
         sequenceNumber: 2,
       );
-      final results = mapper.handle(textDeltaEvent).toList();
+      final results = await mapper.handle(textDeltaEvent).toList();
 
       // Should be empty - reasoning text is skipped from
       // ResponseOutputTextDelta
@@ -83,7 +92,7 @@ void main() {
       );
     });
 
-    test('allows regular text to stream normally', () {
+    test('allows regular text to stream normally', () async {
       final mapper = OpenAIResponsesEventMapper(
         modelName: 'gpt-4o',
         storeSession: false,
@@ -94,6 +103,7 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
+        client: _createTestClient(),
       );
 
       // Add an OutputMessage item at outputIndex 0 (not reasoning)
@@ -107,7 +117,7 @@ void main() {
         outputIndex: 0,
         sequenceNumber: 1,
       );
-      mapper.handle(outputItemEvent).toList();
+      await mapper.handle(outputItemEvent).toList();
 
       // Text delta at outputIndex 0 should be regular text
       const textDeltaEvent = openai.ResponseOutputTextDelta(
@@ -117,7 +127,7 @@ void main() {
         delta: 'This is regular response text',
         sequenceNumber: 2,
       );
-      final results = mapper.handle(textDeltaEvent).toList();
+      final results = await mapper.handle(textDeltaEvent).toList();
 
       expect(results, hasLength(1));
       final result = results.first;

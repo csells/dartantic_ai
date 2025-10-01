@@ -125,7 +125,7 @@
       "name": "server-side image generation",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_image_generation.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_image_gen.dart"
     },
     {
       "name": "server-side vector search",

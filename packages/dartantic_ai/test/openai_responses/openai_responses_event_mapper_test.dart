@@ -7,9 +7,15 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
+// Helper to create a test client (won't be used in these unit tests)
+openai.OpenAIClient _createTestClient() => openai.OpenAIClient(
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1',
+    );
+
 void main() {
   group('OpenAIResponsesEventMapper', () {
-    test('streams text deltas as chat results', () {
+    test('streams text deltas as chat results', () async {
       final mapper = OpenAIResponsesEventMapper(
         modelName: 'gpt-4o',
         storeSession: true,
@@ -20,9 +26,10 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
+        client: _createTestClient(),
       );
 
-      final results = mapper
+      final results = await mapper
           .handle(
             const openai.ResponseOutputTextDelta(
               itemId: 'msg',
@@ -42,7 +49,8 @@ void main() {
       );
     });
 
-    test('builds final chat result with telemetry and session metadata', () {
+    test('builds final chat result with telemetry and session metadata',
+        () async {
       const history = OpenAIResponsesHistorySegment(
         items: [],
         input: null,
@@ -55,6 +63,7 @@ void main() {
         modelName: openai.ChatModel.gpt4o.value,
         storeSession: true,
         history: history,
+        client: _createTestClient(),
       );
 
       final response = openai.Response(
@@ -136,7 +145,7 @@ void main() {
         ],
       );
 
-      final results = mapper
+      final results = await mapper
           .handle(
             openai.ResponseCompleted(response: response, sequenceNumber: 10),
           )
@@ -168,22 +177,32 @@ void main() {
         equals('resp_123'),
       );
 
-      final codeInterpreter =
-          (message.metadata['code_interpreter'] as Map<String, Object?>?) ?? {};
-      expect(codeInterpreter['calls'], isNotEmpty);
+      // Verify synthetic summaries were added for server-side tools
+      final codeInterpreterEvents =
+          message.metadata['code_interpreter'] as List<Map<String, Object?>>?;
+      expect(codeInterpreterEvents, isNotNull);
+      expect(codeInterpreterEvents, hasLength(1));
+      final ciEvent = codeInterpreterEvents!.first;
+      expect(ciEvent['type'], equals('code_interpreter_call'));
+      expect(ciEvent['id'], equals('ci-1'));
+      expect(ciEvent['code'], equals('print(1)'));
+      expect(ciEvent['container_id'], equals('container-7'));
 
-      final imageGeneration =
-          (message.metadata['image_generation'] as Map<String, Object?>?) ?? {};
-      expect(imageGeneration['calls'], isNotEmpty);
-
-      final mcp = (message.metadata['mcp'] as Map<String, Object?>?) ?? {};
-      expect(mcp['entries'], isNotEmpty);
+      final fileSearchEvents =
+          message.metadata['file_search'] as List<Map<String, Object?>>?;
+      expect(fileSearchEvents, isNotNull);
+      expect(fileSearchEvents, hasLength(1));
+      final fsEvent = fileSearchEvents!.first;
+      expect(fsEvent['type'], equals('file_search_call'));
+      expect(fsEvent['id'], equals('files-1'));
+      expect(fsEvent['queries'], equals(['query']));
 
       expect(result.metadata['response_id'], equals('resp_123'));
       expect(result.metadata['status'], equals('completed'));
     });
 
-    test('handles streaming image generation with ResponseOutputItemDone', () {
+    test('handles streaming image generation with ResponseOutputItemDone',
+        () async {
       final mapper = OpenAIResponsesEventMapper(
         modelName: 'gpt-4o',
         storeSession: false,
@@ -194,10 +213,11 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
+        client: _createTestClient(),
       );
 
       // Step 1: ResponseOutputItemAdded with ImageGenerationCall
-      var results = mapper
+      var results = await mapper
           .handle(
             const openai.ResponseOutputItemAdded(
               outputIndex: 0,
@@ -212,7 +232,7 @@ void main() {
       expect(results, isEmpty); // No output yet
 
       // Step 2: ResponseImageGenerationCallInProgress
-      results = mapper
+      results = await mapper
           .handle(
             const openai.ResponseImageGenerationCallInProgress(
               itemId: 'img-1',
@@ -225,7 +245,7 @@ void main() {
       expect(results.first.metadata['image_generation'], isNotNull);
 
       // Step 3: ResponseImageGenerationCallGenerating
-      results = mapper
+      results = await mapper
           .handle(
             const openai.ResponseImageGenerationCallGenerating(
               itemId: 'img-1',
@@ -238,7 +258,7 @@ void main() {
 
       // Step 4: ResponseImageGenerationCallPartialImage
       final fakeImageData = base64Encode(utf8.encode('fake-image-data'));
-      results = mapper
+      results = await mapper
           .handle(
             openai.ResponseImageGenerationCallPartialImage(
               itemId: 'img-1',
@@ -252,7 +272,7 @@ void main() {
       expect(results, hasLength(1)); // Metadata chunk emitted
 
       // Step 5: ResponseOutputItemDone marks completion
-      results = mapper
+      results = await mapper
           .handle(
             openai.ResponseOutputItemDone(
               outputIndex: 0,
@@ -281,7 +301,7 @@ void main() {
         ],
       );
 
-      results = mapper
+      results = await mapper
           .handle(
             openai.ResponseCompleted(response: response, sequenceNumber: 6),
           )
