@@ -58,7 +58,8 @@ void main(List<String> args) async {
   const prompt2 =
       'Using the fib_sequence variable we created earlier, calculate the '
       'golden ratio (skipping the first term, since it is 0). '
-      'Create a plot showing how the ratio converges to the golden ratio.';
+      'Create a plot showing how the ratio converges to the golden ratio. '
+      'Save the plot as a PNG file called "golden_ratio.png".';
 
   stdout.writeln('User: $prompt2');
   stdout.write('${agent2.displayName}: ');
@@ -87,36 +88,14 @@ void main(List<String> args) async {
     stdout.writeln('✅ Container reused: $containerId');
   }
 
-  for (final msg in history.skip(session1MessageCount)) {
-    final ciEvents = msg.metadata['code_interpreter'] as List?;
-    if (ciEvents != null) {
-      for (final event in ciEvents) {
-        if (event['container_id'] != null) {
-          // Download generated files
-          if (event['results'] != null && event['results'] is List) {
-            final results = event['results'] as List;
-            for (final result in results) {
-              if (result is Map && result['type'] == 'file') {
-                final fileId = result['file_id'] as String?;
-                final filename =
-                    result['filename'] as String? ?? 'unnamed_file';
-
-                if (fileId != null) {
-                  stdout.writeln();
-                  await downloadContainerFile(containerId, fileId, filename);
-                }
-              }
-            }
-          }
-          break; // Found container_id, done checking
-        }
-      }
-    }
-  }
-
-  stdout.writeln();
+  dumpImages(history);
   dumpMessages(history);
 }
+
+void dumpImages(List<ChatMessage> history) => history
+    .whereType<DataPart>()
+    .where((part) => part.mimeType.startsWith('image/'))
+    .forEach((part) => dumpImage('Generated Image', 'image', part.bytes));
 
 void dumpMetadataSpecialDelta(
   Map<String, dynamic> metadata, {

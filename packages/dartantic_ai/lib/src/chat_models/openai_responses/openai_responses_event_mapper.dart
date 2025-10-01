@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
@@ -14,11 +15,14 @@ class OpenAIResponsesEventMapper {
     required this.modelName,
     required this.storeSession,
     required this.history,
-  });
+    required openai.OpenAIClient client,
+  }) : _client = client;
 
   static final Logger _logger = Logger(
     'dartantic.chat.models.openai_responses.event_mapper',
   );
+
+  final openai.OpenAIClient _client;
 
   /// Model name used for this stream.
   final String modelName;
@@ -63,8 +67,11 @@ class OpenAIResponsesEventMapper {
   final Map<String, StringBuffer> _codeInterpreterCodeBuffers = {};
   bool _imageGenerationCompleted = false;
 
+  // Track container file citations for downloading and attaching as DataParts
+  final List<({String containerId, String fileId})> _containerFiles = [];
+
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
-  Iterable<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) sync* {
+  Stream<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) async* {
     // Handle function call item creation
     if (event is openai.ResponseOutputItemAdded) {
       final item = event.item;
@@ -104,6 +111,17 @@ class OpenAIResponsesEventMapper {
         // Mark that image generation is done - the last partial image is final
         _imageGenerationCompleted = true;
       }
+
+      // Check if this is code interpreter completion with file results
+      if (item is openai.CodeInterpreterCall) {
+        _logger.fine(
+          'Code interpreter completed at index ${event.outputIndex}',
+        );
+        // Record the complete code interpreter call with results
+        _recordToolEvent('code_interpreter', event);
+        yield* _yieldToolMetadataChunk('code_interpreter', event);
+      }
+
       return;
     }
 
@@ -232,7 +250,7 @@ class OpenAIResponsesEventMapper {
       // Only build final result once to avoid duplication
       if (!_finalResultBuilt) {
         _finalResultBuilt = true;
-        yield _buildFinalResult(event.response);
+        yield await _buildFinalResult(event.response);
       }
       return;
     }
@@ -256,9 +274,9 @@ class OpenAIResponsesEventMapper {
     yield* _recordToolEventIfNeeded(event);
   }
 
-  Iterable<ChatResult<ChatMessage>> _recordToolEventIfNeeded(
+  Stream<ChatResult<ChatMessage>> _recordToolEventIfNeeded(
     openai.ResponseEvent event,
-  ) sync* {
+  ) async* {
     if (event is openai.ResponseImageGenerationCallPartialImage ||
         event is openai.ResponseImageGenerationCallInProgress ||
         event is openai.ResponseImageGenerationCallGenerating ||
@@ -366,10 +384,10 @@ class OpenAIResponsesEventMapper {
     _toolEventLog.putIfAbsent(key, () => []).add(logEntry);
   }
 
-  Iterable<ChatResult<ChatMessage>> _yieldToolMetadataChunk(
+  Stream<ChatResult<ChatMessage>> _yieldToolMetadataChunk(
     String toolKey,
     Object eventOrMap,
-  ) sync* {
+  ) async* {
     // Convert to JSON - handle both event objects and maps
     final Map<String, Object?> eventJson;
     if (eventOrMap is openai.ResponseEvent) {
@@ -397,7 +415,9 @@ class OpenAIResponsesEventMapper {
     );
   }
 
-  ChatResult<ChatMessage> _buildFinalResult(openai.Response response) {
+  Future<ChatResult<ChatMessage>> _buildFinalResult(
+    openai.Response response,
+  ) async {
     final parts = <Part>[];
     final toolCallNames = <String, String>{};
 
@@ -560,6 +580,31 @@ class OpenAIResponsesEventMapper {
       }
     }
 
+    // Download container files and add as DataParts
+    for (final file in _containerFiles) {
+      try {
+        _logger.info(
+          'Downloading container file: ${file.fileId} from ${file.containerId}',
+        );
+        final bytes = await _downloadContainerFile(
+          file.containerId,
+          file.fileId,
+        );
+        parts.add(
+          DataPart(
+            Uint8List.fromList(bytes),
+            mimeType: 'image/png', // Assume PNG for now
+            name: '${file.fileId}.png',
+          ),
+        );
+        _logger.info(
+          'Added container file as DataPart (${bytes.length} bytes)',
+        );
+      } catch (e) {
+        _logger.warning('Failed to download container file ${file.fileId}: $e');
+      }
+    }
+
     _logger.fine('Building final message with ${parts.length} parts');
     for (final part in parts) {
       _logger.fine('  Part: ${part.runtimeType}');
@@ -639,6 +684,34 @@ class OpenAIResponsesEventMapper {
       if (entry is openai.OutputTextContent) {
         _logger.info('OutputTextContent text: "${entry.text}"');
         parts.add(TextPart(entry.text));
+
+        // Extract container file citations from annotations
+        for (final annotation in entry.annotations) {
+          if (annotation is openai.ContainerFileCitation) {
+            _logger.info(
+              'Found container file citation: '
+              'container_id=${annotation.containerId}, '
+              'file_id=${annotation.fileId}',
+            );
+            // Add file citation to code_interpreter metadata
+            _toolEventLog['code_interpreter']!.add({
+              'type': 'container_file_citation',
+              'container_id': annotation.containerId,
+              'file_id': annotation.fileId,
+              'start_index': annotation.startIndex,
+              'end_index': annotation.endIndex,
+            });
+
+            // Track files with valid text ranges for downloading
+            if (annotation.endIndex > annotation.startIndex) {
+              _containerFiles.add((
+                containerId: annotation.containerId,
+                fileId: annotation.fileId,
+              ));
+              _logger.info('Queued file for download: ${annotation.fileId}');
+            }
+          }
+        }
       } else if (entry is openai.RefusalContent) {
         parts.add(TextPart(entry.refusal));
       } else {
@@ -697,6 +770,13 @@ class OpenAIResponsesEventMapper {
       default:
         return FinishReason.unspecified;
     }
+  }
+
+  Future<List<int>> _downloadContainerFile(
+    String containerId,
+    String fileId,
+  ) async {
+    return _client.retrieveContainerFileContent(containerId, fileId);
   }
 }
 

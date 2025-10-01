@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 
@@ -213,3 +214,12 @@ String _clip(String input, {required int maxLength}) {
 
 String clipWithNull(Object? value, {int maxLength = 256}) =>
     _clip(value?.toString() ?? 'null', maxLength: maxLength);
+
+void dumpImage(String name, String baseFilename, Uint8List bytes) {
+  final filename =
+      'tmp/${baseFilename}_${DateTime.now().millisecondsSinceEpoch}.png';
+  final out = File(filename);
+  out.createSync(recursive: true);
+  out.writeAsBytesSync(bytes);
+  stdout.writeln('  🎨 $name mage saved: $filename (${bytes.length} bytes)');
+}

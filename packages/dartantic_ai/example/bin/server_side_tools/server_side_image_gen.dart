@@ -64,12 +64,3 @@ void dumpPartialImages(Map<String, dynamic> metadata) {
     }
   }
 }
-
-void dumpImage(String name, String baseFilename, Uint8List bytes) {
-  final filename =
-      'tmp/${baseFilename}_${DateTime.now().millisecondsSinceEpoch}.png';
-  final out = File(filename);
-  out.createSync(recursive: true);
-  out.writeAsBytesSync(bytes);
-  stdout.writeln('  🎨 $name mage saved: $filename (${bytes.length} bytes)');
-}
