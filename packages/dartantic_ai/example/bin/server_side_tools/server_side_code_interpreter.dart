@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
-import 'package:openai_core/openai_core.dart' as openai;
 
 void main(List<String> args) async {
   stdout.writeln('🐍 Code Interpreter Demo with Container Reuse');
@@ -123,23 +122,4 @@ String? containerIdFrom(Iterable<ChatMessage> messages) {
   }
 
   return null;
-}
-
-/// Container files use a different endpoint than regular files
-Future<void> downloadContainerFile(
-  String containerId,
-  String fileId,
-  String filename,
-) async {
-  final client = openai.OpenAIClient(
-    apiKey: Platform.environment['OPENAI_API_KEY'],
-  );
-
-  final bytes = await client.retrieveContainerFileContent(containerId, fileId);
-  final outputPath = 'tmp/$filename';
-  final file = File(outputPath);
-  await file.create(recursive: true);
-  await file.writeAsBytes(bytes);
-
-  stdout.writeln('✅ Downloaded to: $outputPath (${bytes.length} bytes)');
 }
