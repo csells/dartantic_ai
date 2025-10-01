@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
-import 'package:http/http.dart' as http;
+import 'package:openai_core/openai_core.dart' as openai;
 
 void main(List<String> args) async {
   stdout.writeln('🐍 Code Interpreter Demo with Container Reuse');
@@ -31,7 +31,7 @@ void main(List<String> args) async {
   await for (final chunk in agent1.sendStream(prompt1)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
@@ -69,7 +69,7 @@ void main(List<String> args) async {
   )) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
@@ -118,6 +118,21 @@ void main(List<String> args) async {
   dumpMessages(history);
 }
 
+void dumpMetadataSpecialDelta(
+  Map<String, dynamic> metadata, {
+  required String prefix,
+}) {
+  for (final entry in metadata.entries) {
+    if (entry.key == 'code_interpreter' &&
+        entry.value[0]['type'] == 'response.code_interpreter_call_code.delta') {
+      stdout.write(entry.value[0]['delta']);
+      return;
+    }
+  }
+
+  dumpMetadata(metadata, prefix: prefix);
+}
+
 String? containerIdFrom(Iterable<ChatMessage> messages) {
   for (final msg in messages) {
     final ciEvents = msg.metadata['code_interpreter'] as List?;
@@ -132,47 +147,20 @@ String? containerIdFrom(Iterable<ChatMessage> messages) {
 }
 
 /// Container files use a different endpoint than regular files
-/// TODO: use native openai_core API for this
 Future<void> downloadContainerFile(
   String containerId,
   String fileId,
   String filename,
 ) async {
-  final apiKey = Platform.environment['OPENAI_API_KEY'];
-  if (apiKey == null) {
-    stdout.writeln('❌ OPENAI_API_KEY not set');
-    return;
-  }
-
-  // Container files use this endpoint pattern
-  final url = Uri.parse(
-    'https://api.openai.com/v1/containers/$containerId/files/$fileId/content',
+  final client = openai.OpenAIClient(
+    apiKey: Platform.environment['OPENAI_API_KEY'],
   );
 
-  stdout.writeln('📊 Downloading: $filename');
-  stdout.writeln('   File ID: $fileId');
-  stdout.writeln('   Container: $containerId');
+  final bytes = await client.retrieveContainerFileContent(containerId, fileId);
+  final outputPath = 'tmp/$filename';
+  final file = File(outputPath);
+  await file.create(recursive: true);
+  await file.writeAsBytes(bytes);
 
-  final client = http.Client();
-  final result = await client.get(
-    url,
-    headers: {'Authorization': 'Bearer $apiKey'},
-  );
-
-  if (result.statusCode == 200) {
-    final outputPath = 'tmp/$filename';
-    final file = File(outputPath);
-    await file.create(recursive: true);
-    await file.writeAsBytes(result.bodyBytes);
-
-    final absolutePath = file.absolute.path;
-
-    stdout.writeln('   ✅ Downloaded to: $absolutePath');
-    stdout.writeln('   Size: ${result.bodyBytes.length} bytes');
-  } else {
-    stdout.writeln('   ❌ Failed: HTTP ${result.statusCode}');
-    stdout.writeln('   Response: ${result.body}');
-  }
-
-  client.close();
+  stdout.writeln('✅ Downloaded to: $outputPath (${bytes.length} bytes)');
 }

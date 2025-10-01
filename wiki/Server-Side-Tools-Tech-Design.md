@@ -553,14 +553,41 @@ await for (final chunk in agent.sendStream('Generate a logo')) {
 
 #### Code Interpreter
 
+Code execution follows the same pattern as thinking/reasoning:
+- **During streaming**: Individual code delta events stream in chunk metadata
+- **After streaming**: Single accumulated code delta appears in message metadata
+
 ```dart
+// Stream code as it's generated
+await for (final chunk in agent.sendStream('Calculate fibonacci(100)')) {
+  final codeEvents = chunk.metadata['code_interpreter'] as List?;
+  if (codeEvents != null) {
+    for (final event in codeEvents) {
+      // Stream individual code deltas character-by-character if desired
+      if (event['type'] == 'response.code_interpreter_call_code.delta') {
+        stdout.write(event['delta']);
+      }
+    }
+  }
+}
+
+// Access complete code in message metadata
 final result = await agent.send('Calculate fibonacci(100)');
 final codeEvents = agent.messages.last.metadata['code_interpreter'] as List?;
 if (codeEvents != null) {
-  // Last event is synthetic summary
+  // Find the accumulated code delta (single complete code block)
+  final codeDelta = codeEvents.firstWhere(
+    (e) => e['type'] == 'response.code_interpreter_call_code.delta',
+    orElse: () => null,
+  );
+  if (codeDelta != null) {
+    print('Complete code:\n${codeDelta['delta']}');
+  }
+
+  // Last event is synthetic summary with execution details
   final summary = codeEvents.last;
-  print('Code: ${summary['code']}');
   print('Container: ${summary['container_id']}');
+  print('Status: ${summary['status']}');
 }
 ```
 

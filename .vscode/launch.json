@@ -116,10 +116,28 @@
       "program": "packages/dartantic_ai/example/bin/thinking.dart"
     },
     {
-      "name": "server-side tools",
+      "name": "server-side code interpreter",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_code_interpreter.dart"
+    },
+    {
+      "name": "server-side image generation",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_image_generation.dart"
+    },
+    {
+      "name": "server-side vector search",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_vector_search.dart"
+    },
+    {
+      "name": "server-side web search",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_web_search.dart"
     },
     {
       "name": "chatarang",

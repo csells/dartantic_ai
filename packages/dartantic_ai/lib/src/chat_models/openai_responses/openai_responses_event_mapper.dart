@@ -316,32 +316,37 @@ class OpenAIResponsesEventMapper {
     }
 
     if (event is openai.ResponseCodeInterpreterCallCodeDelta) {
-      // Accumulate code deltas instead of recording each one
+      // Accumulate code deltas for message metadata
       final itemId = event.itemId;
-      _codeInterpreterCodeBuffers.putIfAbsent(itemId, StringBuffer.new)
-        ..write(event.delta);
-      // Don't yield individual deltas
+      _codeInterpreterCodeBuffers
+          .putIfAbsent(itemId, StringBuffer.new)
+          .write(event.delta);
+
+      // Stream individual deltas as chunk metadata (like thinking)
+      yield* _yieldToolMetadataChunk('code_interpreter', event);
       return;
     }
 
     if (event is openai.ResponseCodeInterpreterCallCodeDone) {
-      // Emit a single code delta event with the complete accumulated code
+      // Emit a single accumulated code delta in message metadata
       final itemId = event.itemId;
       final accumulatedCode = _codeInterpreterCodeBuffers[itemId]?.toString();
 
-      // Record a single code_delta event with complete code
-      final completeEvent = {
-        'type': 'response.code_interpreter_call_code.delta',
-        'item_id': itemId,
-        'output_index': event.outputIndex,
-        'delta': accumulatedCode ?? event.code,
-      };
+      if (accumulatedCode != null) {
+        // Record a single code_delta event with complete accumulated code
+        // This goes into message metadata only (not streamed as chunk)
+        final completeEvent = {
+          'type': 'response.code_interpreter_call_code.delta',
+          'item_id': itemId,
+          'output_index': event.outputIndex,
+          'delta': accumulatedCode,
+        };
 
-      _toolEventLog['code_interpreter']!.add(completeEvent);
-      yield* _yieldToolMetadataChunk('code_interpreter', completeEvent);
+        _toolEventLog['code_interpreter']!.add(completeEvent);
+      }
       _codeInterpreterCodeBuffers.remove(itemId);
 
-      // Now record and yield the actual done event
+      // Record and yield the actual done event
       _recordToolEvent('code_interpreter', event);
       yield* _yieldToolMetadataChunk('code_interpreter', event);
       return;
