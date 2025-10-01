@@ -688,11 +688,21 @@ class OpenAIResponsesEventMapper {
         // Extract container file citations from annotations
         for (final annotation in entry.annotations) {
           if (annotation is openai.ContainerFileCitation) {
+            // Skip phantom citations where start_index == end_index
+            if (annotation.startIndex == annotation.endIndex) {
+              _logger.fine(
+                'Skipping zero-length container file citation: '
+                'file_id=${annotation.fileId}',
+              );
+              continue;
+            }
+
             _logger.info(
               'Found container file citation: '
               'container_id=${annotation.containerId}, '
               'file_id=${annotation.fileId}',
             );
+
             // Add file citation to code_interpreter metadata
             _toolEventLog['code_interpreter']!.add({
               'type': 'container_file_citation',
@@ -702,14 +712,12 @@ class OpenAIResponsesEventMapper {
               'end_index': annotation.endIndex,
             });
 
-            // Track files with valid text ranges for downloading
-            if (annotation.endIndex > annotation.startIndex) {
-              _containerFiles.add((
-                containerId: annotation.containerId,
-                fileId: annotation.fileId,
-              ));
-              _logger.info('Queued file for download: ${annotation.fileId}');
-            }
+            // Track files for downloading as DataParts
+            _containerFiles.add((
+              containerId: annotation.containerId,
+              fileId: annotation.fileId,
+            ));
+            _logger.info('Queued file for download: ${annotation.fileId}');
           }
         }
       } else if (entry is openai.RefusalContent) {

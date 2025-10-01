@@ -588,8 +588,28 @@ if (codeEvents != null) {
   final summary = codeEvents.last;
   print('Container: ${summary['container_id']}');
   print('Status: ${summary['status']}');
+
+  // Container file citations include file_id and container_id for generated files
+  final fileCitations = codeEvents.where((e) => e['type'] == 'container_file_citation').toList();
+  for (final citation in fileCitations) {
+    print('Generated file: ${citation['file_id']} in container ${citation['container_id']}');
+  }
+}
+
+// Generated images are automatically attached as DataParts
+final result = await agent.send('Create a plot and save it as plot.png');
+for (final part in agent.messages.last.parts) {
+  if (part is DataPart && part.mimeType.startsWith('image/')) {
+    print('Image generated: ${part.bytes.length} bytes');
+    // The image bytes are directly available in the message
+  }
 }
 ```
+
+**File Generation**: When code interpreter generates files (e.g., via `plt.savefig()`), they are:
+1. Referenced via `container_file_citation` annotations in the message metadata
+2. Automatically downloaded and attached as `DataPart`s in the model's response
+3. Citations with zero-length text ranges (start_index == end_index) are filtered out
 
 ## Testing Strategy
 

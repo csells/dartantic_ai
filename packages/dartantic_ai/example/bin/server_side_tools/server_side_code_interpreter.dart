@@ -91,10 +91,15 @@ void main(List<String> args) async {
   dumpMessages(history);
 }
 
-void dumpImages(List<ChatMessage> history) => history
-    .whereType<DataPart>()
-    .where((part) => part.mimeType.startsWith('image/'))
-    .forEach((part) => dumpImage('Generated Image', 'image', part.bytes));
+void dumpImages(List<ChatMessage> history) {
+  for (final msg in history) {
+    for (final part in msg.parts) {
+      if (part is DataPart && part.mimeType.startsWith('image/')) {
+        dumpImage('Interpreter Image', 'image', part.bytes);
+      }
+    }
+  }
+}
 
 void dumpMetadataSpecialDelta(
   Map<String, dynamic> metadata, {
