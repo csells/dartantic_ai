@@ -3,6 +3,7 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 import 'package:openai_core/openai_core.dart';
 
@@ -40,11 +41,15 @@ void main(List<String> args) async {
   stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
 
+  final history = <ChatMessage>[];
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     dumpMetadata(chunk.metadata, prefix: '\n');
+    history.addAll(chunk.messages);
   }
   stdout.writeln('');
+
+  dumpMessages(history);
 }
 
 /// Sets up a vector store with the specified documentation files.

@@ -212,7 +212,8 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       messages: [consolidatedMessage],
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
-      metadata: const {}, // Metadata already streamed
+      // Pass through final result metadata (thinking, tool events, etc.)
+      metadata: state.lastResult.metadata,
       usage: state.lastResult.usage,
     );
 
@@ -224,13 +225,13 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
     if (toolCalls.isEmpty) {
       // No tool calls - we're done
-      // Don't duplicate metadata here - it was already yielded during streaming
       yield StreamingIterationResult(
         output: '',
         messages: const [],
         shouldContinue: false,
         finishReason: state.lastResult.finishReason,
-        metadata: const {}, // Metadata already streamed
+        // Pass through final result metadata (thinking, tool events, etc.)
+        metadata: state.lastResult.metadata,
         usage: state.lastResult.usage,
       );
       return;

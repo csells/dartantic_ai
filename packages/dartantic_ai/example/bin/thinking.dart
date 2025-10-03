@@ -22,11 +22,10 @@ void main() async {
 Future<void> thinking(Agent agent) async {
   stdout.writeln('\nthinking:');
   final result = await agent.send('In one sentence: how does quicksort work?');
-  // Thinking metadata is now consistently in result.metadata
+
+  // Thinking metadata is in result.metadata (not in message metadata)
   final thinking = result.metadata['thinking'];
   if (thinking is String && thinking.isNotEmpty) {
-    // Verify it's also in the message for backwards compatibility
-    assert(result.messages.last.metadata['thinking'] == thinking);
     stdout.writeln('[[$thinking]]\n');
   }
   stdout.writeln(result.output);
@@ -67,6 +66,5 @@ Future<void> thinkingStream(Agent agent) async {
 
   stdout.writeln('\n');
   dumpMessages(history);
-  assert(thinkingBuffer.toString() == history.last.metadata['thinking']);
   exit(0);
 }

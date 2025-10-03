@@ -171,6 +171,10 @@ class Agent {
       usage: const LanguageModelUsage(),
     );
 
+    // Accumulate metadata from all streaming chunks
+    final accumulatedMetadata = <String, dynamic>{};
+    final thinkingBuffer = StringBuffer();
+
     await for (final result in sendStream(
       prompt,
       history: history,
@@ -182,22 +186,25 @@ class Agent {
       }
       allNewMessages.addAll(result.messages);
       finalResult = result;
-    }
 
-    // Extract thinking metadata from the model message if present
-    ChatMessage? modelMessage;
-    for (var i = allNewMessages.length - 1; i >= 0; i--) {
-      if (allNewMessages[i].role == ChatMessageRole.model) {
-        modelMessage = allNewMessages[i];
-        break;
+      // Accumulate thinking from streaming chunks
+      final thinking = result.metadata['thinking'] as String?;
+      if (thinking != null && thinking.isNotEmpty) {
+        thinkingBuffer.write(thinking);
+      }
+
+      // Merge other metadata (preserving response-level info from final chunk)
+      for (final entry in result.metadata.entries) {
+        if (entry.key != 'thinking') {
+          accumulatedMetadata[entry.key] = entry.value;
+        }
       }
     }
 
-    // Merge thinking metadata into result metadata for consistency
+    // Build final metadata with accumulated thinking
     final mergedMetadata = <String, dynamic>{
-      ...finalResult.metadata,
-      if (modelMessage != null && modelMessage.metadata.containsKey('thinking'))
-        'thinking': modelMessage.metadata['thinking'],
+      ...accumulatedMetadata,
+      if (thinkingBuffer.isNotEmpty) 'thinking': thinkingBuffer.toString(),
     };
 
     // Return final result with all accumulated messages

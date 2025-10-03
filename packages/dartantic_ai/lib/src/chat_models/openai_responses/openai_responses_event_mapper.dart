@@ -423,13 +423,10 @@ class OpenAIResponsesEventMapper {
     final parts = <Part>[];
     final toolCallNames = <String, String>{};
 
-    // Start with accumulated event logs (will add synthetic events below)
-    final messageMetadata = <String, Object?>{
-      if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
-      // Copy all non-empty tool event lists to message metadata
-      for (final entry in _toolEventLog.entries)
-        if (entry.value.isNotEmpty) entry.key: entry.value,
-    };
+    // Message metadata should ONLY contain session info for message processing
+    // Tool events (thinking, code_interpreter, etc.) are already streamed in
+    // ChatResult.metadata and don't need to be duplicated on the message
+    final messageMetadata = <String, Object?>{};
 
     _logger.info(
       'Building final result, response.output has '
@@ -488,23 +485,10 @@ class OpenAIResponsesEventMapper {
         continue;
       }
 
-      // CodeInterpreter has additional data (code, results, containerId)
-      // Add as synthetic summary event
+      // CodeInterpreter synthetic events are no longer added to message
+      // metadata They were already streamed via ChatResult.metadata during
+      // streaming
       if (item is openai.CodeInterpreterCall) {
-        final codeInterpreterEvents =
-            (messageMetadata['code_interpreter'] ??= <Map<String, Object?>>[])
-                as List<Map<String, Object?>>;
-        codeInterpreterEvents.add({
-          'type': 'code_interpreter_call',
-          'id': item.id,
-          'code': item.code,
-          if (item.results != null)
-            'results': item.results!
-                .map((r) => r.toJson())
-                .toList(growable: false),
-          if (item.containerId != null) 'container_id': item.containerId,
-          'status': item.status.toJson(),
-        });
         continue;
       }
 
@@ -519,22 +503,9 @@ class OpenAIResponsesEventMapper {
         continue;
       }
 
-      // FileSearch has additional data (queries, results)
-      // Add as synthetic summary event
+      // FileSearch synthetic events are no longer added to message metadata
+      // They were already streamed via ChatResult.metadata during streaming
       if (item is openai.FileSearchCall) {
-        final fileSearchEvents =
-            (messageMetadata['file_search'] ??= <Map<String, Object?>>[])
-                as List<Map<String, Object?>>;
-        fileSearchEvents.add({
-          'type': 'file_search_call',
-          'id': item.id,
-          'queries': item.queries,
-          if (item.results != null)
-            'results': item.results!
-                .map((r) => r.toJson())
-                .toList(growable: false),
-          'status': item.status.toJson(),
-        });
         continue;
       }
 
@@ -616,6 +587,8 @@ class OpenAIResponsesEventMapper {
       'response_id': response.id,
       if (response.model != null) 'model': response.model!.toJson(),
       if (response.status != null) 'status': response.status,
+      // Don't duplicate thinking/tool events here - they were already streamed
+      // in individual chunks during streaming
     };
 
     // Per Message-Handling-Architecture.md:
@@ -698,16 +671,8 @@ class OpenAIResponsesEventMapper {
               'file_id=${annotation.fileId}',
             );
 
-            // Add file citation to code_interpreter metadata
-            _toolEventLog['code_interpreter']!.add({
-              'type': 'container_file_citation',
-              'container_id': annotation.containerId,
-              'file_id': annotation.fileId,
-              'start_index': annotation.startIndex,
-              'end_index': annotation.endIndex,
-            });
-
             // Track files for downloading as DataParts
+            // (no longer adding citations to metadata)
             _containerFiles.add((
               containerId: annotation.containerId,
               fileId: annotation.fileId,

@@ -177,25 +177,13 @@ void main() {
         equals('resp_123'),
       );
 
-      // Verify synthetic summaries were added for server-side tools
-      final codeInterpreterEvents =
-          message.metadata['code_interpreter'] as List<Map<String, Object?>>?;
-      expect(codeInterpreterEvents, isNotNull);
-      expect(codeInterpreterEvents, hasLength(1));
-      final ciEvent = codeInterpreterEvents!.first;
-      expect(ciEvent['type'], equals('code_interpreter_call'));
-      expect(ciEvent['id'], equals('ci-1'));
-      expect(ciEvent['code'], equals('print(1)'));
-      expect(ciEvent['container_id'], equals('container-7'));
-
-      final fileSearchEvents =
-          message.metadata['file_search'] as List<Map<String, Object?>>?;
-      expect(fileSearchEvents, isNotNull);
-      expect(fileSearchEvents, hasLength(1));
-      final fsEvent = fileSearchEvents!.first;
-      expect(fsEvent['type'], equals('file_search_call'));
-      expect(fsEvent['id'], equals('files-1'));
-      expect(fsEvent['queries'], equals(['query']));
+      // Message metadata should ONLY contain session info Tool events are not
+      // duplicated on the message (only in streaming metadata)
+      expect(
+        message.metadata.keys.toSet(),
+        equals({'_responses_session'}),
+        reason: 'Message metadata should only contain session info',
+      );
 
       expect(result.metadata['response_id'], equals('resp_123'));
       expect(result.metadata['status'], equals('completed'));

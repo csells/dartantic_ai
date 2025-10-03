@@ -66,10 +66,13 @@ void main() {
         greaterThan(20),
         reason: 'Thinking should be substantial for detailed reasoning',
       );
+
+      // Thinking should NOT be duplicated in message metadata
+      // It was already streamed in ChatResult.metadata
       expect(
         finalMessage?.metadata['thinking'],
-        equals(combinedThinking),
-        reason: 'Final message should contain complete thinking',
+        isNull,
+        reason: 'Thinking should not be duplicated in message metadata',
       );
 
       // Verify the actual response
@@ -286,39 +289,29 @@ void main() {
           ),
         );
 
+        // Thinking is accumulated from streaming chunks by Agent.send()
         final result = await agent.send('In one sentence: explain merge sort.');
 
-        // Check thinking is in result.metadata for consistency with streaming
+        // Thinking IS in result.metadata (accumulated from streaming chunks)
         final resultThinking = result.metadata['thinking'] as String?;
-
-        // Check thinking is also in message metadata for consistency
-        final messageThinking =
-            result.messages.last.metadata['thinking'] as String?;
-
-        // With gpt-5 and reasoningSummary enabled, we MUST get thinking
         expect(
           resultThinking,
           isNotNull,
-          reason:
-              'gpt-5 with detailed reasoning MUST produce thinking in '
-              'result.metadata',
+          reason: 'Agent.send() should accumulate thinking from streaming chunks',
         );
         expect(
           resultThinking!.isNotEmpty,
           isTrue,
-          reason: 'Result thinking metadata should contain content',
+          reason: 'Thinking should contain content',
         );
-        expect(
-          resultThinking.length,
-          greaterThan(20),
-          reason: 'Thinking should be substantial for detailed reasoning',
-        );
+
+        // Thinking is NOT in message metadata (only session info there)
+        final messageThinking =
+            result.messages.last.metadata['thinking'] as String?;
         expect(
           messageThinking,
-          equals(resultThinking),
-          reason:
-              'Message and result should have same thinking metadata for '
-              'consistency',
+          isNull,
+          reason: 'Message metadata should only contain session info',
         );
 
         // Verify we got a real response
