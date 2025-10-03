@@ -10,4 +10,4 @@
 - **YAGNI (You're Not Gonna Need It)** – avoid speculative complexity or over-engineering.
 - **Don't Swallow Errors** by catching expections, silently filling in required but missing values or adding timeouts when something hangs unexpectedly. All of those are exceptions that should be thrown so that the errors can be seen, root causes can be found and fixes can be applied.
 - **No Placeholder Code** - we're building production code here, not toys.
-- **No Comments for Remove Functionality** - the source is not the place to keep history of what's changed; it's the place to implement the current requirements only.
+- **No Comments for Removed Functionality** - the source is not the place to keep history of what's changed; it's the place to implement the current requirements only.

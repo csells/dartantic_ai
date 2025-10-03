@@ -568,19 +568,20 @@ Some providers (like OpenAI Responses with reasoning models) support "thinking" 
    - Tracks reasoning output indices to filter reasoning text from regular output stream
    - Skips `Reasoning` items in final `ResponseCompleted` event to prevent duplication
    - Only accumulates thinking from streaming delta events
+   - **Does NOT** add thinking to message metadata (only session info in message metadata)
 3. **Orchestrator**: Forwards metadata-only chunks (not just text chunks)
-4. **Agent**: Yields ChatResults when metadata OR text is present
-5. **Final Result**: Copies thinking from message metadata to result metadata for API consistency
+4. **Agent.send()**: Accumulates thinking from all streaming chunks into final `ChatResult.metadata`
+5. **Agent**: Yields ChatResults when metadata OR text is present
 
 ### Consistent API
 
-Thinking metadata is accessible in the same location for both `sendStream()` and `send()`:
+Thinking metadata is accessible in result metadata for both `sendStream()` and `send()`:
 
 - **sendStream()**: `chunk.metadata['thinking']` - arrives in real-time as the model thinks
-- **send()**: `result.metadata['thinking']` - contains complete accumulated thinking
-- **Message metadata**: `message.metadata['thinking']` - also preserved for backwards compatibility
+- **send()**: `result.metadata['thinking']` - contains complete accumulated thinking from all chunks
+- **Message metadata**: Does NOT contain thinking (only `_responses_session` for session continuation)
 
-Both methods receive thinking because `send()` is implemented using `sendStream()` internally.
+Both methods provide thinking in `ChatResult.metadata`, but message metadata remains clean (processing data only).
 
 ### Reasoning Text Filtering
 

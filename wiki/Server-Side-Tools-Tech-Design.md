@@ -130,28 +130,29 @@ Use **metadata** when:
 
 ## Metadata Flow Pattern
 
-Server-side tool metadata follows the same pattern as thinking/reasoning metadata:
+Server-side tool metadata follows a streaming-only pattern:
 
 ### Pattern Overview
 
 ```mermaid
 flowchart LR
-    A[Streaming Event] --> B[Internal Event Log]
-    B --> C[Message Metadata]
-    C -.not.-> D[Result Metadata]
+    A[Streaming Event] --> B[ChatResult.metadata]
+    B -.NOT.-> C[ChatMessage.metadata]
+    B -.NOT.-> D[Final ChatResult.metadata]
 ```
 
-This mirrors the thinking pattern:
+**Key Principle**: Tool events are ONLY available during streaming, NOT in message metadata.
+
 - **During streaming**: Individual events emitted in `ChatResult.metadata`
-- **Final result**: Complete event list in `ChatMessage.metadata`
-- **Result metadata**: Does NOT include tool events (only response_id, model, status)
+- **Message metadata**: Only contains `_responses_session` (for session continuation)
+- **Final result metadata**: Only contains response-level info (response_id, model, status)
 
 ### Why This Pattern?
 
-1. **Consistency**: Matches the established thinking metadata pattern
-2. **Accessibility**: Tool events are part of the conversation history
-3. **Developer ergonomics**: Same structure during streaming and in final message
-4. **Separation of concerns**: Result metadata is for response-level info, message metadata is for content-level info
+1. **No duplication**: Tool events already streamed in real-time, no need to duplicate in message history
+2. **Clean message history**: Messages only contain data needed for processing (session info)
+3. **Clear separation**: Streaming metadata = transparency/debugging, Message metadata = processing data
+4. **Reduced memory**: Large tool event logs don't bloat conversation history
 
 ## Streaming Events
 
@@ -188,7 +189,7 @@ await for (final chunk in agent.sendStream(prompt)) {
 
 ### Event Accumulation
 
-Events are accumulated in an internal event log map that tracks events for each tool type (web_search, file_search, image_generation, etc.).
+Events are accumulated in an internal event log map during streaming for use in final result metadata.
 
 **Algorithm:**
 1. Maintain a map with keys for each tool type: 'web_search', 'file_search', 'image_generation', 'local_shell', 'mcp', 'code_interpreter'
@@ -196,73 +197,51 @@ Events are accumulated in an internal event log map that tracks events for each 
 3. When a server-side tool event arrives during streaming:
    - Convert the event to JSON
    - Append to the appropriate tool's list in the map
-4. This accumulated log is used to build the final message metadata
+   - Yield the event in `ChatResult.metadata` for streaming consumers
+4. This accumulated log is used ONLY to populate final `ChatResult.metadata` (via `Agent.send()`)
 
 ## Final Message Metadata
 
 ### Building Message Metadata
 
-When building the final result, complete event lists are copied from the internal event log to the message metadata.
+Message metadata contains ONLY session information needed for processing.
 
 **Algorithm:**
 1. Create a message metadata map
-2. If thinking/reasoning was captured, add it under 'thinking' key
-3. Iterate through the internal event log map
-4. For each tool that has non-empty event lists:
-   - Copy the entire event list to message metadata under the tool's key
-5. Attach this metadata map to the final ChatMessage
+2. Add only `_responses_session` data (response_id for session continuation)
+3. **DO NOT** add tool events, thinking, or any other transparency metadata
+4. Attach this minimal metadata map to the final ChatMessage
 
-### Result Metadata (Does NOT Include Tool Events)
+**Rationale**: Tool events were already streamed via `ChatResult.metadata`. Message metadata should only contain data needed for message processing (like session continuation), not transparency/debugging data.
 
-The `ChatResult.metadata` contains only response-level information (response_id, model, status). Tool events do NOT appear here - they only appear in the message metadata. This separation maintains clear distinction between response-level metadata and content-level metadata.
+### Result Metadata
+
+**Streaming chunks**: Each `ChatResult.metadata` contains tool events as they arrive
+
+**Final ChatResult.metadata** (from `Agent.send()`): Contains accumulated tool events from all chunks
+- Thinking (accumulated from all deltas)
+- Tool events (accumulated from all streaming events)
+- Response-level info (response_id, model, status)
+
+**Difference from message metadata**: Result metadata provides transparency for non-streaming consumers. Message metadata only contains processing data.
 
 ## Synthetic Summary Events
 
-### Problem: Missing Data in Streaming Events
+**Status**: NOT used in current implementation
 
-Some tools have additional data in `response.output` items that isn't available during streaming:
+**Previous Design**: The original design added synthetic summary events from `response.output` to message metadata for tools like FileSearch and CodeInterpreter that have additional data not available during streaming.
 
-| Tool | Streaming Events Have | response.output Adds |
-|------|----------------------|---------------------|
-| WebSearch | Progress stages | Nothing (just id/status) |
-| ImageGeneration | Partial images | resultBase64 (redundant) |
-| FileSearch | Progress stages | **queries, results** |
-| CodeInterpreter | Progress stages | **code, results, containerId** |
-| MCP | Progress stages | Nothing |
-| LocalShell | Command, output | Nothing |
+**Current Implementation**: Tool events are NOT added to message metadata at all. They are only available:
+1. During streaming via `ChatResult.metadata`
+2. In the final `ChatResult.metadata` (accumulated by `Agent.send()`)
 
-### Solution: Append Synthetic Events
+**Rationale**:
+- Tool events were already streamed in real-time
+- Duplicating them in message metadata creates unnecessary bloat
+- Message metadata should only contain data needed for processing (like `_responses_session`)
+- Developers who need tool events can access them from `ChatResult.metadata` during streaming or from the final result
 
-For tools with additional data (FileSearch and CodeInterpreter), append the `response.output` item as a synthetic final event to the message metadata.
-
-**Algorithm:**
-1. After all streaming events have been processed
-2. Iterate through `response.output` items
-3. For FileSearchCall items:
-   - Create synthetic event with type: 'file_search_call'
-   - Include id, queries, results, and status from the call
-   - Append to the 'file_search' event list in message metadata
-4. For CodeInterpreterCall items:
-   - Create synthetic event with type: 'code_interpreter_call'
-   - Include id, code, results, containerId, and status from the call
-   - Append to the 'code_interpreter' event list in message metadata
-5. Ignore all other output item types (no additional data beyond streaming events)
-
-### Final Metadata Structure
-
-The complete event list includes both streaming events and any synthetic summary events with additional data not available during streaming.
-
-### Determining Which Tools Need Synthetic Events
-
-For each tool, evaluate:
-1. Does the provider's final response contain data not available during streaming?
-2. Is this data valuable for debugging, transparency, or application logic?
-3. If yes: append a synthetic summary event with the additional data
-
-**Common examples:**
-- File search: final queries and results
-- Code execution: final code, outputs, execution context
-- Multi-step processes: final summary of all steps
+This section is retained for historical context and may be reconsidered in future iterations if use cases emerge that require tool event data in conversation history.
 
 ## Content Deliverables
 
@@ -323,27 +302,20 @@ The single-item list format is critical for consistency with final metadata stru
 
 ### 3. Final Metadata Assembly
 
-**Algorithm:**
+**Algorithm for Message Metadata:**
 1. Create message metadata map
-2. Add thinking metadata if present
-3. For each tool in event log with non-empty events:
-   - Copy complete event list to message metadata
-4. Return this map as part of the final ChatMessage
+2. Add ONLY `_responses_session` data (for session continuation)
+3. **DO NOT** add tool events or thinking
+4. Return this minimal map as part of the final ChatMessage
 
-### 4. Synthetic Event Appending
+**Algorithm for Result Metadata (Agent.send only):**
+1. `Agent.send()` accumulates metadata from all streaming chunks
+2. Accumulate thinking from streaming chunks into a buffer
+3. Preserve tool event logs from streaming chunks
+4. Include response-level info (response_id, model, status)
+5. Return complete metadata in final `ChatResult.metadata`
 
-**Algorithm:**
-1. After all streaming events processed
-2. Iterate through provider's final response structure
-3. For tools with additional data not in streaming events:
-   - Extract the additional data
-   - Create a synthetic summary event
-   - Append to the tool's event list in message metadata
-4. Ignore tools that have no additional data
-
-See [Synthetic Summary Events](#synthetic-summary-events) section for details.
-
-### 5. Content Deliverables
+### 4. Content Deliverables
 
 **Algorithm:**
 1. During streaming: track partial content and completion status
@@ -352,7 +324,7 @@ See [Synthetic Summary Events](#synthetic-summary-events) section for details.
 
 See [Content Deliverables](#content-deliverables) section for details.
 
-### 6. Non-Text Parts in Streamed Responses
+### 5. Non-Text Parts in Streamed Responses
 
 **Algorithm:**
 1. Check if text was streamed during response
@@ -385,19 +357,22 @@ await for (final chunk in agent.sendStream(prompt)) {
 }
 ```
 
-### Accessing Complete Tool History
+### Accessing Complete Tool History (Non-Streaming)
 
 ```dart
 final result = await agent.send(prompt);
-final lastMessage = agent.messages.last;
 
-// Tool metadata accumulated in message
-final toolEvents = lastMessage.metadata['tool_name'] as List?;
+// Tool events are in result.metadata (accumulated by Agent.send)
+final toolEvents = result.metadata['tool_name'] as List?;
 if (toolEvents != null) {
   for (final event in toolEvents) {
     // Process complete event history
   }
 }
+
+// Messages only contain session info, not tool events
+final session = result.messages.last.metadata['_responses_session'];
+// Use session data for stateful continuation...
 ```
 
 ### Handling Content Deliverables
@@ -571,28 +546,24 @@ await for (final chunk in agent.sendStream('Calculate fibonacci(100)')) {
   }
 }
 
-// Access complete code in message metadata
+// Access complete code in result metadata (not message metadata)
 final result = await agent.send('Calculate fibonacci(100)');
-final codeEvents = agent.messages.last.metadata['code_interpreter'] as List?;
+final codeEvents = result.metadata['code_interpreter'] as List?;
 if (codeEvents != null) {
-  // Find the accumulated code delta (single complete code block)
-  final codeDelta = codeEvents.firstWhere(
-    (e) => e['type'] == 'response.code_interpreter_call_code.delta',
-    orElse: () => null,
-  );
-  if (codeDelta != null) {
-    print('Complete code:\n${codeDelta['delta']}');
-  }
+  // Find code deltas in the event stream
+  for (final event in codeEvents) {
+    if (event['type'] == 'response.code_interpreter_call_code.delta') {
+      print('Code chunk: ${event['delta']}');
+    }
 
-  // Last event is synthetic summary with execution details
-  final summary = codeEvents.last;
-  print('Container: ${summary['container_id']}');
-  print('Status: ${summary['status']}');
-
-  // Container file citations include file_id and container_id for generated files
-  final fileCitations = codeEvents.where((e) => e['type'] == 'container_file_citation').toList();
-  for (final citation in fileCitations) {
-    print('Generated file: ${citation['file_id']} in container ${citation['container_id']}');
+    // Find completion events with execution details
+    if (event['type'] == 'response.output_item.done') {
+      final item = event['item'];
+      if (item['container_id'] != null) {
+        print('Container: ${item['container_id']}');
+        print('Status: ${item['status']}');
+      }
+    }
   }
 }
 
@@ -607,7 +578,7 @@ for (final part in agent.messages.last.parts) {
 ```
 
 **File Generation**: When code interpreter generates files (e.g., via `plt.savefig()`), they are:
-1. Referenced via `container_file_citation` annotations in the message metadata
+1. Referenced via `container_file_citation` events in streaming metadata
 2. Automatically downloaded and attached as `DataPart`s in the model's response
 3. Citations with zero-length text ranges (start_index == end_index) are filtered out
 
@@ -617,27 +588,27 @@ for (final part in agent.messages.last.parts) {
 
 1. **Event recording**: Verify events are added to internal event log
 2. **Metadata emission**: Check streaming chunks have events as single-item lists
-3. **Final metadata**: Ensure complete event lists appear in message metadata
-4. **Synthetic events**: Verify FileSearch/CodeInterpreter summaries are appended
+3. **Message metadata**: Verify messages only contain `_responses_session`, NOT tool events
+4. **Result metadata accumulation**: Verify `Agent.send()` accumulates tool events in result.metadata
 5. **Image DataPart**: Confirm final image appears as DataPart when completed
 
 ### Integration Tests
 
-1. **Web search flow**: Test full streaming + final metadata
-2. **Image generation**: Test partial images + final DataPart
-3. **File search**: Test streaming events + synthetic summary
-4. **Code interpreter**: Test streaming + code/results in summary
+1. **Web search flow**: Test streaming events appear in `ChatResult.metadata`
+2. **Image generation**: Test partial images in streaming metadata + final DataPart
+3. **File search**: Test streaming events contain search results
+4. **Code interpreter**: Test streaming code deltas + container reuse
 5. **Multiple tools**: Test multiple server-side tools in one response
 
 ### Test Structure
 
 Tests should verify:
-- Streaming chunks contain single-item event lists for each tool event
-- Final result contains complete accumulated event lists in message metadata
+- Streaming chunks contain single-item event lists in `ChatResult.metadata`
+- Final `ChatResult.metadata` (from `Agent.send()`) contains accumulated events
+- Message metadata contains ONLY `_responses_session`, NOT tool events
 - Event types match expected progression for the provider
-- Synthetic events are properly appended when tools have additional data
 - Content deliverables appear as DataPart in message parts
-- Result metadata does NOT contain tool events (only response-level metadata)
+- Session continuation works via `_responses_session` in message metadata
 
 ## Related Documentation
 
