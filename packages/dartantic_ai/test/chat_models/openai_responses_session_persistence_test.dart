@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_dynamic_calls
+
 import 'dart:io' show Platform;
 
 import 'package:dartantic_ai/dartantic_ai.dart';
@@ -424,11 +426,7 @@ void main() {
       expect(result.output, isNotEmpty);
       expect(
         result.output.toLowerCase(),
-        anyOf(
-          contains('million'),
-          contains('tokyo'),
-          contains('population'),
-        ),
+        anyOf(contains('million'), contains('tokyo'), contains('population')),
       );
     });
 

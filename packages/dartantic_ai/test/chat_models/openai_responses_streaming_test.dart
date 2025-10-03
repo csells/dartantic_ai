@@ -297,7 +297,9 @@ void main() {
         expect(
           resultThinking,
           isNotNull,
-          reason: 'Agent.send() should accumulate thinking from streaming chunks',
+          reason:
+              'Agent.send() should accumulate thinking from '
+              'streaming chunks',
         );
         expect(
           resultThinking!.isNotEmpty,

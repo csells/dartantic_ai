@@ -813,9 +813,7 @@ function fibonacci(n) {
         final customProvider = OpenAIProvider(
           name: 'custom-openai-test',
           displayName: 'Custom OpenAI',
-          defaultModelNames: {
-            ModelKind.chat: 'gpt-4o-mini',
-          },
+          defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           baseUrl: Uri.parse('https://api.openai.com/v1'),
           apiKeyName: 'OPENAI_API_KEY',
         );
@@ -837,8 +835,8 @@ function fibonacci(n) {
         'dotprompt integration',
         skip: 'Requires dotprompt_dart package - optional dependency',
         () async {
-          // This test would verify dotprompt integration if the package is available
-          // Skipped by default as it's an optional dependency
+          // This test would verify dotprompt integration if the package is
+          // available Skipped by default as it's an optional dependency
         },
       );
 
@@ -867,17 +865,12 @@ class _EchoChatModel extends ChatModel<ChatModelOptions> {
   }) {
     final lastMessage = messages.last;
     return Stream.value(
-      ChatResult<ChatMessage>(
-        output: ChatMessage.model(lastMessage.text),
-      ),
+      ChatResult<ChatMessage>(output: ChatMessage.model(lastMessage.text)),
     );
   }
 
   @override
   void dispose() {}
-
-  @override
-  Future<List<ModelInfo>> listModels() async => [];
 }
 
 class _EchoProvider extends Provider {
@@ -895,15 +888,13 @@ class _EchoProvider extends Provider {
     List<Tool>? tools,
     double? temperature,
     ChatModelOptions? options,
-  }) =>
-      _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
+  }) => _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
 
   @override
   EmbeddingsModel<EmbeddingsModelOptions> createEmbeddingsModel({
     String? name,
     EmbeddingsModelOptions? options,
-  }) =>
-      throw UnimplementedError('Echo provider does not support embeddings');
+  }) => throw UnimplementedError('Echo provider does not support embeddings');
 
   @override
   Stream<ModelInfo> listModels() async* {
