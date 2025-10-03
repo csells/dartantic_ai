@@ -788,5 +788,130 @@ function fibonacci(n) {
         }
       });
     });
+
+    group('integration patterns', () {
+      test('custom provider registration and usage', () async {
+        // Create custom echo provider
+        final echoProvider = _EchoProvider();
+
+        // Register custom provider
+        Providers.providerMap['echo-test'] = echoProvider;
+
+        // Use custom provider
+        final agent = Agent('echo-test');
+        final result = await agent.send('Test message');
+
+        expect(result.output, contains('Test message'));
+        expect(result.messages, isNotEmpty);
+
+        // Cleanup
+        Providers.providerMap.remove('echo-test');
+      });
+
+      test('OpenAI-compatible custom provider pattern', () async {
+        // Create OpenAI-compatible provider with custom baseUrl
+        final customProvider = OpenAIProvider(
+          name: 'custom-openai-test',
+          displayName: 'Custom OpenAI',
+          defaultModelNames: {
+            ModelKind.chat: 'gpt-4o-mini',
+          },
+          baseUrl: Uri.parse('https://api.openai.com/v1'),
+          apiKeyName: 'OPENAI_API_KEY',
+        );
+
+        // Register and use
+        Providers.providerMap['custom-openai-test'] = customProvider;
+
+        final agent = Agent('custom-openai-test');
+        final result = await agent.send('Hello from custom provider');
+
+        expect(result.output, isNotEmpty);
+        expect(result.messages, isNotEmpty);
+
+        // Cleanup
+        Providers.providerMap.remove('custom-openai-test');
+      });
+
+      test(
+        'dotprompt integration',
+        skip: 'Requires dotprompt_dart package - optional dependency',
+        () async {
+          // This test would verify dotprompt integration if the package is available
+          // Skipped by default as it's an optional dependency
+        },
+      );
+
+      test(
+        'MCP client integration',
+        skip: 'Requires MCP server - would need test server or mock',
+        () async {
+          // This test would verify MCP client integration
+          // Skipped by default as it requires external MCP server
+        },
+      );
+    });
   });
+}
+
+/// Simple echo provider for testing custom provider patterns
+class _EchoChatModel extends ChatModel<ChatModelOptions> {
+  _EchoChatModel({required super.name})
+    : super(defaultOptions: const ChatModelOptions());
+
+  @override
+  Stream<ChatResult<ChatMessage>> sendStream(
+    List<ChatMessage> messages, {
+    ChatModelOptions? options,
+    Object? outputSchema,
+  }) {
+    final lastMessage = messages.last;
+    return Stream.value(
+      ChatResult<ChatMessage>(
+        output: ChatMessage.model(lastMessage.text),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<List<ModelInfo>> listModels() async => [];
+}
+
+class _EchoProvider extends Provider {
+  _EchoProvider()
+    : super(
+        name: 'echo-test',
+        displayName: 'Echo Test Provider',
+        defaultModelNames: {ModelKind.chat: 'echo'},
+        caps: {},
+      );
+
+  @override
+  ChatModel<ChatModelOptions> createChatModel({
+    String? name,
+    List<Tool>? tools,
+    double? temperature,
+    ChatModelOptions? options,
+  }) =>
+      _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
+
+  @override
+  EmbeddingsModel<EmbeddingsModelOptions> createEmbeddingsModel({
+    String? name,
+    EmbeddingsModelOptions? options,
+  }) =>
+      throw UnimplementedError('Echo provider does not support embeddings');
+
+  @override
+  Stream<ModelInfo> listModels() async* {
+    yield ModelInfo(
+      providerName: name,
+      name: 'echo',
+      displayName: 'Echo Model',
+      kinds: const {ModelKind.chat},
+    );
+  }
 }

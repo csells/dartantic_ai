@@ -330,4 +330,142 @@ void main() {
       },
     );
   });
+
+  group('OpenAI Responses Server-Side Tools Execution', () {
+    test('code interpreter executes Python code', () async {
+      final agent = Agent(
+        'openai-responses',
+        chatModelOptions: const OpenAIResponsesChatModelOptions(
+          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+        ),
+      );
+
+      final result = await agent.send(
+        'Calculate 15 * 23 using Python code and show me the result.',
+      );
+
+      // Should have executed code and returned result
+      expect(result.output, contains('345'));
+      expect(result.messages, isNotEmpty);
+    });
+
+    test('code interpreter container reuse across turns', () async {
+      final history = <ChatMessage>[];
+      String? firstContainerId;
+      String? secondContainerId;
+
+      // First turn: Create variable in container
+      final agent = Agent(
+        'openai-responses',
+        chatModelOptions: const OpenAIResponsesChatModelOptions(
+          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+        ),
+      );
+
+      await for (final chunk in agent.sendStream(
+        'Calculate the first 5 Fibonacci numbers and store in variable "fib".',
+      )) {
+        history.addAll(chunk.messages);
+
+        // Extract container_id from streaming metadata
+        final ciEvents = chunk.metadata['code_interpreter'] as List?;
+        if (ciEvents != null) {
+          for (final event in ciEvents) {
+            final item = event['item'];
+            if (item is Map && item['container_id'] != null) {
+              firstContainerId = item['container_id'] as String;
+            }
+          }
+        }
+      }
+
+      expect(firstContainerId, isNotNull, reason: 'Should have container ID');
+
+      // Second turn: Reuse variable from first turn
+      await for (final chunk in agent.sendStream(
+        'What is the sum of the fib variable?',
+        history: history,
+      )) {
+        history.addAll(chunk.messages);
+
+        // Extract container_id from streaming metadata
+        final ciEvents = chunk.metadata['code_interpreter'] as List?;
+        if (ciEvents != null) {
+          for (final event in ciEvents) {
+            final item = event['item'];
+            if (item is Map && item['container_id'] != null) {
+              secondContainerId = item['container_id'] as String;
+            }
+          }
+        }
+      }
+
+      // Container should be reused
+      expect(
+        secondContainerId,
+        equals(firstContainerId),
+        reason: 'Container should be reused across turns',
+      );
+    });
+
+    test('web search returns search results', () async {
+      final agent = Agent(
+        'openai-responses',
+        chatModelOptions: const OpenAIResponsesChatModelOptions(
+          serverSideTools: {OpenAIServerSideTool.webSearch},
+        ),
+      );
+
+      final result = await agent.send(
+        'What is the current population of Tokyo?',
+      );
+
+      // Should have performed web search and included results
+      expect(result.output, isNotEmpty);
+      expect(
+        result.output.toLowerCase(),
+        anyOf(
+          contains('million'),
+          contains('tokyo'),
+          contains('population'),
+        ),
+      );
+    });
+
+    test('image generation produces DataPart with image', () async {
+      final agent = Agent(
+        'openai-responses',
+        chatModelOptions: const OpenAIResponsesChatModelOptions(
+          serverSideTools: {OpenAIServerSideTool.imageGeneration},
+          imageGenerationConfig: ImageGenerationConfig(
+            size: ImageGenerationSize.square256,
+            quality: ImageGenerationQuality.low,
+          ),
+        ),
+      );
+
+      final history = <ChatMessage>[];
+      await for (final chunk in agent.sendStream(
+        'Generate a simple blue square image.',
+      )) {
+        history.addAll(chunk.messages);
+      }
+
+      // Should have image in final message
+      final imageParts = history.last.parts.whereType<DataPart>();
+      expect(imageParts, isNotEmpty, reason: 'Should have image DataPart');
+
+      final imagePart = imageParts.first;
+      expect(
+        imagePart.mimeType,
+        startsWith('image/'),
+        reason: 'Should be an image MIME type',
+      );
+      expect(
+        imagePart.bytes.length,
+        greaterThan(100),
+        reason: 'Image should have content',
+      );
+    });
+  });
 }
