@@ -103,7 +103,11 @@ class OpenAIResponsesMessageMapper {
       _validateHistory(messages);
     }
 
-    for (var i = sessionResolution.firstMessageIndex; i < messages.length; i++) {
+    for (
+      var i = sessionResolution.firstMessageIndex;
+      i < messages.length;
+      i++
+    ) {
       final message = messages[i];
       items.addAll(_mapMessageParts(message, imageDetail: imageDetail));
     }
@@ -114,7 +118,9 @@ class OpenAIResponsesMessageMapper {
 
     log.info('━━━ Mapping Complete ━━━');
     log.info('Actual items to send: ${items.length}');
-    log.info('Using previousResponseId: ${sessionResolution.previousResponseId ?? "none"}');
+    log.info(
+      'Using previousResponseId: ${sessionResolution.previousResponseId ?? "none"}',
+    );
     log.info('');
 
     return OpenAIResponsesHistorySegment(

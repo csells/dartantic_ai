@@ -4,7 +4,8 @@ import 'package:openai_core/openai_core.dart' as openai;
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_server_side_tools.dart';
 
-/// Maps Dartantic server-side tool configurations to OpenAI Responses API payloads.
+/// Maps Dartantic server-side tool configurations to OpenAI Responses API
+/// payloads.
 class OpenAIResponsesServerSideToolMapper {
   OpenAIResponsesServerSideToolMapper._();
 

@@ -8,14 +8,15 @@ import 'package:openai_core/openai_core.dart' as openai;
 
 import 'openai_responses_event_mapper.dart';
 
-/// Collects and resolves attachments (images, container files) during streaming.
+/// Collects and resolves attachments (images, container files) during
+/// streaming.
 class AttachmentCollector {
   /// Creates a new attachment collector.
   AttachmentCollector({
     required Logger logger,
     required ContainerFileLoader containerFileLoader,
-  })  : _logger = logger,
-        _containerFileLoader = containerFileLoader;
+  }) : _logger = logger,
+       _containerFileLoader = containerFileLoader;
 
   final Logger _logger;
   final ContainerFileLoader _containerFileLoader;
@@ -75,7 +76,8 @@ class AttachmentCollector {
     }
 
     final decodedBytes = Uint8List.fromList(base64Decode(_latestImageBase64!));
-    // Use lookupMimeType with headerBytes to detect MIME type from file signature
+    // Use lookupMimeType with headerBytes to detect MIME type from file
+    // signature
     final inferredMime =
         lookupMimeType('image.bin', headerBytes: decodedBytes) ??
         'application/octet-stream';
@@ -99,15 +101,11 @@ class AttachmentCollector {
 
       final inferredMime =
           data.mimeType ??
-          lookupMimeType(
-            data.fileName ?? '',
-            headerBytes: data.bytes,
-          ) ??
+          lookupMimeType(data.fileName ?? '', headerBytes: data.bytes) ??
           'application/octet-stream';
       final extension = Part.extensionFromMimeType(inferredMime);
       final fileName =
-          data.fileName ??
-          (extension != null ? '$fileId.$extension' : fileId);
+          data.fileName ?? (extension != null ? '$fileId.$extension' : fileId);
 
       attachments.add(
         DataPart(data.bytes, mimeType: inferredMime, name: fileName),

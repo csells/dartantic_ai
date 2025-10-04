@@ -4,7 +4,6 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
-import 'package:meta/meta.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../agent/tool_constants.dart';
@@ -39,7 +38,6 @@ class OpenAIResponsesChatModel
   static final Logger _logger = Logger(
     'dartantic.chat.models.openai_responses',
   );
-
 
   final openai.OpenAIClient _client;
 
@@ -231,7 +229,10 @@ class OpenAIResponsesChatModel
     final segments = metadata.path.split('/');
     final rawFileName = segments.isNotEmpty ? segments.last : metadata.path;
 
-    final bytes = await _client.retrieveContainerFileContent(containerId, fileId);
+    final bytes = await _client.retrieveContainerFileContent(
+      containerId,
+      fileId,
+    );
 
     return ContainerFileData(
       bytes: bytes,
