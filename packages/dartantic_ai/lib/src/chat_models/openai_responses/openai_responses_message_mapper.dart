@@ -151,7 +151,7 @@ class OpenAIResponsesMessageMapper {
     return OpenAIResponsesHistorySegment(
       items: items,
       input: input,
-      instructions: null, // Not using instructions parameter anymore
+      instructions: null,
       previousResponseId: previousResponseId,
       anchorIndex: session?.index ?? -1,
     );
@@ -374,11 +374,7 @@ class OpenAIResponsesMessageMapper {
   static String _stringifyToolResult(dynamic result) {
     if (result == null) return 'null';
     if (result is String) return result;
-    try {
-      return jsonEncode(result);
-    } on Object catch (_) {
-      return result.toString();
-    }
+    return jsonEncode(result);
   }
 }
 

@@ -4,51 +4,53 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
-// Helper to create a test client (won't be used in these unit tests)
-openai.OpenAIClient _createTestClient() => openai.OpenAIClient(
-      apiKey: 'test-key',
-      baseUrl: 'https://api.openai.com/v1',
-    );
+// Mock download function for tests
+Future<List<int>> _mockDownloadContainerFile(
+  String containerId,
+  String fileId,
+) => Future.value([1, 2, 3, 4]); // Mock file bytes
 
 void main() {
   group('OpenAIResponsesEventMapper thinking metadata', () {
-    test('emits thinking text in ChatResult metadata during streaming',
-        () async {
-      final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
-        storeSession: false,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
-        client: _createTestClient(),
-      );
+    test(
+      'emits thinking text in ChatResult metadata during streaming',
+      () async {
+        final mapper = OpenAIResponsesEventMapper(
+          modelName: 'gpt-4o',
+          storeSession: false,
+          history: const OpenAIResponsesHistorySegment(
+            items: [],
+            input: null,
+            instructions: null,
+            previousResponseId: null,
+            anchorIndex: -1,
+          ),
+          downloadContainerFile: _mockDownloadContainerFile,
+        );
 
-      // Simulate reasoning summary text delta event
-      const thinkingEvent = openai.ResponseReasoningSummaryTextDelta(
-        itemId: 'reasoning_1',
-        outputIndex: 0,
-        summaryIndex: 0,
-        delta: 'I am thinking about quicksort...',
-        sequenceNumber: 1,
-      );
+        // Simulate reasoning summary text delta event
+        const thinkingEvent = openai.ResponseReasoningSummaryTextDelta(
+          itemId: 'reasoning_1',
+          outputIndex: 0,
+          summaryIndex: 0,
+          delta: 'I am thinking about quicksort...',
+          sequenceNumber: 1,
+        );
 
-      final results = await mapper.handle(thinkingEvent).toList();
+        final results = await mapper.handle(thinkingEvent).toList();
 
-      expect(results, hasLength(1));
-      final result = results.first;
+        expect(results, hasLength(1));
+        final result = results.first;
 
-      // Thinking should be in ChatResult metadata, not in the output text
-      expect(
-        result.metadata['thinking'],
-        equals('I am thinking about quicksort...'),
-      );
-      expect(result.output.parts, isEmpty);
-      expect(result.messages, isEmpty);
-    });
+        // Thinking should be in ChatResult metadata, not in the output text
+        expect(
+          result.metadata['thinking'],
+          equals('I am thinking about quicksort...'),
+        );
+        expect(result.output.parts, isEmpty);
+        expect(result.messages, isEmpty);
+      },
+    );
 
     test('filters reasoning text from regular output stream', () async {
       final mapper = OpenAIResponsesEventMapper(
@@ -61,7 +63,7 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
-        client: _createTestClient(),
+        downloadContainerFile: _mockDownloadContainerFile,
       );
 
       // First, add a Reasoning item at outputIndex 0
@@ -103,7 +105,7 @@ void main() {
           previousResponseId: null,
           anchorIndex: -1,
         ),
-        client: _createTestClient(),
+        downloadContainerFile: _mockDownloadContainerFile,
       );
 
       // Add an OutputMessage item at outputIndex 0 (not reasoning)

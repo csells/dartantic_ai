@@ -5,7 +5,6 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
-import '../../platform/platform.dart';
 import '../../shared/openai_responses_metadata.dart';
 import 'openai_responses_message_mapper.dart';
 
@@ -16,15 +15,12 @@ class OpenAIResponsesEventMapper {
     required this.modelName,
     required this.storeSession,
     required this.history,
-    openai.OpenAIClient? client,
-  }) : _client =
-           client ?? openai.OpenAIClient(apiKey: getEnv('OPENAI_API_KEY'));
+    required this.downloadContainerFile,
+  });
 
   static final Logger _logger = Logger(
     'dartantic.chat.models.openai_responses.event_mapper',
   );
-
-  final openai.OpenAIClient _client;
 
   /// Model name used for this stream.
   final String modelName;
@@ -34,6 +30,10 @@ class OpenAIResponsesEventMapper {
 
   /// Mapping information derived from the conversation history.
   final OpenAIResponsesHistorySegment history;
+
+  /// Function to download container files (provided by chat model layer).
+  final Future<List<int>> Function(String containerId, String fileId)
+  downloadContainerFile;
 
   final StringBuffer _thinkingBuffer = StringBuffer();
 
@@ -292,13 +292,7 @@ class OpenAIResponsesEventMapper {
         _logger.fine('Stored partial image index: $_lastPartialImageIndex');
       }
 
-      // Note: ResponseImageGenerationCallCompleted is defined in openai_core
-      // but OpenAI never actually sends it. Image generation completion is
-      // signaled by ResponseOutputItemDone with an ImageGenerationCall item.
       if (event is openai.ResponseImageGenerationCallCompleted) {
-        _logger.warning(
-          'Received unexpected ResponseImageGenerationCallCompleted event',
-        );
         _imageGenerationCompleted = true;
       }
 
@@ -309,16 +303,14 @@ class OpenAIResponsesEventMapper {
     if (event is openai.ResponseWebSearchCallInProgress ||
         event is openai.ResponseWebSearchCallSearching ||
         event is openai.ResponseWebSearchCallCompleted) {
-      _recordToolEvent('web_search', event);
-      yield* _yieldToolMetadataChunk('web_search', event);
+      yield* _handleStandardToolEvent('web_search', event);
       return;
     }
 
     if (event is openai.ResponseFileSearchCallInProgress ||
         event is openai.ResponseFileSearchCallSearching ||
         event is openai.ResponseFileSearchCallCompleted) {
-      _recordToolEvent('file_search', event);
-      yield* _yieldToolMetadataChunk('file_search', event);
+      yield* _handleStandardToolEvent('file_search', event);
       return;
     }
 
@@ -330,8 +322,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseMcpListToolsInProgress ||
         event is openai.ResponseMcpListToolsCompleted ||
         event is openai.ResponseMcpListToolsFailed) {
-      _recordToolEvent('mcp', event);
-      yield* _yieldToolMetadataChunk('mcp', event);
+      yield* _handleStandardToolEvent('mcp', event);
       return;
     }
 
@@ -375,8 +366,7 @@ class OpenAIResponsesEventMapper {
     if (event is openai.ResponseCodeInterpreterCallInProgress ||
         event is openai.ResponseCodeInterpreterCallCompleted ||
         event is openai.ResponseCodeInterpreterCallInterpreting) {
-      _recordToolEvent('code_interpreter', event);
-      yield* _yieldToolMetadataChunk('code_interpreter', event);
+      yield* _handleStandardToolEvent('code_interpreter', event);
       return;
     }
   }
@@ -415,6 +405,15 @@ class OpenAIResponsesEventMapper {
       },
       usage: const LanguageModelUsage(),
     );
+  }
+
+  /// Helper to record and yield tool events for standard tool types.
+  Stream<ChatResult<ChatMessage>> _handleStandardToolEvent(
+    String toolKey,
+    openai.ResponseEvent event,
+  ) async* {
+    _recordToolEvent(toolKey, event);
+    yield* _yieldToolMetadataChunk(toolKey, event);
   }
 
   Future<ChatResult<ChatMessage>> _buildFinalResult(
@@ -485,9 +484,7 @@ class OpenAIResponsesEventMapper {
         continue;
       }
 
-      // CodeInterpreter synthetic events are no longer added to message
-      // metadata They were already streamed via ChatResult.metadata during
-      // streaming
+      // Skip - code interpreter events are streamed in ChatResult.metadata
       if (item is openai.CodeInterpreterCall) {
         continue;
       }
@@ -503,8 +500,7 @@ class OpenAIResponsesEventMapper {
         continue;
       }
 
-      // FileSearch synthetic events are no longer added to message metadata
-      // They were already streamed via ChatResult.metadata during streaming
+      // Skip - file search events are streamed in ChatResult.metadata
       if (item is openai.FileSearchCall) {
         continue;
       }
@@ -535,24 +531,18 @@ class OpenAIResponsesEventMapper {
       _logger.info('');
     }
 
-    // Add the last partial image as a DataPart if image generation completed.
-    // OpenAI signals completion via ResponseOutputItemDone (not the
-    // ResponseImageGenerationCallCompleted event which is never sent).
-    // The last partial image received IS the final image.
+    // Add the last partial image as a DataPart when image generation completes.
+    // The final partial image received is the complete generated image.
     if (_imageGenerationCompleted && _lastPartialImageB64 != null) {
-      try {
-        final bytes = base64Decode(_lastPartialImageB64!);
-        parts.add(
-          DataPart(
-            bytes,
-            mimeType: 'image/png',
-            name: 'image_$_lastPartialImageIndex.png',
-          ),
-        );
-        _logger.fine('Added final image as DataPart (${bytes.length} bytes)');
-      } on FormatException catch (e) {
-        _logger.warning('Failed to decode final image base64: $e');
-      }
+      final bytes = base64Decode(_lastPartialImageB64!);
+      parts.add(
+        DataPart(
+          bytes,
+          mimeType: 'image/png',
+          name: 'image_$_lastPartialImageIndex.png',
+        ),
+      );
+      _logger.fine('Added final image as DataPart (${bytes.length} bytes)');
     }
 
     // Download container files and add as DataParts
@@ -560,7 +550,7 @@ class OpenAIResponsesEventMapper {
       _logger.info(
         'Downloading container file: ${file.fileId} from ${file.containerId}',
       );
-      final bytes = await _downloadContainerFile(file.containerId, file.fileId);
+      final bytes = await downloadContainerFile(file.containerId, file.fileId);
       parts.add(
         DataPart(
           Uint8List.fromList(bytes),
@@ -672,7 +662,6 @@ class OpenAIResponsesEventMapper {
             );
 
             // Track files for downloading as DataParts
-            // (no longer adding citations to metadata)
             _containerFiles.add((
               containerId: annotation.containerId,
               fileId: annotation.fileId,
@@ -701,22 +690,12 @@ class OpenAIResponsesEventMapper {
   }
 
   static Map<String, dynamic> _decodeArguments(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) return decoded;
-      return {'value': decoded};
-    } on FormatException catch (_) {
-      return {'value': raw};
-    }
+    final decoded = jsonDecode(raw);
+    if (decoded is Map<String, dynamic>) return decoded;
+    return {'value': decoded};
   }
 
-  static dynamic _decodeResult(String raw) {
-    try {
-      return jsonDecode(raw);
-    } on FormatException catch (_) {
-      return raw;
-    }
-  }
+  static dynamic _decodeResult(String raw) => jsonDecode(raw);
 
   static LanguageModelUsage _mapUsage(openai.Usage? usage) => usage == null
       ? const LanguageModelUsage()
@@ -739,11 +718,6 @@ class OpenAIResponsesEventMapper {
         return FinishReason.unspecified;
     }
   }
-
-  Future<List<int>> _downloadContainerFile(
-    String containerId,
-    String fileId,
-  ) async => _client.retrieveContainerFileContent(containerId, fileId);
 }
 
 /// Helper class to accumulate function call arguments during streaming.
