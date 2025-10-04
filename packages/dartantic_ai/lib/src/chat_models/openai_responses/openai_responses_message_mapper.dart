@@ -43,6 +43,9 @@ class OpenAIResponsesMessageMapper {
   /// Logger for message mapping operations.
   static final Logger log = Logger('dartantic.chat.mappers.openai_responses');
 
+  /// Prefix for synthetic message IDs generated when converting model messages.
+  static const _syntheticMessageIdPrefix = 'msg_';
+
   /// Maps the provided [messages] into an [OpenAIResponsesHistorySegment]
   /// understood by the Responses API.
   static OpenAIResponsesHistorySegment mapHistory(
@@ -254,7 +257,9 @@ class OpenAIResponsesMessageMapper {
           openai.OutputMessage(
             role: role,
             content: List.of(content),
-            id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+            id:
+                '$_syntheticMessageIdPrefix'
+                '${DateTime.now().millisecondsSinceEpoch}',
             status: 'completed',
           ),
         );

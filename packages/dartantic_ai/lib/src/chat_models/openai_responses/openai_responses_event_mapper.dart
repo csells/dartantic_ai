@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
+import 'package:mime/mime.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../shared/openai_responses_metadata.dart';
@@ -431,25 +432,20 @@ class OpenAIResponsesEventMapper {
     yield* _yieldToolMetadataChunk(toolKey, event);
   }
 
-  Future<ChatResult<ChatMessage>> _buildFinalResult(
-    openai.Response response,
-  ) async {
+  /// Maps response items to dartantic Parts.
+  ///
+  /// Returns a record containing the mapped parts and a mapping of tool call
+  /// IDs to their names (needed for mapping function outputs).
+  ({List<Part> parts, Map<String, String> toolCallNames}) _mapResponseItems(
+    List<openai.ResponseItem> items,
+  ) {
     final parts = <Part>[];
     final toolCallNames = <String, String>{};
 
-    // Message metadata should ONLY contain session info for message processing
-    // Tool events (thinking, code_interpreter, etc.) are already streamed in
-    // ChatResult.metadata and don't need to be duplicated on the message
-    final messageMetadata = <String, Object?>{};
-
-    _logger.info(
-      'Building final result, response.output has '
-      '${response.output?.length ?? 0} items',
-    );
-    for (final item in response.output ?? const <openai.ResponseItem>[]) {
+    _logger.info('Mapping ${items.length} response items');
+    for (final item in items) {
       _logger.info('Processing response item: ${item.runtimeType}');
       if (item is openai.OutputMessage) {
-        // Always process the output message to get the complete text
         final messageParts = _mapOutputMessage(item.content);
         _logger.info(
           'OutputMessage has ${item.content.length} content items, '
@@ -493,36 +489,25 @@ class OpenAIResponsesEventMapper {
       }
 
       if (item is openai.Reasoning) {
-        // Don't add summary to buffer here - it's already been accumulated
-        // via ResponseReasoningSummaryTextDelta events during streaming
-        // Just skip this item
+        // Already accumulated via ResponseReasoningSummaryTextDelta
         continue;
       }
 
-      // Skip - code interpreter events are streamed in ChatResult.metadata
       if (item is openai.CodeInterpreterCall) {
+        // Events streamed in ChatResult.metadata
         continue;
       }
 
-      // ImageGenerationCall has no additional data beyond streaming events
-      // The final image is already added as DataPart - ignore this item
       if (item is openai.ImageGenerationCall) {
         _attachments.registerImageCall(item);
         continue;
       }
 
-      // WebSearchCall has no additional data beyond streaming events - ignore
-      if (item is openai.WebSearchCall) {
+      if (item is openai.WebSearchCall || item is openai.FileSearchCall) {
+        // Events streamed in ChatResult.metadata
         continue;
       }
 
-      // Skip - file search events are streamed in ChatResult.metadata
-      if (item is openai.FileSearchCall) {
-        continue;
-      }
-
-      // LocalShell, ComputerUse, MCP - no additional data beyond streaming
-      // events Ignore these items
       if (item is openai.LocalShellCall ||
           item is openai.LocalShellCallOutput ||
           item is openai.ComputerCallOutput ||
@@ -530,22 +515,101 @@ class OpenAIResponsesEventMapper {
           item is openai.McpListTools ||
           item is openai.McpApprovalRequest ||
           item is openai.McpApprovalResponse) {
+        // Events streamed in ChatResult.metadata
         continue;
       }
     }
 
+    return (parts: parts, toolCallNames: toolCallNames);
+  }
+
+  /// Builds session metadata for message persistence.
+  Map<String, Object?> _buildSessionMetadata(openai.Response response) {
+    final metadata = <String, Object?>{};
     if (storeSession) {
       _logger.info('━━━ Storing Session Metadata ━━━');
       _logger.info('Response ID being stored: ${response.id}');
       OpenAIResponsesMetadata.setSessionData(
-        messageMetadata,
-        OpenAIResponsesMetadata.buildSession(
-          responseId: response.id, // Store THIS response's ID
-        ),
+        metadata,
+        OpenAIResponsesMetadata.buildSession(responseId: response.id),
       );
       _logger.info('Session metadata saved to model message');
       _logger.info('');
     }
+    return metadata;
+  }
+
+  /// Builds result metadata for ChatResult.
+  Map<String, Object?> _buildResultMetadata(openai.Response response) => {
+    'response_id': response.id,
+    if (response.model != null) 'model': response.model!.toJson(),
+    if (response.status != null) 'status': response.status,
+  };
+
+  /// Creates a ChatResult for streaming scenarios where text was streamed.
+  ChatResult<ChatMessage> _createStreamingResult({
+    required String responseId,
+    required List<Part> parts,
+    required Map<String, Object?> messageMetadata,
+    required LanguageModelUsage usage,
+    required FinishReason finishReason,
+    required Map<String, Object?> resultMetadata,
+  }) {
+    final nonTextParts =
+        parts.where((p) => p is! TextPart).toList(growable: false);
+
+    final metadataOnlyOutput = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: const [],
+      metadata: messageMetadata,
+    );
+
+    final messages = nonTextParts.isNotEmpty
+        ? [
+            ChatMessage(
+              role: ChatMessageRole.model,
+              parts: nonTextParts,
+              metadata: messageMetadata,
+            ),
+          ]
+        : const <ChatMessage>[];
+
+    return ChatResult<ChatMessage>(
+      id: responseId,
+      output: metadataOnlyOutput,
+      messages: messages,
+      usage: usage,
+      finishReason: finishReason,
+      metadata: resultMetadata,
+    );
+  }
+
+  /// Creates a ChatResult for non-streaming scenarios (e.g., tool-only).
+  ChatResult<ChatMessage> _createNonStreamingResult({
+    required String responseId,
+    required ChatMessage message,
+    required LanguageModelUsage usage,
+    required FinishReason finishReason,
+    required Map<String, Object?> resultMetadata,
+  }) =>
+      ChatResult<ChatMessage>(
+        id: responseId,
+        output: message,
+        messages: [message],
+        usage: usage,
+        finishReason: finishReason,
+        metadata: resultMetadata,
+      );
+
+  Future<ChatResult<ChatMessage>> _buildFinalResult(
+    openai.Response response,
+  ) async {
+    final mapped = _mapResponseItems(
+      response.output ?? const <openai.ResponseItem>[],
+    );
+    final parts = [...mapped.parts];
+
+    final messageMetadata = _buildSessionMetadata(response);
 
     final attachmentParts = await _attachments.resolveAttachments();
     if (attachmentParts.isNotEmpty) {
@@ -557,71 +621,32 @@ class OpenAIResponsesEventMapper {
       _logger.fine('  Part: ${part.runtimeType}');
     }
 
-    final finalMessage = ChatMessage(
-      role: ChatMessageRole.model,
-      parts: parts,
-      metadata: messageMetadata,
-    );
-
     final usage = _mapUsage(response.usage);
-    final resultMetadata = <String, Object?>{
-      'response_id': response.id,
-      if (response.model != null) 'model': response.model!.toJson(),
-      if (response.status != null) 'status': response.status,
-      // Don't duplicate thinking/tool events here - they were already streamed
-      // in individual chunks during streaming
-    };
-
-    // Per Message-Handling-Architecture.md:
-    // Each ChatResult contains only NEW content from that specific chunk
-    // When we've streamed text, we've already sent it in chunks
-    // The final result should contain the complete message in messages array
-    // but empty output to avoid duplication
+    final resultMetadata = _buildResultMetadata(response);
+    final finishReason = _mapFinishReason(response);
+    final responseId = response.id ?? '';
 
     if (_hasStreamedText) {
-      // We've already streamed the text content
-      // The orchestrator will consolidate the accumulated chunks
-      // Return metadata and any non-text parts (like images) in messages only
-      final nonTextParts = parts
-          .where((p) => p is! TextPart)
-          .toList(growable: false);
-
-      // Empty output to avoid duplication with streamed text
-      final metadataOnlyOutput = ChatMessage(
-        role: ChatMessageRole.model,
-        parts: const [], // No parts in output - text already streamed
-        metadata: messageMetadata, // Include metadata for orchestrator
-      );
-
-      // If there are non-text parts, include them in messages
-      final messages = nonTextParts.isNotEmpty
-          ? [
-              ChatMessage(
-                role: ChatMessageRole.model,
-                parts: nonTextParts,
-                metadata: messageMetadata,
-              ),
-            ]
-          : const <ChatMessage>[];
-
-      return ChatResult<ChatMessage>(
-        id: response.id,
-        output: metadataOnlyOutput, // Empty parts, just metadata
-        messages: messages, // Non-text parts here to avoid duplication
+      return _createStreamingResult(
+        responseId: responseId,
+        parts: parts,
+        messageMetadata: messageMetadata,
         usage: usage,
-        finishReason: _mapFinishReason(response),
-        metadata: resultMetadata,
+        finishReason: finishReason,
+        resultMetadata: resultMetadata,
       );
     } else {
-      // No streaming occurred (e.g., tool-only response)
-      // Include message in both output and messages
-      return ChatResult<ChatMessage>(
-        id: response.id,
-        output: finalMessage,
-        messages: [finalMessage],
+      final finalMessage = ChatMessage(
+        role: ChatMessageRole.model,
+        parts: parts,
+        metadata: messageMetadata,
+      );
+      return _createNonStreamingResult(
+        responseId: responseId,
+        message: finalMessage,
         usage: usage,
-        finishReason: _mapFinishReason(response),
-        metadata: resultMetadata,
+        finishReason: finishReason,
+        resultMetadata: resultMetadata,
       );
     }
   }
@@ -793,17 +818,16 @@ class _AttachmentCollector {
     }
 
     final decodedBytes = Uint8List.fromList(base64Decode(_latestImageBase64!));
+    // Use lookupMimeType with headerBytes to detect MIME type from file signature
     final inferredMime =
-        _inferImageMimeType(decodedBytes) ?? 'application/octet-stream';
-    final resolvedExtension =
-        _extensionForMimeType(inferredMime) ??
-        (inferredMime.startsWith('image/') ? '.img' : '');
+        lookupMimeType('image.bin', headerBytes: decodedBytes) ??
+        'application/octet-stream';
+    final extension = Part.extensionFromMimeType(inferredMime);
     final baseName = 'image_${_latestImageIndex ?? 0}';
-    final imageName = resolvedExtension.isEmpty
-        ? baseName
-        : '$baseName$resolvedExtension';
 
-    _imageGenerationCompleted = false; // prevent duplicate attachments
+    // Build filename with extension if available (extension lacks dot prefix)
+    final imageName = extension != null ? '$baseName.$extension' : baseName;
+
     return DataPart(decodedBytes, mimeType: inferredMime, name: imageName);
   }
 
@@ -818,10 +842,15 @@ class _AttachmentCollector {
 
       final inferredMime =
           data.mimeType ??
-          _inferMimeType(data.bytes, fileName: data.fileName) ??
+          lookupMimeType(
+            data.fileName ?? '',
+            headerBytes: data.bytes,
+          ) ??
           'application/octet-stream';
-      final extension = _extensionForMimeType(inferredMime) ?? '';
-      final fileName = data.fileName ?? '$fileId$extension';
+      final extension = Part.extensionFromMimeType(inferredMime);
+      final fileName =
+          data.fileName ??
+          (extension != null ? '$fileId.$extension' : fileId);
 
       attachments.add(
         DataPart(data.bytes, mimeType: inferredMime, name: fileName),
@@ -836,99 +865,3 @@ class _AttachmentCollector {
     return attachments;
   }
 }
-
-String? _inferMimeType(Uint8List bytes, {String? fileName}) {
-  final fromExtension = _inferMimeTypeFromExtension(fileName);
-  if (fromExtension != null) return fromExtension;
-
-  return _inferMimeTypeFromSignature(bytes);
-}
-
-String? _inferMimeTypeFromExtension(String? fileName) {
-  if (fileName == null) return null;
-  final lower = fileName.toLowerCase();
-  for (final entry in _extensionMimeTypes.entries) {
-    if (lower.endsWith(entry.key)) {
-      return entry.value;
-    }
-  }
-  return null;
-}
-
-String? _inferMimeTypeFromSignature(Uint8List bytes) {
-  if (bytes.length >= 4 &&
-      bytes[0] == 0x25 &&
-      bytes[1] == 0x50 &&
-      bytes[2] == 0x44 &&
-      bytes[3] == 0x46) {
-    return 'application/pdf';
-  }
-  if (bytes.length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B) {
-    return 'application/gzip';
-  }
-  if (bytes.length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B) {
-    return 'application/zip';
-  }
-  final imageMime = _inferImageMimeType(bytes);
-  if (imageMime != null) return imageMime;
-  return null;
-}
-
-String? _inferImageMimeType(Uint8List bytes) {
-  if (bytes.length < 4) return null;
-  if (bytes[0] == 0x89 &&
-      bytes[1] == 0x50 &&
-      bytes[2] == 0x4E &&
-      bytes[3] == 0x47) {
-    return 'image/png';
-  }
-  if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
-    return 'image/jpeg';
-  }
-  if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
-    return 'image/gif';
-  }
-  if (bytes.length >= 12 &&
-      bytes[0] == 0x52 &&
-      bytes[1] == 0x49 &&
-      bytes[2] == 0x46 &&
-      bytes[3] == 0x46 &&
-      bytes[8] == 0x57 &&
-      bytes[9] == 0x45 &&
-      bytes[10] == 0x42 &&
-      bytes[11] == 0x50) {
-    return 'image/webp';
-  }
-  return null;
-}
-
-String? _extensionForMimeType(String mimeType) => _mimeToExtension[mimeType];
-
-const Map<String, String> _extensionMimeTypes = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.json': 'application/json',
-  '.csv': 'text/csv',
-  '.txt': 'text/plain',
-  '.pdf': 'application/pdf',
-  '.zip': 'application/zip',
-  '.gz': 'application/gzip',
-  '.svg': 'image/svg+xml',
-};
-
-const Map<String, String> _mimeToExtension = {
-  'image/png': '.png',
-  'image/jpeg': '.jpg',
-  'image/gif': '.gif',
-  'image/webp': '.webp',
-  'application/pdf': '.pdf',
-  'text/csv': '.csv',
-  'text/plain': '.txt',
-  'application/json': '.json',
-  'application/zip': '.zip',
-  'application/gzip': '.gz',
-  'image/svg+xml': '.svg',
-};
