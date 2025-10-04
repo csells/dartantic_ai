@@ -416,7 +416,6 @@ class Agent {
           tools?.any((t) => t.name == kReturnResultToolName) ?? false;
 
       return TypedOutputStreamingOrchestrator(
-        provider: _provider,
         hasReturnResultTool: hasReturnResultTool,
       );
     }

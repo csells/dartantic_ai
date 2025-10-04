@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
-import 'package:mime/mime.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../shared/openai_responses_metadata.dart';
+import 'openai_responses_attachment_collector.dart';
 import 'openai_responses_message_mapper.dart';
 
 /// Loads a container file by identifier and returns its resolved data.
@@ -36,7 +36,7 @@ class OpenAIResponsesEventMapper {
     required this.storeSession,
     required this.history,
     required ContainerFileLoader downloadContainerFile,
-  }) : _attachments = _AttachmentCollector(
+  }) : _attachments = AttachmentCollector(
          logger: _logger,
          containerFileLoader: downloadContainerFile,
        );
@@ -55,7 +55,7 @@ class OpenAIResponsesEventMapper {
   final OpenAIResponsesHistorySegment history;
 
   /// Function to download container files (provided by chat model layer).
-  final _AttachmentCollector _attachments;
+  final AttachmentCollector _attachments;
 
   final StringBuffer _thinkingBuffer = StringBuffer();
 
@@ -546,6 +546,24 @@ class OpenAIResponsesEventMapper {
     if (response.status != null) 'status': response.status,
   };
 
+  /// Creates a ChatResult with common structure.
+  ChatResult<ChatMessage> _createResult({
+    required String responseId,
+    required ChatMessage output,
+    required List<ChatMessage> messages,
+    required LanguageModelUsage usage,
+    required FinishReason finishReason,
+    required Map<String, Object?> resultMetadata,
+  }) =>
+      ChatResult<ChatMessage>(
+        id: responseId,
+        output: output,
+        messages: messages,
+        usage: usage,
+        finishReason: finishReason,
+        metadata: resultMetadata,
+      );
+
   /// Creates a ChatResult for streaming scenarios where text was streamed.
   ChatResult<ChatMessage> _createStreamingResult({
     required String responseId,
@@ -574,13 +592,13 @@ class OpenAIResponsesEventMapper {
           ]
         : const <ChatMessage>[];
 
-    return ChatResult<ChatMessage>(
-      id: responseId,
+    return _createResult(
+      responseId: responseId,
       output: metadataOnlyOutput,
       messages: messages,
       usage: usage,
       finishReason: finishReason,
-      metadata: resultMetadata,
+      resultMetadata: resultMetadata,
     );
   }
 
@@ -592,13 +610,13 @@ class OpenAIResponsesEventMapper {
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
   }) =>
-      ChatResult<ChatMessage>(
-        id: responseId,
+      _createResult(
+        responseId: responseId,
         output: message,
         messages: [message],
         usage: usage,
         finishReason: finishReason,
-        metadata: resultMetadata,
+        resultMetadata: resultMetadata,
       );
 
   Future<ChatResult<ChatMessage>> _buildFinalResult(
@@ -756,112 +774,4 @@ class _StreamingFunctionCall {
   }
 
   bool get isComplete => arguments.isNotEmpty;
-}
-
-class _AttachmentCollector {
-  _AttachmentCollector({
-    required Logger logger,
-    required ContainerFileLoader containerFileLoader,
-  }) : _logger = logger,
-       _containerFileLoader = containerFileLoader;
-
-  final Logger _logger;
-  final ContainerFileLoader _containerFileLoader;
-
-  String? _latestImageBase64;
-  int? _latestImageIndex;
-  bool _imageGenerationCompleted = false;
-
-  final Set<({String containerId, String fileId})> _containerFiles = {};
-
-  void recordPartialImage({required String base64, required int index}) {
-    _latestImageBase64 = base64;
-    _latestImageIndex = index;
-    _logger.fine('Stored partial image index: $_latestImageIndex');
-  }
-
-  void markImageGenerationCompleted({String? resultBase64}) {
-    _imageGenerationCompleted = true;
-    if (resultBase64 != null && resultBase64.isNotEmpty) {
-      _latestImageBase64 = resultBase64;
-    }
-  }
-
-  void registerImageCall(openai.ImageGenerationCall call) {
-    markImageGenerationCompleted(resultBase64: call.resultBase64);
-  }
-
-  void trackContainerCitation({
-    required String containerId,
-    required String fileId,
-  }) {
-    _containerFiles.add((containerId: containerId, fileId: fileId));
-  }
-
-  Future<List<DataPart>> resolveAttachments() async {
-    final attachments = <DataPart>[];
-    final imageParts = _resolveImageAttachments();
-    if (imageParts != null) {
-      attachments.add(imageParts);
-    }
-
-    if (_containerFiles.isNotEmpty) {
-      attachments.addAll(await _resolveContainerAttachments());
-    }
-
-    return attachments;
-  }
-
-  DataPart? _resolveImageAttachments() {
-    if (!_imageGenerationCompleted || _latestImageBase64 == null) {
-      return null;
-    }
-
-    final decodedBytes = Uint8List.fromList(base64Decode(_latestImageBase64!));
-    // Use lookupMimeType with headerBytes to detect MIME type from file signature
-    final inferredMime =
-        lookupMimeType('image.bin', headerBytes: decodedBytes) ??
-        'application/octet-stream';
-    final extension = Part.extensionFromMimeType(inferredMime);
-    final baseName = 'image_${_latestImageIndex ?? 0}';
-
-    // Build filename with extension if available (extension lacks dot prefix)
-    final imageName = extension != null ? '$baseName.$extension' : baseName;
-
-    return DataPart(decodedBytes, mimeType: inferredMime, name: imageName);
-  }
-
-  Future<List<DataPart>> _resolveContainerAttachments() async {
-    final attachments = <DataPart>[];
-
-    for (final citation in _containerFiles) {
-      final containerId = citation.containerId;
-      final fileId = citation.fileId;
-      _logger.info('Downloading container file: $fileId from $containerId');
-      final data = await _containerFileLoader(containerId, fileId);
-
-      final inferredMime =
-          data.mimeType ??
-          lookupMimeType(
-            data.fileName ?? '',
-            headerBytes: data.bytes,
-          ) ??
-          'application/octet-stream';
-      final extension = Part.extensionFromMimeType(inferredMime);
-      final fileName =
-          data.fileName ??
-          (extension != null ? '$fileId.$extension' : fileId);
-
-      attachments.add(
-        DataPart(data.bytes, mimeType: inferredMime, name: fileName),
-      );
-      _logger.info(
-        'Added container file as DataPart '
-        '(${data.bytes.length} bytes, mime: $inferredMime)',
-      );
-    }
-
-    _containerFiles.clear();
-    return attachments;
-  }
 }

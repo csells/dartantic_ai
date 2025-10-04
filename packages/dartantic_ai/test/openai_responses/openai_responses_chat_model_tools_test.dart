@@ -1,12 +1,12 @@
-import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_chat_model.dart';
+import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_server_side_tool_mapper.dart';
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_server_side_tools.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
 void main() {
-  group('OpenAIResponsesChatModel.buildServerSideTools', () {
+  group('OpenAIResponsesServerSideToolMapper.buildServerSideTools', () {
     test('builds web search tool with location hints', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
+      final tools = OpenAIResponsesServerSideToolMapper.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.webSearch},
         webSearchConfig: const WebSearchConfig(
           contextSize: WebSearchContextSize.high,
@@ -22,7 +22,7 @@ void main() {
     });
 
     test('skips file search when vector stores missing', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
+      final tools = OpenAIResponsesServerSideToolMapper.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.fileSearch},
         fileSearchConfig: const FileSearchConfig(),
       );
@@ -31,7 +31,7 @@ void main() {
     });
 
     test('builds file search tool when vector stores provided', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
+      final tools = OpenAIResponsesServerSideToolMapper.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.fileSearch},
         fileSearchConfig: const FileSearchConfig(
           vectorStoreIds: ['vs_123'],
@@ -50,7 +50,7 @@ void main() {
     });
 
     test('builds code interpreter tool with container reuse', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
+      final tools = OpenAIResponsesServerSideToolMapper.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
         codeInterpreterConfig: const CodeInterpreterConfig(
           containerId: 'ctr_abc',
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('builds image generation tool', () {
-      final tools = OpenAIResponsesChatModel.buildServerSideTools(
+      final tools = OpenAIResponsesServerSideToolMapper.buildServerSideTools(
         serverSideTools: const {OpenAIServerSideTool.imageGeneration},
       );
 

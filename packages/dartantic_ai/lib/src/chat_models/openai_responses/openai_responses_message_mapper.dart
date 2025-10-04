@@ -83,6 +83,65 @@ class OpenAIResponsesMessageMapper {
 
     const startIndex = 0;
 
+    final sessionResolution = _resolveSession(
+      messages: messages,
+      store: store,
+      startIndex: startIndex,
+    );
+
+    // No pending items in dartantic - tools are executed synchronously
+    final items = <openai.ResponseItem>[];
+
+    // When using session continuation, we only send new messages
+    // So we should only validate the new portion of the conversation
+    if (sessionResolution.previousResponseId != null) {
+      // With a session, validate only the new messages being added
+      final newMessages = messages.sublist(sessionResolution.firstMessageIndex);
+      _validateNewMessages(newMessages);
+    } else {
+      // Without a session, validate the full conversation structure
+      _validateHistory(messages);
+    }
+
+    for (var i = sessionResolution.firstMessageIndex; i < messages.length; i++) {
+      final message = messages[i];
+      items.addAll(_mapMessageParts(message, imageDetail: imageDetail));
+    }
+
+    final input = items.isEmpty
+        ? null
+        : openai.ResponseInputItems(List.of(items));
+
+    log.info('━━━ Mapping Complete ━━━');
+    log.info('Actual items to send: ${items.length}');
+    log.info('Using previousResponseId: ${sessionResolution.previousResponseId ?? "none"}');
+    log.info('');
+
+    return OpenAIResponsesHistorySegment(
+      items: items,
+      input: input,
+      instructions: null,
+      previousResponseId: sessionResolution.previousResponseId,
+      anchorIndex: sessionResolution.anchorIndex,
+    );
+  }
+
+  /// Validates that new messages being added to an existing session are valid.
+  /// This is more lenient than _validateHistory since we're continuing a
+  /// session.
+  static void _validateNewMessages(List<ChatMessage> newMessages) {
+    // Allow any message types when continuing a session
+    // System messages are now supported mid-conversation
+    // We don't enforce strict alternation here because the orchestrator
+    // may add multiple messages in sequence during tool execution
+  }
+
+  /// Resolves session metadata from message history.
+  static _SessionResolution _resolveSession({
+    required List<ChatMessage> messages,
+    required bool store,
+    required int startIndex,
+  }) {
     final session = store
         ? _findLatestSession(messages, from: startIndex)
         : null;
@@ -92,9 +151,6 @@ class OpenAIResponsesMessageMapper {
     final previousResponseId = store
         ? OpenAIResponsesMetadata.responseId(session?.data)
         : null;
-
-    // No pending items in dartantic - tools are executed synchronously
-    final items = <openai.ResponseItem>[];
 
     var firstMessageIndex = session == null ? startIndex : session.index + 1;
     if (firstMessageIndex < startIndex) firstMessageIndex = startIndex;
@@ -126,48 +182,11 @@ class OpenAIResponsesMessageMapper {
       'hasPrevId=${previousResponseId != null}',
     );
 
-    // When using session continuation, we only send new messages
-    // So we should only validate the new portion of the conversation
-    if (previousResponseId != null) {
-      // With a session, validate only the new messages being added
-      final newMessages = messages.sublist(firstMessageIndex);
-      _validateNewMessages(newMessages);
-    } else {
-      // Without a session, validate the full conversation structure
-      _validateHistory(messages);
-    }
-
-    for (var i = firstMessageIndex; i < messages.length; i++) {
-      final message = messages[i];
-      items.addAll(_mapMessageParts(message, imageDetail: imageDetail));
-    }
-
-    final input = items.isEmpty
-        ? null
-        : openai.ResponseInputItems(List.of(items));
-
-    log.info('━━━ Mapping Complete ━━━');
-    log.info('Actual items to send: ${items.length}');
-    log.info('Using previousResponseId: ${previousResponseId ?? "none"}');
-    log.info('');
-
-    return OpenAIResponsesHistorySegment(
-      items: items,
-      input: input,
-      instructions: null,
+    return _SessionResolution(
       previousResponseId: previousResponseId,
       anchorIndex: session?.index ?? -1,
+      firstMessageIndex: firstMessageIndex,
     );
-  }
-
-  /// Validates that new messages being added to an existing session are valid.
-  /// This is more lenient than _validateHistory since we're continuing a
-  /// session.
-  static void _validateNewMessages(List<ChatMessage> newMessages) {
-    // Allow any message types when continuing a session
-    // System messages are now supported mid-conversation
-    // We don't enforce strict alternation here because the orchestrator
-    // may add multiple messages in sequence during tool execution
   }
 
   /// Ensures the conversation follows reasonable structure.
@@ -388,4 +407,22 @@ class _SessionMetadata {
 
   final int index;
   final Map<String, Object?>? data;
+}
+
+/// Result of session resolution containing indices and session ID.
+class _SessionResolution {
+  const _SessionResolution({
+    required this.previousResponseId,
+    required this.anchorIndex,
+    required this.firstMessageIndex,
+  });
+
+  /// Previous response ID to continue from.
+  final String? previousResponseId;
+
+  /// Index of the message containing session metadata.
+  final int anchorIndex;
+
+  /// Index of first message to send in this request.
+  final int firstMessageIndex;
 }

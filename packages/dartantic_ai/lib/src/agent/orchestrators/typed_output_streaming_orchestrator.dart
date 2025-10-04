@@ -15,12 +15,8 @@ import 'streaming_orchestrator.dart';
 class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
   /// Creates a typed output streaming orchestrator.
   const TypedOutputStreamingOrchestrator({
-    required this.provider,
     required this.hasReturnResultTool,
   });
-
-  /// Provider being used for streaming.
-  final Provider provider;
 
   /// Whether the model exposes the `return_result` tool.
   final bool hasReturnResultTool;
@@ -43,7 +39,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
     JsonSchema? outputSchema,
   }) async {
     _logger.fine(
-      'Typed output orchestrator starting for provider ${provider.name} '
+      'Typed output orchestrator starting '
       'with ${state.conversationHistory.length} history messages',
     );
   }
