@@ -8,6 +8,25 @@ import 'package:openai_core/openai_core.dart' as openai;
 import '../../shared/openai_responses_metadata.dart';
 import 'openai_responses_message_mapper.dart';
 
+/// Loads a container file by identifier and returns its resolved data.
+typedef ContainerFileLoader =
+    Future<ContainerFileData> Function(String containerId, String fileId);
+
+/// Resolved data for a downloaded container file, including metadata hints.
+class ContainerFileData {
+  /// Creates a new [ContainerFileData] instance.
+  const ContainerFileData({required this.bytes, this.fileName, this.mimeType});
+
+  /// Raw file bytes returned by the API.
+  final Uint8List bytes;
+
+  /// Optional filename hint supplied by the provider.
+  final String? fileName;
+
+  /// Optional MIME type hint supplied by the provider.
+  final String? mimeType;
+}
+
 /// Maps OpenAI Responses streaming events into dartantic chat results.
 class OpenAIResponsesEventMapper {
   /// Creates a new mapper configured for a specific stream invocation.
@@ -15,8 +34,11 @@ class OpenAIResponsesEventMapper {
     required this.modelName,
     required this.storeSession,
     required this.history,
-    required this.downloadContainerFile,
-  });
+    required ContainerFileLoader downloadContainerFile,
+  }) : _attachments = _AttachmentCollector(
+         logger: _logger,
+         containerFileLoader: downloadContainerFile,
+       );
 
   static final Logger _logger = Logger(
     'dartantic.chat.models.openai_responses.event_mapper',
@@ -32,8 +54,7 @@ class OpenAIResponsesEventMapper {
   final OpenAIResponsesHistorySegment history;
 
   /// Function to download container files (provided by chat model layer).
-  final Future<List<int>> Function(String containerId, String fileId)
-  downloadContainerFile;
+  final _AttachmentCollector _attachments;
 
   final StringBuffer _thinkingBuffer = StringBuffer();
 
@@ -60,17 +81,9 @@ class OpenAIResponsesEventMapper {
   // Track which outputIndex contains reasoning text
   final Set<int> _reasoningOutputIndices = {};
 
-  // Track the last partial image for adding to final result
-  String? _lastPartialImageB64;
-  int? _lastPartialImageIndex;
-
   // Accumulate code interpreter code deltas
   // Key is item_id, value is the accumulated code string
   final Map<String, StringBuffer> _codeInterpreterCodeBuffers = {};
-  bool _imageGenerationCompleted = false;
-
-  // Track container file citations for downloading and attaching as DataParts
-  final List<({String containerId, String fileId})> _containerFiles = [];
 
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
   Stream<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) async* {
@@ -110,8 +123,9 @@ class OpenAIResponsesEventMapper {
         _logger.fine(
           'Image generation completed at index ${event.outputIndex}',
         );
-        // Mark that image generation is done - the last partial image is final
-        _imageGenerationCompleted = true;
+        _attachments.markImageGenerationCompleted(
+          resultBase64: item.resultBase64,
+        );
       }
 
       // Check if this is code interpreter completion with file results
@@ -287,13 +301,14 @@ class OpenAIResponsesEventMapper {
 
       // Track partial images as they arrive
       if (event is openai.ResponseImageGenerationCallPartialImage) {
-        _lastPartialImageB64 = event.partialImageB64;
-        _lastPartialImageIndex = event.partialImageIndex;
-        _logger.fine('Stored partial image index: $_lastPartialImageIndex');
+        _attachments.recordPartialImage(
+          base64: event.partialImageB64,
+          index: event.partialImageIndex,
+        );
       }
 
       if (event is openai.ResponseImageGenerationCallCompleted) {
-        _imageGenerationCompleted = true;
+        _attachments.markImageGenerationCompleted();
       }
 
       yield* _yieldToolMetadataChunk('image_generation', event);
@@ -492,6 +507,7 @@ class OpenAIResponsesEventMapper {
       // ImageGenerationCall has no additional data beyond streaming events
       // The final image is already added as DataPart - ignore this item
       if (item is openai.ImageGenerationCall) {
+        _attachments.registerImageCall(item);
         continue;
       }
 
@@ -531,34 +547,9 @@ class OpenAIResponsesEventMapper {
       _logger.info('');
     }
 
-    // Add the last partial image as a DataPart when image generation completes.
-    // The final partial image received is the complete generated image.
-    if (_imageGenerationCompleted && _lastPartialImageB64 != null) {
-      final bytes = base64Decode(_lastPartialImageB64!);
-      parts.add(
-        DataPart(
-          bytes,
-          mimeType: 'image/png',
-          name: 'image_$_lastPartialImageIndex.png',
-        ),
-      );
-      _logger.fine('Added final image as DataPart (${bytes.length} bytes)');
-    }
-
-    // Download container files and add as DataParts
-    for (final file in _containerFiles) {
-      _logger.info(
-        'Downloading container file: ${file.fileId} from ${file.containerId}',
-      );
-      final bytes = await downloadContainerFile(file.containerId, file.fileId);
-      parts.add(
-        DataPart(
-          Uint8List.fromList(bytes),
-          mimeType: 'image/png', // Assume PNG for now
-          name: '${file.fileId}.png',
-        ),
-      );
-      _logger.info('Added container file as DataPart (${bytes.length} bytes)');
+    final attachmentParts = await _attachments.resolveAttachments();
+    if (attachmentParts.isNotEmpty) {
+      parts.addAll(attachmentParts);
     }
 
     _logger.fine('Building final message with ${parts.length} parts');
@@ -662,10 +653,10 @@ class OpenAIResponsesEventMapper {
             );
 
             // Track files for downloading as DataParts
-            _containerFiles.add((
+            _attachments.trackContainerCitation(
               containerId: annotation.containerId,
               fileId: annotation.fileId,
-            ));
+            );
             _logger.info('Queued file for download: ${annotation.fileId}');
           }
         }
@@ -741,3 +732,203 @@ class _StreamingFunctionCall {
 
   bool get isComplete => arguments.isNotEmpty;
 }
+
+class _AttachmentCollector {
+  _AttachmentCollector({
+    required Logger logger,
+    required ContainerFileLoader containerFileLoader,
+  }) : _logger = logger,
+       _containerFileLoader = containerFileLoader;
+
+  final Logger _logger;
+  final ContainerFileLoader _containerFileLoader;
+
+  String? _latestImageBase64;
+  int? _latestImageIndex;
+  bool _imageGenerationCompleted = false;
+
+  final Set<({String containerId, String fileId})> _containerFiles = {};
+
+  void recordPartialImage({required String base64, required int index}) {
+    _latestImageBase64 = base64;
+    _latestImageIndex = index;
+    _logger.fine('Stored partial image index: $_latestImageIndex');
+  }
+
+  void markImageGenerationCompleted({String? resultBase64}) {
+    _imageGenerationCompleted = true;
+    if (resultBase64 != null && resultBase64.isNotEmpty) {
+      _latestImageBase64 = resultBase64;
+    }
+  }
+
+  void registerImageCall(openai.ImageGenerationCall call) {
+    markImageGenerationCompleted(resultBase64: call.resultBase64);
+  }
+
+  void trackContainerCitation({
+    required String containerId,
+    required String fileId,
+  }) {
+    _containerFiles.add((containerId: containerId, fileId: fileId));
+  }
+
+  Future<List<DataPart>> resolveAttachments() async {
+    final attachments = <DataPart>[];
+    final imageParts = _resolveImageAttachments();
+    if (imageParts != null) {
+      attachments.add(imageParts);
+    }
+
+    if (_containerFiles.isNotEmpty) {
+      attachments.addAll(await _resolveContainerAttachments());
+    }
+
+    return attachments;
+  }
+
+  DataPart? _resolveImageAttachments() {
+    if (!_imageGenerationCompleted || _latestImageBase64 == null) {
+      return null;
+    }
+
+    final decodedBytes = Uint8List.fromList(base64Decode(_latestImageBase64!));
+    final inferredMime =
+        _inferImageMimeType(decodedBytes) ?? 'application/octet-stream';
+    final resolvedExtension =
+        _extensionForMimeType(inferredMime) ??
+        (inferredMime.startsWith('image/') ? '.img' : '');
+    final baseName = 'image_${_latestImageIndex ?? 0}';
+    final imageName = resolvedExtension.isEmpty
+        ? baseName
+        : '$baseName$resolvedExtension';
+
+    _imageGenerationCompleted = false; // prevent duplicate attachments
+    return DataPart(decodedBytes, mimeType: inferredMime, name: imageName);
+  }
+
+  Future<List<DataPart>> _resolveContainerAttachments() async {
+    final attachments = <DataPart>[];
+
+    for (final citation in _containerFiles) {
+      final containerId = citation.containerId;
+      final fileId = citation.fileId;
+      _logger.info('Downloading container file: $fileId from $containerId');
+      final data = await _containerFileLoader(containerId, fileId);
+
+      final inferredMime =
+          data.mimeType ??
+          _inferMimeType(data.bytes, fileName: data.fileName) ??
+          'application/octet-stream';
+      final extension = _extensionForMimeType(inferredMime) ?? '';
+      final fileName = data.fileName ?? '$fileId$extension';
+
+      attachments.add(
+        DataPart(data.bytes, mimeType: inferredMime, name: fileName),
+      );
+      _logger.info(
+        'Added container file as DataPart '
+        '(${data.bytes.length} bytes, mime: $inferredMime)',
+      );
+    }
+
+    _containerFiles.clear();
+    return attachments;
+  }
+}
+
+String? _inferMimeType(Uint8List bytes, {String? fileName}) {
+  final fromExtension = _inferMimeTypeFromExtension(fileName);
+  if (fromExtension != null) return fromExtension;
+
+  return _inferMimeTypeFromSignature(bytes);
+}
+
+String? _inferMimeTypeFromExtension(String? fileName) {
+  if (fileName == null) return null;
+  final lower = fileName.toLowerCase();
+  for (final entry in _extensionMimeTypes.entries) {
+    if (lower.endsWith(entry.key)) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+String? _inferMimeTypeFromSignature(Uint8List bytes) {
+  if (bytes.length >= 4 &&
+      bytes[0] == 0x25 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x44 &&
+      bytes[3] == 0x46) {
+    return 'application/pdf';
+  }
+  if (bytes.length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B) {
+    return 'application/gzip';
+  }
+  if (bytes.length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B) {
+    return 'application/zip';
+  }
+  final imageMime = _inferImageMimeType(bytes);
+  if (imageMime != null) return imageMime;
+  return null;
+}
+
+String? _inferImageMimeType(Uint8List bytes) {
+  if (bytes.length < 4) return null;
+  if (bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47) {
+    return 'image/png';
+  }
+  if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+    return 'image/jpeg';
+  }
+  if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
+    return 'image/gif';
+  }
+  if (bytes.length >= 12 &&
+      bytes[0] == 0x52 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x46 &&
+      bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50) {
+    return 'image/webp';
+  }
+  return null;
+}
+
+String? _extensionForMimeType(String mimeType) => _mimeToExtension[mimeType];
+
+const Map<String, String> _extensionMimeTypes = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.json': 'application/json',
+  '.csv': 'text/csv',
+  '.txt': 'text/plain',
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
+  '.gz': 'application/gzip',
+  '.svg': 'image/svg+xml',
+};
+
+const Map<String, String> _mimeToExtension = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'text/csv': '.csv',
+  'text/plain': '.txt',
+  'application/json': '.json',
+  'application/zip': '.zip',
+  'application/gzip': '.gz',
+  'image/svg+xml': '.svg',
+};

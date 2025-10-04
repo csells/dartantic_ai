@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_event_mapper.dart';
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_message_mapper.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -5,10 +7,13 @@ import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
 // Mock download function for tests
-Future<List<int>> _mockDownloadContainerFile(
+Future<ContainerFileData> _mockDownloadContainerFile(
   String containerId,
   String fileId,
-) => Future.value([1, 2, 3, 4]); // Mock file bytes
+) async => ContainerFileData(
+  bytes: Uint8List.fromList(const [1, 2, 3, 4]),
+  fileName: '$fileId.bin',
+);
 
 void main() {
   group('OpenAIResponsesEventMapper thinking metadata', () {

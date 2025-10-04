@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_event_mapper.dart';
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_message_mapper.dart';
@@ -8,10 +9,13 @@ import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
 
 // Mock download function for tests
-Future<List<int>> _mockDownloadContainerFile(
+Future<ContainerFileData> _mockDownloadContainerFile(
   String containerId,
   String fileId,
-) => Future.value([1, 2, 3, 4]); // Mock file bytes
+) async => ContainerFileData(
+  bytes: Uint8List.fromList(const [1, 2, 3, 4]),
+  fileName: '$fileId.bin',
+);
 
 void main() {
   group('OpenAIResponsesEventMapper', () {
@@ -253,10 +257,12 @@ void main() {
         expect(results, hasLength(1)); // Metadata chunk emitted
 
         // Step 4: ResponseImageGenerationCallPartialImage
-        final fakeImageData = base64Encode(utf8.encode('fake-image-data'));
+        const fakeImageData =
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC'
+            '0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
         results = await mapper
             .handle(
-              openai.ResponseImageGenerationCallPartialImage(
+              const openai.ResponseImageGenerationCallPartialImage(
                 itemId: 'img-1',
                 outputIndex: 0,
                 sequenceNumber: 4,
@@ -270,7 +276,7 @@ void main() {
         // Step 5: ResponseOutputItemDone marks completion
         results = await mapper
             .handle(
-              openai.ResponseOutputItemDone(
+              const openai.ResponseOutputItemDone(
                 outputIndex: 0,
                 sequenceNumber: 5,
                 item: openai.ImageGenerationCall(
@@ -284,7 +290,7 @@ void main() {
         expect(results, isEmpty); // Just marks completion, no output yet
 
         // Step 6: ResponseCompleted should include the image as a DataPart
-        final response = openai.Response(
+        const response = openai.Response(
           id: 'resp_img',
           model: openai.ChatModel.gpt4o,
           status: 'completed',
@@ -299,7 +305,10 @@ void main() {
 
         results = await mapper
             .handle(
-              openai.ResponseCompleted(response: response, sequenceNumber: 6),
+              const openai.ResponseCompleted(
+                response: response,
+                sequenceNumber: 6,
+              ),
             )
             .toList();
 
@@ -311,8 +320,74 @@ void main() {
         final dataParts = message.parts.whereType<DataPart>().toList();
         expect(dataParts, hasLength(1));
         expect(dataParts.first.mimeType, equals('image/png'));
-        expect(dataParts.first.bytes, equals(utf8.encode('fake-image-data')));
+        expect(dataParts.first.bytes, equals(base64Decode(fakeImageData)));
+        expect(dataParts.first.name, equals('image_0.png'));
       },
     );
+
+    test('attaches container file citations with inferred metadata', () async {
+      const pngBase64 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC'
+          '0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+      final pngBytes = base64Decode(pngBase64);
+
+      final mapper = OpenAIResponsesEventMapper(
+        modelName: 'gpt-4o',
+        storeSession: false,
+        history: const OpenAIResponsesHistorySegment(
+          items: [],
+          input: null,
+          instructions: null,
+          previousResponseId: null,
+          anchorIndex: -1,
+        ),
+        downloadContainerFile: (containerId, fileId) async => ContainerFileData(
+          bytes: Uint8List.fromList(pngBytes),
+          fileName: 'plot.png',
+        ),
+      );
+
+      const response = openai.Response(
+        id: 'resp_file',
+        model: openai.ChatModel.gpt4o,
+        status: 'completed',
+        output: [
+          openai.OutputMessage(
+            role: 'assistant',
+            content: [
+              openai.OutputTextContent(
+                text: 'See plot',
+                annotations: [
+                  openai.ContainerFileCitation(
+                    containerId: 'container-1',
+                    fileId: 'file-1',
+                    startIndex: 0,
+                    endIndex: 4,
+                  ),
+                ],
+              ),
+            ],
+            id: 'msg-plot',
+            status: 'completed',
+          ),
+        ],
+      );
+
+      final results = await mapper
+          .handle(
+            const openai.ResponseCompleted(
+              response: response,
+              sequenceNumber: 1,
+            ),
+          )
+          .toList();
+
+      expect(results, hasLength(1));
+      final message = results.single.output;
+      final attachment = message.parts.whereType<DataPart>().single;
+      expect(attachment.mimeType, 'image/png');
+      expect(attachment.name, 'plot.png');
+      expect(attachment.bytes, equals(pngBytes));
+    });
   });
 }
