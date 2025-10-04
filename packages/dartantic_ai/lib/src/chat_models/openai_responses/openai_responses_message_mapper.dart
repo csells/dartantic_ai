@@ -296,108 +296,144 @@ class OpenAIResponsesMessageMapper {
 
     for (final part in message.parts) {
       switch (part) {
-        case TextPart(:final text):
-          if (text.isNotEmpty) {
-            if (isModelMessage) {
-              // Model messages use OutputTextContent
-              content.add(
-                openai.OutputTextContent(text: text, annotations: const []),
-              );
-            } else {
-              // User and system messages use InputTextContent
-              content.add(openai.InputTextContent(text: text));
-            }
-          }
-        case DataPart(:final bytes, :final mimeType, :final name):
-          if (mimeType.toLowerCase().startsWith('image/')) {
-            // Images: Use InputImageContent
-            final base64Data = base64Encode(bytes);
-            content.add(
-              openai.InputImageContent(
-                detail: imageDetail,
-                imageUrl: 'data:$mimeType;base64,$base64Data',
-              ),
-            );
-          } else if (mimeType == 'application/pdf') {
-            // PDFs: Use InputFileContent
-            // (only file type supported by Responses API)
-            final base64Data = base64Encode(bytes);
-            final fileName = name ?? Part.nameFromMimeType(mimeType);
-            final fileDataUrl = 'data:$mimeType;base64,$base64Data';
-            content.add(
-              openai.InputFileContent(
-                filename: fileName,
-                fileData: fileDataUrl,
-              ),
-            );
-          } else {
-            // All other files: Include as text with base64 data URL
-            final base64Data = base64Encode(bytes);
-            final fileDataUrl = 'data:$mimeType;base64,$base64Data';
-
-            // Build prefix with optional filename
-            final prefix = name != null
-                ? '[file: $name, media: $mimeType]'
-                : '[media: $mimeType]';
-            final fileContent = '$prefix $fileDataUrl';
-
-            if (isModelMessage) {
-              content.add(
-                openai.OutputTextContent(
-                  text: fileContent,
-                  annotations: const [],
-                ),
-              );
-            } else {
-              content.add(openai.InputTextContent(text: fileContent));
-            }
-          }
-        case LinkPart(:final url, :final mimeType):
-          final resolvedMime = mimeType ?? '';
-          if (resolvedMime.toLowerCase().startsWith('image/')) {
-            content.add(
-              openai.InputImageContent(
-                detail: imageDetail,
-                imageUrl: url.toString(),
-              ),
-            );
-          } else {
-            if (isModelMessage) {
-              content.add(
-                openai.OutputTextContent(
-                  text: url.toString(),
-                  annotations: const [],
-                ),
-              );
-            } else {
-              content.add(openai.InputTextContent(text: url.toString()));
-            }
-          }
-        case ToolPart(:final kind):
+        case TextPart():
+          _mapTextPart(part, content, isModelMessage);
+        case DataPart():
+          _mapDataPart(part, content, isModelMessage, imageDetail);
+        case LinkPart():
+          _mapLinkPart(part, content, isModelMessage, imageDetail);
+        case ToolPart():
           flushContent();
-          switch (kind) {
-            case ToolPartKind.call:
-              items.add(
-                openai.FunctionCall(
-                  arguments: jsonEncode(part.arguments ?? const {}),
-                  callId: part.id,
-                  name: part.name,
-                ),
-              );
-            case ToolPartKind.result:
-              items.add(
-                openai.FunctionCallOutput(
-                  callId: part.id,
-                  output: _stringifyToolResult(part.result),
-                ),
-              );
-          }
+          items.addAll(_mapToolPart(part));
       }
     }
 
     flushContent();
 
     return items;
+  }
+
+  /// Maps a TextPart to response content.
+  static void _mapTextPart(
+    TextPart part,
+    List<openai.ResponseContent> content,
+    bool isModelMessage,
+  ) {
+    if (part.text.isEmpty) return;
+    if (isModelMessage) {
+      // Model messages use OutputTextContent
+      content.add(
+        openai.OutputTextContent(text: part.text, annotations: const []),
+      );
+    } else {
+      // User and system messages use InputTextContent
+      content.add(openai.InputTextContent(text: part.text));
+    }
+  }
+
+  /// Maps a DataPart to response content.
+  static void _mapDataPart(
+    DataPart part,
+    List<openai.ResponseContent> content,
+    bool isModelMessage,
+    openai.ImageDetail imageDetail,
+  ) {
+    final mimeType = part.mimeType;
+    final bytes = part.bytes;
+    final name = part.name;
+
+    if (mimeType.toLowerCase().startsWith('image/')) {
+      // Images: Use InputImageContent
+      final base64Data = base64Encode(bytes);
+      content.add(
+        openai.InputImageContent(
+          detail: imageDetail,
+          imageUrl: 'data:$mimeType;base64,$base64Data',
+        ),
+      );
+    } else if (mimeType == 'application/pdf') {
+      // PDFs: Use InputFileContent (only file type supported by Responses API)
+      final base64Data = base64Encode(bytes);
+      final fileName = name ?? Part.nameFromMimeType(mimeType);
+      final fileDataUrl = 'data:$mimeType;base64,$base64Data';
+      content.add(
+        openai.InputFileContent(
+          filename: fileName,
+          fileData: fileDataUrl,
+        ),
+      );
+    } else {
+      // All other files: Include as text with base64 data URL
+      final base64Data = base64Encode(bytes);
+      final fileDataUrl = 'data:$mimeType;base64,$base64Data';
+
+      // Build prefix with optional filename
+      final prefix = name != null
+          ? '[file: $name, media: $mimeType]'
+          : '[media: $mimeType]';
+      final fileContent = '$prefix $fileDataUrl';
+
+      if (isModelMessage) {
+        content.add(
+          openai.OutputTextContent(
+            text: fileContent,
+            annotations: const [],
+          ),
+        );
+      } else {
+        content.add(openai.InputTextContent(text: fileContent));
+      }
+    }
+  }
+
+  /// Maps a LinkPart to response content.
+  static void _mapLinkPart(
+    LinkPart part,
+    List<openai.ResponseContent> content,
+    bool isModelMessage,
+    openai.ImageDetail imageDetail,
+  ) {
+    final resolvedMime = part.mimeType ?? '';
+    if (resolvedMime.toLowerCase().startsWith('image/')) {
+      content.add(
+        openai.InputImageContent(
+          detail: imageDetail,
+          imageUrl: part.url.toString(),
+        ),
+      );
+    } else {
+      if (isModelMessage) {
+        content.add(
+          openai.OutputTextContent(
+            text: part.url.toString(),
+            annotations: const [],
+          ),
+        );
+      } else {
+        content.add(openai.InputTextContent(text: part.url.toString()));
+      }
+    }
+  }
+
+  /// Maps a ToolPart to response items.
+  static List<openai.ResponseItem> _mapToolPart(ToolPart part) {
+    switch (part.kind) {
+      case ToolPartKind.call:
+        return [
+          openai.FunctionCall(
+            arguments: jsonEncode(part.arguments ?? const {}),
+            callId: part.id,
+            name: part.name,
+          ),
+        ];
+      case ToolPartKind.result:
+        return [
+          openai.FunctionCallOutput(
+            callId: part.id,
+            output: _stringifyToolResult(part.result),
+          ),
+        ];
+    }
   }
 
   static String _stringifyToolResult(dynamic result) {

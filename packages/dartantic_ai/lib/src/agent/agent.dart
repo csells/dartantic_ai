@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
 import '../providers/providers.dart';
+import 'agent_response_accumulator.dart';
 import 'model_string_parser.dart';
 import 'orchestrators/default_streaming_orchestrator.dart';
 import 'orchestrators/streaming_orchestrator.dart';
@@ -162,18 +163,7 @@ class Agent {
       'Running agent with prompt and ${history.length} history messages',
     );
 
-    final allNewMessages = <ChatMessage>[];
-    var finalOutput = '';
-    var finalResult = ChatResult<String>(
-      output: '',
-      finishReason: FinishReason.unspecified,
-      metadata: const <String, dynamic>{},
-      usage: const LanguageModelUsage(),
-    );
-
-    // Accumulate metadata from all streaming chunks
-    final accumulatedMetadata = <String, dynamic>{};
-    final thinkingBuffer = StringBuffer();
+    final accumulator = AgentResponseAccumulator();
 
     await for (final result in sendStream(
       prompt,
@@ -181,44 +171,13 @@ class Agent {
       attachments: attachments,
       outputSchema: outputSchema,
     )) {
-      if (result.output.isNotEmpty) {
-        finalOutput += result.output;
-      }
-      allNewMessages.addAll(result.messages);
-      finalResult = result;
-
-      // Accumulate thinking from streaming chunks
-      final thinking = result.metadata['thinking'] as String?;
-      if (thinking != null && thinking.isNotEmpty) {
-        thinkingBuffer.write(thinking);
-      }
-
-      // Merge other metadata (preserving response-level info from final chunk)
-      for (final entry in result.metadata.entries) {
-        if (entry.key != 'thinking') {
-          accumulatedMetadata[entry.key] = entry.value;
-        }
-      }
+      accumulator.add(result);
     }
 
-    // Build final metadata with accumulated thinking
-    final mergedMetadata = <String, dynamic>{
-      ...accumulatedMetadata,
-      if (thinkingBuffer.isNotEmpty) 'thinking': thinkingBuffer.toString(),
-    };
-
-    // Return final result with all accumulated messages
-    finalResult = ChatResult<String>(
-      id: finalResult.id,
-      output: finalOutput,
-      messages: allNewMessages,
-      finishReason: finalResult.finishReason,
-      metadata: mergedMetadata,
-      usage: finalResult.usage,
-    );
+    final finalResult = accumulator.buildFinal();
 
     _logger.info(
-      'Agent run completed with ${allNewMessages.length} new messages, '
+      'Agent run completed with ${finalResult.messages.length} new messages, '
       'finish reason: ${finalResult.finishReason}',
     );
 
