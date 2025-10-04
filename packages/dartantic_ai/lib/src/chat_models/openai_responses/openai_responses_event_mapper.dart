@@ -7,7 +7,9 @@ import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../shared/openai_responses_metadata.dart';
 import 'openai_responses_attachment_collector.dart';
+import 'openai_responses_event_mapping_state.dart';
 import 'openai_responses_message_mapper.dart';
+import 'openai_responses_tool_types.dart';
 
 /// Loads a container file by identifier and returns its resolved data.
 typedef ContainerFileLoader =
@@ -57,34 +59,8 @@ class OpenAIResponsesEventMapper {
   /// Function to download container files (provided by chat model layer).
   final AttachmentCollector _attachments;
 
-  final StringBuffer _thinkingBuffer = StringBuffer();
-
-  // Accumulate function calls during streaming
-  // Key is outputIndex as string, value is the function call being built
-  final Map<int, _StreamingFunctionCall> _functionCalls = {};
-
-  // Track what we've already streamed to avoid duplication
-  bool _hasStreamedText = false;
-  final StringBuffer _streamedTextBuffer = StringBuffer();
-
-  // Track whether we've already built the final result
-  bool _finalResultBuilt = false;
-
-  final Map<String, List<Map<String, Object?>>> _toolEventLog = {
-    'web_search': <Map<String, Object?>>[],
-    'file_search': <Map<String, Object?>>[],
-    'image_generation': <Map<String, Object?>>[],
-    'local_shell': <Map<String, Object?>>[],
-    'mcp': <Map<String, Object?>>[],
-    'code_interpreter': <Map<String, Object?>>[],
-  };
-
-  // Track which outputIndex contains reasoning text
-  final Set<int> _reasoningOutputIndices = {};
-
-  // Accumulate code interpreter code deltas
-  // Key is item_id, value is the accumulated code string
-  final Map<String, StringBuffer> _codeInterpreterCodeBuffers = {};
+  /// Mutable state for event mapping.
+  final EventMappingState _state = EventMappingState();
 
   /// Processes a streaming [event] and emits zero or more [ChatResult]s.
   Stream<ChatResult<ChatMessage>> handle(openai.ResponseEvent event) async* {
@@ -94,7 +70,7 @@ class OpenAIResponsesEventMapper {
       _logger.fine('ResponseOutputItemAdded: item type = ${item.runtimeType}');
       if (item is openai.FunctionCall) {
         // Store initial function call info indexed by outputIndex
-        _functionCalls[event.outputIndex] = _StreamingFunctionCall(
+        _state.functionCalls[event.outputIndex] = StreamingFunctionCall(
           itemId: item.id ?? 'item_${event.outputIndex}',
           callId: item.callId,
           name: item.name,
@@ -107,7 +83,7 @@ class OpenAIResponsesEventMapper {
       } else if (item is openai.Reasoning) {
         // Track that this outputIndex contains reasoning text
         _logger.fine('Reasoning item at index ${event.outputIndex}');
-        _reasoningOutputIndices.add(event.outputIndex);
+        _state.reasoningOutputIndices.add(event.outputIndex);
       } else if (item is openai.ImageGenerationCall) {
         // Track the output index for image generation
         _logger.fine('Image generation call at index ${event.outputIndex}');
@@ -135,8 +111,11 @@ class OpenAIResponsesEventMapper {
           'Code interpreter completed at index ${event.outputIndex}',
         );
         // Record the complete code interpreter call with results
-        _recordToolEvent('code_interpreter', event);
-        yield* _yieldToolMetadataChunk('code_interpreter', event);
+        _recordToolEvent(OpenAIResponsesToolTypes.codeInterpreter, event);
+        yield* _yieldToolMetadataChunk(
+          OpenAIResponsesToolTypes.codeInterpreter,
+          event,
+        );
       }
 
       return;
@@ -145,7 +124,7 @@ class OpenAIResponsesEventMapper {
     // Handle function call argument streaming
     if (event is openai.ResponseFunctionCallArgumentsDelta) {
       // Find the function call by outputIndex
-      final call = _functionCalls[event.outputIndex];
+      final call = _state.functionCalls[event.outputIndex];
       if (call != null) {
         call.appendArguments(event.delta);
         _logger.fine(
@@ -166,7 +145,7 @@ class OpenAIResponsesEventMapper {
       _logger.fine(
         'ResponeFunctionCallArgumentsDone for index ${event.outputIndex}',
       );
-      final call = _functionCalls[event.outputIndex];
+      final call = _state.functionCalls[event.outputIndex];
       if (call != null) {
         // Set the complete arguments
         call.arguments = event.arguments;
@@ -187,7 +166,7 @@ class OpenAIResponsesEventMapper {
       if (event.delta.isEmpty) return;
 
       // Check if this text delta belongs to a reasoning item
-      if (_reasoningOutputIndices.contains(event.outputIndex)) {
+      if (_state.reasoningOutputIndices.contains(event.outputIndex)) {
         // This is reasoning text - skip it, it will come through
         // ResponseReasoningSummaryTextDelta
         _logger.fine(
@@ -204,8 +183,8 @@ class OpenAIResponsesEventMapper {
       );
 
       // Track that we've streamed text and accumulate it
-      _hasStreamedText = true;
-      _streamedTextBuffer.write(event.delta);
+      _state.hasStreamedText = true;
+      _state.streamedTextBuffer.write(event.delta);
 
       // Yield ONLY the delta for streaming
       final deltaMessage = ChatMessage(
@@ -226,7 +205,7 @@ class OpenAIResponsesEventMapper {
     }
 
     if (event is openai.ResponseReasoningSummaryTextDelta) {
-      _thinkingBuffer.write(event.delta);
+      _state.thinkingBuffer.write(event.delta);
       _logger.info('ResponseReasoningSummaryTextDelta: "${event.delta}"');
       // Emit the thinking delta in metadata so it can stream
       yield ChatResult<ChatMessage>(
@@ -265,8 +244,8 @@ class OpenAIResponsesEventMapper {
 
     if (event is openai.ResponseCompleted) {
       // Only build final result once to avoid duplication
-      if (!_finalResultBuilt) {
-        _finalResultBuilt = true;
+      if (!_state.finalResultBuilt) {
+        _state.finalResultBuilt = true;
         yield await _buildFinalResult(event.response);
       }
       return;
@@ -298,7 +277,7 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseImageGenerationCallInProgress ||
         event is openai.ResponseImageGenerationCallGenerating ||
         event is openai.ResponseImageGenerationCallCompleted) {
-      _recordToolEvent('image_generation', event);
+      _recordToolEvent(OpenAIResponsesToolTypes.imageGeneration, event);
 
       // Track partial images as they arrive
       if (event is openai.ResponseImageGenerationCallPartialImage) {
@@ -312,21 +291,30 @@ class OpenAIResponsesEventMapper {
         _attachments.markImageGenerationCompleted();
       }
 
-      yield* _yieldToolMetadataChunk('image_generation', event);
+      yield* _yieldToolMetadataChunk(
+        OpenAIResponsesToolTypes.imageGeneration,
+        event,
+      );
       return;
     }
 
     if (event is openai.ResponseWebSearchCallInProgress ||
         event is openai.ResponseWebSearchCallSearching ||
         event is openai.ResponseWebSearchCallCompleted) {
-      yield* _handleStandardToolEvent('web_search', event);
+      yield* _handleStandardToolEvent(
+        OpenAIResponsesToolTypes.webSearch,
+        event,
+      );
       return;
     }
 
     if (event is openai.ResponseFileSearchCallInProgress ||
         event is openai.ResponseFileSearchCallSearching ||
         event is openai.ResponseFileSearchCallCompleted) {
-      yield* _handleStandardToolEvent('file_search', event);
+      yield* _handleStandardToolEvent(
+        OpenAIResponsesToolTypes.fileSearch,
+        event,
+      );
       return;
     }
 
@@ -338,26 +326,28 @@ class OpenAIResponsesEventMapper {
         event is openai.ResponseMcpListToolsInProgress ||
         event is openai.ResponseMcpListToolsCompleted ||
         event is openai.ResponseMcpListToolsFailed) {
-      yield* _handleStandardToolEvent('mcp', event);
+      yield* _handleStandardToolEvent(OpenAIResponsesToolTypes.mcp, event);
       return;
     }
 
     if (event is openai.ResponseCodeInterpreterCallCodeDelta) {
       // Accumulate code deltas for message metadata
       final itemId = event.itemId;
-      _codeInterpreterCodeBuffers
-          .putIfAbsent(itemId, StringBuffer.new)
-          .write(event.delta);
+      _state.getCodeInterpreterBuffer(itemId).write(event.delta);
 
       // Stream individual deltas as chunk metadata (like thinking)
-      yield* _yieldToolMetadataChunk('code_interpreter', event);
+      yield* _yieldToolMetadataChunk(
+        OpenAIResponsesToolTypes.codeInterpreter,
+        event,
+      );
       return;
     }
 
     if (event is openai.ResponseCodeInterpreterCallCodeDone) {
       // Emit a single accumulated code delta in message metadata
       final itemId = event.itemId;
-      final accumulatedCode = _codeInterpreterCodeBuffers[itemId]?.toString();
+      final buffer = _state.codeInterpreterCodeBuffers[itemId];
+      final accumulatedCode = buffer?.toString();
 
       if (accumulatedCode != null) {
         // Record a single code_delta event with complete accumulated code
@@ -369,27 +359,35 @@ class OpenAIResponsesEventMapper {
           'delta': accumulatedCode,
         };
 
-        _toolEventLog['code_interpreter']!.add(completeEvent);
+        _state.recordToolEvent(
+          OpenAIResponsesToolTypes.codeInterpreter,
+          completeEvent,
+        );
       }
-      _codeInterpreterCodeBuffers.remove(itemId);
+      _state.removeCodeInterpreterBuffer(itemId);
 
       // Record and yield the actual done event
-      _recordToolEvent('code_interpreter', event);
-      yield* _yieldToolMetadataChunk('code_interpreter', event);
+      _recordToolEvent(OpenAIResponsesToolTypes.codeInterpreter, event);
+      yield* _yieldToolMetadataChunk(
+        OpenAIResponsesToolTypes.codeInterpreter,
+        event,
+      );
       return;
     }
 
     if (event is openai.ResponseCodeInterpreterCallInProgress ||
         event is openai.ResponseCodeInterpreterCallCompleted ||
         event is openai.ResponseCodeInterpreterCallInterpreting) {
-      yield* _handleStandardToolEvent('code_interpreter', event);
+      yield* _handleStandardToolEvent(
+        OpenAIResponsesToolTypes.codeInterpreter,
+        event,
+      );
       return;
     }
   }
 
-  void _recordToolEvent(String key, openai.ResponseEvent event) {
-    final logEntry = event.toJson();
-    _toolEventLog.putIfAbsent(key, () => []).add(logEntry);
+  void _recordToolEvent(String toolType, openai.ResponseEvent event) {
+    _state.recordToolEvent(toolType, event.toJson());
   }
 
   Stream<ChatResult<ChatMessage>> _yieldToolMetadataChunk(
@@ -554,15 +552,14 @@ class OpenAIResponsesEventMapper {
     required LanguageModelUsage usage,
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
-  }) =>
-      ChatResult<ChatMessage>(
-        id: responseId,
-        output: output,
-        messages: messages,
-        usage: usage,
-        finishReason: finishReason,
-        metadata: resultMetadata,
-      );
+  }) => ChatResult<ChatMessage>(
+    id: responseId,
+    output: output,
+    messages: messages,
+    usage: usage,
+    finishReason: finishReason,
+    metadata: resultMetadata,
+  );
 
   /// Creates a ChatResult for streaming scenarios where text was streamed.
   ChatResult<ChatMessage> _createStreamingResult({
@@ -573,8 +570,9 @@ class OpenAIResponsesEventMapper {
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
   }) {
-    final nonTextParts =
-        parts.where((p) => p is! TextPart).toList(growable: false);
+    final nonTextParts = parts
+        .where((p) => p is! TextPart)
+        .toList(growable: false);
 
     final metadataOnlyOutput = ChatMessage(
       role: ChatMessageRole.model,
@@ -605,46 +603,44 @@ class OpenAIResponsesEventMapper {
   /// Creates a ChatResult for non-streaming scenarios (e.g., tool-only).
   ChatResult<ChatMessage> _createNonStreamingResult({
     required String responseId,
-    required ChatMessage message,
+    required List<Part> parts,
+    required Map<String, Object?> messageMetadata,
     required LanguageModelUsage usage,
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
-  }) =>
-      _createResult(
-        responseId: responseId,
-        output: message,
-        messages: [message],
-        usage: usage,
-        finishReason: finishReason,
-        resultMetadata: resultMetadata,
-      );
+  }) {
+    final message = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: parts,
+      metadata: messageMetadata,
+    );
+
+    return _createResult(
+      responseId: responseId,
+      output: message,
+      messages: [message],
+      usage: usage,
+      finishReason: finishReason,
+      resultMetadata: resultMetadata,
+    );
+  }
 
   Future<ChatResult<ChatMessage>> _buildFinalResult(
     openai.Response response,
   ) async {
-    final mapped = _mapResponseItems(
-      response.output ?? const <openai.ResponseItem>[],
-    );
-    final parts = [...mapped.parts];
-
+    final parts = await _collectAllParts(response);
     final messageMetadata = _buildSessionMetadata(response);
-
-    final attachmentParts = await _attachments.resolveAttachments();
-    if (attachmentParts.isNotEmpty) {
-      parts.addAll(attachmentParts);
-    }
+    final usage = _mapUsage(response.usage);
+    final resultMetadata = _buildResultMetadata(response);
+    final finishReason = _mapFinishReason(response);
+    final responseId = response.id ?? '';
 
     _logger.fine('Building final message with ${parts.length} parts');
     for (final part in parts) {
       _logger.fine('  Part: ${part.runtimeType}');
     }
 
-    final usage = _mapUsage(response.usage);
-    final resultMetadata = _buildResultMetadata(response);
-    final finishReason = _mapFinishReason(response);
-    final responseId = response.id ?? '';
-
-    if (_hasStreamedText) {
+    if (_state.hasStreamedText) {
       return _createStreamingResult(
         responseId: responseId,
         parts: parts,
@@ -654,19 +650,30 @@ class OpenAIResponsesEventMapper {
         resultMetadata: resultMetadata,
       );
     } else {
-      final finalMessage = ChatMessage(
-        role: ChatMessageRole.model,
-        parts: parts,
-        metadata: messageMetadata,
-      );
       return _createNonStreamingResult(
         responseId: responseId,
-        message: finalMessage,
+        parts: parts,
+        messageMetadata: messageMetadata,
         usage: usage,
         finishReason: finishReason,
         resultMetadata: resultMetadata,
       );
     }
+  }
+
+  /// Collects all parts from response output and attachments.
+  Future<List<Part>> _collectAllParts(openai.Response response) async {
+    final mapped = _mapResponseItems(
+      response.output ?? const <openai.ResponseItem>[],
+    );
+    final parts = [...mapped.parts];
+
+    final attachmentParts = await _attachments.resolveAttachments();
+    if (attachmentParts.isNotEmpty) {
+      parts.addAll(attachmentParts);
+    }
+
+    return parts;
   }
 
   List<Part> _mapOutputMessage(List<openai.ResponseContent> content) {
@@ -752,26 +759,4 @@ class OpenAIResponsesEventMapper {
         return FinishReason.unspecified;
     }
   }
-}
-
-/// Helper class to accumulate function call arguments during streaming.
-class _StreamingFunctionCall {
-  _StreamingFunctionCall({
-    required this.itemId,
-    required this.callId,
-    required this.name,
-    required this.outputIndex,
-  });
-
-  final String itemId;
-  final String callId;
-  final String name;
-  final int outputIndex;
-  String arguments = '';
-
-  void appendArguments(String delta) {
-    arguments += delta;
-  }
-
-  bool get isComplete => arguments.isNotEmpty;
 }

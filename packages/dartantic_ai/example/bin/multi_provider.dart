@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_print
 
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, exit;
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -80,4 +80,6 @@ void main() async {
   print('  → ${agent3.displayName}');
   print('  → ${agent4.displayName}');
   print('  → ${agent5.displayName}');
+
+  exit(0);
 }

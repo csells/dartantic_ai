@@ -87,7 +87,16 @@ class OpenAIResponsesProvider
       temperature: temperature,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultBaseUrl,
-      defaultOptions: OpenAIResponsesChatModelOptions(
+      defaultOptions: _mergeOptions(temperature, options),
+    );
+  }
+
+  /// Merges temperature and options into a single options object.
+  OpenAIResponsesChatModelOptions _mergeOptions(
+    double? temperature,
+    OpenAIResponsesChatModelOptions? options,
+  ) =>
+      OpenAIResponsesChatModelOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
         maxOutputTokens: options?.maxOutputTokens,
@@ -110,9 +119,7 @@ class OpenAIResponsesProvider
         fileSearchConfig: options?.fileSearchConfig,
         webSearchConfig: options?.webSearchConfig,
         codeInterpreterConfig: options?.codeInterpreterConfig,
-      ),
-    );
-  }
+      );
 
   @override
   EmbeddingsModel<OpenAIEmbeddingsModelOptions> createEmbeddingsModel({

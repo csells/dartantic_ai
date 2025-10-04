@@ -118,9 +118,8 @@ class OpenAIResponsesMessageMapper {
 
     log.info('━━━ Mapping Complete ━━━');
     log.info('Actual items to send: ${items.length}');
-    log.info(
-      'Using previousResponseId: ${sessionResolution.previousResponseId ?? "none"}',
-    );
+    final prevId = sessionResolution.previousResponseId ?? 'none';
+    log.info('Using previousResponseId: $prevId');
     log.info('');
 
     return OpenAIResponsesHistorySegment(
