@@ -12,7 +12,7 @@ abstract class LanguageModelResult<TOutput extends Object> {
     required this.output,
     required this.finishReason,
     required this.metadata,
-    required this.usage,
+    this.usage,
     String? id,
   }) : id = id ?? const Uuid().v4();
 
@@ -29,5 +29,5 @@ abstract class LanguageModelResult<TOutput extends Object> {
   final Map<String, dynamic> metadata;
 
   ///  Usage stats for the generation.
-  final LanguageModelUsage usage;
+  final LanguageModelUsage? usage;
 }
