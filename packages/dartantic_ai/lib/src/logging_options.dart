@@ -1,7 +1,6 @@
 import 'package:logging/logging.dart';
 
 import 'agent/agent.dart';
-import 'platform/platform.dart';
 
 /// Configuration options for logging in the dartantic_ai package.
 ///
@@ -35,43 +34,6 @@ class LoggingOptions {
     this.filter = '',
     this.onRecord = _defaultOnRecord,
   });
-
-  /// Creates logging options reading level from DARTANTIC_LOG_LEVEL environment
-  /// variable.
-  ///
-  /// Supported environment values: FINE, INFO, WARNING, SEVERE, OFF
-  /// Falls back to [Level.INFO] if not set or invalid.
-  ///
-  /// Example usage:
-  /// ```bash
-  /// DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
-  /// ```
-  factory LoggingOptions.fromEnvironment({
-    String? filter,
-    void Function(LogRecord)? onRecord,
-  }) {
-    final envLevel = _parseLevelFromEnvironment();
-    return LoggingOptions(
-      level: envLevel,
-      filter: filter ?? '',
-      onRecord: onRecord ?? _defaultOnRecord,
-    );
-  }
-
-  /// Parses log level from DARTANTIC_LOG_LEVEL environment variable.
-  static Level _parseLevelFromEnvironment() {
-    final envValue = tryGetEnv('DARTANTIC_LOG_LEVEL');
-    if (envValue == null || envValue.isEmpty) return Level.INFO;
-
-    return switch (envValue.toUpperCase()) {
-      'FINE' => Level.FINE,
-      'INFO' => Level.INFO,
-      'WARNING' => Level.WARNING,
-      'SEVERE' => Level.SEVERE,
-      'OFF' => Level.OFF,
-      _ => Level.INFO, // Default for invalid values
-    };
-  }
 
   /// The minimum logging level to capture.
   ///

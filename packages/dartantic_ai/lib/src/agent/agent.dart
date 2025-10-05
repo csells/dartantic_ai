@@ -7,6 +7,7 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
+import '../platform/platform.dart';
 import '../providers/providers.dart';
 import 'agent_response_accumulator.dart';
 import 'model_string_parser.dart';
@@ -44,6 +45,8 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
   }) {
+    _checkLoggingEnvironment();
+
     // parse the model string into a provider name, chat model name, and
     // embeddings model name
     final parser = ModelStringParser.parse(model);
@@ -87,6 +90,8 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
   }) {
+    _checkLoggingEnvironment();
+
     _logger.info(
       'Creating agent from provider: ${provider.name}, '
       'chat model: $chatModelName, '
@@ -444,8 +449,18 @@ class Agent {
   ///   onRecord: (record) => myLogger.log(record),
   /// );
   /// ```
+  ///
+  /// Can also be set from DARTANTIC_LOG_LEVEL environment variable.
+  ///
+  /// Supported environment values: FINE, INFO, WARNING, SEVERE, OFF. By
+  /// default, there is no logging if not set or invalid unless explicitly set.
+  ///
+  /// Example usage:
+  /// ```bash
+  /// DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+  /// ```
   static LoggingOptions get loggingOptions => _loggingOptions;
-  static LoggingOptions _loggingOptions = LoggingOptions.fromEnvironment();
+  static LoggingOptions _loggingOptions = const LoggingOptions();
   static StreamSubscription<LogRecord>? _loggingSubscription;
 
   /// Sets the global logging configuration and applies it immediately.
@@ -476,5 +491,23 @@ class Agent {
       // Call the configured handler
       _loggingOptions.onRecord(record);
     });
+  }
+
+  static var _loggingEnvironmentChecked = false;
+  static void _checkLoggingEnvironment() {
+    if (_loggingEnvironmentChecked) return;
+
+    final envValue = tryGetEnv('DARTANTIC_LOG_LEVEL');
+    final level = switch (envValue?.toUpperCase()) {
+      'FINE' => Level.FINE,
+      'INFO' => Level.INFO,
+      'WARNING' => Level.WARNING,
+      'SEVERE' => Level.SEVERE,
+      'OFF' => Level.OFF,
+      _ => null, // Default for missing/invalid values
+    };
+    if (level != null) loggingOptions = LoggingOptions(level: level);
+
+    _loggingEnvironmentChecked = true;
   }
 }

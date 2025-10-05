@@ -12,11 +12,13 @@ void main() async {
 
   await defaultLogging();
   await levelFiltering();
-  await providerFiltering();
+  await stringFiltering();
   await customHandlers();
   exit(0);
 }
 
+// set DARTANTIC_LOG_LEVEL environment variable to see output from this example
+// e.g. `DARTANTIC_LOG_LEVEL=FINE dart example/bin/logging.dart`
 Future<void> envLogging() async {
   print('\nEnvironment Logging');
   final level = Platform.environment['DARTANTIC_LOG_LEVEL']!;
@@ -53,8 +55,8 @@ Future<void> levelFiltering() async {
   print('${agent.displayName}: ${result.output}');
 }
 
-Future<void> providerFiltering() async {
-  print('\nProvider Filtering');
+Future<void> stringFiltering() async {
+  print('\nString Filtering');
   Agent.loggingOptions = const LoggingOptions(filter: 'openai');
 
   final openaiAgent = Agent('openai');
