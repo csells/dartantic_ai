@@ -313,6 +313,11 @@ class Agent {
           )) {
             // Yield streaming text or metadata
             if (result.output.isNotEmpty || result.metadata.isNotEmpty) {
+              _logger.fine(
+                'Agent.sendStream yielding metadata/output: '
+                'metadata.keys=${result.metadata.keys}, '
+                'output.length=${result.output.length}',
+              );
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: result.output,
@@ -328,6 +333,11 @@ class Agent {
               for (final message in result.messages) {
                 _assertNoMultipleTextParts([message]);
               }
+              _logger.fine(
+                'Agent.sendStream yielding messages: '
+                'count=${result.messages.length}, '
+                'metadata.keys=${result.metadata.keys}',
+              );
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: '',

@@ -143,6 +143,10 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
     state.addToHistory(consolidatedMessage);
 
+    _logger.fine(
+      'Orchestrator yielding consolidated message with metadata.keys='
+      '${state.lastResult.metadata.keys}',
+    );
     yield StreamingIterationResult(
       output: '',
       messages: [consolidatedMessage],
@@ -154,6 +158,10 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
     final toolCalls = _extractToolCalls(consolidatedMessage);
     if (toolCalls.isEmpty) {
+      _logger.fine(
+        'Orchestrator yielding final result (no tools) with metadata.keys='
+        '${state.lastResult.metadata.keys}',
+      );
       yield StreamingIterationResult(
         output: '',
         messages: const [],

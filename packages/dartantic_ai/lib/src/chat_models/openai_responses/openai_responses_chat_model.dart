@@ -227,28 +227,25 @@ class OpenAIResponsesChatModel
 
     // NOTE: We cannot call retrieveContainerFile() to get the filename from
     // metadata.path because the OpenAI API returns "bytes": null for container
-    // files, but openai_core 0.10.1's ContainerFile.fromJson() expects bytes
-    // to always be a non-null integer (line 165), causing a type cast error.
+    // files, but openai_core 0.10.1's ContainerFile.fromJson() expects bytes to
+    // always be a non-null integer (line 165), causing a type cast error.
     //
     // Bug report: https://github.com/meshagent/openai_core/issues/6
     //
-    // For now, we use the fileId as the filename. Once openai_core is fixed
-    // to handle nullable bytes, we can restore the metadata retrieval:
+    // For now, we use the fileId as the filename. Once openai_core is fixed to
+    // handle nullable bytes, we can restore the metadata retrieval:
     //
-    //   final metadata = await _client.retrieveContainerFile(containerId, fileId);
-    //   final segments = metadata.path.split('/');
-    //   final rawFileName = segments.isNotEmpty ? segments.last : metadata.path;
-    //   fileName = rawFileName.isEmpty ? fileId : rawFileName;
+    //   final metadata = await _client.retrieveContainerFile(containerId,
+    //   fileId); final segments = metadata.path.split('/'); final rawFileName =
+    //   segments.isNotEmpty ? segments.last : metadata.path; fileName =
+    //   rawFileName.isEmpty ? fileId : rawFileName;
 
     final bytes = await _client.retrieveContainerFileContent(
       containerId,
       fileId,
     );
 
-    return ContainerFileData(
-      bytes: bytes,
-      fileName: fileId,
-    );
+    return ContainerFileData(bytes: bytes, fileName: fileId);
   }
 
   static Map<String, dynamic>? _mergeMetadata(

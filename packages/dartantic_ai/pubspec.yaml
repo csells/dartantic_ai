@@ -4,6 +4,7 @@ description: >
   server-side apps in Dart with generative AI easier and more fun!
 version: 1.0.8
 repository: https://github.com/csells/dartantic_ai
+homepage: https://docs.dartantic.com
 
 environment:
   sdk: ^3.8.0
