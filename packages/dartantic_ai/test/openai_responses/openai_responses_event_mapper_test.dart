@@ -160,8 +160,8 @@ void main() {
         final result = results.single;
 
         expect(result.id, equals('resp_123'));
-        expect(result.usage.promptTokens, equals(12));
-        expect(result.usage.responseTokens, equals(34));
+        expect(result.usage?.promptTokens, equals(12));
+        expect(result.usage?.responseTokens, equals(34));
 
         final message = result.output;
         expect(

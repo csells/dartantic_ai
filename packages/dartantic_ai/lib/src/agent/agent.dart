@@ -165,14 +165,12 @@ class Agent {
 
     final accumulator = AgentResponseAccumulator();
 
-    await for (final result in sendStream(
+    await sendStream(
       prompt,
       history: history,
       attachments: attachments,
       outputSchema: outputSchema,
-    )) {
-      accumulator.add(result);
-    }
+    ).forEach(accumulator.add);
 
     final finalResult = accumulator.buildFinal();
 
@@ -283,7 +281,7 @@ class Agent {
         messages: [newUserMessage],
         finishReason: FinishReason.unspecified,
         metadata: const <String, dynamic>{},
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
 
       final state = StreamingState(
@@ -316,7 +314,7 @@ class Agent {
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: result.metadata,
-                usage: result.usage ?? const LanguageModelUsage(),
+                usage: result.usage,
               );
             }
 
@@ -331,7 +329,22 @@ class Agent {
                 messages: result.messages,
                 finishReason: result.finishReason,
                 metadata: result.metadata,
-                usage: result.usage ?? const LanguageModelUsage(),
+                usage: result.usage,
+              );
+            }
+
+            // Yield final result if it has usage (for completion signal)
+            if (result.usage != null &&
+                result.output.isEmpty &&
+                result.messages.isEmpty &&
+                result.metadata.isEmpty) {
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: '',
+                messages: const [],
+                finishReason: result.finishReason,
+                metadata: const {},
+                usage: result.usage,
               );
             }
 
@@ -432,7 +445,7 @@ class Agent {
   /// );
   /// ```
   static LoggingOptions get loggingOptions => _loggingOptions;
-  static LoggingOptions _loggingOptions = const LoggingOptions();
+  static LoggingOptions _loggingOptions = LoggingOptions.fromEnvironment();
   static StreamSubscription<LogRecord>? _loggingSubscription;
 
   /// Sets the global logging configuration and applies it immediately.

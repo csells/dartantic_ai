@@ -357,10 +357,7 @@ class OpenAIResponsesMessageMapper {
       final fileName = name ?? Part.nameFromMimeType(mimeType);
       final fileDataUrl = 'data:$mimeType;base64,$base64Data';
       content.add(
-        openai.InputFileContent(
-          filename: fileName,
-          fileData: fileDataUrl,
-        ),
+        openai.InputFileContent(filename: fileName, fileData: fileDataUrl),
       );
     } else {
       // All other files: Include as text with base64 data URL
@@ -375,10 +372,7 @@ class OpenAIResponsesMessageMapper {
 
       if (isModelMessage) {
         content.add(
-          openai.OutputTextContent(
-            text: fileContent,
-            annotations: const [],
-          ),
+          openai.OutputTextContent(text: fileContent, annotations: const []),
         );
       } else {
         content.add(openai.InputTextContent(text: fileContent));

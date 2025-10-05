@@ -242,6 +242,24 @@ extension ChatResultMapper on o.GenerateChatCompletionResponse {
       parts: parts,
     );
 
+    // Convert Ollama token counts to usage
+    // Only provide usage when done=true (final chunk)
+    final usage = done && (promptEvalCount != null || evalCount != null)
+        ? LanguageModelUsage(
+            promptTokens: promptEvalCount,
+            responseTokens: evalCount,
+            totalTokens: promptEvalCount != null && evalCount != null
+                ? promptEvalCount! + evalCount!
+                : promptEvalCount ?? evalCount,
+          )
+        : null;
+
+    if (usage != null) {
+      _logger.fine(
+        'Ollama usage: ${usage.promptTokens}/${usage.responseTokens}/${usage.totalTokens}',
+      );
+    }
+
     return ChatResult<ChatMessage>(
       output: responseMessage,
       messages: [responseMessage],
@@ -257,7 +275,7 @@ extension ChatResultMapper on o.GenerateChatCompletionResponse {
         'eval_count': evalCount,
         'eval_duration': evalDuration,
       },
-      usage: const LanguageModelUsage(),
+      usage: usage,
     );
   }
 }

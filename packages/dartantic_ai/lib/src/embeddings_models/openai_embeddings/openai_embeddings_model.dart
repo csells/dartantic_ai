@@ -92,7 +92,7 @@ class OpenAIEmbeddingsModel
     _logger.info(
       'OpenAI embedding query result: '
       '${result.output.length} dimensions, '
-      '${result.usage.totalTokens} tokens',
+      '${result.usage?.totalTokens ?? 0} tokens',
     );
 
     return result;
@@ -171,7 +171,7 @@ class OpenAIEmbeddingsModel
     _logger.info(
       'OpenAI batch embedding completed: '
       '${result.output.length} embeddings, '
-      '${result.usage.totalTokens} total tokens',
+      '${result.usage?.totalTokens ?? 0} total tokens',
     );
 
     return result;

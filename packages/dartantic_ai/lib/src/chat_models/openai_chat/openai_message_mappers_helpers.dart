@@ -85,6 +85,7 @@ CreateChatCompletionRequest createChatCompletionRequest(
       ? ChatCompletionStop.listString(options?.stop ?? defaultOptions.stop!)
       : null,
   stream: true,
+  streamOptions: const ChatCompletionStreamOptions(includeUsage: true),
   user: options?.user ?? defaultOptions.user,
   frequencyPenalty:
       options?.frequencyPenalty ?? defaultOptions.frequencyPenalty,

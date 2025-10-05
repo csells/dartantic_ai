@@ -63,11 +63,12 @@ void dumpChatResult(ChatResult result, {String? label}) {
   stdout.writeln('Result ID: ${result.id}');
 
   // Show usage if available
-  if (result.usage.totalTokens != null) {
+  if (result.usage?.totalTokens != null) {
+    final usage = result.usage!;
     stdout.writeln(
-      'Usage: ${result.usage.promptTokens ?? 0} prompt + '
-      '${result.usage.responseTokens ?? 0} response = '
-      '${result.usage.totalTokens} total tokens',
+      'Usage: ${usage.promptTokens ?? 0} prompt + '
+      '${usage.responseTokens ?? 0} response = '
+      '${usage.totalTokens} total tokens',
     );
   }
 
@@ -148,7 +149,8 @@ String _messageToSummary(ChatMessage message) {
   return '${message.role.name}: [${parts.join(', ')}]';
 }
 
-void dumpUsage(LanguageModelUsage usage) {
+void dumpUsage(LanguageModelUsage? usage) {
+  if (usage == null) return;
   stdout.writeln('\n### Usage:');
   stdout.writeln('- Prompt tokens: ${usage.promptTokens}');
   stdout.writeln('- Response tokens: ${usage.responseTokens}');

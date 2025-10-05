@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
-import '../../shared/openai_responses_metadata.dart';
 import 'openai_responses_attachment_collector.dart';
 import 'openai_responses_event_mapping_state.dart';
 import 'openai_responses_message_builder.dart';
@@ -219,7 +217,7 @@ class OpenAIResponsesEventMapper {
         output: deltaMessage,
         messages: const [], // Empty during streaming - in final result
         metadata: const {},
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
       return;
     }
@@ -241,7 +239,7 @@ class OpenAIResponsesEventMapper {
         metadata: {
           'thinking': event.delta, // Stream the thinking delta
         },
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
       return;
     }

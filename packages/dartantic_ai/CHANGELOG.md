@@ -12,6 +12,8 @@
 - added docs + example apps for all of these (including in launch.json)
 - only list Live models for the cohere provider; update the default chat model
 - exposed thinking via chatresult and chatmessage metadata
+- DARTANTIC_LOG_LEVEL
+- exposed usage details for all of the providers (not just some)
 
 ## 1.0.8
 

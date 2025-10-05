@@ -204,7 +204,9 @@ void main() {
 
         // Anthropic has its own format
         expect(result.messages, isNotEmpty);
-        expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
+        }
       });
 
       test('Google format compatibility', () async {

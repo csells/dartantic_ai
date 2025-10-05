@@ -21,11 +21,7 @@ class OpenAIResponsesToolEventRecorder {
         event is openai.ResponseImageGenerationCallInProgress ||
         event is openai.ResponseImageGenerationCallGenerating ||
         event is openai.ResponseImageGenerationCallCompleted) {
-      recordToolEvent(
-        OpenAIResponsesToolTypes.imageGeneration,
-        event,
-        state,
-      );
+      recordToolEvent(OpenAIResponsesToolTypes.imageGeneration, event, state);
       yield* yieldToolMetadataChunk(
         OpenAIResponsesToolTypes.imageGeneration,
         event,
@@ -123,7 +119,7 @@ class OpenAIResponsesToolEventRecorder {
       metadata: {
         toolKey: [eventJson], // Single-item list
       },
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
   }
 

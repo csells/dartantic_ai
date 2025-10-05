@@ -42,8 +42,8 @@ class OpenAIResponsesSessionManager {
   /// Extracts response-level information like response ID, model, and status
   /// that should be included in the ChatResult metadata (not message metadata).
   Map<String, Object?> buildResultMetadata(openai.Response response) => {
-        'response_id': response.id,
-        if (response.model != null) 'model': response.model!.toJson(),
-        if (response.status != null) 'status': response.status,
-      };
+    'response_id': response.id,
+    if (response.model != null) 'model': response.model!.toJson(),
+    if (response.status != null) 'status': response.status,
+  };
 }

@@ -38,20 +38,20 @@ void main() {
         final result = await agent.send('Say hello');
 
         // Usage tracking may not be available for all providers
-        if (result.usage.promptTokens != null) {
-          expect(result.usage.promptTokens, greaterThan(0));
+        if (result.usage?.promptTokens != null) {
+          expect(result.usage!.promptTokens, greaterThan(0));
         }
-        if (result.usage.responseTokens != null) {
-          expect(result.usage.responseTokens, greaterThan(0));
+        if (result.usage?.responseTokens != null) {
+          expect(result.usage!.responseTokens, greaterThan(0));
         }
-        if (result.usage.totalTokens != null) {
-          expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage?.totalTokens != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
         }
         expect(
-          result.usage.totalTokens,
+          result.usage?.totalTokens,
           equals(
-            (result.usage.promptTokens ?? 0) +
-                (result.usage.responseTokens ?? 0),
+            (result.usage?.promptTokens ?? 0) +
+                (result.usage?.responseTokens ?? 0),
           ),
         );
       });
@@ -61,14 +61,14 @@ void main() {
         final result = await agent.send('Write a haiku about programming');
 
         // Usage tracking may not be available for all providers
-        if (result.usage.promptTokens != null) {
-          expect(result.usage.promptTokens, greaterThan(0));
+        if (result.usage?.promptTokens != null) {
+          expect(result.usage!.promptTokens, greaterThan(0));
         }
-        if (result.usage.responseTokens != null) {
-          expect(result.usage.responseTokens, greaterThan(0));
+        if (result.usage?.responseTokens != null) {
+          expect(result.usage!.responseTokens, greaterThan(0));
         }
-        if (result.usage.totalTokens != null) {
-          expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage?.totalTokens != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
         }
       });
 
@@ -79,8 +79,10 @@ void main() {
         );
 
         // Longer responses should use more tokens
-        expect(result.usage.responseTokens, greaterThan(10));
-        expect(result.usage.totalTokens, greaterThan(20));
+        if (result.usage != null) {
+          expect(result.usage!.responseTokens, greaterThan(10));
+          expect(result.usage!.totalTokens, greaterThan(20));
+        }
       });
 
       runProviderTest('track usage correctly', (provider) async {
@@ -90,41 +92,40 @@ void main() {
           'Write exactly: "Usage test for ${provider.name}"',
         );
 
-        // Usage tracking may not be available for all providers
-        if (result.usage.promptTokens != null) {
+        // ALL providers MUST provide usage information
+        expect(
+          result.usage,
+          isNotNull,
+          reason: 'Provider ${provider.name} MUST provide usage information',
+        );
+
+        expect(
+          result.usage!.totalTokens,
+          greaterThan(0),
+          reason: 'Provider ${provider.name} MUST track total tokens',
+        );
+
+        // Providers should ideally provide prompt and response tokens
+        // but at minimum must provide total tokens
+        if (result.usage!.promptTokens != null &&
+            result.usage!.responseTokens != null) {
           expect(
-            result.usage.promptTokens,
+            result.usage!.promptTokens,
             greaterThan(0),
             reason: 'Provider ${provider.name} should track prompt tokens',
           );
-        }
-
-        if (result.usage.responseTokens != null) {
           expect(
-            result.usage.responseTokens,
+            result.usage!.responseTokens,
             greaterThan(0),
             reason: 'Provider ${provider.name} should track response tokens',
           );
-        }
-
-        if (result.usage.totalTokens != null) {
           expect(
-            result.usage.totalTokens,
-            greaterThan(0),
-            reason: 'Provider ${provider.name} should track total tokens',
+            result.usage!.totalTokens,
+            equals(result.usage!.promptTokens! + result.usage!.responseTokens!),
+            reason:
+                'Provider ${provider.name} total should equal '
+                'prompt + response tokens',
           );
-
-          // If we have prompt and response, total should equal their sum
-          if (result.usage.promptTokens != null &&
-              result.usage.responseTokens != null) {
-            expect(
-              result.usage.totalTokens,
-              equals(result.usage.promptTokens! + result.usage.responseTokens!),
-              reason:
-                  'Provider ${provider.name} total should equal '
-                  'prompt + response tokens',
-            );
-          }
         }
       }, timeout: const Timeout(Duration(minutes: 3)));
     });
@@ -140,8 +141,8 @@ void main() {
 
         for (final question in questions) {
           final result = await agent.send(question);
-          totalPromptTokens += result.usage.promptTokens ?? 0;
-          totalResponseTokens += result.usage.responseTokens ?? 0;
+          totalPromptTokens += result.usage?.promptTokens ?? 0;
+          totalResponseTokens += result.usage?.responseTokens ?? 0;
         }
 
         // Usage tracking may not be available for all providers
@@ -164,10 +165,10 @@ void main() {
         final result2 = await agent.send(prompt);
 
         // Prompt tokens should be very similar (if available)
-        if (result1.usage.promptTokens != null &&
-            result2.usage.promptTokens != null) {
+        if (result1.usage?.promptTokens != null &&
+            result2.usage?.promptTokens != null) {
           expect(
-            (result1.usage.promptTokens! - result2.usage.promptTokens!).abs(),
+            (result1.usage!.promptTokens! - result2.usage!.promptTokens!).abs(),
             lessThanOrEqualTo(2), // Allow small variance
           );
         }
@@ -178,25 +179,28 @@ void main() {
       test('tracks usage in streaming mode', () async {
         final agent = Agent('anthropic:claude-3-5-haiku-latest');
 
-        var finalUsage = const LanguageModelUsage();
+        LanguageModelUsage? finalUsage;
         final chunks = <String>[];
 
         await for (final chunk in agent.sendStream('Count from 1 to 5')) {
           chunks.add(chunk.output);
-          if (chunk.usage.totalTokens != null && chunk.usage.totalTokens! > 0) {
+          if (chunk.usage?.totalTokens != null &&
+              chunk.usage!.totalTokens! > 0) {
             finalUsage = chunk.usage;
           }
         }
 
         expect(chunks, isNotEmpty);
-        if (finalUsage.promptTokens != null) {
-          expect(finalUsage.promptTokens, greaterThan(0));
-        }
-        if (finalUsage.responseTokens != null) {
-          expect(finalUsage.responseTokens, greaterThan(0));
-        }
-        if (finalUsage.totalTokens != null) {
-          expect(finalUsage.totalTokens, greaterThan(0));
+        if (finalUsage != null) {
+          if (finalUsage.promptTokens != null) {
+            expect(finalUsage.promptTokens, greaterThan(0));
+          }
+          if (finalUsage.responseTokens != null) {
+            expect(finalUsage.responseTokens, greaterThan(0));
+          }
+          if (finalUsage.totalTokens != null) {
+            expect(finalUsage.totalTokens, greaterThan(0));
+          }
         }
       });
 
@@ -206,8 +210,9 @@ void main() {
         final usageChunks = <LanguageModelUsage>[];
 
         await for (final chunk in agent.sendStream('Say "test"')) {
-          if (chunk.usage.totalTokens != null && chunk.usage.totalTokens! > 0) {
-            usageChunks.add(chunk.usage);
+          if (chunk.usage?.totalTokens != null &&
+              chunk.usage!.totalTokens! > 0) {
+            usageChunks.add(chunk.usage!);
           }
         }
 
@@ -216,6 +221,48 @@ void main() {
           expect(usageChunks.last.totalTokens, greaterThan(0));
         }
       });
+
+      runProviderTest('streaming provides usage', (provider) async {
+        final agent = Agent(provider.name);
+
+        LanguageModelUsage? streamUsage;
+        var chunkCount = 0;
+
+        await for (final chunk in agent.sendStream(
+          'Write exactly: "Streaming test for ${provider.name}"',
+        )) {
+          chunkCount++;
+          if (chunk.usage != null) {
+            expect(
+              streamUsage,
+              isNull,
+              reason: 'Provider ${provider.name} should report usage only once',
+            );
+            streamUsage = chunk.usage;
+          }
+        }
+
+        // ALL providers MUST provide usage in streaming mode
+        expect(
+          streamUsage,
+          isNotNull,
+          reason:
+              'Provider ${provider.name} MUST provide usage in streaming mode',
+        );
+
+        expect(
+          streamUsage!.totalTokens,
+          greaterThan(0),
+          reason:
+              'Provider ${provider.name} MUST track total tokens in streaming',
+        );
+
+        expect(
+          chunkCount,
+          greaterThan(0),
+          reason: 'Provider ${provider.name} should stream chunks',
+        );
+      }, timeout: const Timeout(Duration(minutes: 3)));
     });
 
     group('cost calculation', () {
@@ -226,7 +273,7 @@ void main() {
         // Example cost calculation (rates are examples)
         const costPer1kTokens = 0.0008;
         final estimatedCost =
-            (result.usage.totalTokens ?? 0) / 1000 * costPer1kTokens;
+            (result.usage?.totalTokens ?? 0) / 1000 * costPer1kTokens;
 
         // Simple message should be very cheap
         expect(estimatedCost, greaterThan(0));
@@ -245,12 +292,12 @@ void main() {
         const responseCostPer1k = 0.0006;
 
         final shortCost =
-            (shortResult.usage.promptTokens ?? 0) / 1000 * promptCostPer1k +
-            (shortResult.usage.responseTokens ?? 0) / 1000 * responseCostPer1k;
+            (shortResult.usage?.promptTokens ?? 0) / 1000 * promptCostPer1k +
+            (shortResult.usage?.responseTokens ?? 0) / 1000 * responseCostPer1k;
 
         final longCost =
-            (longResult.usage.promptTokens ?? 0) / 1000 * promptCostPer1k +
-            (longResult.usage.responseTokens ?? 0) / 1000 * responseCostPer1k;
+            (longResult.usage?.promptTokens ?? 0) / 1000 * promptCostPer1k +
+            (longResult.usage?.responseTokens ?? 0) / 1000 * responseCostPer1k;
 
         // Ensure we have valid costs before comparing
         expect(shortCost, greaterThanOrEqualTo(0));
@@ -259,11 +306,11 @@ void main() {
         // Long responses should cost more than short ones if both have usage
         // data available
         final hasShortUsage =
-            (shortResult.usage.promptTokens ?? 0) > 0 ||
-            (shortResult.usage.responseTokens ?? 0) > 0;
+            (shortResult.usage?.promptTokens ?? 0) > 0 ||
+            (shortResult.usage?.responseTokens ?? 0) > 0;
         final hasLongUsage =
-            (longResult.usage.promptTokens ?? 0) > 0 ||
-            (longResult.usage.responseTokens ?? 0) > 0;
+            (longResult.usage?.promptTokens ?? 0) > 0 ||
+            (longResult.usage?.responseTokens ?? 0) > 0;
 
         if (hasShortUsage && hasLongUsage) {
           expect(longCost, greaterThan(shortCost));
@@ -278,22 +325,22 @@ void main() {
         // Anthropic
         var agent = Agent('anthropic:claude-3-5-haiku-latest');
         var result = await agent.send(prompt);
-        if (result.usage.totalTokens != null) {
-          expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage?.totalTokens != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
         }
 
         // OpenAI
         agent = Agent('openai:gpt-4o-mini');
         result = await agent.send(prompt);
-        if (result.usage.totalTokens != null) {
-          expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage?.totalTokens != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
         }
 
         // Google
         agent = Agent('google:gemini-2.0-flash');
         result = await agent.send(prompt);
-        if (result.usage.totalTokens != null) {
-          expect(result.usage.totalTokens, greaterThan(0));
+        if (result.usage?.totalTokens != null) {
+          expect(result.usage!.totalTokens, greaterThan(0));
         }
       });
 
@@ -310,7 +357,7 @@ void main() {
         for (final entry in providers.entries) {
           final agent = Agent('${entry.key}:${entry.value}');
           final result = await agent.send(prompt);
-          usageByProvider[entry.key] = result.usage.totalTokens ?? 0;
+          usageByProvider[entry.key] = result.usage?.totalTokens ?? 0;
         }
 
         // Different providers tokenize differently
@@ -335,8 +382,8 @@ void main() {
 
           final result = await agent.send('Hello');
           // If usage is provided, it should be valid
-          if (result.usage.totalTokens != null) {
-            expect(result.usage.totalTokens, greaterThanOrEqualTo(0));
+          if (result.usage?.totalTokens != null) {
+            expect(result.usage!.totalTokens, greaterThanOrEqualTo(0));
           }
         }
       });
@@ -348,8 +395,8 @@ void main() {
           // Even minimal prompts should have some tokens if usage tracking is
           // available
           final result = await agent.send('Hi');
-          if (result.usage.promptTokens != null) {
-            expect(result.usage.promptTokens, greaterThan(0)); // System tokens
+          if (result.usage?.promptTokens != null) {
+            expect(result.usage!.promptTokens, greaterThan(0)); // System tokens
           }
         }
       });
@@ -373,9 +420,9 @@ void main() {
           final result = await agent.send(prompt);
 
           // Basic validation - either has usage or gracefully reports null
-          if (result.usage.totalTokens != null) {
+          if (result.usage?.totalTokens != null) {
             expect(
-              result.usage.totalTokens,
+              result.usage!.totalTokens,
               greaterThan(0),
               reason:
                   'Provider $providerName should report positive token usage',

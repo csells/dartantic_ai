@@ -107,7 +107,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       shouldContinue: true,
       finishReason: result.finishReason,
       metadata: result.metadata,
-      usage: result.usage,
+      usage: null, // Usage only in final result
     );
   }
 
@@ -149,7 +149,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
       metadata: state.lastResult.metadata,
-      usage: state.lastResult.usage,
+      usage: null, // Usage only in final chunk
     );
 
     final toolCalls = _extractToolCalls(consolidatedMessage);
@@ -160,7 +160,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         shouldContinue: false,
         finishReason: state.lastResult.finishReason,
         metadata: state.lastResult.metadata,
-        usage: state.lastResult.usage,
+        usage: state.lastResult.usage, // Final usage here
       );
       return;
     }

@@ -16,15 +16,14 @@ class OpenAIResponsesMessageBuilder {
     required LanguageModelUsage usage,
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
-  }) =>
-      ChatResult<ChatMessage>(
-        id: responseId,
-        output: output,
-        messages: messages,
-        usage: usage,
-        finishReason: finishReason,
-        metadata: resultMetadata,
-      );
+  }) => ChatResult<ChatMessage>(
+    id: responseId,
+    output: output,
+    messages: messages,
+    usage: usage,
+    finishReason: finishReason,
+    metadata: resultMetadata,
+  );
 
   /// Creates a ChatResult for streaming scenarios where text was streamed.
   ChatResult<ChatMessage> createStreamingResult({
@@ -35,8 +34,9 @@ class OpenAIResponsesMessageBuilder {
     required FinishReason finishReason,
     required Map<String, Object?> resultMetadata,
   }) {
-    final nonTextParts =
-        parts.where((p) => p is! TextPart).toList(growable: false);
+    final nonTextParts = parts
+        .where((p) => p is! TextPart)
+        .toList(growable: false);
 
     final metadataOnlyOutput = ChatMessage(
       role: ChatMessageRole.model,

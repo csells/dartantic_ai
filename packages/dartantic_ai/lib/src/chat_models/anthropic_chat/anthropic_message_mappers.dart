@@ -387,7 +387,7 @@ class MessageStreamEventTransformer
       messages: [ChatMessage(role: ChatMessageRole.model, parts: parts)],
       finishReason: FinishReason.unspecified,
       metadata: const {},
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
   }
 
@@ -413,7 +413,7 @@ class MessageStreamEventTransformer
         messages: const [],
         finishReason: FinishReason.unspecified,
         metadata: {'index': e.index},
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
     }
 
@@ -428,7 +428,7 @@ class MessageStreamEventTransformer
       messages: [ChatMessage(role: ChatMessageRole.model, parts: parts)],
       finishReason: FinishReason.unspecified,
       metadata: {'index': e.index},
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
   }
 
@@ -463,7 +463,7 @@ class MessageStreamEventTransformer
         messages: const [],
         finishReason: FinishReason.unspecified,
         metadata: const {},
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
     }
 

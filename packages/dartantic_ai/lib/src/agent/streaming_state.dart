@@ -11,8 +11,8 @@ class StreamingState {
   StreamingState({
     required List<ChatMessage> conversationHistory,
     required Map<String, Tool> toolMap,
-  })  : _conversationHistory = conversationHistory,
-        _toolMap = toolMap;
+  }) : _conversationHistory = conversationHistory,
+       _toolMap = toolMap;
 
   /// Logger for state.streaming operations.
   static final Logger _logger = Logger('dartantic.state.streaming');
@@ -59,7 +59,7 @@ class StreamingState {
     output: const ChatMessage(role: ChatMessageRole.model, parts: []),
     finishReason: FinishReason.unspecified,
     metadata: const <String, dynamic>{},
-    usage: const LanguageModelUsage(),
+    usage: null,
   );
 
   /// For typed output: metadata from suppressed tool calls
@@ -93,7 +93,7 @@ class StreamingState {
       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       finishReason: FinishReason.unspecified,
       metadata: const <String, dynamic>{},
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
   }
 

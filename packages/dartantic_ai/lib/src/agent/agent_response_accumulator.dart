@@ -2,8 +2,9 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 
 /// Accumulates streaming chat results into a final consolidated result.
 ///
-/// Handles accumulation of output text, messages, metadata (including thinking),
-/// and usage statistics from streaming chunks into a final ChatResult.
+/// Handles accumulation of output text, messages, metadata (including
+/// thinking), and usage statistics from streaming chunks into a final
+/// ChatResult.
 class AgentResponseAccumulator {
   /// Creates a new response accumulator.
   AgentResponseAccumulator();
@@ -17,7 +18,7 @@ class AgentResponseAccumulator {
     output: '',
     finishReason: FinishReason.unspecified,
     metadata: const <String, dynamic>{},
-    usage: const LanguageModelUsage(),
+    usage: null,
   );
 
   /// Adds a streaming result chunk to the accumulator.

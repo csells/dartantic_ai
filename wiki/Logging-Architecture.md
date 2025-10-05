@@ -246,6 +246,40 @@ Agent.loggingOptions = LoggingOptions(
 - **Efficient Filtering**: Uses optimized substring matching
 - **Subscription Management**: Handles listener lifecycle automatically
 - **Non-nullable**: All fields have sensible defaults
+- **Environment Variable Support**: Automatically reads `DARTANTIC_LOG_LEVEL` from environment
+
+### Environment Variable Configuration
+
+The `DARTANTIC_LOG_LEVEL` environment variable provides a convenient way to control logging without code changes, particularly useful for:
+- Running example applications with different log levels
+- Debugging in CI/CD pipelines
+- Testing with verbose output
+
+**Supported Values**:
+- `FINE` - Detailed debug information
+- `INFO` - Important operations (default)
+- `WARNING` - Errors and warnings only
+- `SEVERE` - Critical failures only
+- `OFF` - Disable all logging
+
+**Usage Examples**:
+```bash
+# Run example with detailed debug logging
+DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+
+# Run with errors only
+DARTANTIC_LOG_LEVEL=WARNING dart run example/bin/tool_calling.dart
+
+# Disable all logging
+DARTANTIC_LOG_LEVEL=OFF dart run example/bin/typed_output.dart
+```
+
+**Precedence**:
+1. Explicit `Agent.loggingOptions = LoggingOptions(level: ...)` (highest priority)
+2. `DARTANTIC_LOG_LEVEL` environment variable
+3. Default `Level.INFO` (lowest priority)
+
+If you set `Agent.loggingOptions` in code, it overrides the environment variable. If neither is set, logging defaults to `Level.INFO`.
 
 ## Implementation Details
 

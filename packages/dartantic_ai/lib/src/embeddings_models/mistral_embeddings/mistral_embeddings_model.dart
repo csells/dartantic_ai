@@ -51,7 +51,7 @@ class MistralEmbeddingsModel
     _logger.info(
       'Mistral embedding query result: '
       '${queryResult.output.length} dimensions, '
-      '${queryResult.usage.totalTokens} tokens',
+      '${queryResult.usage?.totalTokens ?? 0} tokens',
     );
 
     return queryResult;
@@ -133,7 +133,7 @@ class MistralEmbeddingsModel
     _logger.info(
       'Mistral batch embedding completed: '
       '${result.output.length} embeddings, '
-      '${result.usage.totalTokens} total tokens',
+      '${result.usage?.totalTokens ?? 0} total tokens',
     );
 
     return result;

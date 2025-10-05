@@ -108,7 +108,7 @@ class GoogleEmbeddingsModel
     _logger.info(
       'Google embedding query result: '
       '${result.output.length} dimensions, '
-      '${result.usage.totalTokens} estimated tokens',
+      '${result.usage?.totalTokens ?? 0} estimated tokens',
     );
 
     return result;
@@ -201,7 +201,7 @@ class GoogleEmbeddingsModel
     _logger.info(
       'Google batch embedding completed: '
       '${result.output.length} embeddings, '
-      '${result.usage.totalTokens} estimated tokens',
+      '${result.usage?.totalTokens ?? 0} estimated tokens',
     );
 
     return result;

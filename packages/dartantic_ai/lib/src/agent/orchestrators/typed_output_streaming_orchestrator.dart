@@ -14,9 +14,7 @@ import 'streaming_orchestrator.dart';
 /// expose the `return_result` tool.
 class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
   /// Creates a typed output streaming orchestrator.
-  const TypedOutputStreamingOrchestrator({
-    required this.hasReturnResultTool,
-  });
+  const TypedOutputStreamingOrchestrator({required this.hasReturnResultTool});
 
   /// Whether the model exposes the `return_result` tool.
   final bool hasReturnResultTool;

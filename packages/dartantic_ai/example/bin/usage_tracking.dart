@@ -34,12 +34,12 @@ Future<void> streamingUsage(String model) async {
   LanguageModelUsage? streamUsage;
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
-    if (chunk.usage.totalTokens != null && chunk.usage.totalTokens! > 0) {
-      assert(streamUsage == null);
+    if (chunk.usage != null) {
+      assert(streamUsage == null, 'Usage reported multiple times in stream');
       streamUsage = chunk.usage;
     }
   }
   stdout.writeln();
 
-  dumpUsage(streamUsage!);
+  dumpUsage(streamUsage);
 }
