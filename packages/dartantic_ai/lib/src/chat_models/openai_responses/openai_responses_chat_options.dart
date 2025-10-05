@@ -23,9 +23,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
     this.responseFormat,
     this.truncationStrategy,
     this.user,
-    this.modalities,
-    this.audio,
-    this.metadataNamespace,
     this.imageDetail,
     this.serverSideTools,
     this.fileSearchConfig,
@@ -75,15 +72,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
 
   /// End-user identifier for abuse monitoring.
   final String? user;
-
-  /// Desired set of modalities (e.g. text, audio) for the response.
-  final List<String>? modalities;
-
-  /// Audio generation configuration.
-  final Map<String, dynamic>? audio;
-
-  /// Optional namespace to scope metadata keys.
-  final String? metadataNamespace;
 
   /// Preferred detail level when encoding image inputs.
   final ImageDetail? imageDetail;
