@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
@@ -106,27 +107,97 @@ class OpenAIResponsesChatModel
   ) async {
     _logger.fine('Downloading container file: $fileId from $containerId');
 
-    // NOTE: We cannot call retrieveContainerFile() to get the filename from
-    // metadata.path because the OpenAI API returns "bytes": null for container
-    // files, but openai_core 0.10.1's ContainerFile.fromJson() expects bytes to
-    // always be a non-null integer (line 165), causing a type cast error.
-    //
-    // Bug report: https://github.com/meshagent/openai_core/issues/6
-    //
-    // For now, we use the fileId as the filename. Once openai_core is fixed to
-    // handle nullable bytes, we can restore the metadata retrieval:
-    //
-    //   final metadata = await _client.retrieveContainerFile(containerId,
-    //   fileId); final segments = metadata.path.split('/'); final rawFileName =
-    //   segments.isNotEmpty ? segments.last : metadata.path; fileName =
-    //   rawFileName.isEmpty ? fileId : rawFileName;
+    // Get filename from metadata using workaround
+    final fileName = await _retrieveContainerFileNameWorkaround(
+      containerId,
+      fileId,
+    );
 
     final bytes = await _client.retrieveContainerFileContent(
       containerId,
       fileId,
     );
 
-    return ContainerFileData(bytes: bytes, fileName: fileId);
+    return ContainerFileData(bytes: bytes, fileName: fileName);
+  }
+
+  /// TODO: Remove this workaround once openai_core is fixed.
+  ///
+  /// TEMPORARY WORKAROUND for https://github.com/meshagent/openai_core/issues/6
+  ///
+  /// The OpenAI API returns "bytes": null when retrieving container file
+  /// metadata, but openai_core 0.10.1's ContainerFile.fromJson() expects bytes
+  /// to always be a non-null integer (line 165), causing a type cast error.
+  ///
+  /// This method manually calls the API and parses only the 'path' field,
+  /// avoiding the broken fromJson() method.
+  ///
+  /// When openai_core is fixed, delete this method and use: final metadata =
+  ///   await _client.retrieveContainerFile(containerId, fileId); return
+  ///   _extractFileName(metadata.path);
+  Future<String> _retrieveContainerFileNameWorkaround(
+    String containerId,
+    String fileId,
+  ) async {
+    try {
+      final uri = Uri.parse(
+        'https://api.openai.com/v1/containers/$containerId/files/$fileId',
+      );
+
+      final effectiveApiKey = apiKey ?? _client.apiKey;
+      if (effectiveApiKey == null) {
+        _logger.warning('No API key available for retrieving file metadata');
+        return fileId;
+      }
+
+      _logger.fine('Fetching container file metadata from $uri');
+
+      // Create request manually to ensure proper headers
+      final request = http.Request('GET', uri)
+        ..headers.addAll({
+          'Authorization': 'Bearer $effectiveApiKey',
+          'OpenAI-Beta': 'responses=v1',
+        });
+
+      final streamedResponse = await _client.httpClient.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      _logger.fine('Container file metadata response: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        _logger.warning(
+          'Failed to retrieve container file metadata: ${response.statusCode} '
+          '${response.body}',
+        );
+        return fileId; // Fallback to fileId
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final path = json['path'] as String?;
+
+      if (path == null || path.isEmpty) {
+        _logger.fine('No path in metadata, using fileId');
+        return fileId; // Fallback to fileId
+      }
+
+      final extractedName = _extractFileName(path);
+      _logger.fine('Extracted filename: $extractedName from path: $path');
+      return extractedName;
+    } on Exception catch (e, stackTrace) {
+      _logger.warning(
+        'Error retrieving container file metadata: $e\n$stackTrace',
+      );
+      return fileId; // Fallback to fileId on any error
+    }
+  }
+
+  /// Extracts the filename from a container file path.
+  ///
+  /// Example: '/mnt/data/fibonacci.csv' → 'fibonacci.csv'
+  String _extractFileName(String path) {
+    final segments = path.split('/');
+    final fileName = segments.isNotEmpty ? segments.last : path;
+    return fileName.isEmpty ? path : fileName;
   }
 
   static Map<String, dynamic>? _mergeMetadata(
@@ -232,13 +303,12 @@ class OpenAIResponsesChatModel
     List<ChatMessage> messages,
     OpenAIResponsesChatModelOptions? options,
     JsonSchema? outputSchema,
-  ) =>
-      _StreamInvocationBuilder(
-        messages: messages,
-        options: options,
-        defaultOptions: defaultOptions,
-        outputSchema: outputSchema,
-      ).build();
+  ) => _StreamInvocationBuilder(
+    messages: messages,
+    options: options,
+    defaultOptions: defaultOptions,
+    outputSchema: outputSchema,
+  ).build();
 
   void _validateInvocation(_StreamInvocation invocation) {
     if ((invocation.serverSide.codeInterpreterConfig?.shouldReuseContainer ??

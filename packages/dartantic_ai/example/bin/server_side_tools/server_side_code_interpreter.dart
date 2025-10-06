@@ -21,7 +21,8 @@ void main(List<String> args) async {
 
   const prompt1 =
       'Calculate the first 10 Fibonacci numbers and store them in a variable '
-      'called "fib_sequence".';
+      'called "fib_sequence". Then create a CSV file called "fibonacci.csv" '
+      'with two columns: index and value.';
 
   stdout.writeln('User: $prompt1');
   stdout.writeln('${agent1.displayName}: ');
@@ -96,15 +97,23 @@ void main(List<String> args) async {
     stdout.writeln('✅ Container reused: $containerId');
   }
 
-  dumpImages(history);
+  dumpFiles(history);
   dumpMessages(history);
 }
 
-void dumpImages(List<ChatMessage> history) {
+void dumpFiles(List<ChatMessage> history) {
   for (final msg in history) {
     for (final part in msg.parts) {
-      if (part is DataPart && part.mimeType.startsWith('image/')) {
-        dumpImage('Interpreter Image', 'image', part.bytes);
+      if (part is DataPart) {
+        // Use the actual filename from the DataPart (without path)
+        final filename = part.name ?? 'unnamed_file';
+
+        final file = File('tmp/$filename');
+        file.parent.createSync(recursive: true);
+        file.writeAsBytesSync(part.bytes);
+        stdout.writeln(
+          '💾 Saved file: tmp/$filename (${part.bytes.length} bytes)',
+        );
       }
     }
   }
