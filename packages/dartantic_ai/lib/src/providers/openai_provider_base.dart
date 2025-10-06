@@ -4,12 +4,12 @@ import 'package:meta/meta.dart';
 
 import '../embeddings_models/openai_embeddings/openai_embeddings_model.dart';
 import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.dart';
-import '../platform/platform.dart';
 import '../shared/openai_utils.dart';
 
 /// Shared OpenAI provider functionality for canonical and Responses variants.
 abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
     extends Provider<TChatOptions, OpenAIEmbeddingsModelOptions> {
+  /// Common constructor for OpenAI providers.
   OpenAIProviderBase({
     required super.name,
     required super.displayName,

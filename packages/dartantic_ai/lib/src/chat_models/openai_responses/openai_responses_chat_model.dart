@@ -259,15 +259,15 @@ class OpenAIResponsesChatModel
   }
 
   List<openai.Tool> _buildAllTools(_ServerSideToolContext context) => [
-        ..._buildFunctionTools(),
-        ...OpenAIResponsesServerSideToolMapper.buildServerSideTools(
-          serverSideTools: context.enabledTools,
-          fileSearchConfig: context.fileSearchConfig,
-          webSearchConfig: context.webSearchConfig,
-          codeInterpreterConfig: context.codeInterpreterConfig,
-          imageGenerationConfig: context.imageGenerationConfig,
-        ),
-      ];
+    ..._buildFunctionTools(),
+    ...OpenAIResponsesServerSideToolMapper.buildServerSideTools(
+      serverSideTools: context.enabledTools,
+      fileSearchConfig: context.fileSearchConfig,
+      webSearchConfig: context.webSearchConfig,
+      codeInterpreterConfig: context.codeInterpreterConfig,
+      imageGenerationConfig: context.imageGenerationConfig,
+    ),
+  ];
 
   Stream<ChatResult<ChatMessage>> _consumeResponseStream(
     openai.ResponseStream responseStream,
@@ -316,7 +316,8 @@ class _StreamInvocationBuilder {
     final history = OpenAIResponsesMessageMapper.mapHistory(
       messages,
       store: store,
-      imageDetail: options?.imageDetail ??
+      imageDetail:
+          options?.imageDetail ??
           defaultOptions.imageDetail ??
           openai.ImageDetail.auto,
     );
@@ -357,12 +358,16 @@ class _StreamInvocationBuilder {
 
     final serverSide = _ServerSideToolContext(
       enabledTools: _resolveServerSideTools(),
-      fileSearchConfig: options?.fileSearchConfig ?? defaultOptions.fileSearchConfig,
-      webSearchConfig: options?.webSearchConfig ?? defaultOptions.webSearchConfig,
+      fileSearchConfig:
+          options?.fileSearchConfig ?? defaultOptions.fileSearchConfig,
+      webSearchConfig:
+          options?.webSearchConfig ?? defaultOptions.webSearchConfig,
       codeInterpreterConfig:
-          options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig,
+          options?.codeInterpreterConfig ??
+          defaultOptions.codeInterpreterConfig,
       imageGenerationConfig:
-          options?.imageGenerationConfig ?? defaultOptions.imageGenerationConfig,
+          options?.imageGenerationConfig ??
+          defaultOptions.imageGenerationConfig,
     );
 
     return _StreamInvocation(

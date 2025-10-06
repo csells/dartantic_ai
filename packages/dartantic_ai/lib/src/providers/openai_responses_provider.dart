@@ -31,8 +31,9 @@ class OpenAIResponsesProvider
         apiKeyName: defaultApiKeyName,
       );
 
-  static final Logger _logger =
-      Logger('dartantic.chat.providers.openai_responses');
+  static final Logger _logger = Logger(
+    'dartantic.chat.providers.openai_responses',
+  );
 
   @override
   Logger get logger => _logger;
@@ -55,8 +56,9 @@ class OpenAIResponsesProvider
   /// Default base URL for the OpenAI Responses API.
   /// Note: Points to the Responses API endpoint to work around a bug
   /// in openai_core v0.4.0 where it incorrectly constructs the URL path.
-  static final defaultResponsesBaseUrl =
-      Uri.parse('https://api.openai.com/v1/responses');
+  static final defaultResponsesBaseUrl = Uri.parse(
+    'https://api.openai.com/v1/responses',
+  );
 
   /// Backwards-compatible alias for the default Responses endpoint.
   static final defaultBaseUrl = defaultResponsesBaseUrl;

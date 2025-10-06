@@ -117,25 +117,70 @@ abstract interface class StreamingOrchestrator {
 class StreamingIterationResult {
   /// Text output to stream to user (empty for non-text results)
   final String output;
-  
+
   /// Messages to add to conversation history
   final List<ChatMessage> messages;
-  
+
   /// Whether streaming should continue with another iteration
   final bool shouldContinue;
-  
+
   /// Finish reason for this iteration
   final FinishReason finishReason;
-  
+
   /// Metadata for this iteration
   final Map<String, dynamic> metadata;
-  
+
   /// Usage statistics for this iteration
   final LanguageModelUsage usage;
-  
+
   /// Unique identifier for this iteration
   final String id;
 }
+```
+
+### Metadata Yielding Responsibility (SRP)
+
+**Single Responsibility Principle**: Each metadata item should be yielded exactly once during streaming.
+
+**Orchestrator Responsibilities**:
+1. **During Model Streaming** (`onModelChunk`):
+   - Yield metadata from model chunks AS-IS (pass-through)
+   - This includes tool events, thinking deltas, and any other streaming metadata
+   - Do NOT accumulate or modify metadata
+
+2. **After Model Streaming** (`onConsolidatedMessage`):
+   - Yield consolidated message with **EMPTY metadata**
+   - Metadata was already streamed via `onModelChunk`, so re-yielding causes duplicates
+   - Exception: Only include NEW metadata that wasn't in any previous chunk
+
+3. **Final Result Yield**:
+   - Yield final result with **EMPTY metadata**
+   - All metadata was already streamed during the model stream
+   - Usage statistics should be included (only in final yield)
+
+**Why This Matters**:
+- Each metadata item (tool events, thinking, response-level info) arrives once from the model
+- If the orchestrator includes `state.lastResult.metadata` in post-stream yields, that metadata gets duplicated
+- The Agent layer doesn't deduplicate, so duplicates reach the user
+
+**Example Flow**:
+```dart
+// Model yields final chunk with metadata
+ChatResult(metadata: {'response_id': 'resp_123', 'status': 'completed'})
+  → Orchestrator.onModelChunk yields it once ✓
+
+// Orchestrator yields consolidated message
+StreamingIterationResult(
+  messages: [consolidatedMessage],
+  metadata: {}, // Empty! Already streamed above
+)
+
+// Orchestrator yields final result
+StreamingIterationResult(
+  shouldContinue: false,
+  metadata: {}, // Empty! Already streamed above
+  usage: finalUsage, // Usage only in final yield
+)
 ```
 
 ### Orchestrator Lifecycle

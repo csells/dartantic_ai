@@ -22,6 +22,8 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart';
 import 'package:test/test.dart';
 
+import '../test_utils.dart';
+
 void main() {
   group('Code Interpreter Integration', () {
     test('executes code and returns results', () async {
@@ -34,9 +36,7 @@ void main() {
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream('Calculate 2 + 2 in Python')) {
-        results.add(chunk);
-      }
+      await agent.sendStream('Calculate 2 + 2 in Python').forEach(results.add);
 
       final fullOutput = results.map((r) => r.output).join();
       expect(fullOutput, contains('4'));
@@ -54,6 +54,9 @@ void main() {
         isTrue,
         reason: 'Should have code_interpreter events in metadata',
       );
+
+      // Verify no duplicate metadata
+      validateNoMetadataDuplicates(results);
     });
 
     test('generates and downloads container files', () async {
@@ -66,11 +69,9 @@ void main() {
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream(
-        'Create a text file test.txt with the word hello in it',
-      )) {
-        results.add(chunk);
-      }
+      await agent
+          .sendStream('Create a text file test.txt with the word hello in it')
+          .forEach(results.add);
 
       final fullOutput = results.map((r) => r.output).join();
       expect(fullOutput, contains('test.txt'));
@@ -179,14 +180,14 @@ void main() {
 
       // Accumulate results properly for session 2
       final results2 = <ChatResult>[];
-      await for (final chunk in agent2.sendStream(
-        'Using the fib_sequence variable we created earlier, calculate the '
-        'golden ratio by dividing each consecutive pair (skipping the first '
-        'term since it is 0).',
-        history: history,
-      )) {
-        results2.add(chunk);
-      }
+      await agent2
+          .sendStream(
+            'Using the fib_sequence variable we created earlier, calculate the '
+            'golden ratio by dividing each consecutive pair '
+            '(skipping the first term since it is 0).',
+            history: history,
+          )
+          .forEach(results2.add);
 
       final fullOutput = results2.map((r) => r.output).join();
 
@@ -261,9 +262,7 @@ void main() {
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream('Generate a blue square')) {
-        results.add(chunk);
-      }
+      await agent.sendStream('Generate a blue square').forEach(results.add);
 
       // Check for partial image events in metadata
       var hadPartialImage = false;
@@ -299,11 +298,11 @@ void main() {
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream(
-        'What is the latest version of Dart programming language?',
-      )) {
-        results.add(chunk);
-      }
+      await agent
+          .sendStream(
+            'What is the latest version of Dart programming language?',
+          )
+          .forEach(results.add);
 
       final fullOutput = results.map((r) => r.output).join();
 
@@ -338,9 +337,7 @@ void main() {
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream('What time is it?')) {
-        results.add(chunk);
-      }
+      await agent.sendStream('What time is it?').forEach(results.add);
 
       final fullOutput = results.map((r) => r.output).join();
 
@@ -413,11 +410,9 @@ of structured data alongside the main chat response.
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream(
-        'What information is available about metadata handling?',
-      )) {
-        results.add(chunk);
-      }
+      await agent
+          .sendStream('What information is available about metadata handling?')
+          .forEach(results.add);
 
       final fullOutput = results.map((r) => r.output).join();
 
@@ -437,6 +432,9 @@ of structured data alongside the main chat response.
         isTrue,
         reason: 'Should have file_search events in metadata',
       );
+
+      // Verify no duplicate metadata
+      validateNoMetadataDuplicates(results);
 
       // Cleanup
       await client.deleteVectorStore(vectorStore.id);
@@ -459,13 +457,13 @@ of structured data alongside the main chat response.
 
       // Accumulate results properly
       final results = <ChatResult>[];
-      await for (final chunk in agent.sendStream(
-        'First, search the web for the current temperature in Seattle in '
-        'Fahrenheit. Then write Python code to check if that temperature is '
-        'above or below 50°F and calculate the difference.',
-      )) {
-        results.add(chunk);
-      }
+      await agent
+          .sendStream(
+            'First, search the web for the current temperature in Seattle in '
+            'Fahrenheit. Then write Python code to check if that temperature '
+            'is above or below 50°F and calculate the difference.',
+          )
+          .forEach(results.add);
 
       // Should have both web_search and code_interpreter events
       var hadWebSearch = false;

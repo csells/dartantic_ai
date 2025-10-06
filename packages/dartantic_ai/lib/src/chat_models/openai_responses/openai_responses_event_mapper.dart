@@ -193,7 +193,9 @@ class OpenAIResponsesEventMapper {
 
     if (item is openai.ImageGenerationCall) {
       _logger.fine('Image generation completed at index ${event.outputIndex}');
-      _attachments.markImageGenerationCompleted(resultBase64: item.resultBase64);
+      _attachments.markImageGenerationCompleted(
+        resultBase64: item.resultBase64,
+      );
     }
 
     if (item is openai.CodeInterpreterCall) {
@@ -287,14 +289,9 @@ class OpenAIResponsesEventMapper {
     _state.thinkingBuffer.write(event.delta);
     _logger.info('ResponseReasoningSummaryTextDelta: "${event.delta}"');
     yield ChatResult<ChatMessage>(
-      output: const ChatMessage(
-        role: ChatMessageRole.model,
-        parts: [],
-      ),
+      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       messages: const [],
-      metadata: {
-        'thinking': event.delta,
-      },
+      metadata: {'thinking': event.delta},
       usage: null,
     );
   }

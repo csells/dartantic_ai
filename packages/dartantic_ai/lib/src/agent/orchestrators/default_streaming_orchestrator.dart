@@ -143,31 +143,24 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
 
     state.addToHistory(consolidatedMessage);
 
-    _logger.fine(
-      'Orchestrator yielding consolidated message with metadata.keys='
-      '${state.lastResult.metadata.keys}',
-    );
     yield StreamingIterationResult(
       output: '',
       messages: [consolidatedMessage],
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
-      metadata: state.lastResult.metadata,
+      metadata: const {}, // Empty - metadata already streamed via onModelChunk
       usage: null, // Usage only in final chunk
     );
 
     final toolCalls = _extractToolCalls(consolidatedMessage);
     if (toolCalls.isEmpty) {
-      _logger.fine(
-        'Orchestrator yielding final result (no tools) with metadata.keys='
-        '${state.lastResult.metadata.keys}',
-      );
       yield StreamingIterationResult(
         output: '',
         messages: const [],
         shouldContinue: false,
         finishReason: state.lastResult.finishReason,
-        metadata: state.lastResult.metadata,
+        metadata:
+            const {}, // Empty - metadata already streamed via onModelChunk
         usage: state.lastResult.usage, // Final usage here
       );
       return;
@@ -193,7 +186,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
               messages: const [],
               shouldContinue: true,
               finishReason: state.lastResult.finishReason,
-              metadata: state.lastResult.metadata,
+              metadata: const {}, // Empty - metadata already streamed
               usage: state.lastResult.usage,
             ),
           );
@@ -209,7 +202,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
             messages: [message],
             shouldContinue: false,
             finishReason: state.lastResult.finishReason,
-            metadata: state.lastResult.metadata,
+            metadata: const {}, // Empty - metadata already streamed
             usage: state.lastResult.usage,
           ),
         );
@@ -224,7 +217,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
             messages: [message],
             shouldContinue: false,
             finishReason: state.lastResult.finishReason,
-            metadata: state.lastResult.metadata,
+            metadata: const {}, // Empty - metadata already streamed
             usage: state.lastResult.usage,
           ),
         );
@@ -265,7 +258,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         messages: [toolResultMessage],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
-        metadata: state.lastResult.metadata,
+        metadata: const {}, // Empty - metadata already streamed
         usage: state.lastResult.usage,
       );
     }
@@ -275,7 +268,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       messages: const [],
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
-      metadata: state.lastResult.metadata,
+      metadata: const {}, // Empty - metadata already streamed
       usage: state.lastResult.usage,
     );
   }
