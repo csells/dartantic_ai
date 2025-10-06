@@ -80,7 +80,9 @@ void main() {
       // This test proves the workaround works
     });
 
-    test('generates plots/CSV and downloads both as DataPart', () async {
+    test(
+      'generates plots/CSV and downloads both as DataPart',
+      () async {
       final agent = Agent(
         'openai-responses',
         chatModelOptions: const OpenAIResponsesChatModelOptions(
@@ -119,6 +121,11 @@ void main() {
       );
       expect(imageParts, isNotEmpty, reason: 'Should have PNG plot');
       expect(imageParts.first.bytes.lengthInBytes, greaterThan(0));
+      expect(
+        imageParts.first.name,
+        endsWith('.png'),
+        reason: 'Image should have .png filename',
+      );
 
       // Check for CSV file
       final csvParts = dataParts.where(
@@ -127,7 +134,19 @@ void main() {
       );
       expect(csvParts, isNotEmpty, reason: 'Should have CSV file');
       expect(csvParts.first.bytes.lengthInBytes, greaterThan(0));
-    });
+      expect(
+        csvParts.first.name,
+        endsWith('.csv'),
+        reason: 'CSV should have .csv filename',
+      );
+      expect(
+        csvParts.first.mimeType,
+        contains('csv'),
+        reason: 'CSV should have CSV MIME type',
+      );
+    },
+      timeout: const Timeout(Duration(minutes: 1)),
+    );
 
     test('reuses container across sessions', () async {
       // Session 1: Create variable

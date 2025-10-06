@@ -77,9 +77,31 @@ See the helper functions in the example repo for extracting IDs from metadata.
 
 ## Generated Files
 
-When the interpreter saves files (e.g. images, CSVs) they are downloaded for you
-and attached as `DataPart` instances on the assistant message. Citations appear
-in metadata so you can map them back to container files when needed.
+When the interpreter saves files (e.g. images, CSVs) they are downloaded
+automatically and attached as `DataPart` instances on the assistant message.
+Each `DataPart` includes the actual filename from the interpreter (e.g.,
+`fibonacci.csv`, `plot.png`) for easy identification and saving.
+
+```dart
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(prompt)) {
+  history.addAll(chunk.messages);
+}
+
+// Access generated files
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('File: ${part.name}'); // e.g., "fibonacci.csv"
+      print('MIME: ${part.mimeType}'); // e.g., "text/csv"
+      print('Size: ${part.bytes.length} bytes');
+
+      // Save to disk with original filename
+      File('output/${part.name}').writeAsBytesSync(part.bytes);
+    }
+  }
+}
+```
 
 ## Example
 
