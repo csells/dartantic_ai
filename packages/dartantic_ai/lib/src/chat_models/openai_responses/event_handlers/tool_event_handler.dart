@@ -59,7 +59,7 @@ class ToolEventHandler implements OpenAIResponsesEventHandler {
     openai.ResponseImageGenerationCallCompleted event,
     EventMappingState state,
   ) async* {
-    attachments.markImageGenerationCompleted();
+    attachments.markImageGenerationCompleted(index: event.outputIndex);
     yield* toolRecorder.recordToolEventIfNeeded(event, state);
   }
 

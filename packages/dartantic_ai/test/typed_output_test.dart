@@ -519,6 +519,9 @@ void main() {
           messages.addAll(chunk.messages);
         }
 
+        // Streaming only surfaces the JSON through chunk.output. Once the
+        // stream ends we concatenate what we captured and decode it; the final
+        // assistant message never restates the JSON for us.
         final json = jsonDecode(buffer.toString()) as Map<String, dynamic>;
         // Check case-insensitively as models may change capitalization
         expect(

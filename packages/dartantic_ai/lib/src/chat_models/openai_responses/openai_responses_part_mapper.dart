@@ -31,7 +31,8 @@ class OpenAIResponsesPartMapper {
     final toolCallNames = <String, String>{};
 
     _logger.info('Mapping ${items.length} response items');
-    for (final item in items) {
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
       _logger.info('Processing response item: ${item.runtimeType}');
       if (item is openai.OutputMessage) {
         final messageParts = mapOutputMessage(item.content, attachments);
@@ -87,7 +88,7 @@ class OpenAIResponsesPartMapper {
       }
 
       if (item is openai.ImageGenerationCall) {
-        attachments.registerImageCall(item);
+        attachments.registerImageCall(item, index);
         continue;
       }
 

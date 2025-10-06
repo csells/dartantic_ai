@@ -11,9 +11,7 @@ import 'openai_responses_event_handler.dart';
 /// that don't require specific processing.
 class FallbackEventHandler implements OpenAIResponsesEventHandler {
   /// Creates a new fallback event handler.
-  const FallbackEventHandler({
-    required this.toolRecorder,
-  });
+  const FallbackEventHandler({required this.toolRecorder});
 
   /// Tool event recorder for streaming tool execution events.
   final OpenAIResponsesToolEventRecorder toolRecorder;
@@ -25,6 +23,5 @@ class FallbackEventHandler implements OpenAIResponsesEventHandler {
   Stream<ChatResult<ChatMessage>> handle(
     openai.ResponseEvent event,
     EventMappingState state,
-  ) =>
-      toolRecorder.recordToolEventIfNeeded(event, state);
+  ) => toolRecorder.recordToolEventIfNeeded(event, state);
 }

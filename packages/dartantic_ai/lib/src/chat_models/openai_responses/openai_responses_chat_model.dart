@@ -9,12 +9,10 @@ import 'package:openai_core/openai_core.dart' as openai;
 
 import '../../agent/tool_constants.dart';
 import '../../retry_http_client.dart';
-import '../../shared/openai_utils.dart';
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_event_mapper.dart';
-import 'openai_responses_message_mapper.dart';
+import 'openai_responses_invocation_builder.dart';
 import 'openai_responses_server_side_tool_mapper.dart';
-import 'openai_responses_server_side_tools.dart';
 
 /// Chat model backed by the OpenAI Responses API.
 class OpenAIResponsesChatModel
@@ -199,95 +197,7 @@ class OpenAIResponsesChatModel
     return fileName.isEmpty ? path : fileName;
   }
 
-  static Map<String, dynamic>? _mergeMetadata(
-    Map<String, dynamic>? base,
-    Map<String, dynamic>? override,
-  ) {
-    if (base == null && override == null) return null;
-    return {if (base != null) ...base, if (override != null) ...override};
-  }
-
-  static openai.ReasoningOptions? _toReasoningOptions({
-    Map<String, dynamic>? raw,
-    OpenAIReasoningEffort? effort,
-    OpenAIReasoningSummary? summary,
-  }) {
-    openai.ReasoningEffort? resolvedEffort;
-    openai.ReasoningDetail? resolvedSummary;
-
-    if (raw != null && raw.isNotEmpty) {
-      final parsed = openai.ReasoningOptions.fromJson(raw);
-      resolvedEffort = parsed.effort;
-      resolvedSummary = parsed.summary;
-    }
-
-    if (effort != null) {
-      resolvedEffort = switch (effort) {
-        OpenAIReasoningEffort.low => openai.ReasoningEffort.low,
-        OpenAIReasoningEffort.medium => openai.ReasoningEffort.medium,
-        OpenAIReasoningEffort.high => openai.ReasoningEffort.high,
-      };
-    }
-
-    if (summary != null) {
-      resolvedSummary = switch (summary) {
-        OpenAIReasoningSummary.detailed => openai.ReasoningDetail.detailed,
-        OpenAIReasoningSummary.concise => openai.ReasoningDetail.concise,
-        OpenAIReasoningSummary.auto => openai.ReasoningDetail.auto,
-        OpenAIReasoningSummary.none => null,
-      };
-    }
-
-    if (resolvedEffort == null && resolvedSummary == null) {
-      return null;
-    }
-
-    return openai.ReasoningOptions(
-      effort: resolvedEffort,
-      summary: resolvedSummary,
-    );
-  }
-
-  static openai.ToolChoice? _toToolChoice(dynamic raw) {
-    if (raw == null) return null;
-    return openai.ToolChoice.fromJson(raw);
-  }
-
-  static openai.Truncation? _toTruncation(Map<String, dynamic>? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    final type = raw['type'];
-    if (type is String) {
-      switch (type) {
-        case 'auto':
-          return openai.Truncation.auto;
-        case 'disabled':
-          return openai.Truncation.disabled;
-      }
-    }
-    return null;
-  }
-
-  static openai.TextFormat? _resolveTextFormat(
-    JsonSchema? outputSchema,
-    Map<String, dynamic>? responseFormat,
-  ) {
-    if (outputSchema != null) {
-      final raw = outputSchema.schemaMap ?? const <String, dynamic>{};
-      final schema = OpenAIUtils.prepareSchemaForOpenAI(
-        Map<String, dynamic>.from(raw),
-      );
-      return openai.TextFormatJsonSchema(
-        name: 'dartantic_output',
-        schema: schema,
-        description: schema['description'] as String?,
-        strict: true,
-      );
-    }
-    if (responseFormat == null) return null;
-    return openai.TextFormat.fromJson(responseFormat);
-  }
-
-  List<openai.Tool> _buildAllTools(_ServerSideToolContext context) => [
+  List<openai.Tool> _buildAllTools(OpenAIServerSideToolContext context) => [
     ..._buildFunctionTools(),
     ...OpenAIResponsesServerSideToolMapper.buildServerSideTools(
       serverSideTools: context.enabledTools,
@@ -298,18 +208,18 @@ class OpenAIResponsesChatModel
     ),
   ];
 
-  _StreamInvocation _buildInvocation(
+  OpenAIResponsesInvocation _buildInvocation(
     List<ChatMessage> messages,
     OpenAIResponsesChatModelOptions? options,
     JsonSchema? outputSchema,
-  ) => _StreamInvocationBuilder(
+  ) => OpenAIResponsesInvocationBuilder(
     messages: messages,
     options: options,
     defaultOptions: defaultOptions,
     outputSchema: outputSchema,
   ).build();
 
-  void _validateInvocation(_StreamInvocation invocation) {
+  void _validateInvocation(OpenAIResponsesInvocation invocation) {
     if ((invocation.serverSide.codeInterpreterConfig?.shouldReuseContainer ??
             false) &&
         !invocation.store) {
@@ -321,7 +231,7 @@ class OpenAIResponsesChatModel
   }
 
   Future<openai.ResponseStream> _sendRequest(
-    _StreamInvocation invocation,
+    OpenAIResponsesInvocation invocation,
   ) async {
     final allTools = _buildAllTools(invocation.serverSide);
 
@@ -346,13 +256,14 @@ class OpenAIResponsesChatModel
     );
   }
 
-  OpenAIResponsesEventMapper _createMapper(_StreamInvocation invocation) =>
-      OpenAIResponsesEventMapper(
-        modelName: name,
-        storeSession: invocation.store,
-        history: invocation.history,
-        downloadContainerFile: downloadContainerFile,
-      );
+  OpenAIResponsesEventMapper _createMapper(
+    OpenAIResponsesInvocation invocation,
+  ) => OpenAIResponsesEventMapper(
+    modelName: name,
+    storeSession: invocation.store,
+    history: invocation.history,
+    downloadContainerFile: downloadContainerFile,
+  );
 
   Stream<ChatResult<ChatMessage>> _consumeResponseStream(
     openai.ResponseStream responseStream,
@@ -372,155 +283,4 @@ class OpenAIResponsesChatModel
       rethrow;
     }
   }
-}
-
-class _StreamInvocationBuilder {
-  _StreamInvocationBuilder({
-    required this.messages,
-    required this.options,
-    required this.defaultOptions,
-    required this.outputSchema,
-  });
-
-  final List<ChatMessage> messages;
-  final OpenAIResponsesChatModelOptions? options;
-  final OpenAIResponsesChatModelOptions defaultOptions;
-  final JsonSchema? outputSchema;
-
-  _StreamInvocation build() {
-    final store = options?.store ?? defaultOptions.store ?? true;
-    final history = OpenAIResponsesMessageMapper.mapHistory(
-      messages,
-      store: store,
-      imageDetail:
-          options?.imageDetail ??
-          defaultOptions.imageDetail ??
-          openai.ImageDetail.auto,
-    );
-
-    if (!history.hasInput && history.previousResponseId == null) {
-      throw ArgumentError('No new input provided to OpenAI Responses request');
-    }
-
-    final requestParameters = _RequestParameters(
-      temperature: options?.temperature ?? defaultOptions.temperature,
-      topP: options?.topP ?? defaultOptions.topP,
-      maxOutputTokens:
-          options?.maxOutputTokens ?? defaultOptions.maxOutputTokens,
-      parallelToolCalls:
-          options?.parallelToolCalls ?? defaultOptions.parallelToolCalls,
-      include: options?.include ?? defaultOptions.include,
-      metadata: OpenAIResponsesChatModel._mergeMetadata(
-        defaultOptions.metadata,
-        options?.metadata,
-      ),
-      reasoning: OpenAIResponsesChatModel._toReasoningOptions(
-        raw: options?.reasoning ?? defaultOptions.reasoning,
-        effort: options?.reasoningEffort ?? defaultOptions.reasoningEffort,
-        summary: options?.reasoningSummary ?? defaultOptions.reasoningSummary,
-      ),
-      toolChoice: OpenAIResponsesChatModel._toToolChoice(
-        options?.toolChoice ?? defaultOptions.toolChoice,
-      ),
-      truncation: OpenAIResponsesChatModel._toTruncation(
-        options?.truncationStrategy ?? defaultOptions.truncationStrategy,
-      ),
-      textFormat: OpenAIResponsesChatModel._resolveTextFormat(
-        outputSchema,
-        options?.responseFormat ?? defaultOptions.responseFormat,
-      ),
-      user: options?.user ?? defaultOptions.user,
-    );
-
-    final serverSide = _ServerSideToolContext(
-      enabledTools: _resolveServerSideTools(),
-      fileSearchConfig:
-          options?.fileSearchConfig ?? defaultOptions.fileSearchConfig,
-      webSearchConfig:
-          options?.webSearchConfig ?? defaultOptions.webSearchConfig,
-      codeInterpreterConfig:
-          options?.codeInterpreterConfig ??
-          defaultOptions.codeInterpreterConfig,
-      imageGenerationConfig:
-          options?.imageGenerationConfig ??
-          defaultOptions.imageGenerationConfig,
-    );
-
-    return _StreamInvocation(
-      store: store,
-      history: history,
-      parameters: requestParameters,
-      serverSide: serverSide,
-    );
-  }
-
-  Set<OpenAIServerSideTool> _resolveServerSideTools() {
-    final requested = options?.serverSideTools;
-    if (requested != null) {
-      return {...requested};
-    }
-    final defaults = defaultOptions.serverSideTools;
-    if (defaults != null) {
-      return {...defaults};
-    }
-    return <OpenAIServerSideTool>{};
-  }
-}
-
-class _StreamInvocation {
-  const _StreamInvocation({
-    required this.store,
-    required this.history,
-    required this.parameters,
-    required this.serverSide,
-  });
-
-  final bool store;
-  final OpenAIResponsesHistorySegment history;
-  final _RequestParameters parameters;
-  final _ServerSideToolContext serverSide;
-}
-
-class _RequestParameters {
-  const _RequestParameters({
-    required this.temperature,
-    required this.topP,
-    required this.maxOutputTokens,
-    required this.parallelToolCalls,
-    required this.include,
-    required this.metadata,
-    required this.reasoning,
-    required this.toolChoice,
-    required this.truncation,
-    required this.textFormat,
-    required this.user,
-  });
-
-  final double? temperature;
-  final double? topP;
-  final int? maxOutputTokens;
-  final bool? parallelToolCalls;
-  final List<String>? include;
-  final Map<String, dynamic>? metadata;
-  final openai.ReasoningOptions? reasoning;
-  final openai.ToolChoice? toolChoice;
-  final openai.Truncation? truncation;
-  final openai.TextFormat? textFormat;
-  final String? user;
-}
-
-class _ServerSideToolContext {
-  const _ServerSideToolContext({
-    required this.enabledTools,
-    this.fileSearchConfig,
-    this.webSearchConfig,
-    this.codeInterpreterConfig,
-    this.imageGenerationConfig,
-  });
-
-  final Set<OpenAIServerSideTool> enabledTools;
-  final FileSearchConfig? fileSearchConfig;
-  final WebSearchConfig? webSearchConfig;
-  final CodeInterpreterConfig? codeInterpreterConfig;
-  final ImageGenerationConfig? imageGenerationConfig;
 }

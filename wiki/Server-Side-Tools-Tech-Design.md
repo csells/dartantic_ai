@@ -260,15 +260,15 @@ For tools that support progressive rendering/generation:
 
 **Algorithm:**
 1. During streaming, track state:
-   - Store partial content as it arrives
-   - Each new partial may overwrite or append to previous
-   - Set a completion flag when the completion event arrives
+   - Store partial content indexed by unique identifier (e.g., outputIndex)
+   - Each new partial updates the corresponding entry
+   - Mark entry as completed when completion event arrives
 2. When building the final result:
-   - Check if tool completed AND we have final content
-   - Decode/process the content into appropriate format
-   - Create a DataPart with the content and appropriate MIME type
-   - Add the DataPart to the message parts list
-3. Wait for completion event - only add DataPart after receiving it
+   - Iterate through all completed entries
+   - Decode/process each content item into appropriate format
+   - Create a DataPart for each completed item with appropriate MIME type
+   - Add all DataParts to the message parts list
+3. Wait for completion events - only add DataParts for completed items
 
 ### Why DataPart and Not Just Metadata?
 
@@ -481,9 +481,23 @@ Tools requiring synthetic events:
 
 When `partialImages > 0`, the API streams intermediate render stages:
 1. Track each `ResponseImageGenerationCallPartialImage` event
-2. Store base64 data and index (each overwrites previous)
-3. Set completion flag on `ResponseImageGenerationCallCompleted`
-4. Add last partial as DataPart only after completion
+2. Store base64 data indexed by outputIndex (supports multiple concurrent images)
+3. Set completion flag on `ResponseImageGenerationCallCompleted` for each outputIndex
+4. Add all completed images as DataParts after completion
+
+**Implementation**: The `AttachmentCollector` class manages both image generation and code interpreter file attachments:
+
+- **Images**: Tracked via `Map<int, String> _imagesByIndex` and `Set<int> _completedImageIndices`
+  - Maps output index → base64 data
+  - Supports multiple concurrent image generation calls
+  - Each image tracked independently by its position in the response output array
+
+- **Container Files**: Tracked via `Set<({String containerId, String fileId})> _containerFiles`
+  - Uses a Set to automatically handle multiple files without duplication
+  - Files are discovered via `ContainerFileCitation` annotations in text content
+  - Downloaded asynchronously and converted to DataParts
+
+Both attachment types are resolved in `resolveAttachments()`, which returns all completed images and downloaded container files as a unified list of DataParts.
 
 ### Example Usage
 

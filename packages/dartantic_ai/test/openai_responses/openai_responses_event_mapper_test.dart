@@ -325,6 +325,159 @@ void main() {
       },
     );
 
+    test('handles multiple concurrent images at different indices', () async {
+      const fakeImageData1 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC'
+          '0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=';
+      const fakeImageData2 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAE'
+          'klEQVR4nGNgYGD4z8DAwMgAAAOGAgM9RdERAAAAAElFTkSuQmCC';
+
+      final mapper = OpenAIResponsesEventMapper(
+        modelName: 'gpt-4o',
+        storeSession: false,
+        history: const OpenAIResponsesHistorySegment(
+          items: [],
+          input: null,
+          instructions: null,
+          previousResponseId: null,
+          anchorIndex: -1,
+        ),
+        downloadContainerFile: _mockDownloadContainerFile,
+      );
+
+      // Image 1 at outputIndex 0
+      await mapper
+          .handle(
+            const openai.ResponseOutputItemAdded(
+              outputIndex: 0,
+              sequenceNumber: 1,
+              item: openai.ImageGenerationCall(
+                id: 'img-1',
+                status: openai.ImageGenerationCallStatus.inProgress,
+              ),
+            ),
+          )
+          .toList();
+
+      await mapper
+          .handle(
+            const openai.ResponseImageGenerationCallPartialImage(
+              itemId: 'img-1',
+              outputIndex: 0,
+              sequenceNumber: 2,
+              partialImageB64: fakeImageData1,
+              partialImageIndex: 0,
+            ),
+          )
+          .toList();
+
+      // Image 2 at outputIndex 1 (different index!)
+      await mapper
+          .handle(
+            const openai.ResponseOutputItemAdded(
+              outputIndex: 1,
+              sequenceNumber: 3,
+              item: openai.ImageGenerationCall(
+                id: 'img-2',
+                status: openai.ImageGenerationCallStatus.inProgress,
+              ),
+            ),
+          )
+          .toList();
+
+      await mapper
+          .handle(
+            const openai.ResponseImageGenerationCallPartialImage(
+              itemId: 'img-2',
+              outputIndex: 1,
+              sequenceNumber: 4,
+              partialImageB64: fakeImageData2,
+              partialImageIndex: 0,
+            ),
+          )
+          .toList();
+
+      // Complete both images
+      await mapper
+          .handle(
+            const openai.ResponseOutputItemDone(
+              outputIndex: 0,
+              sequenceNumber: 5,
+              item: openai.ImageGenerationCall(
+                id: 'img-1',
+                status: openai.ImageGenerationCallStatus.completed,
+                resultBase64: fakeImageData1,
+              ),
+            ),
+          )
+          .toList();
+
+      await mapper
+          .handle(
+            const openai.ResponseOutputItemDone(
+              outputIndex: 1,
+              sequenceNumber: 6,
+              item: openai.ImageGenerationCall(
+                id: 'img-2',
+                status: openai.ImageGenerationCallStatus.completed,
+                resultBase64: fakeImageData2,
+              ),
+            ),
+          )
+          .toList();
+
+      // ResponseCompleted with both images at indices 0 and 1
+      const response = openai.Response(
+        id: 'resp_multi',
+        model: openai.ChatModel.gpt4o,
+        status: 'completed',
+        output: [
+          openai.ImageGenerationCall(
+            id: 'img-1',
+            status: openai.ImageGenerationCallStatus.completed,
+            resultBase64: fakeImageData1,
+          ),
+          openai.ImageGenerationCall(
+            id: 'img-2',
+            status: openai.ImageGenerationCallStatus.completed,
+            resultBase64: fakeImageData2,
+          ),
+        ],
+      );
+
+      final results = await mapper
+          .handle(
+            const openai.ResponseCompleted(
+              response: response,
+              sequenceNumber: 7,
+            ),
+          )
+          .toList();
+
+      expect(results, hasLength(1));
+      final finalResult = results.single;
+      final message = finalResult.output;
+
+      // Verify BOTH images were added as DataParts (not just the last one!)
+      final dataParts = message.parts.whereType<DataPart>().toList();
+      expect(
+        dataParts,
+        hasLength(2),
+        reason: 'Should have 2 images, not just the last one',
+      );
+
+      // Verify first image
+      expect(dataParts[0].mimeType, equals('image/png'));
+      expect(dataParts[0].bytes, equals(base64Decode(fakeImageData1)));
+      expect(dataParts[0].name, equals('image_0.png'));
+
+      // Verify second image
+      expect(dataParts[1].mimeType, equals('image/png'));
+      expect(dataParts[1].bytes, equals(base64Decode(fakeImageData2)));
+      expect(dataParts[1].name, equals('image_1.png'));
+    });
+
     test('attaches container file citations with inferred metadata', () async {
       const pngBase64 =
           'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC'

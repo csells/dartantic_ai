@@ -77,10 +77,7 @@ class OpenAIResponsesEventMapper {
       const FunctionCallEventHandler(),
       const TextEventHandler(),
       const ReasoningEventHandler(),
-      ToolEventHandler(
-        attachments: _attachments,
-        toolRecorder: _toolRecorder,
-      ),
+      ToolEventHandler(attachments: _attachments, toolRecorder: _toolRecorder),
       FallbackEventHandler(toolRecorder: _toolRecorder),
     ];
   }

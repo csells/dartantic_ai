@@ -183,7 +183,9 @@ For typed output (structured JSON responses), see [[Typed-Output-Architecture]].
 
 - When `outputSchema` is provided, Agent adds a `return_result` tool
 - Tool results are still consolidated into single user messages as normal
-- The final JSON output replaces the text output in ChatResult
+- Providers stream JSON chunks for progressive rendering; orchestration forwards those chunks but never replays them later. If an application needs the full JSON payload, it must accumulate the streamed text itself.
+- The Agent convenience APIs (`send`, `sendFor`) perform that accumulation internally so they can decode once streaming completes.
+- The final `ChatResult` from streaming still carries the usual metadata and tool parts, but it does not include the streamed JSON text again.
 
 ## Streaming Enhancements
 
@@ -598,5 +600,3 @@ The event mapper prevents reasoning text from appearing in the regular output st
 - Display formatting (like `[[...]]` brackets) should be added by the presentation layer
 - Only specific models (gpt-5, o1, o3, etc.) with reasoning capabilities generate this metadata
 - Thinking is never duplicated - it's only accumulated from streaming delta events, never from the final `Reasoning` items in `ResponseCompleted`
-
-

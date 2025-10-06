@@ -83,68 +83,68 @@ void main() {
     test(
       'generates plots/CSV and downloads both as DataPart',
       () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        ),
-      );
+        final agent = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+          ),
+        );
 
-      // Use specific prompt like the example - tell it to save the files
-      // Accumulate history properly like the examples
-      final history = <ChatMessage>[];
-      await for (final chunk in agent.sendStream(
-        'Calculate the first 10 Fibonacci numbers and store them in a variable '
-        'called "fib_sequence". Then create a CSV file called "fibonacci.csv" '
-        'with two columns: index and value. Finally, create a line plot of the '
-        'Fibonacci sequence and save it as a PNG file called '
-        '"fibonacci_plot.png".',
-      )) {
-        history.addAll(chunk.messages);
-      }
+        // Use specific prompt like the example - tell it to save the files
+        // Accumulate history properly like the examples
+        final history = <ChatMessage>[];
+        await for (final chunk in agent.sendStream(
+          'Calculate the first 10 Fibonacci numbers and store them in a '
+          'variable called "fib_sequence". Then create a CSV file called '
+          '"fibonacci.csv" with two columns: index and value. Finally, create '
+          'a line plot of the Fibonacci sequence and save it as a PNG file '
+          'called "fibonacci_plot.png".',
+        )) {
+          history.addAll(chunk.messages);
+        }
 
-      // Should have DataParts for both CSV and PNG
-      final dataParts = <DataPart>[];
-      for (final msg in history) {
-        dataParts.addAll(msg.parts.whereType<DataPart>());
-      }
+        // Should have DataParts for both CSV and PNG
+        final dataParts = <DataPart>[];
+        for (final msg in history) {
+          dataParts.addAll(msg.parts.whereType<DataPart>());
+        }
 
-      expect(
-        dataParts.length,
-        greaterThanOrEqualTo(2),
-        reason: 'Should have both CSV and PNG files',
-      );
+        expect(
+          dataParts.length,
+          greaterThanOrEqualTo(2),
+          reason: 'Should have both CSV and PNG files',
+        );
 
-      // Check for image file
-      final imageParts = dataParts.where(
-        (p) => p.mimeType.startsWith('image/'),
-      );
-      expect(imageParts, isNotEmpty, reason: 'Should have PNG plot');
-      expect(imageParts.first.bytes.lengthInBytes, greaterThan(0));
-      expect(
-        imageParts.first.name,
-        endsWith('.png'),
-        reason: 'Image should have .png filename',
-      );
+        // Check for image file
+        final imageParts = dataParts.where(
+          (p) => p.mimeType.startsWith('image/'),
+        );
+        expect(imageParts, isNotEmpty, reason: 'Should have PNG plot');
+        expect(imageParts.first.bytes.lengthInBytes, greaterThan(0));
+        expect(
+          imageParts.first.name,
+          endsWith('.png'),
+          reason: 'Image should have .png filename',
+        );
 
-      // Check for CSV file
-      final csvParts = dataParts.where(
-        (p) =>
-            p.mimeType.contains('csv') || (p.name?.endsWith('.csv') ?? false),
-      );
-      expect(csvParts, isNotEmpty, reason: 'Should have CSV file');
-      expect(csvParts.first.bytes.lengthInBytes, greaterThan(0));
-      expect(
-        csvParts.first.name,
-        endsWith('.csv'),
-        reason: 'CSV should have .csv filename',
-      );
-      expect(
-        csvParts.first.mimeType,
-        contains('csv'),
-        reason: 'CSV should have CSV MIME type',
-      );
-    },
+        // Check for CSV file
+        final csvParts = dataParts.where(
+          (p) =>
+              p.mimeType.contains('csv') || (p.name?.endsWith('.csv') ?? false),
+        );
+        expect(csvParts, isNotEmpty, reason: 'Should have CSV file');
+        expect(csvParts.first.bytes.lengthInBytes, greaterThan(0));
+        expect(
+          csvParts.first.name,
+          endsWith('.csv'),
+          reason: 'CSV should have .csv filename',
+        );
+        expect(
+          csvParts.first.mimeType,
+          contains('csv'),
+          reason: 'CSV should have CSV MIME type',
+        );
+      },
       timeout: const Timeout(Duration(minutes: 1)),
     );
 

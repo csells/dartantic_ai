@@ -84,6 +84,7 @@ class OutputItemEventHandler implements OpenAIResponsesEventHandler {
     if (item is openai.ImageGenerationCall) {
       _logger.fine('Image generation completed at index ${event.outputIndex}');
       attachments.markImageGenerationCompleted(
+        index: event.outputIndex,
         resultBase64: item.resultBase64,
       );
     }

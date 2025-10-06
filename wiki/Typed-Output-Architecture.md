@@ -126,6 +126,13 @@ The Agent's logic handles both cases identically:
 
 This unified approach allows the Agent to support both native typed output (OpenAI, Google, etc.) and tool-based typed output (Anthropic) transparently.
 
+#### Streaming Semantics
+
+- **Progressive streaming**: Providers that emit schema-constrained JSON incrementally may stream partial chunks. Orchestrators forward those deltas so clients can render progressive JSON (see `example/bin/typed_output.dart`).
+- **Message contents**: During streaming, the assistant message attached to each chunk remains empty (other than metadata/tool parts). The JSON payload exists only in the streamed text chunks, so callers that care about the text must accumulate `chunk.output` themselves.
+- **Final decoding**: APIs such as `Agent.send()` and `Agent.sendFor()` buffer the streamed chunks internally and decode once streaming completes. External consumers that want the final JSON document must follow the same pattern: concatenate the streamed chunks and parse once because the terminal assistant message does not repeat the streamed text.
+- **Provider responsibility**: Provider implementations should avoid emitting conflicting chunks; once a fragment is streamed it cannot be “taken back.” If a provider cannot supply coherent streaming deltas, it should suppress progressive JSON and emit only the final payload.
+
 **Still TODO**: Make Google and Ollama work with the return_result pattern when both tools and typed output are needed.
 
 #### Google/Gemini
