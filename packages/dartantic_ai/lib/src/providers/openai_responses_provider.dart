@@ -3,18 +3,12 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
-import '../embeddings_models/openai_embeddings/openai_embeddings_model.dart';
-import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.dart';
 import '../platform/platform.dart';
-import '../shared/openai_utils.dart';
+import 'openai_provider_base.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
-    extends
-        Provider<
-          OpenAIResponsesChatModelOptions,
-          OpenAIEmbeddingsModelOptions
-        > {
+    extends OpenAIProviderBase<OpenAIResponsesChatModelOptions> {
   /// Creates a new OpenAI Responses provider instance.
   OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
     : super(
@@ -37,9 +31,11 @@ class OpenAIResponsesProvider
         apiKeyName: defaultApiKeyName,
       );
 
-  static final Logger _logger = Logger(
-    'dartantic.chat.providers.openai_responses',
-  );
+  static final Logger _logger =
+      Logger('dartantic.chat.providers.openai_responses');
+
+  @override
+  Logger get logger => _logger;
 
   /// Canonical provider name.
   static const providerName = 'openai-responses';
@@ -59,9 +55,12 @@ class OpenAIResponsesProvider
   /// Default base URL for the OpenAI Responses API.
   /// Note: Points to the Responses API endpoint to work around a bug
   /// in openai_core v0.4.0 where it incorrectly constructs the URL path.
-  static final defaultBaseUrl = Uri.parse(
-    'https://api.openai.com/v1/responses',
-  );
+  static final defaultResponsesBaseUrl =
+      Uri.parse('https://api.openai.com/v1/responses');
+
+  /// Backwards-compatible alias for the default Responses endpoint.
+  static final defaultBaseUrl = defaultResponsesBaseUrl;
+  static final Uri _defaultApiBaseUrl = Uri.parse('https://api.openai.com/v1');
 
   @override
   ChatModel<OpenAIResponsesChatModelOptions> createChatModel({
@@ -70,6 +69,7 @@ class OpenAIResponsesProvider
     double? temperature,
     OpenAIResponsesChatModelOptions? options,
   }) {
+    validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
     _logger.info(
@@ -77,16 +77,12 @@ class OpenAIResponsesProvider
       'with ${(tools ?? const []).length} tools, temp: $temperature',
     );
 
-    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
-      throw ArgumentError('$apiKeyName is required for $displayName provider');
-    }
-
     return OpenAIResponsesChatModel(
       name: modelName,
       tools: tools,
       temperature: temperature,
       apiKey: apiKey,
-      baseUrl: baseUrl ?? defaultBaseUrl,
+      baseUrl: baseUrl ?? defaultResponsesBaseUrl,
       defaultOptions: _mergeOptions(temperature, options),
     );
   }
@@ -118,44 +114,8 @@ class OpenAIResponsesProvider
   );
 
   @override
-  EmbeddingsModel<OpenAIEmbeddingsModelOptions> createEmbeddingsModel({
-    String? name,
-    OpenAIEmbeddingsModelOptions? options,
-  }) {
-    final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
-
-    _logger.info('Creating OpenAI Responses embeddings model: $modelName');
-
-    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
-      throw ArgumentError('$apiKeyName is required for $displayName provider');
-    }
-
-    // Embeddings use the standard API endpoint, not Responses
-    final embeddingsBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
-
-    return OpenAIEmbeddingsModel(
-      name: modelName,
-      apiKey: apiKey,
-      baseUrl: embeddingsBaseUrl,
-      dimensions: options?.dimensions,
-      batchSize: options?.batchSize,
-      options: OpenAIEmbeddingsModelOptions(
-        dimensions: options?.dimensions,
-        batchSize: options?.batchSize,
-        user: options?.user,
-      ),
-    );
-  }
+  Uri get embeddingsApiBaseUrl => _defaultApiBaseUrl;
 
   @override
-  Stream<ModelInfo> listModels() async* {
-    // Use standard API endpoint for listing models, not the Responses endpoint
-    final resolvedBaseUrl = baseUrl ?? Uri.parse('https://api.openai.com/v1');
-    yield* OpenAIUtils.listOpenAIModels(
-      baseUrl: resolvedBaseUrl,
-      providerName: name,
-      logger: _logger,
-      apiKey: apiKey,
-    );
-  }
+  Uri get modelsApiBaseUrl => _defaultApiBaseUrl;
 }

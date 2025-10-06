@@ -3,14 +3,12 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_chat/openai_chat_model.dart';
 import '../chat_models/openai_chat/openai_chat_options.dart';
-import '../embeddings_models/openai_embeddings/openai_embeddings.dart';
 import '../platform/platform.dart';
-import '../shared/openai_utils.dart';
+import 'openai_provider_base.dart';
 
 /// Provider for OpenAI-compatible APIs (OpenAI, Cohere, Together, etc.).
 /// Handles API key, base URL, and model configuration.
-class OpenAIProvider
-    extends Provider<OpenAIChatOptions, OpenAIEmbeddingsModelOptions> {
+class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
   /// Creates a new OpenAI provider instance.
   ///
   /// - [name]: The canonical provider name (e.g., 'openai', 'cohere').
@@ -42,6 +40,9 @@ class OpenAIProvider
 
   static final Logger _logger = Logger('dartantic.chat.providers.openai');
 
+  @override
+  Logger get logger => _logger;
+
   /// The environment variable for the API key
   static const defaultApiKeyName = 'OPENAI_API_KEY';
 
@@ -55,6 +56,7 @@ class OpenAIProvider
     double? temperature,
     OpenAIChatOptions? options,
   }) {
+    validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
     _logger.info(
@@ -62,10 +64,6 @@ class OpenAIProvider
       '${tools?.length ?? 0} tools, '
       'temperature: $temperature',
     );
-
-    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
-      throw ArgumentError('$apiKeyName is required for $displayName provider');
-    }
 
     return OpenAIChatModel(
       name: modelName,
@@ -89,44 +87,6 @@ class OpenAIProvider
         streamOptions: options?.streamOptions,
         serviceTier: options?.serviceTier,
       ),
-    );
-  }
-
-  @override
-  EmbeddingsModel<OpenAIEmbeddingsModelOptions> createEmbeddingsModel({
-    String? name,
-    OpenAIEmbeddingsModelOptions? options,
-  }) {
-    final modelName = name ?? defaultModelNames[ModelKind.embeddings]!;
-
-    _logger.info(
-      'Creating OpenAI embeddings model: $modelName with '
-      'options: $options',
-    );
-
-    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
-      throw ArgumentError('$apiKeyName is required for $displayName provider');
-    }
-
-    return OpenAIEmbeddingsModel(
-      name: modelName,
-      apiKey: apiKey ?? tryGetEnv(apiKeyName),
-      baseUrl: baseUrl,
-      dimensions: options?.dimensions,
-      batchSize: options?.batchSize,
-      user: options?.user,
-      options: options,
-    );
-  }
-
-  @override
-  Stream<ModelInfo> listModels() async* {
-    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
-    yield* OpenAIUtils.listOpenAIModels(
-      baseUrl: resolvedBaseUrl,
-      providerName: name,
-      logger: _logger,
-      apiKey: apiKey,
     );
   }
 }

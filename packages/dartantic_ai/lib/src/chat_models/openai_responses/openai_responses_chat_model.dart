@@ -50,7 +50,9 @@ class OpenAIResponsesChatModel
   @override
   List<Tool>? get tools {
     // Filter out return_result from the tools list since we handle
-    // outputSchema natively
+    // outputSchema natively. See wiki/Typed-Output-Architecture.md for the
+    // rationale behind delegating the removal to providers with native JSON
+    // support.
     final baseTools = super.tools;
     if (baseTools == null) return null;
     return baseTools
@@ -84,132 +86,52 @@ class OpenAIResponsesChatModel
     OpenAIResponsesChatModelOptions? options,
     JsonSchema? outputSchema,
   }) async* {
-    final store = options?.store ?? defaultOptions.store ?? true;
+    final invocation = _StreamInvocationBuilder(
+      messages: messages,
+      options: options,
+      defaultOptions: defaultOptions,
+      outputSchema: outputSchema,
+    ).build();
 
-    final history = OpenAIResponsesMessageMapper.mapHistory(
-      messages,
-      store: store,
-      imageDetail:
-          options?.imageDetail ??
-          defaultOptions.imageDetail ??
-          openai.ImageDetail.auto,
-    );
-
-    if (!history.hasInput && history.previousResponseId == null) {
-      throw ArgumentError('No new input provided to OpenAI Responses request');
-    }
-
-    final temperatureOverride =
-        options?.temperature ?? defaultOptions.temperature;
-    final topP = options?.topP ?? defaultOptions.topP;
-    final maxOutputTokens =
-        options?.maxOutputTokens ?? defaultOptions.maxOutputTokens;
-    final parallelToolCalls =
-        options?.parallelToolCalls ?? defaultOptions.parallelToolCalls;
-    final include = options?.include ?? defaultOptions.include;
-    final metadata = _mergeMetadata(defaultOptions.metadata, options?.metadata);
-    final reasoning = _toReasoningOptions(
-      raw: options?.reasoning ?? defaultOptions.reasoning,
-      effort: options?.reasoningEffort ?? defaultOptions.reasoningEffort,
-      summary: options?.reasoningSummary ?? defaultOptions.reasoningSummary,
-    );
-    final toolChoice = _toToolChoice(
-      options?.toolChoice ?? defaultOptions.toolChoice,
-    );
-    final truncation = _toTruncation(
-      options?.truncationStrategy ?? defaultOptions.truncationStrategy,
-    );
-    final textFormat = _resolveTextFormat(
-      outputSchema,
-      options?.responseFormat ?? defaultOptions.responseFormat,
-    );
-
-    final requestServerTools = options?.serverSideTools;
-    final Set<OpenAIServerSideTool> serverSideTools;
-    if (requestServerTools != null) {
-      serverSideTools = {...requestServerTools};
-    } else if (defaultOptions.serverSideTools != null) {
-      serverSideTools = {...defaultOptions.serverSideTools!};
-    } else {
-      serverSideTools = <OpenAIServerSideTool>{};
-    }
-
-    final fileSearchConfig =
-        options?.fileSearchConfig ?? defaultOptions.fileSearchConfig;
-    final webSearchConfig =
-        options?.webSearchConfig ?? defaultOptions.webSearchConfig;
-    final codeInterpreterConfig =
-        options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig;
-    final imageGenerationConfig =
-        options?.imageGenerationConfig ?? defaultOptions.imageGenerationConfig;
-
-    if ((codeInterpreterConfig?.shouldReuseContainer ?? false) && !store) {
+    if ((invocation.serverSide.codeInterpreterConfig?.shouldReuseContainer ??
+            false) &&
+        !invocation.store) {
       _logger.warning(
         'Code interpreter container reuse requested but store=false; '
         'previous_response_id will not be persisted.',
       );
     }
 
-    final allTools = <openai.Tool>[
-      ..._buildFunctionTools(),
-      ...OpenAIResponsesServerSideToolMapper.buildServerSideTools(
-        serverSideTools: serverSideTools,
-        fileSearchConfig: fileSearchConfig,
-        webSearchConfig: webSearchConfig,
-        codeInterpreterConfig: codeInterpreterConfig,
-        imageGenerationConfig: imageGenerationConfig,
-      ),
-    ];
+    final allTools = _buildAllTools(invocation.serverSide);
 
     final responseStream = await _client.streamResponse(
       model: openai.ChatModel(name),
-      input: history.input,
-      instructions: history.instructions,
-      previousResponseId: history.previousResponseId,
-      store: store,
-      temperature: temperatureOverride ?? temperature,
-      topP: topP,
-      maxOutputTokens: maxOutputTokens,
-      reasoning: reasoning,
-      text: textFormat,
-      toolChoice: toolChoice,
+      input: invocation.history.input,
+      instructions: invocation.history.instructions,
+      previousResponseId: invocation.history.previousResponseId,
+      store: invocation.store,
+      temperature: invocation.parameters.temperature ?? temperature,
+      topP: invocation.parameters.topP,
+      maxOutputTokens: invocation.parameters.maxOutputTokens,
+      reasoning: invocation.parameters.reasoning,
+      text: invocation.parameters.textFormat,
+      toolChoice: invocation.parameters.toolChoice,
       tools: allTools.isEmpty ? null : allTools,
-      parallelToolCalls: parallelToolCalls,
-      metadata: metadata,
-      include: include,
-      truncation: truncation,
-      user: options?.user ?? defaultOptions.user,
+      parallelToolCalls: invocation.parameters.parallelToolCalls,
+      metadata: invocation.parameters.metadata,
+      include: invocation.parameters.include,
+      truncation: invocation.parameters.truncation,
+      user: invocation.parameters.user,
     );
 
     final mapper = OpenAIResponsesEventMapper(
       modelName: name,
-      storeSession: store,
-      history: history,
+      storeSession: invocation.store,
+      history: invocation.history,
       downloadContainerFile: downloadContainerFile,
     );
 
-    try {
-      await for (final event in responseStream.events) {
-        _logger.fine('Received event: ${event.runtimeType}');
-        final results = mapper.handle(event);
-        await for (final result in results) {
-          if (result.metadata.containsKey('thinking')) {
-            _logger.fine(
-              'Yielding result with thinking metadata: '
-              '"${result.metadata['thinking']}"',
-            );
-          }
-          yield result;
-        }
-      }
-    } on Object catch (error, stackTrace) {
-      _logger.severe(
-        'OpenAI Responses stream error: $error',
-        error,
-        stackTrace,
-      );
-      rethrow;
-    }
+    yield* _consumeResponseStream(responseStream, mapper);
   }
 
   @override
@@ -335,4 +257,189 @@ class OpenAIResponsesChatModel
     if (responseFormat == null) return null;
     return openai.TextFormat.fromJson(responseFormat);
   }
+
+  List<openai.Tool> _buildAllTools(_ServerSideToolContext context) => [
+        ..._buildFunctionTools(),
+        ...OpenAIResponsesServerSideToolMapper.buildServerSideTools(
+          serverSideTools: context.enabledTools,
+          fileSearchConfig: context.fileSearchConfig,
+          webSearchConfig: context.webSearchConfig,
+          codeInterpreterConfig: context.codeInterpreterConfig,
+          imageGenerationConfig: context.imageGenerationConfig,
+        ),
+      ];
+
+  Stream<ChatResult<ChatMessage>> _consumeResponseStream(
+    openai.ResponseStream responseStream,
+    OpenAIResponsesEventMapper mapper,
+  ) async* {
+    try {
+      await for (final event in responseStream.events) {
+        _logger.fine('Received event: ${event.runtimeType}');
+        final results = mapper.handle(event);
+        await for (final result in results) {
+          if (result.metadata.containsKey('thinking')) {
+            _logger.fine(
+              'Yielding result with thinking metadata: '
+              '"${result.metadata['thinking']}"',
+            );
+          }
+          yield result;
+        }
+      }
+    } on Object catch (error, stackTrace) {
+      _logger.severe(
+        'OpenAI Responses stream error: $error',
+        error,
+        stackTrace,
+      );
+      rethrow;
+    }
+  }
+}
+
+class _StreamInvocationBuilder {
+  _StreamInvocationBuilder({
+    required this.messages,
+    required this.options,
+    required this.defaultOptions,
+    required this.outputSchema,
+  });
+
+  final List<ChatMessage> messages;
+  final OpenAIResponsesChatModelOptions? options;
+  final OpenAIResponsesChatModelOptions defaultOptions;
+  final JsonSchema? outputSchema;
+
+  _StreamInvocation build() {
+    final store = options?.store ?? defaultOptions.store ?? true;
+    final history = OpenAIResponsesMessageMapper.mapHistory(
+      messages,
+      store: store,
+      imageDetail: options?.imageDetail ??
+          defaultOptions.imageDetail ??
+          openai.ImageDetail.auto,
+    );
+
+    if (!history.hasInput && history.previousResponseId == null) {
+      throw ArgumentError('No new input provided to OpenAI Responses request');
+    }
+
+    final requestParameters = _RequestParameters(
+      temperature: options?.temperature ?? defaultOptions.temperature,
+      topP: options?.topP ?? defaultOptions.topP,
+      maxOutputTokens:
+          options?.maxOutputTokens ?? defaultOptions.maxOutputTokens,
+      parallelToolCalls:
+          options?.parallelToolCalls ?? defaultOptions.parallelToolCalls,
+      include: options?.include ?? defaultOptions.include,
+      metadata: OpenAIResponsesChatModel._mergeMetadata(
+        defaultOptions.metadata,
+        options?.metadata,
+      ),
+      reasoning: OpenAIResponsesChatModel._toReasoningOptions(
+        raw: options?.reasoning ?? defaultOptions.reasoning,
+        effort: options?.reasoningEffort ?? defaultOptions.reasoningEffort,
+        summary: options?.reasoningSummary ?? defaultOptions.reasoningSummary,
+      ),
+      toolChoice: OpenAIResponsesChatModel._toToolChoice(
+        options?.toolChoice ?? defaultOptions.toolChoice,
+      ),
+      truncation: OpenAIResponsesChatModel._toTruncation(
+        options?.truncationStrategy ?? defaultOptions.truncationStrategy,
+      ),
+      textFormat: OpenAIResponsesChatModel._resolveTextFormat(
+        outputSchema,
+        options?.responseFormat ?? defaultOptions.responseFormat,
+      ),
+      user: options?.user ?? defaultOptions.user,
+    );
+
+    final serverSide = _ServerSideToolContext(
+      enabledTools: _resolveServerSideTools(),
+      fileSearchConfig: options?.fileSearchConfig ?? defaultOptions.fileSearchConfig,
+      webSearchConfig: options?.webSearchConfig ?? defaultOptions.webSearchConfig,
+      codeInterpreterConfig:
+          options?.codeInterpreterConfig ?? defaultOptions.codeInterpreterConfig,
+      imageGenerationConfig:
+          options?.imageGenerationConfig ?? defaultOptions.imageGenerationConfig,
+    );
+
+    return _StreamInvocation(
+      store: store,
+      history: history,
+      parameters: requestParameters,
+      serverSide: serverSide,
+    );
+  }
+
+  Set<OpenAIServerSideTool> _resolveServerSideTools() {
+    final requested = options?.serverSideTools;
+    if (requested != null) {
+      return {...requested};
+    }
+    final defaults = defaultOptions.serverSideTools;
+    if (defaults != null) {
+      return {...defaults};
+    }
+    return <OpenAIServerSideTool>{};
+  }
+}
+
+class _StreamInvocation {
+  const _StreamInvocation({
+    required this.store,
+    required this.history,
+    required this.parameters,
+    required this.serverSide,
+  });
+
+  final bool store;
+  final OpenAIResponsesHistorySegment history;
+  final _RequestParameters parameters;
+  final _ServerSideToolContext serverSide;
+}
+
+class _RequestParameters {
+  const _RequestParameters({
+    required this.temperature,
+    required this.topP,
+    required this.maxOutputTokens,
+    required this.parallelToolCalls,
+    required this.include,
+    required this.metadata,
+    required this.reasoning,
+    required this.toolChoice,
+    required this.truncation,
+    required this.textFormat,
+    required this.user,
+  });
+
+  final double? temperature;
+  final double? topP;
+  final int? maxOutputTokens;
+  final bool? parallelToolCalls;
+  final List<String>? include;
+  final Map<String, dynamic>? metadata;
+  final openai.ReasoningOptions? reasoning;
+  final openai.ToolChoice? toolChoice;
+  final openai.Truncation? truncation;
+  final openai.TextFormat? textFormat;
+  final String? user;
+}
+
+class _ServerSideToolContext {
+  const _ServerSideToolContext({
+    required this.enabledTools,
+    this.fileSearchConfig,
+    this.webSearchConfig,
+    this.codeInterpreterConfig,
+    this.imageGenerationConfig,
+  });
+
+  final Set<OpenAIServerSideTool> enabledTools;
+  final FileSearchConfig? fileSearchConfig;
+  final WebSearchConfig? webSearchConfig;
+  final CodeInterpreterConfig? codeInterpreterConfig;
+  final ImageGenerationConfig? imageGenerationConfig;
 }
