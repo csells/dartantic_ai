@@ -146,8 +146,7 @@ class OpenAIResponsesChatModel
 
       final effectiveApiKey = apiKey ?? _client.apiKey;
       if (effectiveApiKey == null) {
-        _logger.warning('No API key available for retrieving file metadata');
-        return fileId;
+        throw Exception('No API key available for retrieving file metadata');
       }
 
       _logger.fine('Fetching container file metadata from $uri');
