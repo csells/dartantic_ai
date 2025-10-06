@@ -74,6 +74,10 @@
           "href": "/embeddings"
         },
         {
+          "title": "Thinking Metadata",
+          "href": "/thinking"
+        },
+        {
           "title": "Usage Tracking",
           "href": "/usage-tracking"
         },
@@ -88,6 +92,31 @@
         {
           "title": "Custom Providers",
           "href": "/custom-providers"
+        }
+      ]
+    },
+    {
+      "group": "Server-Side Tools",
+      "pages": [
+        {
+          "title": "Overview",
+          "href": "/server-side-tools"
+        },
+        {
+          "title": "Web Search",
+          "href": "/server-side-tools/web-search"
+        },
+        {
+          "title": "File Search",
+          "href": "/server-side-tools/file-search"
+        },
+        {
+          "title": "Image Generation",
+          "href": "/server-side-tools/image-generation"
+        },
+        {
+          "title": "Code Interpreter",
+          "href": "/server-side-tools/code-interpreter"
         }
       ]
     },

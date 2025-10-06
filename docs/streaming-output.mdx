@@ -50,6 +50,29 @@ await for (final chunk in agent.sendStream(
 }
 ```
 
+## Thinking Metadata
+
+```dart
+final agent = Agent(
+  'openai-responses:gpt-5',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.concise,
+  ),
+);
+
+await for (final chunk in agent.sendStream('Explain quicksort.')) {
+  final thinking = chunk.metadata['thinking'] as String?;
+  if (thinking != null && thinking.isNotEmpty) {
+    stdout.write('[[${thinking.trim()}]]');
+  }
+  stdout.write(chunk.output);
+}
+```
+
+Thinking stays in `ChatResult.metadata` so you can show a live "thought bubble"
+without polluting the message stream. See [Thinking Metadata](/thinking) for
+more options.
+
 ## With Typed Output
 
 ```dart
@@ -62,7 +85,7 @@ await for (final chunk in agent.sendStream(
 }
 ```
 
-## Usage Tracking
+## Usage Tracking & Tool Metadata
 
 ```dart
 var usage = const LanguageModelUsage();
@@ -71,6 +94,12 @@ await for (final chunk in agent.sendStream('Story time')) {
   stdout.write(chunk.output);
   if (chunk.usage.totalTokens != null) {
     usage = chunk.usage; // Final chunk contains usage
+  }
+
+  // Inspect server-side tool events (OpenAI Responses)
+  final web = chunk.metadata['web_search'] as List?;
+  if (web != null) {
+    stdout.writeln('\nSearch stage: ${web.last['type']}');
   }
 }
 
@@ -87,3 +116,4 @@ print('\nTokens used: ${usage.totalTokens}');
 
 - [Tool Calling](/tool-calling) - Stream with tools
 - [Usage Tracking](/usage-tracking) - Monitor streaming costs
+- [Server-Side Tools](/server-side-tools) - Stream provider-hosted tool output

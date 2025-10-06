@@ -1,0 +1,91 @@
+---
+title: Code Interpreter
+---
+
+Execute Python code on the provider, reuse containers, and download generated
+artifacts without hosting your own runtime.
+
+## Enable Code Interpreter
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+  ),
+);
+```
+
+You can pass additional options to reuse containers or mount files:
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(
+      containerId: previousContainerId,
+      fileIds: const ['file-abc123'],
+    ),
+  ),
+);
+```
+
+## Streaming Execution
+
+Code deltas and lifecycle events stream through `metadata['code_interpreter']`:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  final events = chunk.metadata['code_interpreter'] as List?;
+  if (events == null) continue;
+
+  for (final event in events) {
+    switch (event['type']) {
+      case 'response.code_interpreter_call_code.delta':
+        stdout.write(event['delta']);
+      case 'response.output_item.done':
+        stdout.writeln('container: ${event['item']['container_id']}');
+    }
+  }
+}
+```
+
+Use these events to show live output, capture errors, or record container IDs.
+
+## Container Reuse
+
+Containers persist across turns when you supply a `containerId`. The example
+below captures the ID from the first response and injects it into the second:
+
+```dart
+String? containerId;
+await for (final chunk in agent.sendStream(prompt1)) {
+  containerId ??= containerIdFromMetadata(chunk.metadata);
+}
+
+final agent2 = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(containerId: containerId),
+  ),
+);
+```
+
+See the helper functions in the example repo for extracting IDs from metadata.
+
+## Generated Files
+
+When the interpreter saves files (e.g. images, CSVs) they are downloaded for you
+and attached as `DataPart` instances on the assistant message. Citations appear
+in metadata so you can map them back to container files when needed.
+
+## Example
+
+- [Server-side code interpreter demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools/server_side_code_interpreter.dart)
+
+## Related Topics
+
+- [Image Generation](/server-side-tools/image-generation)
+- [Thinking Metadata](/thinking)

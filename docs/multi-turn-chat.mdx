@@ -60,6 +60,25 @@ r = await agent.send('How about LA?', history: history);
 history.addAll(r.messages);
 ```
 
+## Provider Sessions
+
+OpenAI Responses can persist server-side session state so you only send new
+messages on each turn:
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(store: true),
+);
+
+final result = await agent.send('Summarize this conversation', history: history);
+final sessionId = result.metadata['_responses_session'];
+```
+
+The provider automatically reuses the previous session ID when you include it in
+message metadata, so orchestrators like `Agent` handle this for you. You can
+still fall back to `store: false` for stateless requests.
+
 ## Examples
 
 - [Multi-turn chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)

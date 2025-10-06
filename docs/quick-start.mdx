@@ -28,6 +28,7 @@ export TOGETHER_API_KEY="..."
 export COHERE_API_KEY="..."
 
 # Ollama runs locally - no key needed
+# OpenAI Responses reuses OPENAI_API_KEY
 ```
 Prefer to handle API keys server-side. Take special care to not expose them in
 your client code.
@@ -43,7 +44,7 @@ takes a model string.
 void main() async {
   // Create an agent with a model string
   final agent = Agent(
-    'openai',  // Can also use 'openai:gpt-4o' or 'openai/gpt-4o'
+    'openai',  // Try 'openai:gpt-4o' or 'openai-responses:gpt-5'
   );
 
   // Run the agent with a prompt and system message

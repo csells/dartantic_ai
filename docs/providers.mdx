@@ -9,6 +9,7 @@ Out of the box support for 11 providers, with more to come.
 | Provider | Default Model | Default Embedding Model | Capabilities | Notes |
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
+| **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | - | Chat, Vision, Tools, Streaming | No embeddings |
 | **Google** | `gemini-2.0-flash-exp` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
@@ -24,6 +25,7 @@ Out of the box support for 11 providers, with more to come.
 | Provider | Provider Prefix | Aliases | API Key | Provider Type |
 |----------|----------------|---------|---------|---------------|
 | **OpenAI** | `openai` | - | `OPENAI_API_KEY` | `OpenAIProvider` |
+| **OpenAI Responses** | `openai-responses` | - | `OPENAI_API_KEY` | `OpenAIResponsesProvider` |
 | **Anthropic** | `anthropic` | `claude` | `ANTHROPIC_API_KEY` | `AnthropicProvider` |
 | **Google** | `google` | `gemini`, `googleai` | `GEMINI_API_KEY` | `GoogleProvider` |
 | **Mistral** | `mistral` | - | `MISTRAL_API_KEY` | `MistralProvider` |
@@ -54,6 +56,9 @@ Agent('anthropic:claude-3-5-sonnet');
 
 // Chat + embeddings
 Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
+
+// Responses API features (thinking, server-side tools)
+Agent('openai-responses:gpt-5');
 ```
 
 ## Find Providers
@@ -104,6 +109,7 @@ if (provider.caps.contains(ProviderCaps.embeddings)) {
 - **`multiToolCalls`** - Multiple tool calls
 - **`streaming`** - Stream responses
 - **`typedOutput`** - Structured output
+- **`thinking`** - Provider streams reasoning metadata (e.g. OpenAI Responses)
 
 ## List Models
 

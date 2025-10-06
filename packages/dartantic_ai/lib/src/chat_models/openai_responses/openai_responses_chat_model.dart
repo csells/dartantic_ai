@@ -86,51 +86,10 @@ class OpenAIResponsesChatModel
     OpenAIResponsesChatModelOptions? options,
     JsonSchema? outputSchema,
   }) async* {
-    final invocation = _StreamInvocationBuilder(
-      messages: messages,
-      options: options,
-      defaultOptions: defaultOptions,
-      outputSchema: outputSchema,
-    ).build();
-
-    if ((invocation.serverSide.codeInterpreterConfig?.shouldReuseContainer ??
-            false) &&
-        !invocation.store) {
-      _logger.warning(
-        'Code interpreter container reuse requested but store=false; '
-        'previous_response_id will not be persisted.',
-      );
-    }
-
-    final allTools = _buildAllTools(invocation.serverSide);
-
-    final responseStream = await _client.streamResponse(
-      model: openai.ChatModel(name),
-      input: invocation.history.input,
-      instructions: invocation.history.instructions,
-      previousResponseId: invocation.history.previousResponseId,
-      store: invocation.store,
-      temperature: invocation.parameters.temperature ?? temperature,
-      topP: invocation.parameters.topP,
-      maxOutputTokens: invocation.parameters.maxOutputTokens,
-      reasoning: invocation.parameters.reasoning,
-      text: invocation.parameters.textFormat,
-      toolChoice: invocation.parameters.toolChoice,
-      tools: allTools.isEmpty ? null : allTools,
-      parallelToolCalls: invocation.parameters.parallelToolCalls,
-      metadata: invocation.parameters.metadata,
-      include: invocation.parameters.include,
-      truncation: invocation.parameters.truncation,
-      user: invocation.parameters.user,
-    );
-
-    final mapper = OpenAIResponsesEventMapper(
-      modelName: name,
-      storeSession: invocation.store,
-      history: invocation.history,
-      downloadContainerFile: downloadContainerFile,
-    );
-
+    final invocation = _buildInvocation(messages, options, outputSchema);
+    _validateInvocation(invocation);
+    final responseStream = await _sendRequest(invocation);
+    final mapper = _createMapper(invocation);
     yield* _consumeResponseStream(responseStream, mapper);
   }
 
@@ -269,6 +228,63 @@ class OpenAIResponsesChatModel
     ),
   ];
 
+  _StreamInvocation _buildInvocation(
+    List<ChatMessage> messages,
+    OpenAIResponsesChatModelOptions? options,
+    JsonSchema? outputSchema,
+  ) =>
+      _StreamInvocationBuilder(
+        messages: messages,
+        options: options,
+        defaultOptions: defaultOptions,
+        outputSchema: outputSchema,
+      ).build();
+
+  void _validateInvocation(_StreamInvocation invocation) {
+    if ((invocation.serverSide.codeInterpreterConfig?.shouldReuseContainer ??
+            false) &&
+        !invocation.store) {
+      _logger.warning(
+        'Code interpreter container reuse requested but store=false; '
+        'previous_response_id will not be persisted.',
+      );
+    }
+  }
+
+  Future<openai.ResponseStream> _sendRequest(
+    _StreamInvocation invocation,
+  ) async {
+    final allTools = _buildAllTools(invocation.serverSide);
+
+    return _client.streamResponse(
+      model: openai.ChatModel(name),
+      input: invocation.history.input,
+      instructions: invocation.history.instructions,
+      previousResponseId: invocation.history.previousResponseId,
+      store: invocation.store,
+      temperature: invocation.parameters.temperature ?? temperature,
+      topP: invocation.parameters.topP,
+      maxOutputTokens: invocation.parameters.maxOutputTokens,
+      reasoning: invocation.parameters.reasoning,
+      text: invocation.parameters.textFormat,
+      toolChoice: invocation.parameters.toolChoice,
+      tools: allTools.isEmpty ? null : allTools,
+      parallelToolCalls: invocation.parameters.parallelToolCalls,
+      metadata: invocation.parameters.metadata,
+      include: invocation.parameters.include,
+      truncation: invocation.parameters.truncation,
+      user: invocation.parameters.user,
+    );
+  }
+
+  OpenAIResponsesEventMapper _createMapper(_StreamInvocation invocation) =>
+      OpenAIResponsesEventMapper(
+        modelName: name,
+        storeSession: invocation.store,
+        history: invocation.history,
+        downloadContainerFile: downloadContainerFile,
+      );
+
   Stream<ChatResult<ChatMessage>> _consumeResponseStream(
     openai.ResponseStream responseStream,
     OpenAIResponsesEventMapper mapper,
@@ -276,16 +292,7 @@ class OpenAIResponsesChatModel
     try {
       await for (final event in responseStream.events) {
         _logger.fine('Received event: ${event.runtimeType}');
-        final results = mapper.handle(event);
-        await for (final result in results) {
-          if (result.metadata.containsKey('thinking')) {
-            _logger.fine(
-              'Yielding result with thinking metadata: '
-              '"${result.metadata['thinking']}"',
-            );
-          }
-          yield result;
-        }
+        yield* mapper.handle(event);
       }
     } on Object catch (error, stackTrace) {
       _logger.severe(

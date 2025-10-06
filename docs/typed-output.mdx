@@ -2,7 +2,10 @@
 title: Typed Output
 ---
 
-Because sometimes you need more than a string back from your AI.
+Because sometimes you need more than a string back from your AI. Providers that
+expose `ProviderCaps.typedOutputWithTools` (like **OpenAI Responses** and
+**OpenAI**) can generate structured JSON while still executing tools in the
+same request.
 
 ## Basic JSON
 
@@ -108,6 +111,7 @@ print('${result.output.town}, ${result.output.country}');
 
 ```dart
 // Typed output + tool calls in one request
+final agent = Agent('openai-responses');
 final result = await agent.sendFor<Recipe>(
   'Get grandma\'s recipe for cookies',
   outputSchema: recipeSchema,

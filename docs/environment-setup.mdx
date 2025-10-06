@@ -28,6 +28,7 @@ final result = await agent.send('Hello!');
 | Provider | Variable | Required |
 |----------|----------|----------|
 | OpenAI | `OPENAI_API_KEY` | ✅ |
+| OpenAI Responses | `OPENAI_API_KEY` | ✅ |
 | Anthropic | `ANTHROPIC_API_KEY` | ✅ |
 | Google | `GEMINI_API_KEY` | ✅ |
 | Mistral | `MISTRAL_API_KEY` | ✅ |
@@ -37,6 +38,9 @@ final result = await agent.send('Hello!');
 | Ollama | None (local) | ❌ |
 
 ## Agent Environment
+
+> **Tip:** The OpenAI Responses provider uses the same `OPENAI_API_KEY`
+> environment variable as the standard OpenAI provider.
 
 The environment provided by your platform is a fall-back mechanism and it's not
 always available. You can also set the environment variables on the `Agent`

@@ -1,19 +1,17 @@
 ## 1.1.0
 
-### TODO
-- add the homepage and repo to the pubspec
-- openai responses API implementation via Jesse's most excellent openai_core
-  package
-  - store: true => only send new messages (default)
-  - store: false => send the entire stack
-- a lot of time on the examples -- check 'em out!
-- removed lambda in favor of an openai_compat.dart example so you can can see
-  how to plug in any openai-compatible model (all of them?)
-- added docs + example apps for all of these (including in launch.json)
-- only list Live models for the cohere provider; update the default chat model
-- exposed thinking via chatresult and chatmessage metadata
-- DARTANTIC_LOG_LEVEL
-- exposed usage details for all of the providers (not just some)
+- Added the OpenAI Responses provider built on `openai_core`, including session
+  persistence controls (`store`), intrinsic server-side tools, and thinking
+  metadata streams.
+- Refreshed examples (thinking, server-side tools, Responses compatibility) and
+  replaced the Lambda sample with the new `openai_compat.dart` walkthrough.
+- Expanded documentation to cover new Responses features, thinking metadata,
+  and server-side tools, and linked the new topics throughout the docs site.
+- Filtered Cohere models to "Live" entries and updated the default chat model.
+- Surface `thinking` text via `ChatResult.metadata` and `ChatMessage.metadata`
+  where supported, and expose usage totals for every provider consistently.
+- Honored the `DARTANTIC_LOG_LEVEL` environment variable for one-line logging
+  configuration.
 
 ## 1.0.8
 

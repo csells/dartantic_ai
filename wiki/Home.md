@@ -8,6 +8,8 @@ The dartantic_ai package provides a unified interface to 15+ LLM providers throu
 - Tool/function calling 
 - Structured JSON output
 - Multiple provider types (cloud APIs, local models)
+- Provider-hosted capabilities (server-side tools) when available
+- Model reasoning streams ("thinking") for compatible providers
 - Comprehensive logging and debugging
 
 ## Core Architectural Principles

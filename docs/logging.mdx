@@ -46,6 +46,20 @@ Agent.loggingOptions = LoggingOptions(
 Agent.loggingOptions = LoggingOptions(filter: 'http');
 ```
 
+## Environment Variable
+
+Set logging without touching code by exporting `DARTANTIC_LOG_LEVEL` before you
+run your app. Any value accepted by `package:logging` works (`INFO`, `FINE`,
+`WARNING`, `OFF`, etc.):
+
+```bash
+DARTANTIC_LOG_LEVEL=FINE dart run packages/dartantic_ai/example/bin/logging.dart
+```
+
+At startup `Agent.loggingOptions` reads this environment variable and adopts
+the requested logging level automatically. You can still override it in code if
+you need more granular control.
+
 ## Examples
 
 - [Logging](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/logging.dart)

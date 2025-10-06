@@ -32,6 +32,18 @@ final result = await agent.send(
   attachments: [await DataPart.fromFile(fridgeFile)],
 );
 // "I see leftover pizza, expired milk, and... is that a science experiment?"
+
+// Responses API can request richer vision detail
+final responsesAgent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    imageDetail: ImageDetail.high,
+  ),
+);
+await responsesAgent.send(
+  'Describe the fridge image with extra detail',
+  attachments: [await DataPart.fromFile(fridgeFile)],
+);
 ```
 
 ## Download from URL
