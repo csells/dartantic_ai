@@ -32,10 +32,13 @@ void main() {
         ),
       );
 
-      final stream = agent.sendStream('Calculate 2 + 2 in Python');
-      final results = await stream.toList();
-      final fullOutput = results.map((r) => r.output).join();
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream('Calculate 2 + 2 in Python')) {
+        results.add(chunk);
+      }
 
+      final fullOutput = results.map((r) => r.output).join();
       expect(fullOutput, contains('4'));
 
       // Verify code_interpreter metadata is streamed
@@ -61,13 +64,15 @@ void main() {
         ),
       );
 
-      final stream = agent.sendStream(
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream(
         'Create a text file test.txt with the word hello in it',
-      );
+      )) {
+        results.add(chunk);
+      }
 
-      final results = await stream.toList();
       final fullOutput = results.map((r) => r.output).join();
-
       expect(fullOutput, contains('test.txt'));
 
       // The bug would have crashed here if the workaround wasn't in place
@@ -132,12 +137,16 @@ void main() {
         ),
       );
 
-      final stream1 = agent1.sendStream(
+      // Accumulate results and history properly
+      final results1 = <ChatResult>[];
+      final history = <ChatMessage>[];
+      await for (final chunk in agent1.sendStream(
         'Calculate the first 10 Fibonacci numbers and store them in a variable '
         'called "fib_sequence".',
-      );
-      final results1 = await stream1.toList();
-      final history = results1.last.messages;
+      )) {
+        results1.add(chunk);
+        history.addAll(chunk.messages);
+      }
 
       // Extract container ID from metadata
       String? containerId;
@@ -168,14 +177,17 @@ void main() {
         ),
       );
 
-      final stream2 = agent2.sendStream(
+      // Accumulate results properly for session 2
+      final results2 = <ChatResult>[];
+      await for (final chunk in agent2.sendStream(
         'Using the fib_sequence variable we created earlier, calculate the '
         'golden ratio by dividing each consecutive pair (skipping the first '
         'term since it is 0).',
         history: history,
-      );
+      )) {
+        results2.add(chunk);
+      }
 
-      final results2 = await stream2.toList();
       final fullOutput = results2.map((r) => r.output).join();
 
       // Should mention fib_sequence or golden ratio or 1.618
@@ -247,9 +259,11 @@ void main() {
         ),
       );
 
-      final stream = agent.sendStream('Generate a blue square');
-
-      final results = await stream.toList();
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream('Generate a blue square')) {
+        results.add(chunk);
+      }
 
       // Check for partial image events in metadata
       var hadPartialImage = false;
@@ -283,11 +297,14 @@ void main() {
         ),
       );
 
-      final stream = agent.sendStream(
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream(
         'What is the latest version of Dart programming language?',
-      );
+      )) {
+        results.add(chunk);
+      }
 
-      final results = await stream.toList();
       final fullOutput = results.map((r) => r.output).join();
 
       expect(fullOutput, isNotEmpty);
@@ -319,9 +336,12 @@ void main() {
         ),
       );
 
-      final stream = agent.sendStream('What time is it?');
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream('What time is it?')) {
+        results.add(chunk);
+      }
 
-      final results = await stream.toList();
       final fullOutput = results.map((r) => r.output).join();
 
       expect(fullOutput, isNotEmpty);
@@ -391,11 +411,14 @@ of structured data alongside the main chat response.
         ),
       );
 
-      final stream = agent.sendStream(
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream(
         'What information is available about metadata handling?',
-      );
+      )) {
+        results.add(chunk);
+      }
 
-      final results = await stream.toList();
       final fullOutput = results.map((r) => r.output).join();
 
       expect(fullOutput, isNotEmpty);
@@ -434,13 +457,15 @@ of structured data alongside the main chat response.
         ),
       );
 
-      final stream = agent.sendStream(
+      // Accumulate results properly
+      final results = <ChatResult>[];
+      await for (final chunk in agent.sendStream(
         'First, search the web for the current temperature in Seattle in '
         'Fahrenheit. Then write Python code to check if that temperature is '
         'above or below 50°F and calculate the difference.',
-      );
-
-      final results = await stream.toList();
+      )) {
+        results.add(chunk);
+      }
 
       // Should have both web_search and code_interpreter events
       var hadWebSearch = false;
