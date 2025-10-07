@@ -259,9 +259,7 @@ class OpenAIResponsesChatModel
   OpenAIResponsesEventMapper _createMapper(
     OpenAIResponsesInvocation invocation,
   ) => OpenAIResponsesEventMapper(
-    modelName: name,
     storeSession: invocation.store,
-    history: invocation.history,
     downloadContainerFile: downloadContainerFile,
   );
 

@@ -65,7 +65,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
         state.addSuppressedTextParts(textParts);
       }
 
-      final toolCalls = _extractToolCalls(consolidatedMessage);
+      final toolCalls = extractToolCalls(consolidatedMessage);
       if (toolCalls.isEmpty) {
         _logger.warning(
           'return_result call detected but no tool parts found; '
@@ -183,9 +183,4 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
     }
     return null;
   }
-
-  List<ToolPart> _extractToolCalls(ChatMessage message) => message.parts
-      .whereType<ToolPart>()
-      .where((p) => p.kind == ToolPartKind.call)
-      .toList();
 }

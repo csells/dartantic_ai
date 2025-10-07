@@ -1,4 +1,5 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
 import 'openai_responses_event_mapping_state.dart';
@@ -11,6 +12,10 @@ import 'openai_responses_tool_types.dart';
 class OpenAIResponsesToolEventRecorder {
   /// Creates a new tool event recorder.
   const OpenAIResponsesToolEventRecorder();
+
+  static final Logger _logger = Logger(
+    'dartantic.chat.models.openai_responses.tool_recorder',
+  );
 
   /// Records tool events based on the event type and yields metadata chunks.
   Stream<ChatResult<ChatMessage>> recordToolEventIfNeeded(
@@ -77,6 +82,10 @@ class OpenAIResponsesToolEventRecorder {
       );
       return;
     }
+
+    _logger.warning(
+      'Unhandled Responses event in tool recorder: ${event.runtimeType}',
+    );
   }
 
   /// Records a tool event in the state's tool event log.

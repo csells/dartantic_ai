@@ -2,16 +2,17 @@
 
 - Added the OpenAI Responses provider built on `openai_core`, including session
   persistence controls (`store`), intrinsic server-side tools, and thinking
-  metadata streams.
+  metadata streams. Thanks to @jezell for his most excellent `openai_core`
+  package and his quick turn-around on my blocking issues!
 - Refreshed examples (thinking, server-side tools, Responses compatibility) and
-  replaced the Lambda sample with the new `openai_compat.dart` walkthrough.
+  replaced the Lambda provider with the new `openai_compat.dart` walkthrough.
 - Expanded documentation to cover new Responses features, thinking metadata,
-  and server-side tools, and linked the new topics throughout the docs site.
+  and server-side tools.
 - Filtered Cohere models to "Live" entries and updated the default chat model.
 - Surface `thinking` text via `ChatResult.metadata` and `ChatMessage.metadata`
   where supported, and expose usage totals for every provider consistently.
-- Honored the `DARTANTIC_LOG_LEVEL` environment variable for one-line logging
-  configuration.
+- Added support for the `DARTANTIC_LOG_LEVEL` environment variable for one-line
+  logging configuration.
 
 ## 1.0.8
 

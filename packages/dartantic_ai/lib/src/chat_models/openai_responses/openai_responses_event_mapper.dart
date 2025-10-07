@@ -11,12 +11,12 @@ import 'event_handlers/terminal_event_handler.dart';
 import 'event_handlers/text_event_handler.dart';
 import 'event_handlers/tool_event_handler.dart';
 import 'openai_responses_attachment_collector.dart';
+import 'openai_responses_attachment_types.dart';
 import 'openai_responses_event_mapping_state.dart';
-import 'openai_responses_message_mapper.dart';
 import 'openai_responses_tool_event_recorder.dart';
 
 // Re-export for backward compatibility
-export 'event_handlers/terminal_event_handler.dart'
+export 'openai_responses_attachment_types.dart'
     show ContainerFileData, ContainerFileLoader;
 
 /// Maps OpenAI Responses streaming events into dartantic chat results.
@@ -26,9 +26,7 @@ export 'event_handlers/terminal_event_handler.dart'
 class OpenAIResponsesEventMapper {
   /// Creates a new mapper configured for a specific stream invocation.
   OpenAIResponsesEventMapper({
-    required this.modelName,
     required this.storeSession,
-    required this.history,
     required ContainerFileLoader downloadContainerFile,
   }) : _attachments = AttachmentCollector(
          logger: _logger,
@@ -41,14 +39,8 @@ class OpenAIResponsesEventMapper {
     'dartantic.chat.models.openai_responses.event_mapper',
   );
 
-  /// Model name used for this stream.
-  final String modelName;
-
   /// Whether session persistence is enabled for this request.
   final bool storeSession;
-
-  /// Mapping information derived from the conversation history.
-  final OpenAIResponsesHistorySegment history;
 
   /// Function to download container files (provided by chat model layer).
   final AttachmentCollector _attachments;
@@ -66,7 +58,6 @@ class OpenAIResponsesEventMapper {
   void _initializeHandlers() {
     _handlers = [
       TerminalEventHandler(
-        modelName: modelName,
         storeSession: storeSession,
         attachments: _attachments,
       ),

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_event_mapper.dart';
-import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_message_mapper.dart';
 import 'package:dartantic_ai/src/shared/openai_responses_metadata.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart' as openai;
@@ -21,15 +20,7 @@ void main() {
   group('OpenAIResponsesEventMapper', () {
     test('streams text deltas as chat results', () async {
       final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
         storeSession: true,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
         downloadContainerFile: _mockDownloadContainerFile,
       );
 
@@ -56,18 +47,8 @@ void main() {
     test(
       'builds final chat result with telemetry and session metadata',
       () async {
-        const history = OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: 'resp_prev',
-          anchorIndex: 1,
-        );
-
         final mapper = OpenAIResponsesEventMapper(
-          modelName: openai.ChatModel.gpt4o.value,
           storeSession: true,
-          history: history,
           downloadContainerFile: _mockDownloadContainerFile,
         );
 
@@ -204,15 +185,7 @@ void main() {
       'handles streaming image generation with ResponseOutputItemDone',
       () async {
         final mapper = OpenAIResponsesEventMapper(
-          modelName: 'gpt-4o',
           storeSession: false,
-          history: const OpenAIResponsesHistorySegment(
-            items: [],
-            input: null,
-            instructions: null,
-            previousResponseId: null,
-            anchorIndex: -1,
-          ),
           downloadContainerFile: _mockDownloadContainerFile,
         );
 
@@ -334,15 +307,7 @@ void main() {
           'klEQVR4nGNgYGD4z8DAwMgAAAOGAgM9RdERAAAAAElFTkSuQmCC';
 
       final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
         storeSession: false,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
         downloadContainerFile: _mockDownloadContainerFile,
       );
 
@@ -485,15 +450,7 @@ void main() {
       final pngBytes = base64Decode(pngBase64);
 
       final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
         storeSession: false,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
         downloadContainerFile: (containerId, fileId) async => ContainerFileData(
           bytes: Uint8List.fromList(pngBytes),
           fileName: 'plot.png',

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_event_mapper.dart';
-import 'package:dartantic_ai/src/chat_models/openai_responses/openai_responses_message_mapper.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 import 'package:test/test.dart';
@@ -21,15 +20,7 @@ void main() {
       'emits thinking text in ChatResult metadata during streaming',
       () async {
         final mapper = OpenAIResponsesEventMapper(
-          modelName: 'gpt-4o',
           storeSession: false,
-          history: const OpenAIResponsesHistorySegment(
-            items: [],
-            input: null,
-            instructions: null,
-            previousResponseId: null,
-            anchorIndex: -1,
-          ),
           downloadContainerFile: _mockDownloadContainerFile,
         );
 
@@ -59,15 +50,7 @@ void main() {
 
     test('filters reasoning text from regular output stream', () async {
       final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
         storeSession: false,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
         downloadContainerFile: _mockDownloadContainerFile,
       );
 
@@ -101,15 +84,7 @@ void main() {
 
     test('allows regular text to stream normally', () async {
       final mapper = OpenAIResponsesEventMapper(
-        modelName: 'gpt-4o',
         storeSession: false,
-        history: const OpenAIResponsesHistorySegment(
-          items: [],
-          input: null,
-          instructions: null,
-          previousResponseId: null,
-          anchorIndex: -1,
-        ),
         downloadContainerFile: _mockDownloadContainerFile,
       );
 

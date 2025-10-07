@@ -6,7 +6,7 @@ import 'package:logging/logging.dart';
 import 'package:mime/mime.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
-import 'openai_responses_event_mapper.dart';
+import 'openai_responses_attachment_types.dart';
 
 /// Collects and resolves attachments (images, container files) during
 /// streaming.

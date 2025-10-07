@@ -152,7 +152,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       usage: null, // Usage only in final chunk
     );
 
-    final toolCalls = _extractToolCalls(consolidatedMessage);
+    final toolCalls = extractToolCalls(consolidatedMessage);
     if (toolCalls.isEmpty) {
       yield StreamingIterationResult(
         output: '',
@@ -292,6 +292,13 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
     }
   }
 
+  /// Extracts tool call parts from a message.
+  @protected
+  List<ToolPart> extractToolCalls(ChatMessage message) => message.parts
+      .whereType<ToolPart>()
+      .where((p) => p.kind == ToolPartKind.call)
+      .toList();
+
   /// Whether the conversation recently executed tools.
   @protected
   bool hasRecentToolExecution(StreamingState state) {
@@ -321,8 +328,3 @@ String _extractText(ChatResult<ChatMessage> result) =>
 
 bool _shouldPrefixNewline(StreamingState state) =>
     state.shouldPrefixNextMessage && state.isFirstChunkOfMessage;
-
-List<ToolPart> _extractToolCalls(ChatMessage message) => message.parts
-    .whereType<ToolPart>()
-    .where((p) => p.kind == ToolPartKind.call)
-    .toList();

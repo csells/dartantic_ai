@@ -2,7 +2,7 @@ name: dartantic_ai
 description: >
   Dartantic is an agentic framework designed to make building client and
   server-side apps in Dart with generative AI easier and more fun!
-version: 1.0.8
+version: 1.1.0
 repository: https://github.com/csells/dartantic_ai
 homepage: https://docs.dartantic.com
 
