@@ -2,7 +2,7 @@
 
 This is a big release!
 - Added the OpenAI Responses provider built on `openai_core`, including session
-  persistence controls (`store`), intrinsic server-side tools, and thinking
+  persistence (aka prompt caching), intrinsic server-side tools, and thinking
   metadata streams. Thanks to @jezell for his most excellent `openai_core`
   package and his quick turn-around on my blocking issues!
   - Streaming thinking and server-side tool call progress
@@ -14,10 +14,7 @@ This is a big release!
   - Full server-side vector search tool with example showing how to upload files
     and query vectors
   - GPT-5 Codex access!
-- Refreshed examples (thinking, server-side tools, Responses compatibility) and
-  replaced the Lambda provider with the new `openai_compat.dart` walkthrough
-- Expanded documentation to cover new Responses features, thinking metadata,
-  and server-side tools
+- Replaced the Lambda provider with the new `openai_compat.dart` sample
 - Filtered Cohere models to "Live" entries and updated the default chat model
 - Surface usage totals for every provider consistently
 - Added support for the `DARTANTIC_LOG_LEVEL` environment variable for one-line
@@ -25,7 +22,7 @@ This is a big release!
 - Support for the fully
   [spec](https://google.github.io/dotprompt/implementors/)-compliant
   [dotprompt_dart package](https://pub.dev/packages/dotprompt_dart)
-- Almost 1250 tests to ensure compatibility across the set of supported LLMs
+- 1400+ tests to ensure feature compatibility across the set of supported LLMs
 
 ## 1.0.8
 
