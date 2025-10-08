@@ -1,3 +1,7 @@
+## 1.1.0
+
+- ProviderCaps.vision => ProviderCaps.chatVision to tighten the meaning
+
 ## 1.0.5
 
 - made usage nullable for when there is no usage.
