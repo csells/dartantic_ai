@@ -33,12 +33,6 @@ void runProviderTest(
         final parts = providerModel.split(':');
         final providerName = parts[0];
 
-        // Known provider-specific skips
-        if (providerName == 'ollama-openai') {
-          markTestSkipped('Ollama OpenAI never does well on this test');
-          return;
-        }
-
         final provider = Providers.get(providerName);
 
         try {

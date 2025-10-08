@@ -15,7 +15,6 @@ import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-
   // Timeout calculation based on empirical measurements:
   // - Worst case: Cohere multi-turn takes 8096ms in isolation
   // - With 2x network variability: 16s

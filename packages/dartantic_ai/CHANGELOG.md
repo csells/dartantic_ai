@@ -25,7 +25,7 @@ This is a big release!
 - Support for the fully
   [spec](https://google.github.io/dotprompt/implementors/)-compliant
   [dotprompt_dart package](https://pub.dev/packages/dotprompt_dart)
-- Up to 1200 tests on the dot.
+- Almost 1250 tests to ensure compatibility across the set of supported LLMs
 
 ## 1.0.8
 
