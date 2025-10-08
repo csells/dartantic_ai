@@ -11,6 +11,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
   group('Provider Capabilities', () {
     group('capability declarations (80% cases)', () {
@@ -39,25 +41,35 @@ void main() {
         }
       });
 
-      test('capability filtering works correctly', () {
-        // Test single capability filter
+      test('tool capability filter returns providers', () {
         final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
         expect(toolProviders, isNotEmpty);
-        for (final provider in toolProviders) {
-          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
-        }
+      });
 
-        // Test multiple capability filter
+      runProviderTest(
+        'multi-tool capability flag is accurate',
+        (provider) async {
+          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
+
+      test('multi-tool + typed output filter returns providers', () {
         final advancedProviders = Providers.allWith({
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
         });
         expect(advancedProviders, isNotEmpty);
-        for (final provider in advancedProviders) {
+      });
+
+      runProviderTest(
+        'multi-tool + typed output capability flags are accurate',
+        (provider) async {
           expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
           expect(provider.caps.contains(ProviderCaps.typedOutput), isTrue);
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls, ProviderCaps.typedOutput},
+      );
     });
 
     group('capability enforcement (80% cases)', () {

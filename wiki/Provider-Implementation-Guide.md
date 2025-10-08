@@ -48,7 +48,7 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
             ProviderCaps.tools,
             ProviderCaps.multiToolCalls,
             ProviderCaps.typedOutput,
-            ProviderCaps.vision,
+            ProviderCaps.chatVision,
           },
         );
 
@@ -286,7 +286,7 @@ class LocalProvider extends Provider<LocalChatOptions, EmbeddingsModelOptions> {
       ProviderCaps.streaming,
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
     baseUrl: null,  // No base URL override in constructor
     apiKey: null,

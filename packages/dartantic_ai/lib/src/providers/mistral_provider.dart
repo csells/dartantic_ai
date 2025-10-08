@@ -28,7 +28,6 @@ class MistralProvider
         caps: const {
           ProviderCaps.chat,
           ProviderCaps.embeddings,
-          ProviderCaps.vision,
         },
         baseUrl: null,
         aliases: ['mistralai'],

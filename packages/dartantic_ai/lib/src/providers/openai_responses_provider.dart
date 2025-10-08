@@ -25,7 +25,7 @@ class OpenAIResponsesProvider
           ProviderCaps.typedOutput,
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.thinking,
-          ProviderCaps.vision,
+          ProviderCaps.chatVision,
         },
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,

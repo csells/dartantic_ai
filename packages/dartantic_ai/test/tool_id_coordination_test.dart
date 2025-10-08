@@ -22,7 +22,6 @@ import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-
   group('Tool ID Coordination', () {
     group('ToolIdHelpers', () {
       test('generates unique tool call IDs', () {

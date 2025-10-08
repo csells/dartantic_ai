@@ -29,7 +29,6 @@ class CohereProvider extends OpenAIProvider {
           ProviderCaps.embeddings,
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
-          ProviderCaps.vision,
         },
         baseUrl: cohereDefaultBaseUrl,
       );

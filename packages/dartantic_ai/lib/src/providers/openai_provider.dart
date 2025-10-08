@@ -31,7 +31,7 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
       ProviderCaps.typedOutputWithTools,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
     super.baseUrl,
     super.apiKeyName = 'OPENAI_API_KEY',

@@ -162,7 +162,7 @@ parameters. These are set at the provider level through the constructor. Provide
 Providers can be discovered by:
 - **Name**: `Providers.get('openai')`
 - **Alias**: `Providers.get('claude')` → resolves to Anthropic
-- **Capabilities**: `Providers.allWith({ProviderCaps.vision})`
+- **Capabilities**: `Providers.allWith({ProviderCaps.chatVision})`
 - **All Providers**: `Providers.all`
 
 ### 5. Provider-Specific Environment Variables

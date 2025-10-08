@@ -125,14 +125,31 @@ void main() {
         final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
         final result = await agent.send(
-          'Show me the result of string_tool with "hello" and '
-          'then show me the result of int_tool with 42',
+          'Draft a quick warehouse update. '
+          'Call string_tool with "hello" to greet the team, then call int_tool '
+          'with 42 to report how many packages shipped today. Summarise both '
+          'tool results in your reply.',
         );
 
         // Should see evidence of both tools being used
         expect(result.output, isNotEmpty);
-        expect(result.output.toLowerCase(), anyOf(contains('hello')));
-        expect(result.output, contains('42'));
+        final toolResults = result.messages
+            .expand((m) => m.toolResults)
+            .toList();
+        expect(
+          toolResults.any(
+            (r) => r.name == 'string_tool' &&
+                r.result.toString().toLowerCase().contains('hello'),
+          ),
+          isTrue,
+        );
+        expect(
+          toolResults.any(
+            (r) => r.name == 'int_tool' &&
+                (r.result == 42 || r.result == '42'),
+          ),
+          isTrue,
+        );
       }, requiredCaps: {ProviderCaps.multiToolCalls});
 
       runProviderTest(
@@ -188,13 +205,6 @@ void main() {
         //   }'
         // If it consistently returns "42" in the response, this test can be
         // re-enabled.
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent conversation history behavior',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name);
         final history = <ChatMessage>[];
 
@@ -208,7 +218,8 @@ void main() {
         // Second turn - stream with history
         final chunks = <String>[];
         await for (final chunk in agent.sendStream(
-          'What is my favorite number?',
+          'During this live update, remind me of the customer preference we '
+          'just stored. Mention the favourite number explicitly.',
           history: history,
         )) {
           chunks.add(chunk.output);
@@ -222,13 +233,6 @@ void main() {
         provider,
       ) async {
         // Skip for Cohere - same conversation history issue as above
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent conversation history behavior',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name);
         final history = <ChatMessage>[];
 
@@ -306,13 +310,6 @@ void main() {
         //   }'
         // Expected: Response mentioning "100" Actual: Sometimes "The result was
         // 100", sometimes "Sorry, I can't find the result"
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent tool history behavior (90% success rate)',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name, tools: [intTool]);
         final history = <ChatMessage>[];
 
@@ -326,7 +323,9 @@ void main() {
         // Second turn - stream reference to previous tool use
         final chunks = <String>[];
         await for (final chunk in agent.sendStream(
-          'What was the result of the calculation?',
+          'Earlier you used int_tool with 100. '
+          'Remind me of that result and include the exact number '
+          'in your reply.',
           history: history,
         )) {
           chunks.add(chunk.output);

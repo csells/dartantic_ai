@@ -12,37 +12,31 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_utils.dart';
 
 void main() {
   group('Provider Mappers', () {
     group('message format consistency (80% cases)', () {
-      test('all providers handle basic text messages', () async {
-        final providerNames = ['openai', 'anthropic', 'google', 'mistral'];
+      runProviderTest('handles basic text messages', (provider) async {
+        final agent = Agent(provider.name);
 
-        for (final providerName in providerNames) {
-          final provider = Providers.get(providerName);
-          final agent = Agent(provider.name);
+        final result = await agent.send('Say "mapper test"');
+        expect(result.output, isNotEmpty);
+        expect(result.messages, isNotEmpty);
 
-          final result = await agent.send('Say "mapper test"');
-          expect(result.output, isNotEmpty);
-          expect(result.messages, isNotEmpty);
+        expect(
+          result.messages.any((m) => m.role == ChatMessageRole.user),
+          isTrue,
+          reason: '${provider.name} should have human message',
+        );
+        expect(
+          result.messages.any((m) => m.role == ChatMessageRole.model),
+          isTrue,
+          reason: '${provider.name} should have AI message',
+        );
 
-          // All should produce human and AI messages
-          expect(
-            result.messages.any((m) => m.role == ChatMessageRole.user),
-            isTrue,
-            reason: '$providerName should have human message',
-          );
-          expect(
-            result.messages.any((m) => m.role == ChatMessageRole.model),
-            isTrue,
-            reason: '$providerName should have AI message',
-          );
-
-          // Validate message history follows correct pattern
-          validateMessageHistory(result.messages);
-        }
+        validateMessageHistory(result.messages);
       });
 
       test('message metadata is consistent', () async {
@@ -59,47 +53,39 @@ void main() {
     });
 
     group('tool message mapping (80% cases)', () {
-      test(
+      runProviderTest(
         'tool calls are mapped consistently',
-        () async {
-          final toolProviders = Providers.allWith({
-            ProviderCaps.multiToolCalls,
-          });
+        (provider) async {
+          final tool = Tool<String>(
+            name: 'echo_tool',
+            description: 'Echoes the input',
+            inputSchema: js.JsonSchema.create({
+              'type': 'object',
+              'properties': {
+                'text': {'type': 'string', 'description': 'The text to echo'},
+              },
+              'required': ['text'],
+            }),
+            inputFromJson: (json) => (json['text'] ?? 'hello') as String,
+            onCall: (input) => 'Echo: $input',
+          );
 
-          // Test ALL providers
-          for (final provider in toolProviders) {
-            final tool = Tool<String>(
-              name: 'echo_tool',
-              description: 'Echoes the input',
-              inputSchema: js.JsonSchema.create({
-                'type': 'object',
-                'properties': {
-                  'text': {'type': 'string', 'description': 'The text to echo'},
-                },
-                'required': ['text'],
-              }),
-              inputFromJson: (json) => (json['text'] ?? 'hello') as String,
-              onCall: (input) => 'Echo: $input',
-            );
+          final agent = Agent(provider.name, tools: [tool]);
 
-            final agent = Agent(provider.name, tools: [tool]);
+          final result = await agent.send('Use echo_tool to say "hello"');
 
-            final result = await agent.send('Use echo_tool to say "hello"');
+          final hasToolCall = result.messages.any((m) => m.hasToolCalls);
+          final hasToolResult = result.messages.any((m) => m.hasToolResults);
 
-            // Should have tool-related messages
-            final hasToolCall = result.messages.any((m) => m.hasToolCalls);
-            final hasToolResult = result.messages.any((m) => m.hasToolResults);
+          expect(
+            hasToolCall || hasToolResult,
+            isTrue,
+            reason: '${provider.name} should have tool messages',
+          );
 
-            expect(
-              hasToolCall || hasToolResult,
-              isTrue,
-              reason: '${provider.name} should have tool messages',
-            );
-
-            // Validate message history follows correct pattern
-            validateMessageHistory(result.messages);
-          }
+          validateMessageHistory(result.messages);
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
 
@@ -210,7 +196,7 @@ void main() {
       });
 
       test('Google format compatibility', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
         final result = await agent.send('Test Google format');
 
         // Google/Gemini format
@@ -221,7 +207,7 @@ void main() {
 
     group('edge cases', () {
       test('handles empty responses', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         // Prompt that might produce minimal response
         final result = await agent.send('.');
@@ -239,7 +225,7 @@ void main() {
       });
 
       test('handles very long messages', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         final longPrompt = 'Repeat this word: test ' * 100;
         final result = await agent.send(longPrompt);
@@ -250,7 +236,7 @@ void main() {
       });
 
       test('handles special characters in messages', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         const specialChars = r'Special chars: @#$%^&*()_+{}[]|\:;"<>?,./~`';
         final result = await agent.send('Echo: $specialChars');
@@ -261,7 +247,7 @@ void main() {
       });
 
       test('handles unicode in messages', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         const unicode = 'Unicode test: 你好 🌍 émojis ñ Ω';
         final result = await agent.send('Echo: $unicode');

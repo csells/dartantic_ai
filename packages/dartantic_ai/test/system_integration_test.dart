@@ -26,18 +26,12 @@ void main() {
     Future<void> Function(Provider provider) testFunction, {
     Timeout? timeout,
   }) {
-    group(testName, () {
-      final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-      for (final provider in toolProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
+    runProviderTest(
+      testName,
+      testFunction,
+      requiredCaps: {ProviderCaps.multiToolCalls},
+      timeout: timeout,
+    );
   }
 
   group('System Integration', () {
@@ -296,7 +290,7 @@ void main() {
 
     group('cross-provider workflows', () {
       test('provider fallback scenario', () async {
-        final providers = ['openai:gpt-4o-mini', 'google:gemini-2.0-flash'];
+        final providers = ['openai:gpt-4o-mini', 'google:gemini-2.5-flash'];
 
         var successfulProvider = '';
 
@@ -321,7 +315,7 @@ void main() {
             'prompt': 'Return JSON: {"test": true}',
           },
           {
-            'provider': 'google:gemini-2.0-flash',
+            'provider': 'google:gemini-2.5-flash',
             'feature': 'multimodal',
             'prompt': 'Describe this input',
           },
@@ -337,7 +331,7 @@ void main() {
       });
 
       test('model comparison workflow', () async {
-        final models = ['openai:gpt-4o-mini', 'google:gemini-2.0-flash'];
+        final models = ['openai:gpt-4o-mini', 'google:gemini-2.5-flash'];
 
         const prompt = 'What is the capital of France?';
         final results = <String, String>{};
@@ -567,7 +561,7 @@ void main() {
             return agent.send('Workflow 1: Count to 3');
           },
           () async {
-            final agent = Agent('google:gemini-2.0-flash');
+            final agent = Agent('google:gemini-2.5-flash');
             return agent.send('Workflow 2: Say hello');
           },
         ];
@@ -612,7 +606,7 @@ void main() {
 
     group('real-world usage patterns', () {
       test('code analysis workflow', () async {
-        final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
+        final agent = Agent('openai', tools: [stringTool]);
 
         const codeSnippet = '''
 function fibonacci(n) {
@@ -709,30 +703,25 @@ function fibonacci(n) {
     });
 
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-      test('empty and minimal inputs', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'empty and minimal inputs',
+        (provider) async {
           final agent = Agent(provider.name);
 
           final testCases = ['', ' ', '?', '1'];
 
           for (final input in testCases) {
-            // Skip empty inputs for Anthropic
-            if (provider.name == 'anthropic' && input.trim().isEmpty) {
-              continue;
-            }
             final result = await agent.send(input);
             expect(result.output, isA<String>());
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-      test('special character handling across system', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'special character handling across system',
+        (provider) async {
           final agent = Agent(provider.name, tools: [stringTool]);
 
           const specialInput = '{"test": "hello 世界 🌍"}';
@@ -742,14 +731,15 @@ function fibonacci(n) {
           );
 
           expect(result.output, isNotEmpty);
-
-          // Should handle unicode and special characters properly
           expect(result.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('very long workflow chains', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'very long workflow chains',
+        (provider) async {
           final agent = Agent(provider.name, tools: [stringTool]);
 
           const longPrompt =
@@ -764,11 +754,12 @@ function fibonacci(n) {
           expect(result.output, isNotEmpty);
           expect(result.messages, isNotEmpty);
 
-          // Should handle complex multi-step workflows
           final hasToolResults = result.messages.any((m) => m.hasToolResults);
           expect(hasToolResults, isTrue);
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
     });
 
     group('integration patterns', () {

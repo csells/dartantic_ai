@@ -14,6 +14,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
   late Uint8List testImageBytes;
   late Uint8List testTextBytes;
@@ -26,15 +28,6 @@ void main() {
     testPdfBytes = await File('test/files/Tiny PDF.pdf').readAsBytes();
   });
 
-  // Categorize providers by their multi-modal capabilities
-  const generalPurposeProviders = {
-    'openai',
-    'anthropic',
-    'google',
-    'google-openai',
-    'openrouter',
-  };
-
   // Helper to get vision-capable model name for vision-only providers
   String getVisionModelName(Provider provider) => switch (provider.name) {
     'together' => 'Qwen/Qwen2.5-VL-72B-Instruct',
@@ -44,29 +37,37 @@ void main() {
     _ => provider.defaultModelNames[ModelKind.chat] ?? '',
   };
 
-  bool isGeneralPurpose(Provider provider) =>
-      generalPurposeProviders.contains(provider.name);
-
   // Helper to run tests on general-purpose providers
   void runGeneralPurposeTest(
     String description,
     Future<void> Function(Provider provider, Agent agent) testFunction, {
     bool edgeCase = false,
   }) {
-    final providers = edgeCase
-        ? [Providers.get('google')] // Edge cases on Google only
-        : Providers.all.where(
-            (p) => p.caps.contains(ProviderCaps.vision) && isGeneralPurpose(p),
-          );
+    runProviderTest(
+      description,
+      (provider) async {
+        final defaultModel = provider.defaultModelNames[ModelKind.chat];
+        expect(
+          defaultModel,
+          isNotNull,
+          reason:
+              'Provider ${provider.name} should expose a default '
+              'chat model for multi-modal usage',
+        );
+        expect(
+          defaultModel!.isNotEmpty,
+          isTrue,
+          reason:
+              'Provider ${provider.name} default chat model '
+              'should not be empty',
+        );
 
-    for (final provider in providers) {
-      // Use default model for general-purpose providers
-      final agent = Agent(provider.name);
-
-      test('${agent.model}: $description', () async {
+        final agent = Agent(provider.name);
         await testFunction(provider, agent);
-      });
-    }
+      },
+      requiredCaps: {ProviderCaps.chatVision},
+      edgeCase: edgeCase,
+    );
   }
 
   // Helper to run tests on vision providers
@@ -74,19 +75,19 @@ void main() {
     String description,
     Future<void> Function(Provider provider, Agent agent) testFunction,
   ) {
-    final providers = Providers.all.where(
-      (p) => p.caps.contains(ProviderCaps.vision),
-    );
-
-    for (final provider in providers) {
-      // Use vision-specific model for vision providers
+    runProviderTest(description, (provider) async {
       final modelName = getVisionModelName(provider);
-      final agent = Agent('${provider.name}:$modelName');
+      expect(
+        modelName.isNotEmpty,
+        isTrue,
+        reason:
+            'Provider ${provider.name} should supply a '
+            'vision-capable model name',
+      );
 
-      test('${agent.model}: $description', () async {
-        await testFunction(provider, agent);
-      });
-    }
+      final agent = Agent('${provider.name}:$modelName');
+      await testFunction(provider, agent);
+    }, requiredCaps: {ProviderCaps.chatVision});
   }
 
   group('Multi-Modal', () {
@@ -282,14 +283,6 @@ void main() {
       });
 
       runVisionOnlyTest('handles multiple images', (provider, agent) async {
-        // Skip providers that don't support multiple images
-        if (provider.name == 'together') {
-          markTestSkipped(
-            'Provider ${provider.name} does not support multiple images',
-          );
-          return;
-        }
-
         // Use pre-loaded test images
         final image1 = testImageBytes;
         final image2 = testImageBytes;

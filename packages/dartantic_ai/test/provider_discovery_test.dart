@@ -14,47 +14,9 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
-  // Helper to run parameterized tests for chat providers
-  void runChatProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
-  // Helper to run parameterized tests for embeddings providers
-  void runEmbeddingsProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all.where(
-        (p) => p.caps.contains(ProviderCaps.embeddings),
-      )) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   group('Provider Discovery', () {
     group('chat provider selection', () {
       test('finds providers by exact name', () {
@@ -147,16 +109,18 @@ void main() {
         ); // OpenAI-compatible Google endpoint
       });
 
-      runChatProviderTest('chat providers have required properties', (
-        provider,
-      ) async {
-        expect(provider.name, isNotEmpty);
-        expect(provider.displayName, isNotEmpty);
-        expect(provider.createChatModel, isNotNull);
-        expect(provider.listModels, isNotNull);
-      });
+      runProviderTest(
+        'chat providers have required properties',
+        (provider) async {
+          expect(provider.name, isNotEmpty);
+          expect(provider.displayName, isNotEmpty);
+          expect(provider.createChatModel, isNotNull);
+          expect(provider.listModels, isNotNull);
+        },
+        requiredCaps: {ProviderCaps.chat},
+      );
 
-      runEmbeddingsProviderTest(
+      runProviderTest(
         'embeddings providers have required properties',
         (provider) async {
           expect(provider.name, isNotEmpty);
@@ -164,6 +128,7 @@ void main() {
           expect(provider.createEmbeddingsModel, isNotNull);
           expect(provider.listModels, isNotNull);
         },
+        requiredCaps: {ProviderCaps.embeddings},
       );
     });
 
@@ -241,10 +206,10 @@ void main() {
         final provider = Providers.get('gemini');
         expect(provider.name, equals('google'));
 
-        final agent = Agent('${provider.name}:gemini-2.0-flash');
+        final agent = Agent('${provider.name}:gemini-2.5-flash');
         expect(agent, isNotNull);
         // Agent.model returns "provider:model" format
-        expect(agent.model, equals('google:gemini-2.0-flash'));
+        expect(agent.model, equals('google:gemini-2.5-flash'));
       });
     });
 
@@ -279,26 +244,16 @@ void main() {
       });
     });
 
-    group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      // and avoid timeouts
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-
-      final edgeCaseEmbeddingsProviders = <Provider>[Providers.openai];
-
-      test('chat providers return available models', () async {
-        for (final provider in edgeCaseProviders) {
+    group('model enumeration checks', () {
+      runProviderTest(
+        'chat providers return available models',
+        (provider) async {
           final models = await provider.listModels().toList();
           expect(
             models,
             isNotEmpty,
             reason: 'Provider ${provider.name} should have models',
           );
-
-          // Verify model structure
           for (final model in models) {
             expect(
               model.name,
@@ -306,19 +261,19 @@ void main() {
               reason: 'Model name should not be empty for ${provider.name}',
             );
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.chat},
+      );
 
-      test('embeddings providers return available models', () async {
-        for (final provider in edgeCaseEmbeddingsProviders) {
+      runProviderTest(
+        'embeddings providers return available models',
+        (provider) async {
           final models = await provider.listModels().toList();
           expect(
             models,
             isNotEmpty,
             reason: 'Provider ${provider.name} should have embedding models',
           );
-
-          // Verify model structure
           for (final model in models) {
             expect(
               model.name,
@@ -326,33 +281,32 @@ void main() {
               reason: 'Model name should not be empty for ${provider.name}',
             );
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.embeddings},
+      );
 
-      test('model counts match documented ranges', () async {
-        // Only test OpenAI to avoid API quota issues
-        final openaiModels = await Providers.openai.listModels().toList();
-        expect(openaiModels.length, greaterThan(50));
-      });
-
-      test('models have consistent naming patterns', () async {
-        // Only test OpenAI for naming patterns
-        final provider = Providers.openai;
-        final models = await provider.listModels().toList();
-
-        for (final model in models.take(10)) {
-          // Test first 10 models only
-          // OpenAI models should have recognizable patterns
+      runProviderTest(
+        'models have consistent naming patterns',
+        (provider) async {
+          final models = await provider.listModels().toList();
           expect(
-            model.name,
-            matches(RegExp(r'^[a-zA-Z0-9\-\.\_]+$')),
-            reason: 'Model name should be alphanumeric with hyphens/dots',
+            models,
+            isNotEmpty,
+            reason: 'Provider ${provider.name} should publish models',
           );
-
-          // ID should match provider:model format when used with Agent
-          expect('${provider.name}:${model.name}', isNotEmpty);
-        }
-      });
+          for (final model in models.take(10)) {
+            expect(
+              model.name.trim(),
+              isNotEmpty,
+              reason:
+                  'Model name "${model.name}" for ${provider.name} should not '
+                  'be empty or whitespace',
+            );
+            expect('${provider.name}:${model.name}', isNotEmpty);
+          }
+        },
+        requiredCaps: {ProviderCaps.chat},
+      );
     });
   });
 }

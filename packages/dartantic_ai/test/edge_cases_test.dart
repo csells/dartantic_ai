@@ -8,6 +8,7 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -35,7 +36,7 @@ void main() {
       test('provider creation handles missing API keys', () {
         // All providers should create agents even without API keys
         expect(() => Agent('openai:gpt-4o-mini'), returnsNormally);
-        expect(() => Agent('google:gemini-2.0-flash'), returnsNormally);
+        expect(() => Agent('google:gemini-2.5-flash'), returnsNormally);
         expect(
           () => Agent('anthropic:claude-3-5-haiku-latest'),
           returnsNormally,
@@ -58,7 +59,7 @@ void main() {
       test('multiple agents can coexist', () {
         final agents = [
           Agent('openai:gpt-4o-mini'),
-          Agent('google:gemini-2.0-flash'),
+          Agent('google:gemini-2.5-flash'),
         ];
 
         // All agents should create successfully
@@ -75,92 +76,126 @@ void main() {
     });
 
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      // and avoid timeouts
-      final edgeCaseProviders = ['google:gemini-2.0-flash'];
+      runProviderTest(
+        'basic error recovery',
+        (provider) async {
+          final agent = Agent(provider.name);
+          final result = await agent.send('Hello');
+          expect(result.output, isA<String>());
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-      test('basic error recovery', () async {
-        final agent = Agent(edgeCaseProviders.first);
-        final result = await agent.send('Hello');
-        expect(result.output, isA<String>());
-      });
+      runProviderTest(
+        'streaming handles connection issues',
+        (provider) async {
+          final agent = Agent(provider.name);
 
-      test('streaming handles connection issues', () async {
-        final agent = Agent(edgeCaseProviders.first);
+          var streamStarted = false;
+          var streamCompleted = false;
 
-        var streamStarted = false;
-        var streamCompleted = false;
+          await for (final chunk in agent.sendStream('Test message')) {
+            streamStarted = true;
+            expect(chunk.output, isA<String>());
+          }
+          streamCompleted = true;
 
-        await for (final chunk in agent.sendStream('Test message')) {
-          streamStarted = true;
-          expect(chunk.output, isA<String>());
-        }
-        streamCompleted = true;
+          expect(streamStarted, isTrue);
+          expect(streamCompleted, isTrue);
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-        expect(streamStarted, isTrue);
-        expect(streamCompleted, isTrue);
-      });
+      runProviderTest(
+        'timeout handling',
+        (provider) async {
+          final agent = Agent(provider.name);
+          final stopwatch = Stopwatch()..start();
 
-      test('timeout handling', () async {
-        final agent = Agent(edgeCaseProviders.first);
-        final stopwatch = Stopwatch()..start();
+          await agent.send('What is 1 + 1?');
+          stopwatch.stop();
 
-        await agent.send('What is 1 + 1?');
-        stopwatch.stop();
+          expect(stopwatch.elapsedMilliseconds, lessThan(120000));
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-        // Should complete within reasonable time (2 minutes)
-        expect(stopwatch.elapsedMilliseconds, lessThan(120000));
-      });
+      runProviderTest(
+        'concurrent agent usage',
+        (provider) async {
+          final agent1 = Agent(provider.name);
+          final agent2 = Agent(provider.name);
 
-      test('concurrent agent usage', () async {
-        final agent1 = Agent(edgeCaseProviders.first);
-        final agent2 = Agent(edgeCaseProviders.first);
+          final futures = [
+            agent1.send('What is 2 + 2?'),
+            agent2.send('What is 3 + 3?'),
+          ];
 
-        final futures = [
-          agent1.send('What is 2 + 2?'),
-          agent2.send('What is 3 + 3?'),
-        ];
+          final results = await Future.wait(futures);
+          expect(results, hasLength(2));
+          expect(results[0].output, isA<String>());
+          expect(results[1].output, isA<String>());
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-        final results = await Future.wait(futures);
-        expect(results, hasLength(2));
-        expect(results[0].output, isA<String>());
-        expect(results[1].output, isA<String>());
-      });
+      runProviderTest(
+        'tool errors are handled gracefully',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [errorTool]);
 
-      test('tool errors are handled gracefully', () async {
-        final agent = Agent(edgeCaseProviders.first, tools: [errorTool]);
+          final result = await agent.send(
+            'Use error_tool to test error handling',
+          );
+          expect(result.output, isA<String>());
+          expect(result.messages, isNotEmpty);
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-        final result = await agent.send(
-          'Use error_tool to test error handling',
-        );
-        expect(result.output, isA<String>());
-        expect(result.messages, isNotEmpty);
-      });
+      runProviderTest(
+        'handles special characters safely',
+        (provider) async {
+          final agent = Agent(provider.name);
+          const specialInput = '!@#\$%^&*()_+{}[]|\\:";\'<>?,./`~';
 
-      test('handles special characters safely', () async {
-        final agent = Agent(edgeCaseProviders.first);
-        const specialInput = '!@#\$%^&*()_+{}[]|\\:";\'<>?,./`~';
+          final result = await agent.send('Echo: $specialInput');
+          expect(result.output, isA<String>());
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-        final result = await agent.send('Echo: $specialInput');
-        expect(result.output, isA<String>());
-      });
+      runProviderTest(
+        'handles unicode content properly',
+        (provider) async {
+          final agent = Agent(provider.name);
+          const unicodeInput = '🚀 Hello 世界! 🌟 Testing émojis and accénts';
 
-      test('handles unicode content properly', () async {
-        final agent = Agent(edgeCaseProviders.first);
-        const unicodeInput = '🚀 Hello 世界! 🌟 Testing émojis and accénts';
+          final result = await agent.send('Repeat: $unicodeInput');
+          expect(result.output, isA<String>());
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-        final result = await agent.send('Repeat: $unicodeInput');
-        expect(result.output, isA<String>());
-      });
+      runProviderTest(
+        'degraded functionality still provides value',
+        (provider) async {
+          final agent = Agent(provider.name);
 
-      test('degraded functionality still provides value', () async {
-        final agent = Agent(edgeCaseProviders.first);
-
-        // Even if advanced features fail, basic chat should work
-        final result = await agent.send('Hello');
-        expect(result.output, isA<String>());
-        expect(result.output.isNotEmpty, isTrue);
-      });
+          final result = await agent.send('Hello');
+          expect(result.output, isA<String>());
+          expect(result.output.isNotEmpty, isTrue);
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
     });
   });
 }

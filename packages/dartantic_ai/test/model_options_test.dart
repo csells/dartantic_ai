@@ -16,7 +16,6 @@ import 'package:test/test.dart';
 import 'test_helpers/run_provider_test.dart';
 
 void main() {
-
   group('Model Options', () {
     group('temperature settings (80% cases)', () {
       test('temperature 0 produces deterministic output', () async {
@@ -74,7 +73,7 @@ void main() {
       });
 
       test('system prompts affect behavior', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         final result = await agent.send(
           'Tell me about the weather',
@@ -147,12 +146,12 @@ void main() {
 
       test('temperature affects creativity', () async {
         // Low temperature = more focused
-        var agent = Agent('google:gemini-2.0-flash', temperature: 0.1);
+        var agent = Agent('google:gemini-2.5-flash', temperature: 0.1);
         var result = await agent.send('What is 2+2?');
         expect(result.output, contains('4'));
 
         // High temperature = more creative
-        agent = Agent('google:gemini-2.0-flash', temperature: 0.9);
+        agent = Agent('google:gemini-2.5-flash', temperature: 0.9);
         result = await agent.send('Write a word that rhymes with cat');
         expect(result.output, isNotEmpty);
       });
@@ -190,38 +189,38 @@ void main() {
     group('edge cases', () {
       test('extreme temperature values', () async {
         // Test temperature 0
-        var agent = Agent('google:gemini-2.0-flash', temperature: 0);
+        var agent = Agent('google:gemini-2.5-flash', temperature: 0);
         var result = await agent.send('Say exactly: "zero"');
         expect(result.output.toLowerCase(), contains('zero'));
 
         // Test temperature 2 (if supported)
-        agent = Agent('google:gemini-2.0-flash', temperature: 2);
+        agent = Agent('google:gemini-2.5-flash', temperature: 2);
         result = await agent.send('Say something creative');
         expect(result.output, isNotEmpty);
       });
 
       test('default values work correctly', () async {
         // Agent with no options should work
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
         final result = await agent.send('Test default settings');
         expect(result.output, isNotEmpty);
       });
 
       test('edge case temperature values', () async {
         // Very low temperature
-        var agent = Agent('google:gemini-2.0-flash', temperature: 0.01);
+        var agent = Agent('google:gemini-2.5-flash', temperature: 0.01);
         var result = await agent.send('Say exactly: "precise"');
         expect(result.output.toLowerCase(), contains('precise'));
 
         // Very high temperature
-        agent = Agent('google:gemini-2.0-flash', temperature: 1.5);
+        agent = Agent('google:gemini-2.5-flash', temperature: 1.5);
         result = await agent.send('Generate a creative word');
         expect(result.output, isNotEmpty);
       });
 
       test('long system prompts', () async {
         final longPrompt = 'You are an assistant. ' * 50;
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         final result = await agent.send(
           'Say hello',

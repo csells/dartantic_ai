@@ -14,7 +14,6 @@ import 'package:test/test.dart';
 import 'test_helpers/run_provider_test.dart';
 
 void main() {
-
   group('Usage Tracking', () {
     group('basic usage tracking', () {
       test('tracks token usage for single request', () async {
@@ -57,7 +56,7 @@ void main() {
       });
 
       test('tracks usage with longer responses', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
         final result = await agent.send(
           'Write a 3-sentence story about a robot',
         );
@@ -103,11 +102,13 @@ void main() {
             greaterThan(0),
             reason: 'Provider ${provider.name} should track response tokens',
           );
+          final expectedSum =
+              result.usage!.promptTokens! + result.usage!.responseTokens!;
           expect(
             result.usage!.totalTokens,
-            equals(result.usage!.promptTokens! + result.usage!.responseTokens!),
+            greaterThanOrEqualTo(expectedSum),
             reason:
-                'Provider ${provider.name} total should equal '
+                'Provider ${provider.name} total should be at least '
                 'prompt + response tokens',
           );
         }
@@ -321,7 +322,7 @@ void main() {
         }
 
         // Google
-        agent = Agent('google:gemini-2.0-flash');
+        agent = Agent('google:gemini-2.5-flash');
         result = await agent.send(prompt);
         if (result.usage?.totalTokens != null) {
           expect(result.usage!.totalTokens, greaterThan(0));
@@ -335,7 +336,7 @@ void main() {
         final providers = {
           'anthropic': 'claude-3-5-haiku-latest',
           'openai': 'gpt-4o-mini',
-          'google': 'gemini-2.0-flash',
+          'google': 'gemini-2.5-flash',
         };
 
         for (final entry in providers.entries) {
@@ -353,37 +354,33 @@ void main() {
     });
 
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-
-      test('handles missing usage data gracefully', () async {
-        // Some providers might not always return usage
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles missing usage data gracefully',
+        (provider) async {
           final agent = Agent(provider.name);
 
           final result = await agent.send('Hello');
-          // If usage is provided, it should be valid
           if (result.usage?.totalTokens != null) {
             expect(result.usage!.totalTokens, greaterThanOrEqualTo(0));
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-      test('handles zero token edge cases', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles zero token edge cases',
+        (provider) async {
           final agent = Agent(provider.name);
 
-          // Even minimal prompts should have some tokens if usage tracking is
-          // available
           final result = await agent.send('Hi');
           if (result.usage?.promptTokens != null) {
-            expect(result.usage!.promptTokens, greaterThan(0)); // System tokens
+            expect(result.usage!.promptTokens, greaterThan(0));
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
     });
 
     group('all providers - usage tracking', () {

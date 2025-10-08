@@ -14,7 +14,6 @@ import 'package:test/test.dart';
 import 'test_helpers/run_provider_test.dart';
 
 void main() {
-
   group('Chat Models', () {
     group('basic chat completions (80% cases)', () {
       runProviderTest('simple single-turn chat', (provider) async {
@@ -180,21 +179,24 @@ void main() {
 
         final history = <ChatMessage>[
           ChatMessage.system(
-            'You are a helpful assistant who always mentions '
-            'the word "fantastic" in your responses.',
+            'You are a helpful assistant who always responds like a pirate. '
+            'Begin every reply with "Ahoy" and sprinkle pirate slang.',
           ),
         ];
 
         // Turn 1
         var result = await agent.send('What is 2+2?', history: history);
         history.addAll(result.messages);
-        expect(result.output.toLowerCase(), contains('fantastic'));
+        expect(
+          result.output.toLowerCase(),
+          anyOf(contains('ahoy'), contains('matey'), contains('arr')),
+        );
 
         // Turn 2
         result = await agent.send('What color is the sky?', history: history);
         history.addAll(result.messages);
 
-        expect(result.output.toLowerCase(), contains('fantastic'));
+        expect(result.output.toLowerCase(), contains('ahoy'));
       });
     });
 

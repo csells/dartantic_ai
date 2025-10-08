@@ -11,7 +11,7 @@ dependencies:
   cli_repl: ^0.2.3
   dartantic_ai:
     path: ../../packages/dartantic_ai
-  dartantic_interface: ^1.0.2
+  dartantic_interface: ^1.1.0
   http: ^1.4.0
   json_schema: ^5.2.1
 

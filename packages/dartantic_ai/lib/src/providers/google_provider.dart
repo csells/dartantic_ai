@@ -21,7 +21,7 @@ class GoogleProvider
         name: 'google',
         displayName: 'Google',
         defaultModelNames: {
-          ModelKind.chat: 'gemini-2.0-flash',
+          ModelKind.chat: 'gemini-2.5-flash',
           ModelKind.embeddings: 'models/text-embedding-004',
         },
         caps: {
@@ -29,7 +29,7 @@ class GoogleProvider
           ProviderCaps.embeddings,
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
-          ProviderCaps.vision,
+          ProviderCaps.chatVision,
         },
         aliases: ['gemini'],
         baseUrl: null,

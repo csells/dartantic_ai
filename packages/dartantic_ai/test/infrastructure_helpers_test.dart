@@ -13,6 +13,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
   group('Infrastructure Helpers', () {
     group('provider discove ry (80% cases)', () {
@@ -69,29 +71,36 @@ void main() {
     });
 
     group('provider capabilities (80% cases)', () {
-      test('filters providers by single capability', () {
+      test('at least one provider advertises multi-tool support', () {
         final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-
         expect(toolProviders, isNotEmpty);
-        // All returned providers should support tools
-        for (final provider in toolProviders) {
-          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
-        }
       });
 
-      test('filters providers by multiple capabilities', () {
+      runProviderTest(
+        'multi-tool capability flag is accurate',
+        (provider) async {
+          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
+
+      test('at least one provider advertises multi-tool + typed output', () {
         final advancedProviders = Providers.allWith({
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
         });
 
         expect(advancedProviders, isNotEmpty);
-        // All returned providers should support both capabilities
-        for (final provider in advancedProviders) {
+      });
+
+      runProviderTest(
+        'multi-tool + typed output capability flags are accurate',
+        (provider) async {
           expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
           expect(provider.caps.contains(ProviderCaps.typedOutput), isTrue);
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls, ProviderCaps.typedOutput},
+      );
 
       test('capabilities are consistent', () {
         for (final provider in Providers.all) {
@@ -205,15 +214,15 @@ void main() {
         expect(openai.name, equals('openai'));
       });
 
-      test('embeddings provider metadata is valid', () {
-        for (final provider in Providers.allWith({ProviderCaps.embeddings})) {
+      runProviderTest(
+        'embeddings provider metadata is valid',
+        (provider) async {
           expect(provider.name, isNotEmpty);
-          // Provider doesn't have defaultModelName or models
-          // Just verify we can create a model
           final model = provider.createEmbeddingsModel();
           expect(model, isNotNull);
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.embeddings},
+      );
     });
 
     group('edge cases', () {

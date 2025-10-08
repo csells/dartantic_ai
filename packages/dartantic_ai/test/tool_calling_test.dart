@@ -232,8 +232,12 @@ void main() {
           final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
           final response = await agent.send(
-            'Call string_tool with "multi ${provider.name}" and '
-            'int_tool with 42',
+            'Customer onboarding requires two steps. '
+            'First, call string_tool to produce the text '
+            '"Welcome message for ${provider.name}". '
+            'Second, call int_tool with the value 42 to record the '
+            'total number of welcome packets prepared. After running both '
+            'tools, summarise what you did.',
           );
 
           // Check that both tools were executed
@@ -250,7 +254,7 @@ void main() {
           final results = toolResults.map((tr) => tr.result).toList();
           expect(
             results,
-            contains('String result: multi ${provider.name}'),
+            contains('String result: Welcome message for ${provider.name}'),
             reason:
                 'Provider ${provider.name} should execute '
                 'string_tool correctly',
@@ -348,38 +352,36 @@ void main() {
 
     // Edge cases moved to dedicated section at bottom
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-      test('handles null return values', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles null return values',
+        (provider) async {
           final agent = Agent(provider.name, tools: [nullTool]);
           final response = await agent.send('Call the null_tool');
-          // Should handle null gracefully
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles empty string returns', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles empty string returns',
+        (provider) async {
           final agent = Agent(provider.name, tools: [emptyStringTool]);
           final response = await agent.send('Call the empty_string_tool');
-          // Should complete without error
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles very long string returns', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles very long string returns',
+        (provider) async {
           final agent = Agent(provider.name, tools: [veryLongStringTool]);
           final response = await agent.send(
-            'show the result of calling very_long_string_tool '
-            'with repeat_count 10',
+            'show the result of calling very_long_string_tool with '
+            'repeat_count 10',
           );
-          // Model should either include the Lorem ipsum text or mention it
-          // handled a long string
           expect(
             response.output.toLowerCase(),
             anyOf(
@@ -389,30 +391,34 @@ void main() {
               contains('repeated'),
             ),
           );
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles unicode in tool results', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles unicode in tool results',
+        (provider) async {
           final agent = Agent(provider.name, tools: [unicodeTool]);
           final response = await agent.send('Call the unicode_tool');
           expect(response.output, isNotEmpty);
 
-          // Check that the tool was actually called and returned unicode
           final toolResults = response.messages
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, isNotEmpty);
           expect(toolResults.first.result, contains('👋'));
           expect(toolResults.first.result, contains('世界'));
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles special characters in tool results', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles special characters in tool results',
+        (provider) async {
           final agent = Agent(provider.name, tools: [specialCharsTool]);
           final response = await agent.send('Call the special_chars_tool');
-          // Model may either include the raw output or describe it
           expect(
             response.output.toLowerCase(),
             anyOf(
@@ -424,13 +430,14 @@ void main() {
               contains('quote'),
             ),
           );
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      // Removed - already covered above
-
-      test('handles no-params tools', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles no-params tools',
+        (provider) async {
           final agent = Agent(provider.name, tools: [noParamsTool]);
 
           final response = await agent.send('Call the no_params_tool');
@@ -438,38 +445,42 @@ void main() {
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, isNotEmpty);
-
-          // Check all results are correct (provider might call multiple times)
           for (final tr in toolResults) {
             expect(tr.result, equals('Called with no parameters'));
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles missing required parameters', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles missing required parameters',
+        (provider) async {
           final agent = Agent(provider.name, tools: [strictTypeTool]);
 
-          // Model should either request missing params or handle gracefully
           final response = await agent.send(
             'Call strict_type_tool but only provide string_param "test"',
           );
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles tool with no parameters', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles tool with no parameters',
+        (provider) async {
           final agent = Agent(provider.name, tools: [noParamsTool]);
           final response = await agent.send('Call the no_params_tool');
-          // Check that tool was executed and result is in messages
           final toolResults = response.messages
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, hasLength(1));
           expect(toolResults.first.result, equals('Called with no parameters'));
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
     });
 
     group('error handling', () {
@@ -556,8 +567,9 @@ void main() {
 
           final chunks = <String>[];
           await for (final chunk in agent.sendStream(
-            'Show me the result of calling the string_tool with input '
-            '"test ${provider.name}"',
+            'We owe customer support a quick update. Use string_tool to repeat '
+            'the phrase "Status update for ${provider.name}" and share the '
+            'result with me as you stream the response.',
           )) {
             chunks.add(chunk.output);
           }
@@ -567,7 +579,7 @@ void main() {
           expect(fullResponse, isNotEmpty);
           expect(
             fullResponse.toLowerCase(),
-            anyOf(contains('test'), contains(provider.name)),
+            anyOf(contains('status update'), contains(provider.name)),
             reason: 'Provider ${provider.name} failed to stream tool results',
           );
         },

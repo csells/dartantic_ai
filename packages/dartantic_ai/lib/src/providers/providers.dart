@@ -42,14 +42,14 @@ class Providers {
   static OpenAIProvider get openrouter => _openrouter ??= OpenAIProvider(
     name: 'openrouter',
     displayName: 'OpenRouter',
-    defaultModelNames: {ModelKind.chat: 'google/gemini-2.0-flash-001'},
+    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
     baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
     apiKeyName: 'OPENROUTER_API_KEY',
     caps: {
       ProviderCaps.chat,
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
   );
 
@@ -67,7 +67,7 @@ class Providers {
     },
     baseUrl: Uri.parse('https://api.together.xyz/v1'),
     apiKeyName: 'TOGETHER_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput, ProviderCaps.vision},
+    caps: {ProviderCaps.chat, ProviderCaps.typedOutput},
   );
 
   /// Mistral AI provider (native API, cloud).
@@ -81,7 +81,7 @@ class Providers {
     name: 'google-openai',
     displayName: 'Google AI (OpenAI-compatible)',
     defaultModelNames: {
-      ModelKind.chat: 'gemini-2.0-flash',
+      ModelKind.chat: 'gemini-2.5-flash',
       ModelKind.embeddings: 'text-embedding-004',
     },
     baseUrl: Uri.parse(
@@ -93,7 +93,7 @@ class Providers {
       ProviderCaps.embeddings,
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
   );
 
@@ -115,12 +115,7 @@ class Providers {
     defaultModelNames: {ModelKind.chat: 'llama3.2'},
     baseUrl: Uri.parse('http://localhost:11434/v1'),
     apiKeyName: null,
-    caps: {
-      ProviderCaps.chat,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.vision,
-    },
+    caps: {ProviderCaps.chat},
   );
 
   /// Returns a list of all available providers (static fields above).

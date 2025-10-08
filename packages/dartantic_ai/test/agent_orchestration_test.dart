@@ -15,7 +15,6 @@ import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-
   group('Agent Orchestration', () {
     group('agent lifecycle (80% cases)', () {
       runProviderTest('agent creation without API calls', (provider) async {
@@ -179,7 +178,9 @@ void main() {
 
           final chunks = <String>[];
           await for (final chunk in agent.sendStream(
-            'Use string_tool with "stream test"',
+            'A customer pinged about order #1234 being delayed. '
+            'Call string_tool to draft a short update mentioning the order '
+            'number, then explain what you sent.',
           )) {
             chunks.add(chunk.output);
           }
@@ -189,7 +190,7 @@ void main() {
           final fullText = chunks.join();
           expect(
             fullText.toLowerCase(),
-            anyOf(contains('stream test'), contains('string_tool')),
+            anyOf(contains('1234'), contains('order')),
           );
         },
         requiredCaps: {ProviderCaps.multiToolCalls},

@@ -19,6 +19,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_utils.dart';
 
 void main() {
@@ -43,7 +44,7 @@ void main() {
       });
 
       test('processes unicode and emoji correctly', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
 
         final response = await agent.send('Repeat exactly: 👋 Hello 世界 🌍');
         expect(response.output, contains('👋'));
@@ -51,30 +52,19 @@ void main() {
         expect(response.output, contains('🌍'));
       });
 
-      test(
-        'ALL providers handle single turn chat correctly',
-        timeout: const Timeout(Duration(minutes: 3)),
-        () async {
-          // Test EVERY provider
-          for (final provider in Providers.all) {
-            // Skip local providers if not available
-            if (provider.name.contains('ollama')) {
-              continue; // Skip for speed
-            }
-
-            // Testing single turn chat with provider
-
-            final agent = Agent(provider.name);
-
-            final response = await agent.send('what is 7*6?');
-
-            expect(
-              response.output,
-              contains('42'),
-              reason: 'Provider ${provider.name} should respond correctly',
-            );
-          }
+      runProviderTest(
+        'handles single turn chat correctly',
+        (provider) async {
+          final agent = Agent(provider.name);
+          final response = await agent.send('what is 7*6?');
+          expect(
+            response.output,
+            contains('42'),
+            reason: 'Provider ${provider.name} should respond correctly',
+          );
         },
+        requiredCaps: {ProviderCaps.chat},
+        timeout: const Timeout(Duration(minutes: 3)),
       );
     });
 
@@ -134,7 +124,7 @@ void main() {
       });
 
       test('accumulates multiple exchanges', () async {
-        final agent = Agent('google:gemini-2.0-flash');
+        final agent = Agent('google:gemini-2.5-flash');
         final messages = <ChatMessage>[];
 
         // First exchange
@@ -178,58 +168,45 @@ void main() {
         expect(messages[3].role, equals(ChatMessageRole.model));
       });
 
-      test(
-        'ALL providers handle multi-turn conversation correctly',
-        timeout: const Timeout(Duration(minutes: 3)),
-        () async {
-          // Test EVERY provider
-          for (final provider in Providers.all) {
-            // Skip local providers if not available
-            if (provider.name.contains('ollama')) {
-              continue; // Skip for speed
-            }
+      runProviderTest(
+        'handles multi-turn conversation correctly',
+        (provider) async {
+          final agent = Agent(provider.name);
+          final messages = <ChatMessage>[];
 
-            // Testing multi-turn chat with provider
+          var response = await agent.send(
+            'My favorite color is purple. Remember that.',
+            history: messages,
+          );
 
-            final agent = Agent(provider.name);
-            final messages = <ChatMessage>[];
+          messages.add(
+            const ChatMessage(
+              role: ChatMessageRole.user,
+              parts: [TextPart('My favorite color is purple. Remember that.')],
+            ),
+          );
+          messages.add(
+            ChatMessage(
+              role: ChatMessageRole.model,
+              parts: [TextPart(response.output)],
+            ),
+          );
 
-            var response = await agent.send(
-              'My favorite color is purple. Remember that.',
-              history: messages,
-            );
+          response = await agent.send(
+            'What is my favorite color?',
+            history: messages,
+          );
 
-            // Add to history
-            messages.add(
-              const ChatMessage(
-                role: ChatMessageRole.user,
-                parts: [
-                  TextPart('My favorite color is purple. Remember that.'),
-                ],
-              ),
-            );
-            messages.add(
-              ChatMessage(
-                role: ChatMessageRole.model,
-                parts: [TextPart(response.output)],
-              ),
-            );
-
-            // Follow up question
-            response = await agent.send(
-              'What is my favorite color?',
-              history: messages,
-            );
-
-            expect(
-              response.output.toLowerCase(),
-              contains('purple'),
-              reason:
-                  'Provider ${provider.name} should remember '
-                  'conversation context',
-            );
-          }
+          expect(
+            response.output.toLowerCase(),
+            contains('purple'),
+            reason:
+                'Provider ${provider.name} should remember '
+                'conversation context',
+          );
         },
+        requiredCaps: {ProviderCaps.chat},
+        timeout: const Timeout(Duration(minutes: 3)),
       );
     });
 
@@ -265,41 +242,31 @@ void main() {
         expect(chunks.join().toLowerCase(), contains('test'));
       });
 
-      test(
-        'ALL providers handle streaming correctly',
-        timeout: const Timeout(Duration(minutes: 3)),
-        () async {
-          // Test EVERY provider
-          for (final provider in Providers.all) {
-            // Skip local providers if not available
-            if (provider.name.contains('ollama')) {
-              continue; // Skip for speed
-            }
+      runProviderTest(
+        'handles streaming correctly',
+        (provider) async {
+          final agent = Agent(provider.name);
 
-            // Testing streaming with provider
-
-            final agent = Agent(provider.name);
-
-            final chunks = <String>[];
-            await for (final chunk in agent.sendStream('Count from 1 to 3')) {
-              chunks.add(chunk.output);
-            }
-
-            expect(
-              chunks,
-              isNotEmpty,
-              reason: 'Provider ${provider.name} should stream chunks',
-            );
-
-            final fullResponse = chunks.join();
-            expect(
-              fullResponse,
-              allOf([contains('1'), contains('2'), contains('3')]),
-              reason:
-                  'Provider ${provider.name} should stream complete response',
-            );
+          final chunks = <String>[];
+          await for (final chunk in agent.sendStream('Count from 1 to 3')) {
+            chunks.add(chunk.output);
           }
+
+          expect(
+            chunks,
+            isNotEmpty,
+            reason: 'Provider ${provider.name} should stream chunks',
+          );
+
+          final fullResponse = chunks.join();
+          expect(
+            fullResponse,
+            allOf([contains('1'), contains('2'), contains('3')]),
+            reason: 'Provider ${provider.name} should stream complete response',
+          );
         },
+        requiredCaps: {ProviderCaps.chat},
+        timeout: const Timeout(Duration(minutes: 3)),
       );
     });
 
@@ -318,29 +285,22 @@ void main() {
     });
 
     group('all providers - comprehensive test', () {
-      // Test EVERY provider individually
-      for (final provider in Providers.all) {
-        // Skip local providers if not available
-        if (provider.name.contains('ollama')) {
-          continue; // Skip for speed
-        }
+      runProviderTest(
+        'basic chat works',
+        (provider) async {
+          final agent = Agent(provider.name);
 
-        test(
-          '${provider.name}: basic chat works',
-          timeout: const Timeout(Duration(seconds: 30)),
-          () async {
-            final agent = Agent(provider.name);
+          final response = await agent.send('what is 7*6?');
 
-            final response = await agent.send('what is 7*6?');
-
-            expect(
-              response.output.toLowerCase(),
-              contains('42'),
-              reason: 'Provider ${provider.name} should respond correctly',
-            );
-          },
-        );
-      }
+          expect(
+            response.output.toLowerCase(),
+            contains('42'),
+            reason: 'Provider ${provider.name} should respond correctly',
+          );
+        },
+        requiredCaps: {ProviderCaps.chat},
+        timeout: const Timeout(Duration(seconds: 30)),
+      );
     });
 
     group('JSON serialization', () {
