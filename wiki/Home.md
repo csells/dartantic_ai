@@ -1,8 +1,3 @@
----
-title: Architecture Overview
-description: Comprehensive overview of the dartantic_ai package architecture and specifications
----
-
 This document provides a comprehensive overview of the dartantic_ai package architecture and points to detailed specifications for each major system.
 
 ## System Purpose
@@ -263,56 +258,56 @@ graph LR
 ## Major System Components
 
 ### 🏗️ **Orchestration Layer**
-Coordinates business logic and streaming workflows. See [Orchestration Layer Architecture](/specs/orchestration-layer-architecture) for details.
+Coordinates business logic and streaming workflows. See [[Orchestration-Layer-Architecture]] for details.
 - DefaultStreamingOrchestrator for standard workflows
 - TypedOutputStreamingOrchestrator for structured JSON
 - StreamingState for mutable state encapsulation
 - ToolExecutor for centralized tool execution
 
 ### 🔧 **Unified Provider Architecture**
-Single provider interface for both chat and embeddings. See [Unified Provider Architecture](/specs/unified-provider-architecture).
+Single provider interface for both chat and embeddings. See [[Unified-Provider-Architecture]].
 - Provider base class with capability declarations
 - Factory methods for model creation
 - Registry and discovery mechanisms
 
 ### 📝 **Model Configuration**
-Flexible model string parsing and defaults. See [Model Configuration Spec](/specs/model-configuration-spec).
+Flexible model string parsing and defaults. See [[Model-Configuration-Spec]].
 - URI-based parsing: `provider?chat=model&embeddings=embed`
 - Legacy formats supported: `provider:model`
 - Provider default models
 
 ### 🔑 **Agent Configuration**
-API key and base URL resolution. See [Agent Config Spec](/specs/agent-config-spec).
+API key and base URL resolution. See [[Agent-Config-Spec]].
 - Provider-level API key resolution
 - Environment variable handling
 - Cross-platform considerations
 
 ### 🌊 **Streaming & Tool Calls**
-Provider-specific streaming patterns. See [Streaming Tool Call Architecture](/specs/streaming-tool-call-architecture).
+Provider-specific streaming patterns. See [[Streaming-Tool-Call-Architecture]].
 - Streaming protocol handling per provider
 - Tool ID coordination
 - Message accumulation strategies
 
 ### 📊 **Typed Output**
-Structured JSON output across providers. See [Typed Output Architecture](/specs/typed-output-architecture).
+Structured JSON output across providers. See [[Typed-Output-Architecture]].
 - Native schema support where available
 - Tool-based fallback pattern
 - Schema validation
 
 ### 💬 **Message Handling**
-Clean message semantics and transformations. See [Message Handling Architecture](/specs/message-handling-architecture).
+Clean message semantics and transformations. See [[Message-Handling-Architecture]].
 - Request/response pair semantics
 - Tool result consolidation
 - Provider-specific mappers
 
 ### 📋 **Logging**
-Hierarchical, configurable logging. See [Logging Architecture](/specs/logging-architecture).
+Hierarchical, configurable logging. See [[Logging-Architecture]].
 - Simple configuration via `Agent.loggingOptions`
 - Domain-based organization
 - Production-ready patterns
 
 ### 🧪 **Testing**
-Comprehensive testing strategy. See [Test Spec](/specs/test-spec).
+Comprehensive testing strategy. See [[Test-Spec]].
 - Capability-based provider filtering
 - 80% vs edge case separation
 - No regression or performance tests
@@ -378,28 +373,28 @@ final embeddingsProviders = Providers.allWith({ProviderCaps.embeddings});
 ## Complete Documentation Index
 
 ### Core Architecture
-- **[Overview](/specs/overview)** - This document: comprehensive overview of the dartantic_ai package architecture
-- **[Unified Provider Architecture](/specs/unified-provider-architecture)** - Single provider interface for both chat and embeddings operations with capability discovery
-- **[Orchestration Layer Architecture](/specs/orchestration-layer-architecture)** - Coordinates streaming workflows, tool execution, and business logic across providers
-- **[Message Handling Architecture](/specs/message-handling-architecture)** - Message structure and transformation semantics across Agent and Mapper layers
-- **[State Management Architecture](/specs/state-management-architecture)** - StreamingState system for managing mutable state during streaming operations
-- **[Architecture Best Practices](/specs/architecture-best-practices)** - Core architectural principles (DRY, SRP, KISS, YAGNI, separation of concerns)
+- **[[Home]]** - This document: comprehensive overview of the dartantic_ai package architecture
+- **[[Unified-Provider-Architecture]]** - Single provider interface for both chat and embeddings operations with capability discovery
+- **[[Orchestration-Layer-Architecture]]** - Coordinates streaming workflows, tool execution, and business logic across providers
+- **[[Message-Handling-Architecture]]** - Message structure and transformation semantics across Agent and Mapper layers
+- **[[State-Management-Architecture]]** - StreamingState system for managing mutable state during streaming operations
+- **[[Architecture-Best-Practices]]** - Core architectural principles (DRY, SRP, KISS, YAGNI, separation of concerns)
 
 ### Features & Capabilities
-- **[Streaming Tool Call Architecture](/specs/streaming-tool-call-architecture)** - Provider-specific streaming patterns, tool ID coordination, and message accumulation
-- **[Typed Output Architecture](/specs/typed-output-architecture)** - Structured JSON output with native schema support and tool-based fallback
-- **[Logging Architecture](/specs/logging-architecture)** - Hierarchical, configurable logging with domain-based organization
-- **[Server Side Tools Tech Design](/specs/server-side-tools-tech-design)** - Architecture for provider-executed tools (web search, code interpreter, image generation)
+- **[[Streaming-Tool-Call-Architecture]]** - Provider-specific streaming patterns, tool ID coordination, and message accumulation
+- **[[Typed-Output-Architecture]]** - Structured JSON output with native schema support and tool-based fallback
+- **[[Logging-Architecture]]** - Hierarchical, configurable logging with domain-based organization
+- **[[Server-Side-Tools-Tech-Design]]** - Architecture for provider-executed tools (web search, code interpreter, image generation)
 
 ### Configuration & Setup
-- **[Agent Config Spec](/specs/agent-config-spec)** - API key resolution, environment variables, and cross-platform configuration
-- **[Model Configuration Spec](/specs/model-configuration-spec)** - Provider defaults and model resolution patterns
-- **[Model String Format](/specs/model-string-format)** - Model string parsing formats (URI-based, colon, slash notation)
+- **[[Agent-Config-Spec]]** - API key resolution, environment variables, and cross-platform configuration
+- **[[Model-Configuration-Spec]]** - Provider defaults and model resolution patterns
+- **[[Model-String-Format]]** - Model string parsing formats (URI-based, colon, slash notation)
 
 ### Implementation Guides
-- **[Provider Implementation Guide](/specs/provider-implementation-guide)** - Step-by-step guide for adding new providers
-- **[OpenAI Compat](/specs/openai-compat)** - OpenAI-compatible provider setup, API keys, and configuration
-- **[Test Spec](/specs/test-spec)** - Comprehensive testing strategy with capability-based filtering
+- **[[Provider-Implementation-Guide]]** - Step-by-step guide for adding new providers
+- **[[OpenAI-Compat]]** - OpenAI-compatible provider setup, API keys, and configuration
+- **[[Test-Spec]]** - Comprehensive testing strategy with capability-based filtering
 
 ## Future Considerations
 

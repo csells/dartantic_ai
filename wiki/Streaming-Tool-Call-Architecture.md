@@ -134,12 +134,7 @@ Structured event sequence with state tracking across events.
 
 ### StreamingOrchestrator Interface
 
-The orchestration layer coordinates streaming workflows through the `StreamingOrchestrator` interface:
-
-```dart
-abstract class StreamingOrchestrator {
-  /// Execute the streaming workflow
-  Stream<StreamingIterationResult> execute(
+The orchestration layer coordinates streaming workflows through the `StreamingOrchestrator` interface.
     ChatModel<ChatModelOptions> model,
     StreamingState state, {
     JsonSchema? outputSchema,
@@ -486,7 +481,7 @@ catch (error, stackTrace) {
 - **Note**: Both native and OpenAI-compatible endpoints
 
 ### Cohere
-- **Streaming**: Custom format with `<|python_tag|>` markers
+- **Streaming**: Custom format with <|python_tag|>
 - **Tool IDs**: Provided by API
 - **Arguments**: Special parsing for "null" string
 - **Edge Case**: Sends "null" for parameterless tools

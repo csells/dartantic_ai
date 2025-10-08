@@ -12,7 +12,7 @@ This document specifies how messages are structured and transformed across the A
 
 ### Clean Separation of Concerns
 
-Message handling operates within the six-layer architecture. For details on each layer's responsibilities, see the [Six-Layer Architecture](overview#1-six-layer-architecture) section in the Architecture Overview.
+Message handling operates within the six-layer architecture. For details on each layer's responsibilities, see the [[Home#1-six-layer-architecture]] section in the Architecture Overview.
 
 Key message-handling responsibilities by layer:
 - **API Layer**: Maintains clean request/response semantics with alternating user/model messages
@@ -179,7 +179,7 @@ conversationHistory.addAll(result3.messages);
 
 ## Typed Output Support
 
-For typed output (structured JSON responses), see [Typed Output Architecture](/specs/typed-output-architecture). The key points for message handling:
+For typed output (structured JSON responses), see [[Typed-Output-Architecture]]. The key points for message handling:
 
 - When `outputSchema` is provided, Agent adds a `return_result` tool
 - Tool results are still consolidated into single user messages as normal
@@ -191,7 +191,7 @@ For typed output (structured JSON responses), see [Typed Output Architecture](/s
 
 ### Tool Call Argument Parsing
 
-Tool arguments are always provided as parsed `Map<String, dynamic>` in ToolPart:
+Tool arguments are always provided as parsed Map<String, dynamic> in ToolPart:
 
 ```dart
 // Simple argument extraction - ToolPart always has parsed arguments

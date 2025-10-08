@@ -79,5 +79,5 @@ final agent3 = Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 
 ## Related Specifications
 
-- [Model Configuration Spec](/specs/model-configuration-spec) - Provider defaults and model resolution
-- [Agent Config Spec](/specs/agent-config-spec) - API key and environment configuration
+- [[Model-Configuration-Spec]] - Provider defaults and model resolution
+- [[Agent-Config-Spec]] - API key and environment configuration

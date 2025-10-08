@@ -1,8 +1,3 @@
----
-title: Agent Configuration Specification
-description: API key and base URL resolution in the dartantic_ai package
----
-
 This document specifies how API keys and base URLs are resolved in the
 dartantic_ai package, including the precedence hierarchy and
 interaction between different configuration methods.

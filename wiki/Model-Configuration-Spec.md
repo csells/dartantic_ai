@@ -233,5 +233,5 @@ final agent = Agent.forProvider(provider);
 
 ## Related Specifications
 
-- **API Key Resolution**: See [Agent Config Spec](/specs/agent-config-spec)
-- **Provider Architecture**: See [Unified Provider Architecture](/specs/unified-provider-architecture)
+- **API Key Resolution**: See [[Agent-Config-Spec]]
+- **Provider Architecture**: See [[Unified-Provider-Architecture]]

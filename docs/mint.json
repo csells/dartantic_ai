@@ -51,21 +51,38 @@
   "navigation": [
     {
       "group": "Get Started",
-      "pages": ["index", "quick-start", "environment-setup"]
+      "pages": [
+        "index",
+        "quick-start",
+        "environment-setup"
+      ]
     },
     {
       "group": "Core Features",
-      "pages": ["providers", "tool-calling", "multi-turn-chat", "typed-output", "streaming-output", "embeddings"]
+      "pages": [
+        "providers",
+        "tool-calling",
+        "multi-turn-chat",
+        "typed-output",
+        "streaming-output",
+        "embeddings"
+      ]
     },
     {
       "group": "Advanced Topics",
-      "pages": ["agentic-behavior", "thinking", "custom-providers", "multi-media-input", "using-dotprompt"]
+      "pages": [
+        "agentic-behavior",
+        "thinking",
+        "custom-providers",
+        "multi-media-input",
+        "using-dotprompt"
+      ]
     },
     {
       "group": "Server Side Tools",
       "pages": [
-        "server-side-tools/index", 
-        "server-side-tools/web-search", 
+        "server-side-tools/index",
+        "server-side-tools/web-search",
         "server-side-tools/file-search",
         "server-side-tools/code-interpreter",
         "server-side-tools/image-generation"
@@ -73,36 +90,27 @@
     },
     {
       "group": "Developer Tools",
-      "pages": ["logging", "error-handling", "usage-tracking", "automatic-retry"]
+      "pages": [
+        "logging",
+        "error-handling",
+        "usage-tracking",
+        "automatic-retry"
+      ]
     },
     {
       "group": "Integration",
-      "pages": ["mcp-support"]
-    },
-    {
-      "group": "Specifications",
       "pages": [
-        "specs/overview",
-        "specs/agent-config-spec",
-        "specs/architecture-best-practices",
-        "specs/logging-architecture",
-        "specs/message-handling-architecture",
-        "specs/model-configuration-spec",
-        "specs/model-string-format",
-        "specs/openai-compat",
-        "specs/orchestration-layer-architecture",
-        "specs/provider-implementation-guide",
-        "specs/server-side-tools-tech-design",
-        "specs/state-management-architecture",
-        "specs/streaming-tool-call-architecture",
-        "specs/test-spec",
-        "specs/typed-output-architecture",
-        "specs/unified-provider-architecture"
+        "mcp-support"
       ]
     },
     {
       "group": "Resources",
-      "pages": ["migration-guide", "contributing", "notes-on-ai-codegen", "system-messages"]
+      "pages": [
+        "migration-guide",
+        "contributing",
+        "notes-on-ai-codegen",
+        "system-messages"
+      ]
     }
   ],
   "footerSocials": {
