@@ -349,7 +349,7 @@ class MessageStreamEventTransformer
       ChatResult<ChatMessage>(
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: const [ChatMessage(role: ChatMessageRole.model, parts: [])],
+        messages: const [],
         finishReason: _mapFinishReason(e.delta.stopReason),
         metadata: {
           if (e.delta.stopSequence != null)

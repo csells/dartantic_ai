@@ -537,6 +537,8 @@ void main() {
           );
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
+        // TODO: Remove once we migrate off google_generative_ai (issue #6)
+        skipProviders: {'google', 'google-openai'},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -584,7 +586,8 @@ void main() {
           );
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
-
+        // TODO: Remove once we migrate off google_generative_ai (issue #6)
+        skipProviders: {'google'},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
