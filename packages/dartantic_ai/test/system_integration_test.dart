@@ -15,29 +15,11 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 import 'test_utils.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   // Helper for tool-supporting providers
   void runToolProviderTest(
     String testName,

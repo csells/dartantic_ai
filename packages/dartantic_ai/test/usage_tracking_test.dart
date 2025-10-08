@@ -11,25 +11,9 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
 
   group('Usage Tracking', () {
     group('basic usage tracking', () {

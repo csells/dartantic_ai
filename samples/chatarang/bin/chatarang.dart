@@ -11,10 +11,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 const defaultModel = 'google';
 
 Future<void> main() async {
-  final providers = Providers.allWith({
-    ProviderCaps.chat,
-    ProviderCaps.multiToolCalls,
-  });
+  final providers = Providers.allWith({ProviderCaps.chat});
 
   final models = <String>[
     for (final provider in providers)

@@ -11,33 +11,9 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
-void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
+import 'test_helpers/run_provider_test.dart';
 
-    for (final providerModel in providers) {
-      test('$providerModel: $description', () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-        final provider = Providers.get(providerName);
-        await testFunction(provider);
-      });
-    }
-  }
+void main() {
 
   group('Chat Models', () {
     group('basic chat completions (80% cases)', () {

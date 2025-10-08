@@ -23,33 +23,18 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
-void main() {
-  // Get all providers that support typed output
-  final typedOutputProviders = Providers.allWith({ProviderCaps.typedOutput});
+import 'test_helpers/run_provider_test.dart';
 
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in typedOutputProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
+final typedOutputProviders = Providers.allWith({ProviderCaps.typedOutput});
+
+void main() {
 
   group('Typed Output', () {
     group('basic structured output', () {
-      runProviderTest('returns simple JSON object', (provider) async {
-        final schema = js.JsonSchema.create({
+      runProviderTest(
+        'returns simple JSON object',
+        (provider) async {
+          final schema = js.JsonSchema.create({
           'type': 'object',
           'properties': {
             'name': {'type': 'string'},
@@ -64,10 +49,12 @@ void main() {
           outputSchema: schema,
         );
 
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['name'], isA<String>());
-        expect(json['age'], isA<int>());
-      });
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['name'], isA<String>());
+          expect(json['age'], isA<int>());
+        },
+        requiredCaps: {ProviderCaps.typedOutput},
+      );
 
       runProviderTest('handles nested objects', (provider) async {
         final schema = js.JsonSchema.create({
@@ -108,7 +95,7 @@ void main() {
           expect(json['settings']['theme'], isA<String>());
           expect(json['settings']['notifications'], isA<bool>());
         }
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('returns arrays when specified', (provider) async {
         final schema = js.JsonSchema.create({
@@ -142,7 +129,7 @@ void main() {
         expect(json['items'][0]['id'], equals(1));
         expect(json['items'][0]['name'], equals('Apple'));
         expect(json['items'][2]['name'], equals('Cherry'));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest(
         'handle structured output correctly',
@@ -182,6 +169,7 @@ void main() {
             reason: 'Provider ${provider.name} should generate correct boolean',
           );
         },
+        requiredCaps: {ProviderCaps.typedOutput},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -220,7 +208,7 @@ void main() {
         expect(json['boolean_field'], isTrue);
         // Google returns "null" as a string instead of actual null
         expect(json['null_field'], anyOf(isNull, equals('null')));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('respects enum constraints', (provider) async {
         final schema = js.JsonSchema.create({
@@ -247,7 +235,7 @@ void main() {
         final json = jsonDecode(result.output) as Map<String, dynamic>;
         expect(json['status'], equals('approved'));
         expect(json['priority'], equals('high'));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('handles numeric constraints', (provider) async {
         final schema = js.JsonSchema.create({
@@ -283,7 +271,7 @@ void main() {
         expect(json['age'], greaterThanOrEqualTo(0));
         expect(json['age'], lessThanOrEqualTo(150));
         expect(json['score'], equals(87.5));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('complex schemas', () {
@@ -322,7 +310,7 @@ void main() {
           expect(json['children'][0]['name'], isA<String>());
           expect(json['children'][0]['age'], isA<int>());
         }
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('handles union types with anyOf', (provider) async {
         final schema = js.JsonSchema.create({
@@ -370,7 +358,7 @@ void main() {
         // Providers may return numbers as strings for anyOf types - both are
         // valid
         expect(json['value'], anyOf(equals(42), equals('42')));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     // Error cases moved to dedicated edge cases section
@@ -400,7 +388,7 @@ void main() {
           json['message'].toString().toLowerCase(),
           equals('${provider.name} test'.toLowerCase()),
         );
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('all providers - typed output', () {
@@ -434,7 +422,7 @@ void main() {
           equals(123),
           reason: 'Provider ${provider.name} should return correct value',
         );
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('edge cases (limited providers)', () {
@@ -530,7 +518,7 @@ void main() {
         );
         expect(json['count'], equals(42));
         expect(messages, isNotEmpty);
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('handles complex schema in streaming', (provider) async {
         if (provider.name == 'ollama-openai') {
@@ -577,7 +565,7 @@ void main() {
         expect(json['users'][1]['name'], anyOf(equals('Bob'), equals('Jones')));
         expect(json['users'][1]['active'], isFalse);
         expect(json['total'], equals(2));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('runFor<T>() typed output', () {
@@ -601,7 +589,7 @@ void main() {
         expect(result.output, isA<Map<String, dynamic>>());
         expect(result.output['city'], equals('Paris'));
         expect(result.output['country'], equals('France'));
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       test(
         'returns custom typed objects - ${typedOutputProviders.first.name}',
@@ -641,7 +629,7 @@ void main() {
         expect(result.output.email, equals('john@example.com'));
         expect(result.output.preferences.theme, contains('dark'));
         expect(result.output.preferences.notifications, isTrue);
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('complex real-world schemas', () {
@@ -728,7 +716,7 @@ void main() {
         expect(json['data']['pagination']['page'], equals(1));
         expect(json['data']['pagination']['totalPages'], equals(5));
         expect(json['metadata']['version'], isNotEmpty);
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
 
       runProviderTest('handles deeply nested configuration', (provider) async {
         // Skip for Google - API returns corrupted JSON with deeply nested
@@ -813,7 +801,7 @@ void main() {
             anyOf(equals(30), equals(1800), equals(1800000)),
           );
         }
-      });
+      }, requiredCaps: {ProviderCaps.typedOutput});
     });
 
     group('provider edge cases', () {

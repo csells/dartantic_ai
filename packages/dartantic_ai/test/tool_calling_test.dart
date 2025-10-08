@@ -20,35 +20,11 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 import 'test_utils.dart';
 
 void main() {
-  // Get all providers that support tools
-  final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in toolProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            if (provider.name == 'ollama-openai') {
-              markTestSkipped('Ollama OpenAI never does well on this test');
-              return;
-            }
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
 
   group('Tool Calling', () {
     group('single tool calls', () {
@@ -112,7 +88,9 @@ void main() {
 
       // Moved to edge cases section
 
-      runProviderTest('handles single tool calls correctly', (provider) async {
+      runProviderTest(
+        'handles single tool calls correctly',
+        (provider) async {
         final agent = Agent(provider.name, tools: [stringTool]);
 
         final response = await agent.send(
@@ -148,7 +126,7 @@ void main() {
           ),
           reason: 'Provider ${provider.name} should reference tool result',
         );
-      });
+      }, requiredCaps: {ProviderCaps.multiToolCalls});
     });
 
     group('multiple tool calls', () {
@@ -247,7 +225,9 @@ void main() {
         }
       });
 
-      runProviderTest('handles multiple different tools', (provider) async {
+      runProviderTest(
+        'handles multiple different tools',
+        (provider) async {
         final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
         final response = await agent.send(
@@ -281,11 +261,11 @@ void main() {
 
         // Validate message history follows correct pattern
         validateMessageHistory(response.messages);
-      });
+      }, requiredCaps: {ProviderCaps.multiToolCalls});
 
-      runProviderTest('handles same tool multiple times with different args', (
-        provider,
-      ) async {
+      runProviderTest(
+        'handles same tool multiple times with different args',
+        (provider) async {
         final agent = Agent(provider.name, tools: [weatherTool]);
 
         final response = await agent.send(
@@ -317,11 +297,11 @@ void main() {
           contains('los angeles'),
           reason: 'Provider ${provider.name} should get LA weather',
         );
-      });
+      }, requiredCaps: {ProviderCaps.multiToolCalls});
 
-      runProviderTest('handles same tool with same args multiple times', (
-        provider,
-      ) async {
+      runProviderTest(
+        'handles same tool with same args multiple times',
+        (provider) async {
         final agent = Agent(provider.name, tools: [stringTool]);
 
         // Ask it to call the same tool multiple times with same args
@@ -353,7 +333,7 @@ void main() {
         }
 
         // The provider might call it 1, 2, 3 or more times - all are valid
-      });
+      }, requiredCaps: {ProviderCaps.multiToolCalls});
     });
 
     // Edge cases moved to dedicated section at bottom
@@ -535,6 +515,7 @@ void main() {
                 'gracefully',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -558,7 +539,9 @@ void main() {
         );
       });
 
-      runProviderTest('stream tool calls correctly', (provider) async {
+      runProviderTest(
+        'stream tool calls correctly',
+        (provider) async {
         final agent = Agent(provider.name, tools: [stringTool]);
 
         final chunks = <String>[];
@@ -577,7 +560,9 @@ void main() {
           anyOf(contains('test'), contains(provider.name)),
           reason: 'Provider ${provider.name} failed to stream tool results',
         );
-      }, timeout: const Timeout(Duration(minutes: 3)));
+      },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        timeout: const Timeout(Duration(minutes: 3)));
 
       test('streams multiple tool calls', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool, intTool]);
@@ -707,6 +692,7 @@ void main() {
                 'result in response',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -740,6 +726,7 @@ void main() {
             reason: 'Provider ${provider.name} did not execute tool',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

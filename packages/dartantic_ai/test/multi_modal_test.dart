@@ -37,7 +37,7 @@ void main() {
 
   // Helper to get vision-capable model name for vision-only providers
   String getVisionModelName(Provider provider) => switch (provider.name) {
-    'together' => ':meta-llama/Llama-Guard-3-11B-Vision-Turbo',
+    'together' => 'Qwen/Qwen2.5-VL-72B-Instruct',
     'ollama' => 'llava:7b',
     'ollama-openai' => 'llava:7b',
     'cohere' => 'c4ai-aya-vision-8b',
@@ -262,10 +262,7 @@ void main() {
       ) async {
         // Debug: verify correct model is being used
         if (provider.name == 'together') {
-          expect(
-            agent.model,
-            contains('meta-llama/Llama-Guard-3-11B-Vision-Turbo'),
-          );
+          expect(agent.model, contains('Qwen/Qwen2.5-VL-72B-Instruct'));
         }
 
         // Use the pre-loaded test image

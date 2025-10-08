@@ -8,31 +8,12 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   group('Reliability Features', () {
     group('basic construction reliability', () {
       runProviderTest('agent creation does not throw', (provider) async {

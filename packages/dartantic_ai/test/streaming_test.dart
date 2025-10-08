@@ -11,39 +11,10 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
-
-    for (final providerModel in providers) {
-      test('$providerModel: $description', () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-        if (providerName == 'ollama-openai') {
-          markTestSkipped('Ollama OpenAI never does well on this test');
-          return;
-        }
-        final provider = Providers.get(providerName);
-        await testFunction(provider);
-      });
-    }
-  }
 
   // Timeout calculation based on empirical measurements:
   // - Worst case: Cohere multi-turn takes 8096ms in isolation
