@@ -22,6 +22,8 @@ This is a big release!
 - Support for the fully
   [spec](https://google.github.io/dotprompt/implementors/)-compliant
   [dotprompt_dart package](https://pub.dev/packages/dotprompt_dart)
+- Published all of the specs for dartantic in a new Specifications section in
+  the docs
 - 1300+ tests to ensure feature compatibility across the set of supported LLMs
 
 ## 1.0.8

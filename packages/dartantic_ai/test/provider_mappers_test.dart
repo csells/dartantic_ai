@@ -86,6 +86,8 @@ void main() {
           validateMessageHistory(result.messages);
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
+        // TODO: Remove once we migrate off google_generative_ai (issue #6)
+        skipProviders: {'google'},
         timeout: const Timeout(Duration(minutes: 2)),
       );
 

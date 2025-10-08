@@ -80,6 +80,27 @@
       "pages": ["mcp-support"]
     },
     {
+      "group": "Specifications",
+      "pages": [
+        "specs/overview",
+        "specs/agent-config-spec",
+        "specs/architecture-best-practices",
+        "specs/logging-architecture",
+        "specs/message-handling-architecture",
+        "specs/model-configuration-spec",
+        "specs/model-string-format",
+        "specs/openai-compat",
+        "specs/orchestration-layer-architecture",
+        "specs/provider-implementation-guide",
+        "specs/server-side-tools-tech-design",
+        "specs/state-management-architecture",
+        "specs/streaming-tool-call-architecture",
+        "specs/test-spec",
+        "specs/typed-output-architecture",
+        "specs/unified-provider-architecture"
+      ]
+    },
+    {
       "group": "Resources",
       "pages": ["migration-guide", "contributing", "notes-on-ai-codegen", "system-messages"]
     }

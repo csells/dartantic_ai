@@ -25,21 +25,18 @@ void runProviderTest(
             .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
 
   for (final providerModel in providers) {
+    final parts = providerModel.split(':');
+    final providerName = parts[0];
+    final isSkipped = normalizedSkips.contains(providerName.toLowerCase());
+
     test(
       '$providerModel: $description',
       () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-
-        if (normalizedSkips.contains(providerName.toLowerCase())) {
-          return;
-        }
-
         final provider = Providers.get(providerName);
-
         await testFunction(provider);
       },
       timeout: timeout ?? const Timeout(Duration(seconds: 30)),
+      skip: isSkipped,
     );
   }
 }

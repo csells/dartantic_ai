@@ -9,8 +9,6 @@
 ///
 /// This file tests cross-provider integration scenarios
 
-import 'dart:typed_data';
-
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
@@ -353,74 +351,6 @@ void main() {
     });
 
     group('complex message handling', () {
-      test(
-        'multipart message with tool execution',
-        skip: 'Image validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
-
-          final imageData = Uint8List.fromList([
-            1,
-            2,
-            3,
-            4,
-          ]); // Minimal image data
-          final result = await agent.send(
-            'Analyze this data and use string_tool',
-            attachments: [
-              DataPart(imageData, mimeType: 'application/octet-stream'),
-              LinkPart(Uri.parse('https://example.com/reference')),
-            ],
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.messages, isNotEmpty);
-
-          // Should have both multipart input and tool execution
-          final userMessage = result.messages.firstWhere(
-            (m) => m.role == ChatMessageRole.user,
-          );
-          expect(userMessage.parts.length, greaterThan(1));
-
-          final hasToolResults = result.messages.any((m) => m.hasToolResults);
-          expect(hasToolResults, isTrue);
-        },
-      );
-
-      test(
-        'conversation history with mixed message types',
-        skip: 'Image validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini');
-
-          final history = <ChatMessage>[
-            const ChatMessage(
-              role: ChatMessageRole.system,
-              parts: [TextPart('You are a helpful assistant.')],
-            ),
-            ChatMessage(
-              role: ChatMessageRole.user,
-              parts: [
-                const TextPart('Hello'),
-                LinkPart(Uri.parse('https://example.com')),
-              ],
-            ),
-            const ChatMessage(
-              role: ChatMessageRole.model,
-              parts: [TextPart('Hello! I see you shared a link.')],
-            ),
-          ];
-
-          final result = await agent.send(
-            'What did we discuss?',
-            history: history,
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.output.toLowerCase(), contains('link'));
-        },
-      );
-
       test('tool results integration in conversation flow', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
 
@@ -628,32 +558,6 @@ function fibonacci(n) {
         expect(hasToolResults, isTrue);
       });
 
-      test(
-        'research and summarization workflow',
-        skip: 'URL validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini');
-
-          final result = await agent.send(
-            'Research topic: renewable energy. '
-            'Provide a brief summary of solar and wind power.',
-            attachments: [
-              LinkPart(Uri.parse('https://example.com/renewable-energy')),
-            ],
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.output.toLowerCase(), contains('solar'));
-          expect(result.output.toLowerCase(), contains('wind'));
-
-          // Should reference the provided link
-          final userMessage = result.messages.firstWhere(
-            (m) => m.role == ChatMessageRole.user,
-          );
-          expect(userMessage.parts.whereType<LinkPart>(), hasLength(1));
-        },
-      );
-
       test('interactive problem solving', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [intTool]);
 
@@ -803,24 +707,6 @@ function fibonacci(n) {
         // Cleanup
         Providers.providerMap.remove('custom-openai-test');
       });
-
-      test(
-        'dotprompt integration',
-        skip: 'Requires dotprompt_dart package - optional dependency',
-        () async {
-          // This test would verify dotprompt integration if the package is
-          // available Skipped by default as it's an optional dependency
-        },
-      );
-
-      test(
-        'MCP client integration',
-        skip: 'Requires MCP server - would need test server or mock',
-        () async {
-          // This test would verify MCP client integration
-          // Skipped by default as it requires external MCP server
-        },
-      );
     });
   });
 }
