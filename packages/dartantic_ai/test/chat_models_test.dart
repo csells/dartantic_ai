@@ -113,8 +113,8 @@ void main() {
           'What language am I learning?',
           history: history,
         );
-        expect(result.output.toLowerCase(), contains('dart'));
         history.addAll(result.messages);
+        expect(result.output.toLowerCase(), contains('dart'));
 
         // Further reference
         result = await agent.send(

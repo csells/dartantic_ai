@@ -698,8 +698,8 @@ void main() {
             'Return a JSON payload for GET /api/users. '
             'Mark "success" as true and include exactly two users: '
             'Alice Smith (id "1") and Bob Jones (id "2"). '
-            'Each user profile must include firstName, lastName, and avatar URL. '
-            'Set pagination to page 1 of 5 with perPage 10 and total 50. '
+            'Each user profile must include firstName, lastName, and avatar '
+            'URL. Set pagination to page 1 of 5 with perPage 10 and total 50. '
             'Add metadata with a non-empty version string and timestamp.',
             outputSchema: schema,
           );

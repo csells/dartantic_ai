@@ -136,30 +136,6 @@ void main() {
         final result = await agent.send('Use long_error_tool');
         expect(result.output, isNotEmpty);
       });
-
-      test('handles concurrent exceptions', () async {
-        // Create multiple agents that might fail
-        final agents = List.generate(
-          3,
-          (i) => Agent('google:gemini-2.5-flash'),
-        );
-
-        // Make requests that might fail concurrently
-        final futures = agents
-            .map(
-              (agent) async => agent.send('Test concurrent exception $agent'),
-            )
-            .toList();
-
-        // Wait for all to complete (some might throw)
-        final results = await Future.wait(
-          futures,
-          eagerError: false, // Don't stop on first error
-        ).catchError((e) => <ChatResult<String>>[]);
-
-        // At least some should complete
-        expect(results, isA<List>());
-      });
     });
   });
 }

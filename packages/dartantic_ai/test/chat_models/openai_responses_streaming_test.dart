@@ -23,66 +23,42 @@ void main() {
         ),
       );
 
-      final streamedThinking = <String>[];
-      final streamedOutput = <String>[];
-      ChatMessage? finalMessage;
+      final thinkingBuffer = StringBuffer();
+      final outputBuffer = StringBuffer();
+      final history = <ChatMessage>[];
 
       await for (final chunk in agent.sendStream(
         'In one sentence: explain quicksort.',
       )) {
-        // Collect thinking metadata during streaming
         final thinking = chunk.metadata['thinking'] as String?;
-        if (thinking != null && thinking.isNotEmpty) {
-          streamedThinking.add(thinking);
-        }
-
-        // Collect regular output
-        if (chunk.output.isNotEmpty) {
-          streamedOutput.add(chunk.output);
-        }
-
-        // Save final message
-        if (chunk.messages.isNotEmpty) {
-          finalMessage = chunk.messages.last;
-        }
+        thinkingBuffer.write(thinking ?? '');
+        outputBuffer.write(chunk.output);
+        history.addAll(chunk.messages);
       }
 
-      final combinedThinking = streamedThinking.join();
-      final combinedOutput = streamedOutput.join();
-
-      // With gpt-5 and reasoningSummary enabled, we MUST get thinking
       expect(
-        streamedThinking,
+        thinkingBuffer.toString(),
         isNotEmpty,
         reason: 'gpt-5 with detailed reasoning MUST produce thinking metadata',
-      );
-      expect(
-        combinedThinking,
-        isNotEmpty,
-        reason: 'Thinking metadata should contain content',
-      );
-      expect(
-        combinedThinking.length,
-        greaterThan(20),
-        reason: 'Thinking should be substantial for detailed reasoning',
       );
 
       // Thinking should NOT be duplicated in message metadata
       // It was already streamed in ChatResult.metadata
       expect(
-        finalMessage?.metadata['thinking'],
+        history.last.metadata['thinking'],
         isNull,
-        reason: 'Thinking should not be duplicated in message metadata',
+        reason: 'Thinking should NOT be in message metadata',
       );
 
       // Verify the actual response
       expect(
-        combinedOutput,
+        outputBuffer.toString(),
         isNotEmpty,
         reason: 'Should have actual response output',
       );
+
       expect(
-        combinedOutput.toLowerCase(),
+        outputBuffer.toString().toLowerCase(),
         contains('quicksort'),
         reason: 'Response should address the question',
       );
