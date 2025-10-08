@@ -1,10 +1,11 @@
 // ignore_for_file: avoid_print
 
-import 'dart:io' show Platform, exit;
+import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:example/example.dart';
+import 'package:example/src/dump_stuff.dart';
+import 'package:example/src/example_tools.dart';
 
 void main() async {
   // Example: Setting API keys programmatically via Agent.environment

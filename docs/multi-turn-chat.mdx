@@ -79,6 +79,15 @@ The provider automatically reuses the previous session ID when you include it in
 message metadata, so orchestrators like `Agent` handle this for you. You can
 still fall back to `store: false` for stateless requests.
 
+When `store` is `true` (the default), the provider caches the entire
+conversation server-side. Dartantic still encourages you to pass history around
+as usual so the orchestrator can build prompts, but the OpenAI Responses mapper
+uses the `_responses_session` metadata to send only the *new* messages on each
+turn. This keeps payloads small while preserving full context on the provider.
+
+Set `store: false` to force stateless behaviour—useful when you explicitly want
+every turn to include the full history that you supply from the client.
+
 ## Examples
 
 - [Multi-turn chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)

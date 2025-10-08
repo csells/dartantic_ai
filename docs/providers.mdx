@@ -61,6 +61,16 @@ Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 Agent('openai-responses:gpt-5');
 ```
 
+### OpenAI Responses Sessions
+
+The Responses provider enables server-side session storage by default
+(`store: true`). You still pass conversation history to `Agent.send`/`sendStream`
+as usual, but the provider mapper inspects `_responses_session` metadata and
+only forwards the *new* messages to the API each turn. This keeps payloads
+small while maintaining full context on OpenAI's side. Set
+`OpenAIResponsesChatModelOptions(store: false)` if you need fully stateless
+requests.
+
 ## Find Providers
 
 ```dart
