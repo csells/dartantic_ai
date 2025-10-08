@@ -25,9 +25,8 @@ Future<void> thinking(Agent agent) async {
 
   // Thinking metadata is in result.metadata (not in message metadata)
   final thinking = result.metadata['thinking'];
-  if (thinking is String && thinking.isNotEmpty) {
-    stdout.writeln('[[$thinking]]\n');
-  }
+  assert(thinking is String && thinking.isNotEmpty);
+  stdout.writeln('[[$thinking]]\n');
   stdout.writeln(result.output);
   dumpMessages(result.messages);
 }
