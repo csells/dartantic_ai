@@ -1,0 +1,92 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Dartantic AI Documentation",
+  "logo": {
+    "dark": "images/dartantic-logo-dark.png",
+    "light": "images/dartantic-logo-light.png"
+  },
+  "favicon": "images/favicon.png",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "anchors": {
+      "from": "#0D9373",
+      "to": "#07C983"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:hi@mintlify.com"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Dashboard",
+    "url": "https://dashboard.mintlify.com"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "Documentation",
+      "icon": "book-open-cover",
+      "url": "https://mintlify.com/docs"
+    },
+    {
+      "name": "Community",
+      "icon": "slack",
+      "url": "https://mintlify.com/community"
+    },
+    {
+      "name": "Blog",
+      "icon": "newspaper",
+      "url": "https://mintlify.com/blog"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": ["index", "quick-start", "environment-setup"]
+    },
+    {
+      "group": "Core Features",
+      "pages": ["providers", "tool-calling", "multi-turn-chat", "typed-output", "streaming-output", "embeddings"]
+    },
+    {
+      "group": "Advanced Topics",
+      "pages": ["agentic-behavior", "thinking", "custom-providers", "multi-media-input", "using-dotprompt"]
+    },
+    {
+      "group": "Server Side Tools",
+      "pages": [
+        "server-side-tools/index", 
+        "server-side-tools/web-search", 
+        "server-side-tools/file-search",
+        "server-side-tools/code-interpreter",
+        "server-side-tools/image-generation"
+      ]
+    },
+    {
+      "group": "Developer Tools",
+      "pages": ["logging", "error-handling", "usage-tracking", "automatic-retry"]
+    },
+    {
+      "group": "Integration",
+      "pages": ["mcp-support"]
+    },
+    {
+      "group": "Resources",
+      "pages": ["migration-guide", "contributing", "notes-on-ai-codegen", "system-messages"]
+    }
+  ],
+  "footerSocials": {
+    "x": "https://x.com/mintlify",
+    "github": "https://github.com/mintlify",
+    "linkedin": "https://www.linkedin.com/company/mintlify"
+  }
+}
