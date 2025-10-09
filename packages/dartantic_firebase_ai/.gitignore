@@ -1,0 +1,4 @@
+
+# Flutter build artifacts
+build/
+.flutter-plugins-dependencies
