@@ -1,11 +1,12 @@
 ---
-title: Environment Setup
+title: "Environment Setup"
 ---
 
-Set API keys via environment variables and the providers automatically discover
-them.
+While you can create providers with API keys manually, I wouldn't recommend it. It's much easier to just use the conventionally API key name and let the provider you pick grab it from the environment.
 
 ## Quick Start
+
+You can just set up the API key values in your environment and let dartantic find them automatically:
 
 ```bash
 # Set your API keys
@@ -23,25 +24,23 @@ final agent = Agent('openai');
 final result = await agent.send('Hello!');
 ```
 
-## Platform Environment Variables
+## Provider Variable Names
 
-| Provider | Variable | Required |
-|----------|----------|----------|
-| OpenAI | `OPENAI_API_KEY` | ✅ |
-| Anthropic | `ANTHROPIC_API_KEY` | ✅ |
-| Google | `GEMINI_API_KEY` | ✅ |
-| Mistral | `MISTRAL_API_KEY` | ✅ |
-| Cohere | `COHERE_API_KEY` | ✅ |
-| OpenRouter | `OPENROUTER_API_KEY` | ✅ |
-| Together AI | `TOGETHER_API_KEY` | ✅ |
-| Lambda | `LAMBDA_API_KEY` | ✅ |
-| Ollama | None (local) | ❌ |
+| Provider    | Variable             | Required |
+| ----------- | -------------------- | -------- |
+| OpenAI      | `OPENAI_API_KEY`     | ✅        |
+| Anthropic   | `ANTHROPIC_API_KEY`  | ✅        |
+| Google      | `GEMINI_API_KEY`     | ✅        |
+| Mistral     | `MISTRAL_API_KEY`    | ✅        |
+| Cohere      | `COHERE_API_KEY`     | ✅        |
+| OpenRouter  | `OPENROUTER_API_KEY` | ✅        |
+| Together AI | `TOGETHER_API_KEY`   | ✅        |
+| Lambda      | `LAMBDA_API_KEY`     | ✅        |
+| Ollama      | None (local)         | ❌        |
 
 ## Agent Environment
 
-The environment provided by your platform is a fall-back mechanism and it's not
-always available. You can also set the environment variables on the `Agent`
-itself:
+The environment provided by your platform is a fall-back mechanism and it's not always available, e.g. when you're running dartantic in your Flutter web app. The first place that dartantic looks is the environment supplied by the `Agent` class itself:
 
 ```dart
 // Set programmatically
@@ -49,12 +48,7 @@ Agent.environment['OPENAI_API_KEY'] = 'sk-...';
 Agent.environment['ANTHROPIC_API_KEY'] = 'sk-ant-...';
 ```
 
-The agent's environment is the default place for providers to look for API keys
-and it's always available. It's useful for loading from .env files, your cloud
-vendor's secrets database, [Flutter's compile-time constant
-mechanism](https://dart.dev/language/variables#final-and-const) or wherever fine
-API keys are grown.
-
+The agent's environment is the default place for providers to look for API keys and it's available on all platforms. It's useful for loading from .env files, your cloud vendor's secrets database, [Flutter's compile-time constant mechanism](https://dart.dev/language/variables#final-and-const) or wherever fine API keys are grown. Only if the provider's key isn't found there will your platforms's environment be checked (if your platform has an environment, that is).
 
 ## Examples
 
