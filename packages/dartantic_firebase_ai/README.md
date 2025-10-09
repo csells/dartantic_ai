@@ -2,16 +2,16 @@
 
 Firebase AI provider for [dartantic_ai](https://pub.dev/packages/dartantic_ai).
 
-Provides access to Google's Gemini models through Firebase with enhanced security features including App Check, Firebase Authentication, and hybrid on-device inference support.
+Provides access to Google's Gemini models through Firebase with flexible backend options for both development and production use.
 
 ## Features
 
-- 🔥 **Firebase Integration** - Seamless integration with Firebase services
-- 🔒 **Enhanced Security** - App Check and Firebase Auth support
-- 💻 **Hybrid Inference** - Cloud and on-device model support
+- 🔥 **Dual Backend Support** - Google AI (development) and Vertex AI (production)
+- 🔒 **Enhanced Security** - App Check and Firebase Auth support (Vertex AI)
 - 🎯 **Full Gemini Capabilities** - Chat, function calling, structured output, vision
 - 🚀 **Streaming Responses** - Real-time token generation
 - 🛠️ **Tool Calling** - Function execution during generation
+- 🔄 **Easy Migration** - Switch backends without code changes
 
 ## Platform Support
 
@@ -45,7 +45,21 @@ dependencies:
 
 ## Usage
 
-### Basic Chat
+### Backend Selection
+
+Firebase AI supports two backends:
+
+**Google AI Backend** (for development/testing):
+- Direct access to Google AI API
+- Simpler setup, no Firebase project required for basic usage
+- Good for prototyping and development
+
+**Vertex AI Backend** (for production):
+- Full Firebase integration with security features
+- App Check, Firebase Auth support
+- Production-ready infrastructure
+
+### Basic Setup
 
 ```dart
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -55,14 +69,20 @@ import 'package:firebase_core/firebase_core.dart';
 // Initialize Firebase
 await Firebase.initializeApp();
 
-// Register the Firebase AI provider
+// Option 1: Vertex AI (default, production-ready)
 Providers.providerMap['firebase'] = FirebaseAIProvider();
 
-// Create an agent
-final agent = Agent('firebase');
+// Option 2: Google AI (simpler, for development)
+Providers.providerMap['firebase_dev'] = FirebaseAIProvider(
+  backend: FirebaseAIBackend.googleAI,
+);
+
+// Create agents
+final prodAgent = Agent('firebase:gemini-2.0-flash');
+final devAgent = Agent('firebase_dev:gemini-2.0-flash');
 
 // Send a message
-final result = await agent.send('Explain quantum computing in simple terms');
+final result = await prodAgent.send('Explain quantum computing');
 print(result.output);
 ```
 

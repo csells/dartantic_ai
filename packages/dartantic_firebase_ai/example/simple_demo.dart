@@ -1,32 +1,35 @@
 #!/usr/bin/env dart
 
 import 'dart:io';
+import 'package:logging/logging.dart';
 
 void main() {
-  print('🚀 Firebase AI Provider Demo');
-  print('================================');
+  final Logger logger = Logger('dartantic.examples.firebase_ai');
+  
+  logger.info('🚀 Firebase AI Provider Demo');
+  logger.info('================================');
   
   // This is a simple demonstration script that shows
   // the Firebase AI Provider can be successfully imported
   // and integrated with the dartantic_ai framework
   
-  print('✅ Script running successfully!');
-  print('✅ Firebase AI Provider package found');
-  print('✅ Dartantic AI integration ready');
+  logger.info('✅ Script running successfully!');
+  logger.info('✅ Firebase AI Provider package found');
+  logger.info('✅ Dartantic AI integration ready');
   
-  print('\n📋 Provider Details:');
-  print('• Provider: FirebaseAIProvider');
-  print('• Models: gemini-2.0-flash-exp');
-  print('• Capabilities: chatVision');
-  print('• Framework: dartantic_ai');
+  logger.info('\n📋 Provider Details:');
+  logger.info('• Provider: FirebaseAIProvider');
+  logger.info('• Models: gemini-2.0-flash-exp');
+  logger.info('• Capabilities: chatVision');
+  logger.info('• Framework: dartantic_ai');
   
-  print('\n💡 Integration Status:');
-  print('✅ Package builds successfully');
-  print('✅ Provider registers with Agent system');
-  print('✅ Ready for Firebase AI requests');
+  logger.info('\n💡 Integration Status:');
+  logger.info('✅ Package builds successfully');
+  logger.info('✅ Provider registers with Agent system');
+  logger.info('✅ Ready for Firebase AI requests');
   
-  print('\n🎉 Firebase AI Provider integration complete!');
-  print('📌 Use: Agent("firebase:gemini-2.0-flash-exp")');
+  logger.info('\n🎉 Firebase AI Provider integration complete!');
+  logger.info('📌 Use: Agent("firebase:gemini-2.0-flash-exp")');
   
   exit(0);
 }

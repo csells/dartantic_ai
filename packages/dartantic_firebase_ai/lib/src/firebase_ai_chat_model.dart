@@ -4,6 +4,7 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import 'firebase_ai_chat_options.dart';
+import 'firebase_ai_provider.dart';
 import 'firebase_message_mappers.dart';
 
 /// Wrapper around Firebase AI (Gemini via Firebase).
@@ -11,8 +12,10 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
   /// Creates a [FirebaseAIChatModel] instance.
   FirebaseAIChatModel({
     required super.name,
+    required this.baseUrl,  // Required from provider (already has fallback)
     List<Tool>? tools,
     super.temperature,
+    this.backend = FirebaseAIBackend.vertexAI,
     super.defaultOptions = const FirebaseAIChatModelOptions(),
   }) : super(
          // Filter out return_result tool as Firebase AI has native typed
@@ -20,7 +23,7 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
          tools: tools?.where((t) => t.name != kReturnResultToolName).toList(),
        ) {
     _logger.info(
-      'Creating Firebase AI model: $name '
+      'Creating Firebase AI model: $name (${backend.name}) '
       'with ${super.tools?.length ?? 0} tools, temp: $temperature',
     );
 
@@ -32,6 +35,12 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
 
   /// The name of the return_result tool that should be filtered out.
   static const String kReturnResultToolName = 'return_result';
+
+  /// The Firebase AI backend this model uses.
+  final FirebaseAIBackend backend;
+
+  /// Base URL for API requests (provider supplies with fallback).
+  final Uri baseUrl;
 
   late fai.GenerativeModel _firebaseAiClient;
   String? _currentSystemInstruction;
@@ -299,9 +308,17 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
   /// Create a new [fai.GenerativeModel] instance.
   fai.GenerativeModel _createFirebaseAiClient({String? systemInstruction}) {
     try {
-      _logger.fine('Creating Firebase AI client for model: $name');
+      _logger.fine(
+        'Creating Firebase AI client for model: $name (${backend.name})',
+      );
       
-      return fai.FirebaseAI.googleAI().generativeModel(
+      // Use the appropriate backend based on configuration
+      final firebaseAI = switch (backend) {
+        FirebaseAIBackend.googleAI => fai.FirebaseAI.googleAI(),
+        FirebaseAIBackend.vertexAI => fai.FirebaseAI.vertexAI(),
+      };
+      
+      return firebaseAI.generativeModel(
         model: name,
         systemInstruction: systemInstruction != null
             ? fai.Content.system(systemInstruction)
@@ -309,17 +326,23 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
       );
     } catch (e, stackTrace) {
       _logger.severe(
-        'Failed to create Firebase AI client for model $name: $e',
+        'Failed to create Firebase AI client for model $name '
+        '(${backend.name}): $e',
         e,
         stackTrace,
       );
       
       // Provide helpful error messages for common issues
       if (e.toString().contains('Firebase')) {
+        final backendHelp = backend == FirebaseAIBackend.vertexAI
+            ? 'Ensure Firebase is properly configured in your app and '
+              'Vertex AI services are enabled in your Firebase project.'
+            : 'Ensure Firebase is properly configured in your app and '
+              'Google AI API is accessible.';
+        
         throw Exception(
-          'Failed to initialize Firebase AI. Ensure Firebase is properly '
-          'configured in your app and AI services are enabled in your '
-          'Firebase project. Original error: $e',
+          'Failed to initialize Firebase AI (${backend.name}). '
+          '$backendHelp Original error: $e',
         );
       } else if (e.toString().contains('model')) {
         throw ArgumentError(

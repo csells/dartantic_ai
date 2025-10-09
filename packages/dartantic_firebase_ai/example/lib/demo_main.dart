@@ -45,8 +45,11 @@ class _DemoScreenState extends State<DemoScreen> {
     });
 
     try {
-      // Register Firebase AI provider
+      // Register Firebase AI providers for both backends
       Providers.providerMap['firebase'] = FirebaseAIProvider();
+      Providers.providerMap['firebase_google'] = FirebaseAIProvider(
+        backend: FirebaseAIBackend.googleAI,
+      );
       
       setState(() {
         _logs.add('✅ FirebaseAIProvider registered successfully');
@@ -67,19 +70,26 @@ class _DemoScreenState extends State<DemoScreen> {
 
   void _testAgentCreation() {
     try {
-      // Create agent with Firebase AI
-      final agent = Agent('firebase:gemini-2.0-flash-exp');
+      // Create agents with both Firebase AI backends
+      final vertexAgent = Agent('firebase:gemini-2.0-flash-exp');
+      final googleAgent = Agent('firebase_google:gemini-2.0-flash-exp');
       
       setState(() {
-        _logs.add('🎯 Agent created successfully!');
-        _logs.add('✅ Model: firebase:gemini-2.0-flash-exp');
+        _logs.add('🎯 Agents created successfully!');
+        _logs.add('✅ Vertex AI: firebase:gemini-2.0-flash-exp');
+        _logs.add('✅ Google AI: firebase_google:gemini-2.0-flash-exp');
         _logs.add('✅ Ready for chat operations');
-        _logs.add('✅ Agent instance: ${agent.runtimeType}');
+        _logs.add('✅ Agent instances: ${vertexAgent.runtimeType}, ${googleAgent.runtimeType}');
         _logs.add('');
         _logs.add('📋 Provider Integration Status:');
-        _logs.add('• Provider: ✅ Registered');
-        _logs.add('• Agent: ✅ Created');
+        _logs.add('• Vertex AI Provider: ✅ Registered');
+        _logs.add('• Google AI Provider: ✅ Registered');
+        _logs.add('• Agents: ✅ Created');
         _logs.add('• Configuration: ✅ Complete');
+        _logs.add('');
+        _logs.add('🔀 Backend Options:');
+        _logs.add('• VertexAI: Production, Firebase features');
+        _logs.add('• GoogleAI: Development, simpler setup');
         _logs.add('');
         _logs.add('💡 In a real app with Firebase configured,');
         _logs.add('   you would call agent.sendStream(prompt)');

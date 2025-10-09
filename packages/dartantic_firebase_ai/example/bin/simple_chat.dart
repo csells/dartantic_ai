@@ -2,20 +2,23 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:dartantic_firebase_ai/dartantic_firebase_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:logging/logging.dart';
 
 /// Simple command-line example of Firebase AI provider usage.
 ///
 /// This example shows basic text generation without the Flutter UI.
 /// Run with: dart run example/bin/simple_chat.dart
 void main() async {
-  print('🔥 Firebase AI Provider Example');
-  print('================================');
+  final Logger logger = Logger('dartantic.examples.firebase_ai');
+  
+  logger.info('🔥 Firebase AI Provider Example');
+  logger.info('================================');
 
   try {
     // Initialize Firebase
     // Note: This requires proper Firebase configuration
     await Firebase.initializeApp();
-    print('✅ Firebase initialized');
+    logger.info('✅ Firebase initialized');
 
     // Create provider and model
     final provider = FirebaseAIProvider();
@@ -23,7 +26,7 @@ void main() async {
       name: 'gemini-2.0-flash',
       temperature: 0.7,
     );
-    print('✅ Firebase AI model created');
+    logger.info('✅ Firebase AI model created');
 
     // Chat loop
     final messages = <ChatMessage>[];
@@ -56,26 +59,26 @@ void main() async {
           finalResult = chunk;
         }
 
-        print(''); // New line after response
+        logger.info(''); // New line after response
 
         // Add final message to history
         if (finalResult != null) {
           messages.addAll(finalResult.messages);
         }
       } catch (e) {
-        print('❌ Error: $e');
+        logger.severe('❌ Error: $e');
       }
     }
 
-    print('\n👋 Goodbye!');
+    logger.info('\n👋 Goodbye!');
     chatModel.dispose();
   } catch (e) {
-    print('❌ Failed to initialize: $e');
-    print('');
-    print('💡 Make sure you have:');
-    print('   1. Configured Firebase with `flutterfire configure`');
-    print('   2. Enabled Firebase AI Logic in your Firebase console');
-    print('   3. Set up proper authentication/App Check');
+    logger.severe('❌ Failed to initialize: $e');
+    logger.info('');
+    logger.info('💡 Make sure you have:');
+    logger.info('   1. Configured Firebase with `flutterfire configure`');
+    logger.info('   2. Enabled Firebase AI Logic in your Firebase console');
+    logger.info('   3. Set up proper authentication/App Check');
     exit(1);
   }
 }

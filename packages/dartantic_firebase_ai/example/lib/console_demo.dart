@@ -1,40 +1,43 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_firebase_ai/dartantic_firebase_ai.dart';
+import 'package:logging/logging.dart';
 
 void main() async {
-  print('🚀 Firebase AI Provider Demo');
-  print('================================');
+  final Logger logger = Logger('dartantic.examples.firebase_ai');
+  
+  logger.info('🚀 Firebase AI Provider Demo');
+  logger.info('================================');
   
   try {
     // Step 1: Register Firebase AI provider
-    print('\n📝 Step 1: Registering Firebase AI Provider...');
+    logger.info('\n📝 Step 1: Registering Firebase AI Provider...');
     Providers.providerMap['firebase'] = FirebaseAIProvider();
-    print('✅ FirebaseAIProvider registered successfully');
+    logger.info('✅ FirebaseAIProvider registered successfully');
     
     // Step 2: Create Agent
-    print('\n📝 Step 2: Creating Agent...');
+    logger.info('\n📝 Step 2: Creating Agent...');
     final agent = Agent('firebase:gemini-2.0-flash-exp');
-    print('✅ Agent created: ${agent.runtimeType}');
-    print('✅ Model: firebase:gemini-2.0-flash-exp');
+    logger.info('✅ Agent created: ${agent.runtimeType}');
+    logger.info('✅ Model: firebase:gemini-2.0-flash-exp');
     
     // Step 3: Show provider details
-    print('\n📋 Provider Integration Status:');
-    print('• Provider Name: firebase');
-    print('• Provider Type: FirebaseAIProvider');
-    print('• Model Support: gemini-2.0-flash-exp');
-    print('• Capabilities: chatVision');
-    print('• Agent Ready: ✅');
+    logger.info('\n📋 Provider Integration Status:');
+    logger.info('• Provider Name: firebase');
+    logger.info('• Provider Type: FirebaseAIProvider');
+    logger.info('• Model Support: gemini-2.0-flash-exp');
+    logger.info('• Capabilities: chatVision');
+    logger.info('• Agent Ready: ✅');
     
-    print('\n💡 Integration Complete!');
-    print('📌 In a real app with Firebase configured:');
-    print('   await for (final result in agent.sendStream(prompt)) {');
-    print('     print(result.output);');
-    print('   }');
+    logger.info('\n💡 Integration Complete!');
+    logger.info('📌 In a real app with Firebase configured:');
+    logger.info('   await for (final result in agent.sendStream(prompt)) {');
+    logger.info('     logger.info(result.output);');
+    logger.info('   }');
     
-    print('\n🎉 Firebase AI Provider is working correctly!');
+    logger.info('\n🎉 Firebase AI Provider is working correctly!');
     
   } catch (e, stackTrace) {
-    print('❌ Error: $e');
-    print('Stack trace: $stackTrace');
+    logger.severe('❌ Error: $e');
+    logger.severe('Stack trace: $stackTrace');
   }
 }

@@ -4,22 +4,47 @@ import 'package:logging/logging.dart';
 import 'firebase_ai_chat_model.dart';
 import 'firebase_ai_chat_options.dart';
 
+/// Backend type for Firebase AI provider.
+enum FirebaseAIBackend {
+  /// Direct Google AI API - simpler setup, good for development/testing.
+  googleAI,
+  
+  /// Vertex AI through Firebase - production-ready with Firebase features.
+  vertexAI,
+}
+
 /// Provider for Firebase AI (Gemini via Firebase).
 ///
 /// Firebase AI provides access to Google's Gemini models through Firebase,
-/// with additional features like App Check security and Firebase Auth integration.
+/// supporting both GoogleAI (direct API) and VertexAI (through Firebase)
+/// backends for flexible development and production deployment.
 class FirebaseAIProvider
     extends Provider<FirebaseAIChatModelOptions, EmbeddingsModelOptions> {
+  // IMPORTANT: Logger must be private (_logger not log) and static final
+  static final Logger _logger = Logger('dartantic.chat.providers.firebase_ai');
+
+  /// Default base URL for Firebase AI.
+  /// Note: Firebase AI uses Firebase SDK, not direct REST API calls.
+  static final defaultBaseUrl = Uri.parse('https://firebaseai.googleapis.com/v1');
+
   /// Creates a new Firebase AI provider instance.
+  ///
+  /// [backend] determines which Firebase AI backend to use:
+  /// - [FirebaseAIBackend.googleAI]: Direct Google AI API (simpler setup)
+  /// - [FirebaseAIBackend.vertexAI]: Vertex AI through Firebase (production)
   ///
   /// Note: Firebase AI doesn't use traditional API keys. Authentication is
   /// handled through Firebase configuration and App Check.
-  FirebaseAIProvider()
-    : super(
+  FirebaseAIProvider({
+    this.backend = FirebaseAIBackend.vertexAI,
+    super.baseUrl,  // Use super.baseUrl, don't provide defaults here
+  }) : super(
         apiKey: null,
         apiKeyName: null,
         name: 'firebase_ai',
-        displayName: 'Firebase AI',
+        displayName: backend == FirebaseAIBackend.googleAI 
+            ? 'Firebase AI (Google AI)' 
+            : 'Firebase AI (Vertex AI)',
         defaultModelNames: const {ModelKind.chat: 'gemini-2.0-flash'},
         caps: const {
           ProviderCaps.chat,
@@ -29,16 +54,15 @@ class FirebaseAIProvider
           ProviderCaps.thinking,
         },
         aliases: const ['firebase'],
-        baseUrl: null,
       );
 
-  static final Logger _logger = Logger('dartantic.chat.providers.firebase_ai');
+  /// The backend type this provider instance uses.
+  final FirebaseAIBackend backend;
 
   /// Validates Firebase AI model name format.
-  bool _isValidModelName(String modelName) {
-    // Firebase AI uses Gemini models with format: gemini-<version>-<variant>
-    return RegExp(r'^gemini-\d+(\.\d+)?(-\w+)?$').hasMatch(modelName);
-  }
+  bool _isValidModelName(String modelName) =>
+      // Firebase AI uses Gemini models with format: gemini-<version>-<variant>
+      RegExp(r'^gemini-\d+(\.\d+)?(-\w+)?$').hasMatch(modelName);
 
   @override
   ChatModel<FirebaseAIChatModelOptions> createChatModel({
@@ -65,15 +89,17 @@ class FirebaseAIProvider
     }
 
     _logger.info(
-      'Creating Firebase AI model: $modelName with '
+      'Creating Firebase AI model: $modelName (${backend.name}) with '
       '${tools?.length ?? 0} tools, '
       'temp: $temperature',
     );
 
     return FirebaseAIChatModel(
       name: modelName,
+      baseUrl: baseUrl ?? defaultBaseUrl,  // IMPORTANT: Pass baseUrl with fallback
       tools: tools,
       temperature: temperature,
+      backend: backend,
       defaultOptions: FirebaseAIChatModelOptions(
         topP: options?.topP,
         topK: options?.topK,
@@ -116,8 +142,8 @@ class FirebaseAIProvider
       providerName: name,
       kinds: {ModelKind.chat},
       displayName: 'Gemini 1.5 Flash',
-      description:
-          'Fast and versatile multimodal model for scaling across diverse tasks',
+      description: 'Fast and versatile multimodal model for scaling across '
+          'diverse tasks',
     );
     yield ModelInfo(
       name: 'gemini-1.5-pro',

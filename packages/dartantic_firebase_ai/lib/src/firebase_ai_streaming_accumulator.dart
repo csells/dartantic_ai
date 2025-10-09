@@ -3,8 +3,9 @@ import 'package:logging/logging.dart';
 
 /// Accumulates streaming Firebase AI results into a final consolidated result.
 ///
-/// Handles accumulation of output text, messages, metadata (including Firebase-specific
-/// data like safety ratings, citations), and usage statistics from streaming chunks
+/// Handles accumulation of output text, messages, metadata (including
+/// Firebase-specific data like safety ratings, citations), and usage statistics
+/// from streaming chunks
 /// into a final ChatResult.
 class FirebaseAIStreamingAccumulator {
   /// Creates a new Firebase AI streaming accumulator.
@@ -76,13 +77,15 @@ class FirebaseAIStreamingAccumulator {
 
       // Accumulate citation metadata
       final citationMetadata = result.metadata['citation_metadata'] as String?;
-      if (citationMetadata != null && !_allCitations.contains(citationMetadata)) {
+      if (citationMetadata != null && 
+          !_allCitations.contains(citationMetadata)) {
         _allCitations.add(citationMetadata);
       }
 
       // Merge other metadata (preserving response-level info from final chunk)
       for (final entry in result.metadata.entries) {
-        if (!{'thinking', 'safety_ratings', 'citation_metadata'}.contains(entry.key)) {
+        if (!{'thinking', 'safety_ratings', 'citation_metadata'}
+            .contains(entry.key)) {
           _accumulatedMetadata[entry.key] = entry.value;
         }
       }
@@ -109,7 +112,8 @@ class FirebaseAIStreamingAccumulator {
         ..._accumulatedMetadata,
         if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
         if (_allSafetyRatings.isNotEmpty) 'safety_ratings': _allSafetyRatings,
-        if (_allCitations.isNotEmpty) 'citation_metadata': _allCitations.join('; '),
+        if (_allCitations.isNotEmpty) 
+          'citation_metadata': _allCitations.join('; '),
         'chunk_count': _chunkCount,
       };
 

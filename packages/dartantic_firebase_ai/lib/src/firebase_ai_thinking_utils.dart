@@ -63,7 +63,8 @@ class FirebaseAIThinkingUtils {
       // Extract reasoning steps from block_reason and finish_message
       if (options.includeReasoningSteps) {
         final blockReason = result.metadata['block_reason'] as String?;
-        final blockReasonMessage = result.metadata['block_reason_message'] as String?;
+        final blockReasonMessage = 
+            result.metadata['block_reason_message'] as String?;
         final finishMessage = result.metadata['finish_message'] as String?;
 
         if (blockReason != null || blockReasonMessage != null) {
@@ -88,7 +89,8 @@ class FirebaseAIThinkingUtils {
 
       // Extract citation metadata if requested
       if (options.verboseCitationMetadata) {
-        final citationMetadata = result.metadata['citation_metadata'] as String?;
+        final citationMetadata = 
+            result.metadata['citation_metadata'] as String?;
         if (citationMetadata != null && citationMetadata.isNotEmpty) {
           buffer.writeln('[CITATION ANALYSIS]');
           buffer.writeln(citationMetadata);
@@ -117,7 +119,7 @@ class FirebaseAIThinkingUtils {
       }
 
       return null;
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       _logger.warning(
         'Error extracting thinking content: $e',
         e,

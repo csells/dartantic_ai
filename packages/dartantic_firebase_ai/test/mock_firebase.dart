@@ -2,7 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Sets up Firebase core mocks for testing without requiring a real Firebase project
+/// Sets up Firebase core mocks for testing without requiring a real Firebase
+/// project
 Future<void> initializeMockFirebase() async {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -41,7 +42,8 @@ class MockFirebasePlatform extends FirebasePlatform {
     );
 
   @override
-  FirebaseAppPlatform app([String name = defaultFirebaseAppName]) => MockFirebaseApp(
+  FirebaseAppPlatform app([String name = defaultFirebaseAppName]) => 
+      MockFirebaseApp(
       name: name,
       options: const FirebaseOptions(
         apiKey: 'mock-api-key',

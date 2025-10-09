@@ -99,8 +99,8 @@ class FirebaseAIMultiModalUtils {
       if (!isSupportedMediaType(mimeType)) {
         return MediaValidationResult(
           isValid: false,
-          error: 'Unsupported media type: $mimeType. '
-                 'Firebase AI supports images, audio, video, and text documents.',
+          error: 'Unsupported media type: $mimeType. Firebase AI supports '
+                 'images, audio, video, and text documents.',
           category: getMediaCategory(mimeType),
         );
       }
@@ -141,7 +141,7 @@ class FirebaseAIMultiModalUtils {
         actualSizeBytes: bytes.length,
         maxAllowedSizeBytes: actualMaxSize,
       );
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       _logger.warning(
         'Error validating media: $e',
         e,
@@ -196,7 +196,7 @@ class FirebaseAIMultiModalUtils {
             category: category,
           );
       }
-    } catch (e) {
+    } on Exception catch (e) {
       return MediaValidationResult(
         isValid: false,
         error: 'Specific validation failed for $mimeType: $e',
@@ -205,7 +205,8 @@ class FirebaseAIMultiModalUtils {
     }
   }
 
-  static MediaValidationResult _validateImage(Uint8List bytes, String mimeType) {
+  static MediaValidationResult _validateImage(
+      Uint8List bytes, String mimeType) {
     // Basic image file signature validation
     if (bytes.length < 8) {
       return const MediaValidationResult(
@@ -224,25 +225,29 @@ class FirebaseAIMultiModalUtils {
         if (header.length >= 8 &&
             header[0] == 0x89 && header[1] == 0x50 && 
             header[2] == 0x4E && header[3] == 0x47) {
-          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(
+              isValid: true, category: MediaCategory.image);
         }
       case 'image/jpeg':
       case 'image/jpg':
         // JPEG signature: FF D8 FF
         if (header.length >= 3 &&
             header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF) {
-          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(
+              isValid: true, category: MediaCategory.image);
         }
       case 'image/webp':
         // WebP signature: RIFF ... WEBP
         if (header.length >= 8 &&
             header[0] == 0x52 && header[1] == 0x49 && 
             header[2] == 0x46 && header[3] == 0x46) {
-          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(
+              isValid: true, category: MediaCategory.image);
         }
       default:
         // For other image types, assume valid if size is reasonable
-        return const MediaValidationResult(isValid: true, category: MediaCategory.image);
+        return const MediaValidationResult(
+            isValid: true, category: MediaCategory.image);
     }
 
     return MediaValidationResult(
@@ -252,7 +257,8 @@ class FirebaseAIMultiModalUtils {
     );
   }
 
-  static MediaValidationResult _validateAudio(Uint8List bytes, String mimeType) {
+  static MediaValidationResult _validateAudio(
+      Uint8List bytes, String mimeType) {
     if (bytes.length < 4) {
       return const MediaValidationResult(
         isValid: false,
@@ -261,11 +267,14 @@ class FirebaseAIMultiModalUtils {
       );
     }
 
-    // For now, just check minimum size - could add more sophisticated validation
-    return const MediaValidationResult(isValid: true, category: MediaCategory.audio);
+    // For now, just check minimum size - could add more sophisticated
+    // validation
+    return const MediaValidationResult(
+        isValid: true, category: MediaCategory.audio);
   }
 
-  static MediaValidationResult _validateVideo(Uint8List bytes, String mimeType) {
+  static MediaValidationResult _validateVideo(
+      Uint8List bytes, String mimeType) {
     if (bytes.length < 8) {
       return const MediaValidationResult(
         isValid: false,
@@ -274,11 +283,14 @@ class FirebaseAIMultiModalUtils {
       );
     }
 
-    // For now, just check minimum size - could add more sophisticated validation  
-    return const MediaValidationResult(isValid: true, category: MediaCategory.video);
+    // For now, just check minimum size - could add more sophisticated
+    // validation
+    return const MediaValidationResult(
+        isValid: true, category: MediaCategory.video);
   }
 
-  static MediaValidationResult _validateDocument(Uint8List bytes, String mimeType) {
+  static MediaValidationResult _validateDocument(
+      Uint8List bytes, String mimeType) {
     if (bytes.isEmpty) {
       return const MediaValidationResult(
         isValid: false,  
@@ -299,7 +311,7 @@ class FirebaseAIMultiModalUtils {
             category: MediaCategory.document,
           );
         }
-      } catch (e) {
+      } on Exception {
         return const MediaValidationResult(
           isValid: false,
           error: 'Invalid text encoding in document',
@@ -308,7 +320,8 @@ class FirebaseAIMultiModalUtils {
       }
     }
 
-    return const MediaValidationResult(isValid: true, category: MediaCategory.document);
+    return const MediaValidationResult(
+        isValid: true, category: MediaCategory.document);
   }
 
   /// Creates optimized DataPart for Firebase AI with validation.
@@ -339,6 +352,7 @@ class FirebaseAIMultiModalUtils {
 
 /// Media validation result.
 class MediaValidationResult {
+  /// Creates a media validation result.
   const MediaValidationResult({
     required this.isValid,
     this.error,
@@ -347,18 +361,36 @@ class MediaValidationResult {
     this.maxAllowedSizeBytes,
   });
 
+  /// Whether the media is valid.
   final bool isValid;
+  
+  /// Error message if validation failed.
   final String? error;
+  
+  /// Media category.
   final MediaCategory? category;
+  
+  /// Actual file size in bytes.
   final int? actualSizeBytes;
+  
+  /// Maximum allowed size in bytes.
   final int? maxAllowedSizeBytes;
 }
 
 /// Media categories supported by Firebase AI.
 enum MediaCategory {
+  /// Image media type.
   image,
+  
+  /// Audio media type.
   audio,
+  
+  /// Video media type.
   video,
+  
+  /// Document media type.
   document,
+  
+  /// Unknown media type.
   unknown,
 }

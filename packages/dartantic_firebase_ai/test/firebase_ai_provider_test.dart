@@ -1,3 +1,12 @@
+/// TESTING PHILOSOPHY:
+/// 1. DO NOT catch exceptions - let them bubble up for diagnosis
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 3. DO NOT add performance tests
+/// 4. DO NOT add regression tests
+/// 5. 80% cases = common usage patterns tested across ALL capable providers
+/// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
+/// 7. Each functionality should only be tested in ONE file - no duplication
+
 import 'dart:typed_data';
 
 import 'package:dartantic_firebase_ai/dartantic_firebase_ai.dart';
@@ -23,7 +32,7 @@ void main() {
 
     test('has correct basic properties', () {
       expect(provider.name, equals('firebase_ai'));
-      expect(provider.displayName, equals('Firebase AI'));
+      expect(provider.displayName, equals('Firebase AI (Vertex AI)')); // Updated for dual backend support
       expect(provider.aliases, contains('firebase'));
       expect(provider.apiKey, isNull);
       expect(provider.apiKeyName, isNull);
@@ -376,6 +385,62 @@ void main() {
 
     test('rejects unsupported schema features', () {
       expect(true, isTrue); // Placeholder for anyOf/oneOf/allOf rejection
+    });
+  });
+
+  group('Model Configuration Compliance', () {
+    late FirebaseAIProvider testProvider;
+
+    setUp(() {
+      testProvider = FirebaseAIProvider();
+    });
+
+    test('validates gemini model name format', () {
+      // Valid Gemini model names (per Model-Configuration-Spec.md)
+      expect(
+        () => testProvider.createChatModel(name: 'gemini-2.0-flash'),
+        returnsNormally,
+      );
+      expect(
+        () => testProvider.createChatModel(name: 'gemini-1.5-pro'),
+        returnsNormally,
+      );
+      expect(
+        () => testProvider.createChatModel(name: 'gemini-1.0'),
+        returnsNormally,
+      );
+    });
+
+    test('rejects invalid model name formats', () {
+      // Invalid model names should throw ArgumentError
+      expect(
+        () => testProvider.createChatModel(name: 'gpt-4'),
+        throwsArgumentError,
+      );
+      expect(
+        () => testProvider.createChatModel(name: 'invalid-model'),
+        throwsArgumentError,
+      );
+      expect(
+        () => testProvider.createChatModel(name: 'gemini'),
+        throwsArgumentError,
+      );
+    });
+
+    test('default model name follows specification', () {
+      // Default model should follow gemini-version-variant pattern
+      final defaultName = testProvider.defaultModelNames[ModelKind.chat]!;
+      expect(defaultName, matches(RegExp(r'^gemini-\d+(\.\d+)?(-\w+)?$')));
+      expect(defaultName, equals('gemini-2.0-flash'));
+    });
+
+    test('provider supports URI-based model string format', () {
+      // Provider name should work in model string parsing
+      expect(testProvider.name, equals('firebase_ai'));
+      expect(testProvider.aliases, contains('firebase'));
+      
+      // These would be handled by the main dartantic model string parser
+      // Just verify our provider has the right name/aliases for compatibility
     });
   });
 }

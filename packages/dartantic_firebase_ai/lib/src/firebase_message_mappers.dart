@@ -3,6 +3,7 @@ import 'package:firebase_ai/firebase_ai.dart' as f;
 import 'package:logging/logging.dart';
 
 import 'firebase_ai_chat_options.dart';
+import 'firebase_ai_thinking_utils.dart';
 
 /// Logger for Firebase message mapping operations.
 final Logger _logger = Logger('dartantic.chat.mappers.firebase_ai');
@@ -92,7 +93,8 @@ extension MessageListMapper on List<ChatMessage> {
         case DataPart(:final bytes, :final mimeType):
           contentParts.add(f.InlineDataPart(mimeType, bytes));
         case LinkPart(:final url):
-          // Note: FilePart API may have changed in v3.3.0 - using TextPart as fallback
+          // Note: FilePart API may have changed in v3.3.0 - 
+          // using TextPart as fallback
           contentParts.add(f.TextPart('Link: $url'));
         case ToolPart():
           // Tool parts in user messages are handled separately as tool results
@@ -133,7 +135,8 @@ extension MessageListMapper on List<ChatMessage> {
     return f.Content.model(contentParts);
   }
 
-  /// Maps multiple tool result messages to a single f.Content.functionResponses.
+  /// Maps multiple tool result messages to a single
+  /// f.Content.functionResponses.
   /// This is required by Firebase AI's API - all function responses must be
   /// grouped together
   f.Content _mapToolResultMessages(List<ChatMessage> messages) {
@@ -220,7 +223,8 @@ extension GenerateContentResponseMapper on f.GenerateContentResponse {
 
     final message = ChatMessage(role: ChatMessageRole.model, parts: parts);
 
-    return ChatResult<ChatMessage>(
+    // Create initial ChatResult
+    final result = ChatResult<ChatMessage>(
       output: message,
       messages: [message],
       finishReason: _mapFinishReason(candidate.finishReason),
@@ -245,6 +249,19 @@ extension GenerateContentResponseMapper on f.GenerateContentResponse {
         totalTokens: usageMetadata?.totalTokenCount,
       ),
     );
+
+    // Extract thinking metadata and add to result metadata
+    final thinkingContent = FirebaseAIThinkingUtils.extractThinking(
+      result,
+      options: const FirebaseAIThinkingOptions(enabled: true),
+    );
+    
+    if (thinkingContent != null && thinkingContent.isNotEmpty) {
+      result.metadata['thinking'] = thinkingContent;
+      _logger.fine('Added thinking metadata: ${thinkingContent.length} chars');
+    }
+
+    return result;
   }
 
   FinishReason _mapFinishReason(f.FinishReason? reason) => switch (reason) {
@@ -367,7 +384,8 @@ extension SchemaMapper on Map<String, dynamic> {
     final properties = jsonSchema['properties'] != null
         ? Map<String, dynamic>.from(jsonSchema['properties'] as Map)
         : null;
-    final requiredProperties = (jsonSchema['required'] as List?)?.cast<String>();
+    final requiredProperties = 
+        (jsonSchema['required'] as List?)?.cast<String>();
 
     switch (type) {
       case 'string':
