@@ -1,14 +1,21 @@
 ---
 title: Tool Calling
+description: "Give your AI superpowers."
 ---
 
 Imagine that you'd like to extend the capabilities of your AI Agent with some
-new abilities. For example, out of the box, an LLM doesn't know what time it is.
-If you ask it anyway, you're not going to get a very good answer.
+new abilities.
 
-If you want to teach the LLM to tell the time, you need to give it a tool.
+For example, out of the box, an LLM doesn't know what time it is. If you ask it
+anyway, you're not going to get a very good answer. If you want to teach the LLM
+to tell the time, you need to give it a tool.
 
 ## Basic Example
+
+You can define a tool with a name, description, and input schema. The input
+schema is used to parse the input from the LLM to the tool's input type. The
+tool's input type is used to parse the output from the tool to the LLM's output
+type. The `onCall` function is called when the tool is invoked.
 
 ```dart
 final timeTool = Tool(
@@ -35,7 +42,16 @@ final result = await agent.send("What time is it in New York?");
 print(result.output); // "It's currently 3:42 PM in New York"
 ```
 
+Tools are passed to the agent constructor and are available to the agent for the
+duration of the conversation.
+
+It's not shown here, but it's best practice for you to also list the tools and
+their metadata in the agent's system message. See [System
+Messages](/system-messages) for more information.
+
 ## Multiple Tools
+
+You can pass multiple tools to the agent constructor.
 
 ```dart
 final agent = Agent('anthropic', tools: [

@@ -25,8 +25,8 @@ class OllamaProvider
            /// provides cleaner tool calling behavior.
            ModelKind.chat: 'qwen2.5:7b-instruct',
          },
-        caps: const {ProviderCaps.chat},
-      );
+         caps: const {ProviderCaps.chat},
+       );
 
   static final Logger _logger = Logger('dartantic.chat.providers.ollama');
 

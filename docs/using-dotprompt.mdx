@@ -1,11 +1,15 @@
 ---
 title: Using DotPrompt
+description: "Define your prompts as files that can be executed."
 ---
 
-Use Google's [DotPrompt specification](https://google.github.io/dotprompt) to
-define prompts with metadata, templates, and validation.
+Google's [DotPrompt specification](https://google.github.io/dotprompt) allows
+you to define prompts as files with metadata, templates, and validation. These
+files can be executed by dartantic.
 
 ## Quick Start
+
+You can use the `DotPrompt` class to parse `.prompt` files:
 
 ```dart
 import 'package:dotprompt_dart/dotprompt_dart.dart';
@@ -31,6 +35,8 @@ print(result.output); // "Fox jumps dog."
 
 ## With Variables
 
+You can pass variables to the `render` method:
+
 ```dart
 final dotPrompt = DotPrompt('''
 ---
@@ -49,6 +55,8 @@ await agent.send(prompt);
 ```
 
 ## From Files
+
+You can also read prompts from files:
 
 ```dart
 final file = File('prompts/summarize.prompt');

@@ -1,11 +1,15 @@
 ---
 title: Web Search
+description: "Stream curated search results directly from the provider and weave them into your responses."
 ---
 
-Stream curated search results directly from the provider and weave them into
-your responses.
+The OpenAI Responses provider exposes a web search tool that allows you to
+search the web and weave the results into your responses.
 
 ## Enable Web Search
+
+The web search tool can be enabled via the `chatModelOptions` parameter of the
+`Agent` constructor:
 
 ```dart
 final agent = Agent(

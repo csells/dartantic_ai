@@ -1,11 +1,15 @@
 ---
 title: Image Generation
+description: "Generate images on the provider and receive both previews and final assets in one streaming response."
 ---
 
-Generate images on the provider and receive both previews and final assets in
-one streaming response.
+The OpenAI Responses provider exposes an image generation tool that allows you
+to generate images on the provider.
 
 ## Enable Image Generation
+
+The image generation tool can be enabled via the `chatModelOptions` parameter of
+the `Agent` constructor:
 
 ```dart
 final agent = Agent(

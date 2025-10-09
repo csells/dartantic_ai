@@ -1,10 +1,7 @@
 ---
 title: Thinking Metadata
+description: "Surface model reasoning without forcing it into the conversation transcript."
 ---
-
-Surface model reasoning without forcing it into the conversation transcript.
-
-## Overview
 
 Some providers expose a separate "thinking" channel that streams the model's
 reasoning metadata alongside the normal message output. This lets you display or
@@ -12,10 +9,13 @@ inspect the model's inner monologue without sending it back to the model or to
 end users who just want the final answer.
 
 At the moment, **OpenAI Responses** is the only built-in provider that supports
-thinking metadata, but the API is provider-agnostic so additional providers can
-adopt it later without changing your code.
+thinking metadata, but the generated metadata is provider-agnostic so additional
+providers can adopt it later without it requiring any changes to your code.
 
 ## Enable Thinking
+
+You can enabled thinking for the OpenAI Responses provider by setting the
+`reasoningSummary` parameter to `OpenAIReasoningSummary.detailed`.
 
 ```dart
 final agent = Agent(
@@ -36,69 +36,47 @@ print(result.output);
 
 Key points:
 - The reasoning stream is emitted through `ChatResult.metadata['thinking']`
-- Thinking metadata never appears in `ChatMessage.metadata`
+- Thinking metadata doesn't appear in `ChatMessage.metadata`
 - Metadata is not fed back to the model, so you control where (or if) it is
   displayed
 
 ## Streaming Thinking
 
 ```dart
-await for (final chunk in agent.sendStream('Explain quicksort.')) {
+final history = <ChatMessage>[];
+var stillThinking = true;
+stdout.write('[[');
+
+final thinkingBuffer = StringBuffer();
+await for (final chunk in agent.sendStream(
+  'In one sentence: how does quicksort work?',
+)) {
   final thinking = chunk.metadata['thinking'] as String?;
-  if (thinking != null && thinking.isNotEmpty) {
-    stdout.write('[[');
+  final hasThinking = thinking != null && thinking.isNotEmpty;
+  final hasText = chunk.output.isNotEmpty;
+
+  if (hasThinking) {
+    thinkingBuffer.write(thinking);
     stdout.write(thinking);
-    stdout.write(']]');
   }
 
-  if (chunk.output.isNotEmpty) {
+  if (hasText) {
+    if (stillThinking) {
+      stillThinking = false;
+      stdout.writeln(']]\n');
+    }
     stdout.write(chunk.output);
   }
+
+  history.addAll(chunk.messages);
 }
+
+stdout.writeln('\n');
 ```
 
 The stream delivers reasoning deltas incrementally, so you can render a live
 "thought bubble" while the model is working. Each chunk may include text output,
 thinking metadata, or both.
-
-## Configure Reasoning Effort
-
-OpenAI Responses exposes multiple knobs for reasoning-rich models:
-
-```dart
-final agent = Agent(
-  'openai-responses:gpt-5.1',
-  chatModelOptions: const OpenAIResponsesChatModelOptions(
-    reasoningEffort: OpenAIReasoningEffort.high,
-    reasoningSummary: OpenAIReasoningSummary.auto,
-    reasoning: {
-      'include_step_signatures': true,
-    },
-  ),
-);
-```
-
-- `reasoningEffort` hints at how much time the model should invest (low → high)
-- `reasoningSummary` controls how verbose the final thinking summary should be
-- `reasoning` lets you pass provider-specific options without waiting for first
-  class API support
-
-## Persist Thinking
-
-Because thinking is metadata, you can store it with your own analytics or
-observability stack without polluting the conversation history:
-
-```dart
-final analytics = <Map<String, Object?>>[];
-await for (final chunk in agent.sendStream(prompt)) {
-  final thinking = chunk.metadata['thinking'];
-  if (thinking != null) {
-    analytics.add({'turn': analytics.length, 'thinking': thinking});
-  }
-}
-```
-
-Just remember that reasoning metadata can be verbose—capture only what you need.
 
 ## Examples
 

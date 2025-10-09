@@ -1,8 +1,7 @@
 ---
 title: Streaming Output
+description: "Watch your AI think in real-time. It's like watching paint dry, but faster."
 ---
-
-Watch your AI think in real-time. It's like watching paint dry, but faster.
 
 ## Basic Streaming
 
@@ -60,13 +59,12 @@ final agent = Agent(
   ),
 );
 
-await for (final chunk in agent.sendStream('Explain quicksort.')) {
-  final thinking = chunk.metadata['thinking'] as String?;
-  if (thinking != null && thinking.isNotEmpty) {
-    stdout.write('[[${thinking.trim()}]]');
-  }
-  stdout.write(chunk.output);
+final result = await agent.send('Explain quicksort.');
+final thinking = result.metadata['thinking'] as String?;
+if (thinking != null && thinking.isNotEmpty) {
+  stdout.write('[[${thinking.trim()}]]');
 }
+stdout.write(result.output);
 ```
 
 Thinking stays in `ChatResult.metadata` so you can show a live "thought bubble"

@@ -1,20 +1,14 @@
 ---
 title: Server-Side Tools
+description: "Use provider-hosted capabilities such as web search, code execution, and image creation without writing local tool handlers."
 ---
-
-Use provider-hosted capabilities such as web search, code execution, and image
-creation without writing local tool handlers.
-
-## Overview
 
 Server-side tools run entirely on the provider's infrastructure. They stream
 progress events, produce final deliverables, and keep your application logic
-focused on orchestration instead of implementation. Dartantic exposes them
-through a provider-neutral API so that new providers can hook in over time.
-
-Currently, **OpenAI Responses** is the only built-in provider that implements
-server-side tools. When other providers adopt similar features, these same APIs
-will light up automatically.
+focused on orchestration instead of implementation. Currently, **OpenAI
+Responses** is the only built-in provider that implements server-side tools.
+When other providers adopt similar features, they'll be exposed from the
+providers as appropriate.
 
 ## Enabling Tools
 
@@ -44,9 +38,8 @@ Each tool streams structured metadata under a predictable key:
 | Image generation | `metadata['image_generation']` |
 | Code interpreter | `metadata['code_interpreter']` |
 
-Metadata is delivered on every `ChatResult` during streaming. You can log it,
-show live progress, or feed it into analytics without polluting the chat
-transcript.
+Metadata is delivered on every `ChatResult` during streaming, which you can use
+to show live progress, log it, or feed it into analytics.
 
 ```dart
 await for (final chunk in agent.sendStream('Recent Dart news?')) {
@@ -63,7 +56,6 @@ await for (final chunk in agent.sendStream('Recent Dart news?')) {
 
 Final deliverables (images, generated files, synthesized summaries) arrive as
 normal message parts so you can handle them with the usual `ChatMessage` APIs.
-Progress-only data stays in metadata.
 
 ## Configuration Blocks
 
