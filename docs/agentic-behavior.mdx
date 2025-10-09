@@ -1,5 +1,6 @@
 ---
-title: Agentic Behavior
+title: "Agentic Behavior"
+description: "What makes an agent an agent is the ability to chain multiple tool calls."
 ---
 
 What makes an agent an agent is the ability to chain multiple tool calls to
@@ -55,6 +56,8 @@ final result = await agent.send(
 );
 // Agent chains: weather → activity → booking
 ```
+
+Here the agent calls the tools it decides it needs, potentially using the results of one to form calls to another.
 
 ## Loop Behavior
 
