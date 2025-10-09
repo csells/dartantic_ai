@@ -28,8 +28,7 @@ class MockFirebasePlatform extends FirebasePlatform {
   Future<FirebaseAppPlatform> initializeApp({
     String? name,
     FirebaseOptions? options,
-  }) async {
-    return MockFirebaseApp(
+  }) async => MockFirebaseApp(
       name: name ?? defaultFirebaseAppName,
       options:
           options ??
@@ -40,11 +39,9 @@ class MockFirebasePlatform extends FirebasePlatform {
             projectId: 'mock-project-id',
           ),
     );
-  }
 
   @override
-  FirebaseAppPlatform app([String name = defaultFirebaseAppName]) {
-    return MockFirebaseApp(
+  FirebaseAppPlatform app([String name = defaultFirebaseAppName]) => MockFirebaseApp(
       name: name,
       options: const FirebaseOptions(
         apiKey: 'mock-api-key',
@@ -53,7 +50,6 @@ class MockFirebasePlatform extends FirebasePlatform {
         projectId: 'mock-project-id',
       ),
     );
-  }
 }
 
 /// Mock Firebase app implementation for testing

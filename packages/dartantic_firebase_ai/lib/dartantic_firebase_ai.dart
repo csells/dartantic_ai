@@ -6,7 +6,7 @@ library;
 
 export 'src/firebase_ai_chat_model.dart';
 export 'src/firebase_ai_chat_options.dart';
+export 'src/firebase_ai_multimodal_utils.dart';
 export 'src/firebase_ai_provider.dart';
 export 'src/firebase_ai_streaming_accumulator.dart';
 export 'src/firebase_ai_thinking_utils.dart';
-export 'src/firebase_ai_multimodal_utils.dart';

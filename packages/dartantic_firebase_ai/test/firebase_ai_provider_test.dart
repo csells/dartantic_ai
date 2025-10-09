@@ -290,8 +290,8 @@ void main() {
       final messages = [
         ChatMessage.model(
           'I need to use a tool',
-          parts: [
-            const ToolPart.call(
+          parts: const [
+            ToolPart.call(
               id: 'test_1',
               name: 'test_tool',
               arguments: {'input': 'test'},
@@ -309,8 +309,8 @@ void main() {
       final messages = [
         ChatMessage.user(
           '',
-          parts: [
-            const ToolPart.result(
+          parts: const [
+            ToolPart.result(
               id: 'test_1',
               name: 'test_tool',
               result: {'output': 'success'},
@@ -328,8 +328,8 @@ void main() {
       final messages = [
         ChatMessage.user(
           '',
-          parts: [
-            const ToolPart.result(
+          parts: const [
+            ToolPart.result(
               id: 'test_1',
               name: 'test_tool',
               result: {'output': 'first'},
@@ -338,8 +338,8 @@ void main() {
         ),
         ChatMessage.user(
           '',
-          parts: [
-            const ToolPart.result(
+          parts: const [
+            ToolPart.result(
               id: 'test_2',
               name: 'another_tool',
               result: {'output': 'second'},

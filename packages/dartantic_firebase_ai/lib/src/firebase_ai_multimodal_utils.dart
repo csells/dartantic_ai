@@ -131,7 +131,7 @@ class FirebaseAIMultiModalUtils {
       }
 
       _logger.fine(
-        'Validated ${category.name} media: ${mimeType}, '
+        'Validated ${category.name} media: $mimeType, '
         '${(bytes.length / 1024).toStringAsFixed(1)}KB',
       );
 
@@ -208,7 +208,7 @@ class FirebaseAIMultiModalUtils {
   static MediaValidationResult _validateImage(Uint8List bytes, String mimeType) {
     // Basic image file signature validation
     if (bytes.length < 8) {
-      return MediaValidationResult(
+      return const MediaValidationResult(
         isValid: false,
         error: 'Image file too small to be valid',
         category: MediaCategory.image,
@@ -224,28 +224,25 @@ class FirebaseAIMultiModalUtils {
         if (header.length >= 8 &&
             header[0] == 0x89 && header[1] == 0x50 && 
             header[2] == 0x4E && header[3] == 0x47) {
-          return MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
         }
-        break;
       case 'image/jpeg':
       case 'image/jpg':
         // JPEG signature: FF D8 FF
         if (header.length >= 3 &&
             header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF) {
-          return MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
         }
-        break;
       case 'image/webp':
         // WebP signature: RIFF ... WEBP
         if (header.length >= 8 &&
             header[0] == 0x52 && header[1] == 0x49 && 
             header[2] == 0x46 && header[3] == 0x46) {
-          return MediaValidationResult(isValid: true, category: MediaCategory.image);
+          return const MediaValidationResult(isValid: true, category: MediaCategory.image);
         }
-        break;
       default:
         // For other image types, assume valid if size is reasonable
-        return MediaValidationResult(isValid: true, category: MediaCategory.image);
+        return const MediaValidationResult(isValid: true, category: MediaCategory.image);
     }
 
     return MediaValidationResult(
@@ -257,7 +254,7 @@ class FirebaseAIMultiModalUtils {
 
   static MediaValidationResult _validateAudio(Uint8List bytes, String mimeType) {
     if (bytes.length < 4) {
-      return MediaValidationResult(
+      return const MediaValidationResult(
         isValid: false,
         error: 'Audio file too small to be valid',
         category: MediaCategory.audio,
@@ -265,12 +262,12 @@ class FirebaseAIMultiModalUtils {
     }
 
     // For now, just check minimum size - could add more sophisticated validation
-    return MediaValidationResult(isValid: true, category: MediaCategory.audio);
+    return const MediaValidationResult(isValid: true, category: MediaCategory.audio);
   }
 
   static MediaValidationResult _validateVideo(Uint8List bytes, String mimeType) {
     if (bytes.length < 8) {
-      return MediaValidationResult(
+      return const MediaValidationResult(
         isValid: false,
         error: 'Video file too small to be valid',
         category: MediaCategory.video,
@@ -278,12 +275,12 @@ class FirebaseAIMultiModalUtils {
     }
 
     // For now, just check minimum size - could add more sophisticated validation  
-    return MediaValidationResult(isValid: true, category: MediaCategory.video);
+    return const MediaValidationResult(isValid: true, category: MediaCategory.video);
   }
 
   static MediaValidationResult _validateDocument(Uint8List bytes, String mimeType) {
     if (bytes.isEmpty) {
-      return MediaValidationResult(
+      return const MediaValidationResult(
         isValid: false,  
         error: 'Document is empty',
         category: MediaCategory.document,
@@ -296,14 +293,14 @@ class FirebaseAIMultiModalUtils {
         // Try to decode as UTF-8 to ensure it's valid text
         final text = String.fromCharCodes(bytes);
         if (text.isEmpty) {
-          return MediaValidationResult(
+          return const MediaValidationResult(
             isValid: false,
             error: 'Text document appears to be empty',
             category: MediaCategory.document,
           );
         }
       } catch (e) {
-        return MediaValidationResult(
+        return const MediaValidationResult(
           isValid: false,
           error: 'Invalid text encoding in document',
           category: MediaCategory.document,
@@ -311,7 +308,7 @@ class FirebaseAIMultiModalUtils {
       }
     }
 
-    return MediaValidationResult(isValid: true, category: MediaCategory.document);
+    return const MediaValidationResult(isValid: true, category: MediaCategory.document);
   }
 
   /// Creates optimized DataPart for Firebase AI with validation.
@@ -333,7 +330,7 @@ class FirebaseAIMultiModalUtils {
 
     _logger.fine(
       'Creating optimized DataPart: ${validation.category?.name}, '
-      '${mimeType}, ${(bytes.length / 1024).toStringAsFixed(1)}KB',
+      '$mimeType, ${(bytes.length / 1024).toStringAsFixed(1)}KB',
     );
 
     return DataPart(bytes, mimeType: mimeType);

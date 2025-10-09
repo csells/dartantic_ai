@@ -25,8 +25,8 @@ class FirebaseAIStreamingAccumulator {
   final List<String> _allCitations = <String>[];
 
   ChatResult<ChatMessage> _finalResult = ChatResult<ChatMessage>(
-    output: ChatMessage(role: ChatMessageRole.model, parts: []),
-    messages: [],
+    output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+    messages: const [],
     finishReason: FinishReason.unspecified,
     metadata: const <String, dynamic>{},
     usage: null,

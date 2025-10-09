@@ -1,5 +1,5 @@
-import "package:dartantic_interface/dartantic_interface.dart";
-import "package:meta/meta.dart";
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:meta/meta.dart';
 
 /// Options to pass into the Firebase AI Chat Model.
 ///

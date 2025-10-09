@@ -324,7 +324,7 @@ class FirebaseAIChatModel extends ChatModel<FirebaseAIChatModelOptions> {
       } else if (e.toString().contains('model')) {
         throw ArgumentError(
           'Unsupported Firebase AI model: $name. Please check the model '
-          'name and ensure it\'s available in your Firebase project. '
+          "name and ensure it's available in your Firebase project. "
           'Original error: $e',
         );
       }

@@ -150,10 +150,10 @@ class FirebaseAIThinkingUtils {
         for (final marker in reasoningMarkers) {
           if (text.toLowerCase().contains(marker.toLowerCase())) {
             // Extract the sentence containing the reasoning marker
-            final sentences = text.split(RegExp(r'[.!?]'));
+            final sentences = text.split(RegExp('[.!?]'));
             for (final sentence in sentences) {
               if (sentence.toLowerCase().contains(marker.toLowerCase())) {
-                patterns.add('${marker}: ${sentence.trim()}');
+                patterns.add('$marker: ${sentence.trim()}');
                 break;
               }
             }
