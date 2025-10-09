@@ -71,14 +71,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Discussion",
-          "href": "https://github.com/csells/dartantic_ai/discussions",
+          "anchor": "GitHub",
+          "href": "https://github.com/csells/dartantic_ai",
           "icon": "github"
         },
         {
           "anchor": "API Reference",
           "href": "https://pub.dev/documentation/dartantic_ai/latest/",
           "icon": "book-open-cover"
+        },
+        {
+          "anchor": "Discussion",
+          "href": "https://github.com/csells/dartantic_ai/discussions",
+          "icon": "github"
         },
         {
           "anchor": "Blog",
