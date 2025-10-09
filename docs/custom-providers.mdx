@@ -1,14 +1,12 @@
 ---
-title: Custom Providers
+title: "Custom Providers"
 ---
 
-Create your own providers and use them like the built-in providers. You can
-choose to implement either a `ChatModel` or an `EmbeddingsModel` or both.
+Create your own providers and use them like the built-in providers. Your provider can expose a `ChatModel`, an `EmbeddingsModel` or both.
 
 ## Dependencies
 
-You do not need to depend on the `dartantic_ai` package to create a custom
-provider. The `dartantic_interface` package is all you need.
+You do not need to depend on the `dartantic_ai` package to create a custom provider. The `dartantic_interface` package is all you need.
 
 ```yaml
 dependencies:
@@ -71,18 +69,17 @@ class EchoChatModel extends ChatModel<ChatModelOptions> {
 }
 ```
 
-With your custom provider, you can use it with an agent:
+With your custom provider, you can use it with an agent directly:
 
 ```dart
 final agent = Agent.forProvider(EchoProvider());
 final result = await agent.send('Hello!');
-print(result.output); // Echoes back your input
+print(result.output);
 ```
 
 ## Dynamic Provider Registration
 
-If you'd like to participate in the named lookup of providers, you can add your
-custom provider to the provider map:
+If you'd like to participate in the named lookup of providers, you can add your custom provider to the provider map:
 
 ```dart
 // Add your custom provider to the registry
@@ -91,7 +88,7 @@ Providers.providerMap['echo'] = EchoProvider();
 // Use it like any built-in provider
 final agent = Agent('echo');
 final result = await agent.send('Hello!');
-print(result.output); // Echoes back your input
+print(result.output);
 ```
 
 ## Examples
