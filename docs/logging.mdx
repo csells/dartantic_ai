@@ -1,8 +1,8 @@
 ---
-title: Logging
+title: "Logging"
 ---
 
-Route and filter debug output from the agent.
+Show, filter and shape logging from the agent, providers, models and mappers.
 
 ## Basic Usage
 
@@ -27,13 +27,13 @@ Agent.loggingOptions = LoggingOptions(level: Level.FINE);
 Agent.loggingOptions = LoggingOptions(level: Level.WARNING);
 ```
 
-| Level | Use Case | Output |
-|-------|----------|--------|
-| `Level.FINE` | Development | Verbose |
-| `Level.INFO` | General | Moderate |
-| `Level.WARNING` | Production | Minimal |
+| Level           | Use Case    | Output   |
+| --------------- | ----------- | -------- |
+| `Level.FINE`    | Development | Verbose  |
+| `Level.INFO`    | General     | Moderate |
+| `Level.WARNING` | Production  | Minimal  |
 
-## Filter by Provider
+## Filter by String
 
 ```dart
 // Only OpenAI logs
