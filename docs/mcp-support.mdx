@@ -1,11 +1,14 @@
 ---
-title: MCP (Model Context Protocol) Support
+title: "MCP (Model Context Protocol) Support"
 ---
 
-Extend agents with external tools from MCP servers - remote APIs or local
-processes.
+An MCP server (aka Model Context Protocol server), is an external service that provides data, capabilities, or tools to a Large Language Model (LLM). These servers enable LLMs to interact with other systems like databases, the internet, or local files, allowing them to perform actions, fetch information, and integrate into larger workflows by presenting their functions as tools the LLM can use.  
+
+Dartantic has built-in support for mapping the tools from an MCP server, whether it's local or running in the cloud, via a built-in `McpClient` class.
 
 ## Remote MCP Servers
+
+Connect to MCP servers running in the cloud:
 
 ```dart
 // Connect to remote MCP server
@@ -24,7 +27,7 @@ final result = await agent.send('Who is hugging face?');
 
 ## Local MCP Servers
 
-Connect to local processes:
+Connect to local processes running on your machine:
 
 ```dart
 final calculator = McpClient.local(
