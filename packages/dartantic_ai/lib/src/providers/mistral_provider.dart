@@ -25,10 +25,7 @@ class MistralProvider
           ModelKind.chat: 'open-mistral-7b',
           ModelKind.embeddings: 'mistral-embed',
         },
-        caps: const {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-        },
+        caps: const {ProviderCaps.chat, ProviderCaps.embeddings},
         baseUrl: null,
         aliases: ['mistralai'],
       );
