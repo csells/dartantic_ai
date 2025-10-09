@@ -1,13 +1,20 @@
 ---
 title: "Logging"
+description: "Show, filter and shape logging from the agent, providers, models and mappers."
 ---
 
-Show, filter and shape logging from the agent, providers, models and mappers.
+The dartantic_ai package implements a comprehensive logging system using the
+`logging` package. All logging follows a hierarchical naming convention to
+provide clear operational visibility and debugging capabilities.
 
 ## Basic Usage
 
+By default, dartantic logging is disabled. You can enable logging by setting the
+`loggingOptions` property of the `Agent` class to an instance of the
+`LoggingOptions` class:
+
 ```dart
-// Enable default logging
+// Enable logging
 Agent.loggingOptions = const LoggingOptions();
 
 final agent = Agent('openai');
@@ -16,6 +23,9 @@ await agent.send('Hello!');
 ```
 
 ## Logging Levels
+
+The `loggingOptions` property of the `Agent` class can be set to a
+`LoggingOptions` object to configure the logging level.
 
 ```dart
 import 'package:logging/logging.dart';
@@ -34,6 +44,9 @@ Agent.loggingOptions = LoggingOptions(level: Level.WARNING);
 | `Level.WARNING` | Production  | Minimal  |
 
 ## Filter by String
+
+You can filter logging by a string by setting the `filter` property of the
+`LoggingOptions` class to a string that matches the logging output:
 
 ```dart
 // Only OpenAI logs

@@ -1,13 +1,15 @@
 ---
 title: Typed Output
+description: "Get more than a string back from your AI."
 ---
 
-Because sometimes you need more than a string back from your AI. Providers that
-expose `ProviderCaps.typedOutputWithTools` (like **OpenAI Responses** and
-**OpenAI**) can generate structured JSON while still executing tools in the
-same request.
+Typed output allows constraining LLM responses to specific JSON schemas.
 
 ## Basic JSON
+
+You can pass a JSON schema to the `outputSchema` parameter of the `Agent.send`
+method. The schema is used to constrain the LLM's response to a specific JSON
+object shape.
 
 ```dart
 final result = await agent.send(
@@ -25,6 +27,9 @@ print(result.output); // {"city":"Chicago"}
 ```
 
 ## Parsed Map
+
+You can also pass a type to the `sendFor` method. By default, dartantic already
+knows how to parse the LLM's response to a `Map<String, dynamic>`.
 
 ```dart
 final result = await agent.sendFor<Map<String, dynamic>>(
@@ -45,8 +50,8 @@ print(result.output['colors']); // ['sunshine yellow', 'ocean blue', 'grass gree
 ```
 
 ## Custom Types
-
-Here we're using a custom type to parse the JSON output via the `outputFromJson` parameter:
+If you'd like to parse the JSON output to a custom type, you can pass a type to
+the `sendFor` method along with the `outputFromJson` parameter.
 
 ```dart
 class Weather {
@@ -77,7 +82,7 @@ print('${result.output.city}: ${result.output.temp}°F');
 ## Schema Generation
 
 Hand-writing schemas and JSON serialization is a lot of boilerplate. Consider
-using `json_serializable` and `_soti_schema_plus` to automate this:
+using the `json_serializable` and `soti_schema_plus` packages to automate this:
 
 ```dart
 // let's use the `soti_schema_plus` package to generate the schema and JSON serialization
@@ -106,23 +111,10 @@ final result = await agent.sendFor<TownAndCountry>(
 
 print('${result.output.town}, ${result.output.country}');
 ```
-
-## With Tools
-
-```dart
-// Typed output + tool calls in one request
-final agent = Agent('openai-responses');
-final result = await agent.sendFor<Recipe>(
-  'Get grandma\'s recipe for cookies',
-  outputSchema: recipeSchema,
-  outputFromJson: Recipe.fromJson,
-  tools: [recipeLookupTool],
-);
-
-print('${result.output.name}: ${result.output.ingredients}');
-```
-
 ## Streaming
+
+You can stream structured JSON from the provider by passing the `outputSchema`
+parameter to the `sendStream` method.
 
 ```dart
 // Stream structured JSON
@@ -133,6 +125,15 @@ await for (final chunk in agent.sendStream(
   stdout.write(chunk.output); // Streams JSON chunks
 }
 ```
+
+This is useful if you'd like to render the JSON progressively as it's streamed.
+
+## With Tools
+
+Some providers support both tools and typed output in the same request. See the
+[typed output
+example](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/typed_output.dart)
+for more details.
 
 ## Examples
 

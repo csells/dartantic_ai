@@ -3,9 +3,16 @@ title: "Multi-turn Chat"
 description: "Build conversations that remember context."
 ---
 
-An agent is transient and contains configuration information for what provider and model you'd like to use, what settings you want to use, what tools, etc. However, an agent has no memory, no context to bring from one prompt to the next. That context comes from the message history, which you manage and send to each agent along with the next prompt.
+An agent contains configuration information for what provider and model you'd
+like to use, what settings you want to use, what tools, etc. However, an agent
+has no context (aka memory) to bring from one prompt to the next. That context
+comes from the message history, which you manage and send to each agent along
+with each prompt.
 
 ## Basic Example
+
+Each response from an `Agent.sendXxx` method includes a list of new messages,
+which you can accumulate into the history of the conversation.
 
 ```dart
 final agent = Agent('openai');
@@ -17,37 +24,55 @@ history.addAll(result.messages);
 
 // Second turn - remembers
 result = await agent.send("What's my name?", history: history);
+history.addAll(result.messages);
 print(result.output); // "Your name is Alice"
 ```
 
-## Message Flow
+## Streaming Example
+
+When using streaming, you can accumulate the messages as they arrive.
 
 ```dart
-final result = await agent.send('Hi', history: history);
-history.addAll(result.messages);
+final agent = Agent('openai');
+final history = <ChatMessage>[];
 
-// result.messages contains:
-// 1. User: "Hi"
-// 2. Assistant: response
+const prompt1 = 'My name is Alice.';
+await for (final chunk in agent.sendStream(prompt1, history: history)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+stdout.writeln();
+
+const prompt2 = 'What is my name?';
+await for (final chunk in agent.sendStream(prompt2, history: history)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+stdout.writeln();
 ```
 
 ## Multi-Provider Chat
 
+You can pass a shared history to multiple agents, even across providers.
+
 ```dart
 final history = <ChatMessage>[];
 
-// Fast response
 final gemini = Agent('google');
 var r = await gemini.send('Summarize...', history: history);
+print('Gemini: ${r.output}');
 history.addAll(r.messages);
 
-// Deep analysis
 final claude = Agent('anthropic');
 r = await claude.send('Analyze...', history: history);
+print('Claude: ${r.output}');
 history.addAll(r.messages);
 ```
 
 ## With Tools
+
+When you use tools in a chat, the results are included in the history and
+provide context for the next request.
 
 ```dart
 final agent = Agent('openai', tools: [weatherTool]);
@@ -55,45 +80,48 @@ final history = <ChatMessage>[];
 
 // Tools persist across turns
 var r = await agent.send('Weather in NYC?', history: history);
+print(r.output);
 history.addAll(r.messages);
 
 r = await agent.send('How about LA?', history: history);
+print(r.output);
 history.addAll(r.messages);
 ```
 
-## Provider Sessions
+## Prompt Caching with Provider Sessions
 
-OpenAI Responses can persist server-side session state so you only send new
-messages on each turn:
+The OpenAI Responses provider attaches metadata to each response message it
+providers so that you do not need to pass the history around; you only need to
+send the new messages since the last response. This provides prompt caching and
+saves on network traffic.
+
+You still send messages around as normal, so your code doesn't change.
+
+Moreover, this works across multiple providers; the OpenAI Responses provider
+can send along all of the messages since the last response, even the
+request/response pairs from other providers.
+
+You can control this behavior with the `store` parameter to the
+`OpenAIResponsesChatModelOptions` class.
 
 ```dart
 final agent = Agent(
   'openai-responses',
   chatModelOptions: const OpenAIResponsesChatModelOptions(store: true),
 );
-
-final result = await agent.send('Summarize this conversation', history: history);
-final sessionId = result.metadata['_responses_session'];
 ```
-
-The provider automatically reuses the previous session ID when you include it in
-message metadata, so orchestrators like `Agent` handle this for you. You can
-still fall back to `store: false` for stateless requests.
-
 When `store` is `true` (the default), the provider caches the entire
-conversation server-side. Dartantic still encourages you to pass history around
-as usual so the orchestrator can build prompts, but the OpenAI Responses mapper
-uses the `_responses_session` metadata to send only the *new* messages on each
-turn. This keeps payloads small while preserving full context on the provider.
-
-Set `store: false` to force stateless behaviour—useful when you explicitly want
-every turn to include the full history that you supply from the client.
+conversation server-side. You can manually set `store: false` to force stateless
+behavior.
 
 ## Examples
 
-- [Multi-turn chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)
-- [Multi-provider conversation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
-- [Chat with tools and history](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
+- [Multi-turn
+  chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)
+- [Multi-provider
+  conversation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
+- [Chat with tools and
+  history](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
 
 ## Next Steps
 

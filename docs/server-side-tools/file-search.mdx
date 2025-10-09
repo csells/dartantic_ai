@@ -1,10 +1,15 @@
 ---
 title: File Search
+description: "Search provider-hosted files and vector stores without leaving the chat flow."
 ---
 
-Search provider-hosted files and vector stores without leaving the chat flow.
+The OpenAI Responses provider exposes a file search tool that allows you to
+search through files and vector stores hosted by OpenAI.
 
 ## Enable File Search
+
+The file search tool can be enabled via the `chatModelOptions` parameter of the
+`Agent` constructor.
 
 ```dart
 final agent = Agent(

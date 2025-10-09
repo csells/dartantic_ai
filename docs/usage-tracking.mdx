@@ -1,10 +1,14 @@
 ---
 title: Usage Tracking
+description: "Track token usage and costs."
 ---
 
-Track token usage and costs.
+Every provider supports tracking token usage and costs.
 
 ## Basic Usage
+
+The `ChatResult` object includes a `usage` property that contains the token
+usage and costs.
 
 ```dart
 final agent = Agent('openai');
@@ -16,20 +20,10 @@ print('Output tokens: ${result.usage.responseTokens}');
 print('Total tokens: ${result.usage.totalTokens}');
 ```
 
-## Compare Providers
-
-```dart
-final providers = ['openai', 'anthropic', 'google'];
-
-for (final name in providers) {
-  final agent = Agent(name);
-  final result = await agent.send('Hello');
-  
-  print('$name: ${result.usage.totalTokens} tokens');
-}
-```
-
 ## Embeddings Usage
+
+The `EmbeddingsModel` class includes a `usage` property that contains the token
+usage and costs as well.
 
 ```dart
 final agent = Agent('openai');
@@ -40,39 +34,6 @@ final result = await agent.embedDocuments([
 ]);
 
 print('Tokens used: ${result.usage.totalTokens}');
-```
-
-## Cost Estimation
-
-```dart
-// Example pricing (check current rates)
-const openaiInputPer1k = 0.00015;
-const openaiOutputPer1k = 0.0006;
-
-final result = await agent.send('Write a haiku');
-final inputCost = (result.usage.promptTokens ?? 0) / 1000 * openaiInputPer1k;
-final outputCost = (result.usage.responseTokens ?? 0) / 1000 * openaiOutputPer1k;
-
-print('Cost: \$${(inputCost + outputCost).toStringAsFixed(6)}');
-```
-
-## Cumulative Tracking
-
-```dart
-var totalTokens = 0;
-var totalCost = 0.0;
-
-// Track multiple requests
-for (var i = 0; i < 5; i++) {
-  final result = await agent.send('Question $i');
-  totalTokens += result.usage.totalTokens ?? 0;
-  
-  // Add cost calculation
-  final cost = totalTokens / 1000 * 0.002; // Example rate
-  totalCost += cost;
-}
-
-print('Total: $totalTokens tokens, \$$totalCost');
 ```
 
 ## Examples

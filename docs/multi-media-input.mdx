@@ -1,12 +1,13 @@
 ---
 title: "Multimedia Input"
+description: "Because sometimes words aren't enough—your AI needs to see what's in your fridge too."
 ---
 
-Because sometimes words aren't enough—your AI needs to see what's in your fridge too.
+Dartantic supports multi-modal input, including text, images, PDFs and other
+binary attachments. You can attach local files, download files from URLs, 
+attach raw bytes, attach links, or mix and match all of the above.
 
 ## Local Files
-
-You can attach local files to prompts you send to your agent:
 
 ```dart
 // Using cross_file for cross-platform support
@@ -50,8 +51,6 @@ await responsesAgent.send(
 
 ## Download from URL
 
-You can download data from links:
-
 ```dart
 // Download and include file from URL
 final urlData = await DataPart.url(
@@ -64,8 +63,6 @@ final result = await agent.send(
 ```
 
 ## Raw Bytes
-
-You can attach bytes you've already got in memory:
 
 ```dart
 // Include raw bytes with mime type
@@ -82,8 +79,6 @@ final result = await agent.send(
 
 ## Web URLs
 
-You an attach links w/o downloading:
-
 ```dart
 // Direct URL reference (OpenAI)
 final result = await agent.send(
@@ -94,9 +89,7 @@ final result = await agent.send(
 );
 ```
 
-## Multiple Attachments
-
-You can mix and match:
+## Mix and Match Attachments
 
 ```dart
 // Mix text and images

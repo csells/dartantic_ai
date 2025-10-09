@@ -1,5 +1,6 @@
 ---
 title: Providers
+description: "Providers for chat and embeddings models."
 ---
 
 Out of the box support for 11 providers, with more to come.
@@ -61,16 +62,6 @@ Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 Agent('openai-responses:gpt-5');
 ```
 
-### OpenAI Responses Sessions
-
-The Responses provider enables server-side session storage by default
-(`store: true`). You still pass conversation history to `Agent.send`/`sendStream`
-as usual, but the provider mapper inspects `_responses_session` metadata and
-only forwards the *new* messages to the API each turn. This keeps payloads
-small while maintaining full context on OpenAI's side. Set
-`OpenAIResponsesChatModelOptions(store: false)` if you need fully stateless
-requests.
-
 ## Find Providers
 
 ```dart
@@ -114,7 +105,7 @@ if (provider.caps.contains(ProviderCaps.embeddings)) {
 
 - **`chat`** - Chat conversations
 - **`embeddings`** - Vector embeddings
-- **`vision`** - Image/file processing
+- **`chatVision`** - Image/file processing handled by the chat model
 - **`toolCalls`** - Function calling
 - **`multiToolCalls`** - Multiple tool calls
 - **`streaming`** - Stream responses
