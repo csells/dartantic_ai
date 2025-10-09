@@ -1,10 +1,12 @@
 ---
-title: Multimedia Input
+title: "Multimedia Input"
 ---
 
 Because sometimes words aren't enough—your AI needs to see what's in your fridge too.
 
 ## Local Files
+
+You can attach local files to prompts you send to your agent:
 
 ```dart
 // Using cross_file for cross-platform support
@@ -36,6 +38,8 @@ final result = await agent.send(
 
 ## Download from URL
 
+You can download data from links:
+
 ```dart
 // Download and include file from URL
 final urlData = await DataPart.url(
@@ -48,6 +52,8 @@ final result = await agent.send(
 ```
 
 ## Raw Bytes
+
+You can attach bytes you've already got in memory:
 
 ```dart
 // Include raw bytes with mime type
@@ -64,6 +70,8 @@ final result = await agent.send(
 
 ## Web URLs
 
+You an attach links w/o downloading:
+
 ```dart
 // Direct URL reference (OpenAI)
 final result = await agent.send(
@@ -75,6 +83,8 @@ final result = await agent.send(
 ```
 
 ## Multiple Attachments
+
+You can mix and match:
 
 ```dart
 // Mix text and images
