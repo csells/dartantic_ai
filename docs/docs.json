@@ -71,17 +71,17 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Discussion ↗",
+          "anchor": "Discussion",
           "href": "https://github.com/csells/dartantic_ai/discussions",
-          "icon": "slack"
+          "icon": "github"
         },
         {
-          "anchor": "API Reference ↗",
+          "anchor": "API Reference",
           "href": "https://pub.dev/documentation/dartantic_ai/latest/",
           "icon": "book-open-cover"
         },
         {
-          "anchor": "Blog ↗",
+          "anchor": "Blog",
           "href": "https://sellsbrothers.com",
           "icon": "newspaper"
         }
@@ -96,20 +96,20 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:csells@sellsbrothers.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "pub.dev",
+      "href": "https://pub.dev/packages/dartantic_ai"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://www.linkedin.com/company/mintlify"
+      "x": "https://x.com/csells",
+      "github": "https://github.com/csells",
+      "linkedin": "https://www.linkedin.com/in/csells"
     }
   }
 }
