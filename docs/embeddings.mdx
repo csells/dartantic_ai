@@ -1,10 +1,14 @@
 ---
-title: Embeddings
+title: "Embeddings"
 ---
 
-Some providers produce embeddings as well as chat responses.
+An AI embedding is a numerical vector representation of data (like text, images, or audio) that captures its meaning and context, allowing AI models to understand and work with complex, unstructured information. By converting diverse data types into numbers, embeddings place similar items close together in a high-dimensional space, making it easier for algorithms to find patterns, perform searches, and group information based on semantic relationships rather than just keyword matches. 
+
+Dartantic has full support for creating embeddings using providers that expose embeddings models.
 
 ## Basic Usage
+
+You can turn a string into a embedding using one of the `embedXxx` methods. The `embedQuery` method works on a single string and is generally meant for lookups (which we'll see later). The `embedDocuments` method works on a batch of strings.
 
 ```dart
 final agent = Agent('openai');
@@ -22,7 +26,13 @@ final results = await responsesAgent.embedDocuments([
 ]);
 ```
 
+Strings for embeddings are length-limited as per the underlying model, so you'll have to split larger strings according to the requirements for that model.
+
 ## Similarity
+
+There are several ways to do searches with embeddings, many of the advanced ones beyond the scope of this documentation, but one simple, built-in way is via cosine similarity. Cosine similarity is a metric that measures the angle between two non-zero vectors to determine their similarity, with a score of 1 meaning they point in the same direction, 0 meaning they are unrelated, and -1 meaning they point in opposite directions.
+
+What this means for embeddings is cosine similarity useful for doing searches: the higher the number, the closer the match.
 
 ```dart
 // Compare two texts
@@ -37,6 +47,8 @@ print(similarity); // 0.8234
 ```
 
 ## Search Example
+
+It's pretty typical to use `embedDocuments` to calculate embeddings for documents to be searched against via `embedQuery` like so:
 
 ```dart
 // Find most similar
@@ -57,7 +69,11 @@ final best = sims.indexOf(sims.reduce(max));
 print('Best match: index $best');
 ```
 
+Some embedding models have the same underlying implementation for calculating query vs. documentation embeddings, but following this pattern will always get you to the right place.
+
 ## Configuration
+
+Different embedding models from different providers have different options, e.g. it's common to be able to chance the default size of the calculated embeddings vector.
 
 ```dart
 // Custom model
@@ -71,6 +87,12 @@ final agent = Agent(
   ),
 );
 ```
+
+It takes longer to calculate more dimensions but a larger vector gives more accurate comparison results.
+
+## Vectors are Provider-Specific
+
+Even though the concept of embeddings and how to use them is the same across providers and many providers calculate embeddings that are the same size, an embedding calculated with one providers, e.g. Google, is NOT compatible with an embedding calcuated with another providers, e.g. OpenAI. You'll need to track the source and maintain integrity yourself per the requirements of your applications.
 
 ## Examples
 
