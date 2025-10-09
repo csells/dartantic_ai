@@ -47,7 +47,6 @@ To run the full test suite successfully, you'll need to set the following enviro
 5. **COHERE_API_KEY** - For Cohere provider
 6. **OPENROUTER_API_KEY** - For OpenRouter provider (access to 300+ models)
 7. **TOGETHER_API_KEY** - For Together AI provider
-8. **LAMBDA_API_KEY** - For Lambda provider (if using)
 
 Note: The following providers do not require API keys:
 - **ollama** - Runs locally

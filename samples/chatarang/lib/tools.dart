@@ -29,7 +29,7 @@ final tools = [
       'required': ['zipcode'],
     }),
     onCall: (input) async {
-      final zipcode = (input as Map<String, dynamic>)['zipcode'] as String;
+      final zipcode = (input as Map<String, dynamic>?)!['zipcode'] as String;
       final url = Uri.parse('https://wttr.in/US~$zipcode?format=j1');
       final response = await http.get(url);
       if (response.statusCode != 200) {

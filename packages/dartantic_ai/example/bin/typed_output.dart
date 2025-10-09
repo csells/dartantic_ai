@@ -9,7 +9,8 @@ import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
 void main() async {
-  final provider = Providers.openai;
+  const model = 'openai-responses';
+  final provider = Providers.get(model);
   assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
   final agent = Agent.forProvider(
     provider,
@@ -262,7 +263,6 @@ Future<void> typedOutputWithToolCallsAndMultipleTurnsStreaming(
     ],
   });
 
-  // First turn: Look up the recipe (streaming with runStream)
   final history = <ChatMessage>[ChatMessage.system('You are an expert chef.')];
   print('First turn - streaming JSON for recipe lookup:');
   final firstJsonChunks = <String>[];
@@ -286,7 +286,6 @@ Future<void> typedOutputWithToolCallsAndMultipleTurnsStreaming(
   print('First recipe:');
   dumpRecipe(firstResult);
 
-  // Second turn: Modify the recipe (streaming with runStream)
   print('Second turn - streaming JSON for recipe modification:');
   final secondJsonChunks = <String>[];
   await for (final result in agent.sendStream(

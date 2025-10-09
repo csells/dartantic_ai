@@ -17,6 +17,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
   group('Embeddings', () {
     group('basic embeddings', () {
@@ -334,18 +336,21 @@ void main() {
     });
 
     group('all providers - embeddings', () {
-      test('embeddings work across all providers', () async {
-        const testText = 'The quick brown fox jumps over the lazy dog';
+      runProviderTest(
+        'embeddings work across all providers',
+        (provider) async {
+          const testText = 'The quick brown fox jumps over the lazy dog';
 
-        // Test all providers with embeddings capability
-        final providers = Providers.allWith({ProviderCaps.embeddings});
-
-        final embeddings = <String, List<double>>{};
-
-        for (final provider in providers) {
-          final model = provider.createEmbeddingsModel(
-            name: provider.defaultModelNames[ModelKind.embeddings],
+          final modelName = provider.defaultModelNames[ModelKind.embeddings];
+          expect(
+            modelName,
+            isNotNull,
+            reason:
+                'Provider ${provider.name} should expose a default '
+                'embeddings model',
           );
+
+          final model = provider.createEmbeddingsModel(name: modelName);
           final result = await model.embedQuery(testText);
 
           expect(
@@ -358,22 +363,14 @@ void main() {
             isTrue,
             reason: 'Provider ${provider.name} should return valid numbers',
           );
-
-          embeddings[provider.name] = result.embeddings;
-        }
-
-        // If we got multiple providers, compare their outputs
-        if (embeddings.length > 1) {
-          // All should produce embeddings of reasonable length
-          for (final entry in embeddings.entries) {
-            expect(
-              entry.value.length,
-              greaterThan(100),
-              reason: '${entry.key} should produce reasonably sized embeddings',
-            );
-          }
-        }
-      });
+          expect(
+            result.embeddings.length,
+            greaterThan(100),
+            reason: 'Provider ${provider.name} should produce sizable vectors',
+          );
+        },
+        requiredCaps: {ProviderCaps.embeddings},
+      );
     });
   });
 }

@@ -9,53 +9,27 @@
 ///
 /// This file tests cross-provider integration scenarios
 
-import 'dart:typed_data';
-
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 import 'test_utils.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in Providers.all) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   // Helper for tool-supporting providers
   void runToolProviderTest(
     String testName,
     Future<void> Function(Provider provider) testFunction, {
     Timeout? timeout,
   }) {
-    group(testName, () {
-      final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-      for (final provider in toolProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
+    runProviderTest(
+      testName,
+      testFunction,
+      requiredCaps: {ProviderCaps.multiToolCalls},
+      timeout: timeout,
+    );
   }
 
   group('System Integration', () {
@@ -314,7 +288,7 @@ void main() {
 
     group('cross-provider workflows', () {
       test('provider fallback scenario', () async {
-        final providers = ['openai:gpt-4o-mini', 'google:gemini-2.0-flash'];
+        final providers = ['openai:gpt-4o-mini', 'google:gemini-2.5-flash'];
 
         var successfulProvider = '';
 
@@ -339,7 +313,7 @@ void main() {
             'prompt': 'Return JSON: {"test": true}',
           },
           {
-            'provider': 'google:gemini-2.0-flash',
+            'provider': 'google:gemini-2.5-flash',
             'feature': 'multimodal',
             'prompt': 'Describe this input',
           },
@@ -355,7 +329,7 @@ void main() {
       });
 
       test('model comparison workflow', () async {
-        final models = ['openai:gpt-4o-mini', 'google:gemini-2.0-flash'];
+        final models = ['openai:gpt-4o-mini', 'google:gemini-2.5-flash'];
 
         const prompt = 'What is the capital of France?';
         final results = <String, String>{};
@@ -377,74 +351,6 @@ void main() {
     });
 
     group('complex message handling', () {
-      test(
-        'multipart message with tool execution',
-        skip: 'Image validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
-
-          final imageData = Uint8List.fromList([
-            1,
-            2,
-            3,
-            4,
-          ]); // Minimal image data
-          final result = await agent.send(
-            'Analyze this data and use string_tool',
-            attachments: [
-              DataPart(imageData, mimeType: 'application/octet-stream'),
-              LinkPart(Uri.parse('https://example.com/reference')),
-            ],
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.messages, isNotEmpty);
-
-          // Should have both multipart input and tool execution
-          final userMessage = result.messages.firstWhere(
-            (m) => m.role == ChatMessageRole.user,
-          );
-          expect(userMessage.parts.length, greaterThan(1));
-
-          final hasToolResults = result.messages.any((m) => m.hasToolResults);
-          expect(hasToolResults, isTrue);
-        },
-      );
-
-      test(
-        'conversation history with mixed message types',
-        skip: 'Image validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini');
-
-          final history = <ChatMessage>[
-            const ChatMessage(
-              role: ChatMessageRole.system,
-              parts: [TextPart('You are a helpful assistant.')],
-            ),
-            ChatMessage(
-              role: ChatMessageRole.user,
-              parts: [
-                const TextPart('Hello'),
-                LinkPart(Uri.parse('https://example.com')),
-              ],
-            ),
-            const ChatMessage(
-              role: ChatMessageRole.model,
-              parts: [TextPart('Hello! I see you shared a link.')],
-            ),
-          ];
-
-          final result = await agent.send(
-            'What did we discuss?',
-            history: history,
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.output.toLowerCase(), contains('link'));
-        },
-      );
-
       test('tool results integration in conversation flow', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
 
@@ -585,7 +491,7 @@ void main() {
             return agent.send('Workflow 1: Count to 3');
           },
           () async {
-            final agent = Agent('google:gemini-2.0-flash');
+            final agent = Agent('google:gemini-2.5-flash');
             return agent.send('Workflow 2: Say hello');
           },
         ];
@@ -630,7 +536,7 @@ void main() {
 
     group('real-world usage patterns', () {
       test('code analysis workflow', () async {
-        final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
+        final agent = Agent('openai', tools: [stringTool]);
 
         const codeSnippet = '''
 function fibonacci(n) {
@@ -651,32 +557,6 @@ function fibonacci(n) {
         final hasToolResults = result.messages.any((m) => m.hasToolResults);
         expect(hasToolResults, isTrue);
       });
-
-      test(
-        'research and summarization workflow',
-        skip: 'URL validation issues',
-        () async {
-          final agent = Agent('openai:gpt-4o-mini');
-
-          final result = await agent.send(
-            'Research topic: renewable energy. '
-            'Provide a brief summary of solar and wind power.',
-            attachments: [
-              LinkPart(Uri.parse('https://example.com/renewable-energy')),
-            ],
-          );
-
-          expect(result.output, isNotEmpty);
-          expect(result.output.toLowerCase(), contains('solar'));
-          expect(result.output.toLowerCase(), contains('wind'));
-
-          // Should reference the provided link
-          final userMessage = result.messages.firstWhere(
-            (m) => m.role == ChatMessageRole.user,
-          );
-          expect(userMessage.parts.whereType<LinkPart>(), hasLength(1));
-        },
-      );
 
       test('interactive problem solving', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [intTool]);
@@ -727,30 +607,25 @@ function fibonacci(n) {
     });
 
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-      test('empty and minimal inputs', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'empty and minimal inputs',
+        (provider) async {
           final agent = Agent(provider.name);
 
           final testCases = ['', ' ', '?', '1'];
 
           for (final input in testCases) {
-            // Skip empty inputs for Anthropic
-            if (provider.name == 'anthropic' && input.trim().isEmpty) {
-              continue;
-            }
             final result = await agent.send(input);
             expect(result.output, isA<String>());
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.chat},
+        edgeCase: true,
+      );
 
-      test('special character handling across system', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'special character handling across system',
+        (provider) async {
           final agent = Agent(provider.name, tools: [stringTool]);
 
           const specialInput = '{"test": "hello 世界 🌍"}';
@@ -760,14 +635,15 @@ function fibonacci(n) {
           );
 
           expect(result.output, isNotEmpty);
-
-          // Should handle unicode and special characters properly
           expect(result.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('very long workflow chains', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'very long workflow chains',
+        (provider) async {
           final agent = Agent(provider.name, tools: [stringTool]);
 
           const longPrompt =
@@ -782,11 +658,110 @@ function fibonacci(n) {
           expect(result.output, isNotEmpty);
           expect(result.messages, isNotEmpty);
 
-          // Should handle complex multi-step workflows
           final hasToolResults = result.messages.any((m) => m.hasToolResults);
           expect(hasToolResults, isTrue);
-        }
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
+    });
+
+    group('integration patterns', () {
+      test('custom provider registration and usage', () async {
+        // Create custom echo provider
+        final echoProvider = _EchoProvider();
+
+        // Register custom provider
+        Providers.providerMap['echo-test'] = echoProvider;
+
+        // Use custom provider
+        final agent = Agent('echo-test');
+        final result = await agent.send('Test message');
+
+        expect(result.output, contains('Test message'));
+        expect(result.messages, isNotEmpty);
+
+        // Cleanup
+        Providers.providerMap.remove('echo-test');
+      });
+
+      test('OpenAI-compatible custom provider pattern', () async {
+        // Create OpenAI-compatible provider with custom baseUrl
+        final customProvider = OpenAIProvider(
+          name: 'custom-openai-test',
+          displayName: 'Custom OpenAI',
+          defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
+          baseUrl: Uri.parse('https://api.openai.com/v1'),
+          apiKeyName: 'OPENAI_API_KEY',
+        );
+
+        // Register and use
+        Providers.providerMap['custom-openai-test'] = customProvider;
+
+        final agent = Agent('custom-openai-test');
+        final result = await agent.send('Hello from custom provider');
+
+        expect(result.output, isNotEmpty);
+        expect(result.messages, isNotEmpty);
+
+        // Cleanup
+        Providers.providerMap.remove('custom-openai-test');
       });
     });
   });
+}
+
+/// Simple echo provider for testing custom provider patterns
+class _EchoChatModel extends ChatModel<ChatModelOptions> {
+  _EchoChatModel({required super.name})
+    : super(defaultOptions: const ChatModelOptions());
+
+  @override
+  Stream<ChatResult<ChatMessage>> sendStream(
+    List<ChatMessage> messages, {
+    ChatModelOptions? options,
+    Object? outputSchema,
+  }) {
+    final lastMessage = messages.last;
+    return Stream.value(
+      ChatResult<ChatMessage>(output: ChatMessage.model(lastMessage.text)),
+    );
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _EchoProvider extends Provider {
+  _EchoProvider()
+    : super(
+        name: 'echo-test',
+        displayName: 'Echo Test Provider',
+        defaultModelNames: {ModelKind.chat: 'echo'},
+        caps: {},
+      );
+
+  @override
+  ChatModel<ChatModelOptions> createChatModel({
+    String? name,
+    List<Tool>? tools,
+    double? temperature,
+    ChatModelOptions? options,
+  }) => _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
+
+  @override
+  EmbeddingsModel<EmbeddingsModelOptions> createEmbeddingsModel({
+    String? name,
+    EmbeddingsModelOptions? options,
+  }) => throw UnimplementedError('Echo provider does not support embeddings');
+
+  @override
+  Stream<ModelInfo> listModels() async* {
+    yield ModelInfo(
+      providerName: name,
+      name: 'echo',
+      displayName: 'Echo Model',
+      kinds: const {ModelKind.chat},
+    );
+  }
 }

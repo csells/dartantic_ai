@@ -19,7 +19,8 @@ final result = await agent.embedQuery('Hello world');
 print(result.embeddings.length); // 1536
 
 // Multiple texts
-final results = await agent.embedDocuments([
+final responsesAgent = Agent('openai-responses');
+final results = await responsesAgent.embedDocuments([
   'Machine learning',
   'Deep learning',
   'Neural networks'
@@ -79,9 +80,9 @@ Different embedding models from different providers have different options, e.g.
 // Custom model
 Agent('openai?embeddings=text-embedding-3-large');
 
-// Reduce dimensions (OpenAI)
+// Reduce dimensions (OpenAI / OpenAI Responses)
 final agent = Agent(
-  'openai',
+  'openai-responses',
   embeddingsModelOptions: OpenAIEmbeddingsModelOptions(
     dimensions: 256, // Smaller vectors
   ),

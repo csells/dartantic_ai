@@ -72,6 +72,25 @@ flowchart TB
 
 ## Core Concepts
 
+### Metadata Preservation in Streaming
+
+A critical aspect of streaming is preserving metadata through the accumulation process:
+
+1. **During Streaming**: Metadata flows through chunks via `ChatResult.metadata`
+2. **Message Accumulation**: The `MessageAccumulator` merges metadata from chunks:
+   - Text parts are accumulated and consolidated
+   - Metadata from each chunk is merged into the accumulated message
+   - Provider-specific metadata (e.g., session IDs) must be preserved
+
+3. **Final Message Construction**: When streaming completes:
+   - **With streamed text**: Provider returns metadata-only message in `output` field
+     (empty parts array but full metadata) to avoid text duplication
+   - **Without streaming**: Provider returns complete message with metadata
+   - The orchestrator's accumulator merges this final metadata
+
+This ensures critical metadata like OpenAI Responses' `_responses_session` is preserved
+for features like session persistence.
+
 ### Streaming Message Flow
 - **Text Streaming**: Immediate output of text chunks to users
 - **Tool Accumulation**: Building complete tool calls across chunks
@@ -91,6 +110,7 @@ flowchart TB
 | Provider   | Streaming | Tools | Tool IDs | Streaming Format |
 |------------|-----------|-------|----------|------------------|
 | OpenAI     | ✅        | ✅    | ✅       | Partial chunks   |
+| OpenAI Responses | ✅   | ✅    | ✅       | Event-based (stateful) |
 | OpenRouter | ✅        | ✅    | ✅       | OpenAI-compatible|
 | Anthropic  | ✅        | ✅    | ✅       | Event-based      |
 | Google     | ✅        | ✅    | ❌       | Complete chunks  |
@@ -419,6 +439,28 @@ catch (error, stackTrace) {
 - **Tool IDs**: Provided by API
 - **Arguments**: Streamed as raw JSON string, parsed by mapper when complete
 - **ToolPart Creation**: Only after streaming completes with parsed arguments
+
+### OpenAI Responses
+- **Streaming**: Event-based with stateful session management
+- **Tool IDs**: Provided by API with `call_id` field
+- **Arguments**: Streamed as deltas via `function_call_arguments_delta` events
+- **Session Management**:
+  - Maintains tool execution state across session continuations
+  - Stores `responseId` for resuming conversations
+  - Handles pending tool outputs in session metadata
+- **Tool Flow Differences**:
+  - Validates message alternation before accepting tool results
+  - Supports server-side tools (web search, file search, code interpreter)
+  - Can resume mid-tool-execution with pending outputs
+- **Special Features**:
+  - Code interpreter with container management
+  - Web search with staged progress events
+  - File search with result telemetry
+  - MCP (Model Context Protocol) tool support
+- **Implementation Notes**:
+  - Uses OpenAIResponsesEventMapper to handle tool-related events
+  - Accumulates tool metadata in streaming state
+  - Preserves tool call IDs for proper result routing
 
 ### Anthropic
 - **Streaming**: Event-based with explicit stages

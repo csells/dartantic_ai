@@ -18,31 +18,10 @@ import 'package:dartantic_ai/src/chat_models/helpers/tool_id_helpers.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-  // Get all providers that support tools
-  final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in toolProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   group('Tool ID Coordination', () {
     group('ToolIdHelpers', () {
       test('generates unique tool call IDs', () {
@@ -349,6 +328,7 @@ void main() {
             );
           }
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
@@ -409,6 +389,7 @@ void main() {
             );
           }
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

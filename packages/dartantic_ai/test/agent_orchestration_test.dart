@@ -11,43 +11,10 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
-
-    for (final providerModel in providers) {
-      test(
-        '$providerModel: $description',
-        () async {
-          final parts = providerModel.split(':');
-          final providerName = parts[0];
-          final provider = Providers.get(providerName);
-          await testFunction(provider);
-        },
-        // Add longer timeout for tool streaming tests
-        timeout: description.contains('streaming with tools')
-            ? const Timeout(Duration(seconds: 60))
-            : null,
-      );
-    }
-  }
-
   group('Agent Orchestration', () {
     group('agent lifecycle (80% cases)', () {
       runProviderTest('agent creation without API calls', (provider) async {
@@ -211,7 +178,9 @@ void main() {
 
           final chunks = <String>[];
           await for (final chunk in agent.sendStream(
-            'Use string_tool with "stream test"',
+            'A customer pinged about order #1234 being delayed. '
+            'Call string_tool to draft a short update mentioning the order '
+            'number, then explain what you sent.',
           )) {
             chunks.add(chunk.output);
           }
@@ -221,7 +190,7 @@ void main() {
           final fullText = chunks.join();
           expect(
             fullText.toLowerCase(),
-            anyOf(contains('stream test'), contains('string_tool')),
+            anyOf(contains('1234'), contains('order')),
           );
         },
         requiredCaps: {ProviderCaps.multiToolCalls},

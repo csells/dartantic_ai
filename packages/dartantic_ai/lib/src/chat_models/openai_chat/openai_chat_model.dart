@@ -105,7 +105,7 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       finishReason: FinishReason.unspecified,
       metadata: const {},
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
 
     try {
@@ -115,6 +115,25 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
         chunkCount++;
         _logger.fine('Received OpenAI stream chunk $chunkCount');
         final delta = completion.choices?.firstOrNull?.delta;
+
+        // Update usage if present (even if delta is null)
+        if (completion.usage != null) {
+          lastResult = ChatResult<ChatMessage>(
+            output: lastResult.output,
+            messages: lastResult.messages,
+            finishReason: mapFinishReason(
+              completion.choices?.firstOrNull?.finishReason,
+            ),
+            metadata: {
+              'created': completion.created,
+              'model': completion.model,
+              'system_fingerprint': completion.systemFingerprint,
+            },
+            usage: mapUsage(completion.usage),
+            id: completion.id ?? lastResult.id,
+          );
+        }
+
         if (delta == null) continue;
 
         // Get the message with any text content (tool calls are only
@@ -154,9 +173,9 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
         }
       }
 
-      // After streaming completes, create and yield the final message with all
-      // tools
+      // After streaming completes, yield final result with usage
       if (accumulatedToolCalls.isNotEmpty) {
+        // Yield final message with tools
         final completeMessage = createCompleteMessageWithTools(
           accumulatedToolCalls,
           accumulatedText: accumulatedTextBuffer.toString(),
@@ -170,10 +189,21 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
           metadata: lastResult.metadata,
           usage: lastResult.usage,
         );
-      } else if (accumulatedTextBuffer.isEmpty) {
-        // If we have neither text nor tools, yield an empty message to signal
-        // completion
-        yield lastResult;
+      } else {
+        // Yield final result with empty output to provide usage without
+        // duplicating text
+        const emptyMessage = ChatMessage(
+          role: ChatMessageRole.model,
+          parts: [],
+        );
+        yield ChatResult<ChatMessage>(
+          id: lastResult.id,
+          output: emptyMessage,
+          messages: const [],
+          finishReason: lastResult.finishReason,
+          metadata: lastResult.metadata,
+          usage: lastResult.usage,
+        );
       }
 
       _logger.info('OpenAI chat stream completed after $chunkCount chunks');

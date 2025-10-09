@@ -23,6 +23,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_utils.dart';
 
 void main() {
@@ -106,102 +107,96 @@ void main() {
 
   group('typed output with tools', () {
     group('multi-turn chat with typed output and tools (streaming)', () {
-      final typedOutputWithToolProviders = Providers.allWith({
-        ProviderCaps.typedOutputWithTools,
-      });
+      runProviderTest(
+        'chef conversation with streaming',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [recipeLookupTool]);
 
-      for (final provider in typedOutputWithToolProviders) {
-        test(
-          '${provider.name} - chef conversation with streaming',
-          () async {
-            final agent = Agent(provider.name, tools: [recipeLookupTool]);
+          // First turn: Look up the recipe using streaming
+          final firstChunks = <String>[];
+          final firstMessages = <ChatMessage>[
+            ChatMessage.system(
+              'You are an expert chef with years of experience '
+              'in French cuisine.',
+            ),
+          ];
 
-            // First turn: Look up the recipe using streaming
-            final firstChunks = <String>[];
-            final firstMessages = <ChatMessage>[
-              ChatMessage.system(
-                'You are an expert chef with years of experience '
-                'in French cuisine.',
-              ),
-            ];
-
-            await for (final chunk in agent.sendStream(
-              "Can you show me grandma's mushroom omelette recipe?",
-              history: firstMessages,
-              outputSchema: recipeSchema,
-            )) {
-              if (chunk.output.isNotEmpty) {
-                firstChunks.add(chunk.output);
-              }
-              firstMessages.addAll(chunk.messages);
+          await for (final chunk in agent.sendStream(
+            "Can you show me grandma's mushroom omelette recipe?",
+            history: firstMessages,
+            outputSchema: recipeSchema,
+          )) {
+            if (chunk.output.isNotEmpty) {
+              firstChunks.add(chunk.output);
             }
+            firstMessages.addAll(chunk.messages);
+          }
 
-            // Verify first response
-            final firstOutput = firstChunks.join();
-            final firstJson = jsonDecode(firstOutput) as Map<String, dynamic>;
-            expect(firstJson['name'], contains('Mushroom Omelette'));
-            expect(firstJson['ingredients'], isA<List>());
-            expect(firstJson['ingredients'], isNotEmpty);
-            expect(
-              (firstJson['ingredients'] as List).join(' ').toLowerCase(),
-              contains('mushroom'),
-            );
+          // Verify first response
+          final firstOutput = firstChunks.join();
+          final firstJson = jsonDecode(firstOutput) as Map<String, dynamic>;
+          expect(firstJson['name'], contains('Mushroom Omelette'));
+          expect(firstJson['ingredients'], isA<List>());
+          expect(firstJson['ingredients'], isNotEmpty);
+          expect(
+            (firstJson['ingredients'] as List).join(' ').toLowerCase(),
+            contains('mushroom'),
+          );
 
-            // Verify tool was called
-            final toolCalls = firstMessages
-                .where((m) => m.role == ChatMessageRole.model)
-                .expand((m) => m.parts)
-                .whereType<ToolPart>()
-                .where((p) => p.kind == ToolPartKind.call)
-                .toList();
-            expect(toolCalls, hasLength(1));
-            expect(toolCalls.first.name, equals('lookup_recipe'));
+          // Verify tool was called
+          final toolCalls = firstMessages
+              .where((m) => m.role == ChatMessageRole.model)
+              .expand((m) => m.parts)
+              .whereType<ToolPart>()
+              .where((p) => p.kind == ToolPartKind.call)
+              .toList();
+          expect(toolCalls, hasLength(1));
+          expect(toolCalls.first.name, equals('lookup_recipe'));
 
-            // Validate message history follows correct pattern
-            validateMessageHistory(firstMessages);
+          // Validate message history follows correct pattern
+          validateMessageHistory(firstMessages);
 
-            // Second turn: Modify the recipe using streaming
-            final secondChunks = <String>[];
-            final secondMessages = <ChatMessage>[];
+          // Second turn: Modify the recipe using streaming
+          final secondChunks = <String>[];
+          final secondMessages = <ChatMessage>[];
 
-            await for (final chunk in agent.sendStream(
-              'Can you update it to replace the mushrooms with ham?',
-              history: firstMessages,
-              outputSchema: recipeSchema,
-            )) {
-              if (chunk.output.isNotEmpty) {
-                secondChunks.add(chunk.output);
-              }
-              secondMessages.addAll(chunk.messages);
+          await for (final chunk in agent.sendStream(
+            'Can you update it to replace the mushrooms with ham?',
+            history: firstMessages,
+            outputSchema: recipeSchema,
+          )) {
+            if (chunk.output.isNotEmpty) {
+              secondChunks.add(chunk.output);
             }
+            secondMessages.addAll(chunk.messages);
+          }
 
-            // Verify second response
-            final secondOutput = secondChunks.join();
-            final secondJson = jsonDecode(secondOutput) as Map<String, dynamic>;
-            expect(secondJson['name'], contains('Ham'));
-            expect(
-              (secondJson['ingredients'] as List).join(' ').toLowerCase(),
-              isNot(contains('mushroom')),
-            );
-            expect(secondJson['ingredients'], anyElement(contains('ham')));
-            // Instructions should be updated too
-            expect(
-              (secondJson['instructions'] as List).join(' ').toLowerCase(),
-              isNot(contains('mushroom')),
-            );
-            expect(
-              (secondJson['instructions'] as List).join(' ').toLowerCase(),
-              contains('ham'),
-            );
+          // Verify second response
+          final secondOutput = secondChunks.join();
+          final secondJson = jsonDecode(secondOutput) as Map<String, dynamic>;
+          expect(secondJson['name'], contains('Ham'));
+          expect(
+            (secondJson['ingredients'] as List).join(' ').toLowerCase(),
+            isNot(contains('mushroom')),
+          );
+          expect(secondJson['ingredients'], anyElement(contains('ham')));
+          // Instructions should be updated too
+          expect(
+            (secondJson['instructions'] as List).join(' ').toLowerCase(),
+            isNot(contains('mushroom')),
+          );
+          expect(
+            (secondJson['instructions'] as List).join(' ').toLowerCase(),
+            contains('ham'),
+          );
 
-            // Validate full conversation history follows correct pattern
-            final fullHistory = [...firstMessages, ...secondMessages];
-            validateMessageHistory(fullHistory);
-          },
-          timeout: const Timeout(Duration(seconds: 60)),
-          // No skip needed - we're only testing on providers that work
-        );
-      }
+          // Validate full conversation history follows correct pattern
+          final fullHistory = [...firstMessages, ...secondMessages];
+          validateMessageHistory(fullHistory);
+        },
+        requiredCaps: {ProviderCaps.typedOutputWithTools},
+        timeout: const Timeout(Duration(seconds: 60)),
+      );
     });
   });
 }

@@ -153,7 +153,9 @@ class McpClient {
       tools.add(
         Tool<Map<String, dynamic>>(
           name: tool.name,
-          description: tool.description ?? '',
+          description: tool.description == null
+              ? ''
+              : '$name: ${tool.description}',
           inputSchema: JsonSchema.create(tool.inputSchema.toJson()),
 
           onCall: (args) => _call(tool.name, args),

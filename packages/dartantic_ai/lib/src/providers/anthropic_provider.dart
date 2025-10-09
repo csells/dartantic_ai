@@ -29,7 +29,7 @@ class AnthropicProvider
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
           ProviderCaps.typedOutputWithTools,
-          ProviderCaps.vision,
+          ProviderCaps.chatVision,
         },
         aliases: ['claude'],
         baseUrl: null,

@@ -1,20 +1,20 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 void dumpMessages(List<ChatMessage> history) {
-  print('--------------------------------');
-  print('# Message History:');
+  stdout.writeln('--------------------------------');
+  stdout.writeln('# Message History:');
   for (final message in history) {
-    print('- ${_messageToSingleLine(message)}');
+    stdout.writeln('- ${_messageToSingleLine(message)}');
     if (message.metadata.isNotEmpty) {
-      print('  Metadata: ${message.metadata}');
+      stdout.write('  Metadata: ');
+      dumpMetadata(message.metadata);
     }
   }
-  print('--------------------------------');
+  stdout.writeln('--------------------------------');
 }
 
 String _messageToSingleLine(ChatMessage message) {
@@ -42,64 +42,65 @@ String _messageToSingleLine(ChatMessage message) {
 }
 
 void dumpTools(String name, Iterable<Tool> tools) {
-  print('\n# $name');
+  stdout.writeln('\n# $name');
   for (final tool in tools) {
     final json = const JsonEncoder.withIndent(
       '  ',
     ).convert(jsonDecode(tool.inputSchema.toJson()));
-    print('\n## Tool');
-    print('- name: ${tool.name}');
-    print('- description: ${tool.description}');
-    print('- inputSchema: $json');
+    stdout.writeln('\n## Tool');
+    stdout.writeln('- name: ${tool.name}');
+    stdout.writeln('- description: ${tool.description}');
+    stdout.writeln('- inputSchema: $json');
   }
 }
 
 /// Dumps a ChatResult with its metadata for debugging
 void dumpChatResult(ChatResult result, {String? label}) {
   if (label != null) {
-    print('\n=== $label ===');
+    stdout.writeln('\n=== $label ===');
   }
 
-  print('Result ID: ${result.id}');
+  stdout.writeln('Result ID: ${result.id}');
 
   // Show usage if available
-  if (result.usage.totalTokens != null) {
-    print(
-      'Usage: ${result.usage.promptTokens ?? 0} prompt + '
-      '${result.usage.responseTokens ?? 0} response = '
-      '${result.usage.totalTokens} total tokens',
+  if (result.usage?.totalTokens != null) {
+    final usage = result.usage!;
+    stdout.writeln(
+      'Usage: ${usage.promptTokens ?? 0} prompt + '
+      '${usage.responseTokens ?? 0} response = '
+      '${usage.totalTokens} total tokens',
     );
   }
 
   // Show metadata if present
   if (result.metadata.isNotEmpty) {
-    print('\nMetadata:');
+    stdout.writeln('\nMetadata:');
     const encoder = JsonEncoder.withIndent('  ');
-    print(encoder.convert(result.metadata));
+    stdout.writeln(encoder.convert(result.metadata));
   }
 
   // Show messages
   if (result.messages.isNotEmpty) {
-    print('\nMessages:');
+    stdout.writeln('\nMessages:');
     for (var i = 0; i < result.messages.length; i++) {
       final msg = result.messages[i];
-      print('  [$i] ${_messageToSummary(msg)}');
+      stdout.writeln('  [$i] ${_messageToSummary(msg)}');
     }
   }
 
   // Show output if it's a ChatMessage
   if (result.output is ChatMessage) {
     final outputSummary = _messageToSummary(result.output as ChatMessage);
-    print('\nOutput: $outputSummary');
+    stdout.writeln('\nOutput: $outputSummary');
   } else {
-    print('\nOutput: ${result.output}');
+    stdout.writeln('\nOutput: ${result.output}');
   }
 }
 
 /// Dumps streaming results with metadata tracking
 void dumpStreamingResults(List<ChatResult> results) {
-  print('\n=== Streaming Results Summary ===');
-  print('Total chunks: ${results.length}');
+  stdout.writeln('\n=== Streaming Results Summary ===');
+  stdout.writeln('Total chunks: ${results.length}');
 
   // Collect all unique metadata keys
   final allMetadataKeys = <String>{};
@@ -108,7 +109,7 @@ void dumpStreamingResults(List<ChatResult> results) {
   }
 
   if (allMetadataKeys.isNotEmpty) {
-    print('\nMetadata keys found: ${allMetadataKeys.join(', ')}');
+    stdout.writeln('\nMetadata keys found: ${allMetadataKeys.join(', ')}');
 
     // Show interesting metadata
     for (final result in results) {
@@ -116,8 +117,8 @@ void dumpStreamingResults(List<ChatResult> results) {
       if (meta.containsKey('suppressed_text') ||
           meta.containsKey('suppressed_tool_calls') ||
           meta.containsKey('extra_return_results')) {
-        print('\nChunk with suppressed content:');
-        print(const JsonEncoder.withIndent('  ').convert(meta));
+        stdout.writeln('\nChunk with suppressed content:');
+        stdout.writeln(const JsonEncoder.withIndent('  ').convert(meta));
       }
     }
   }
@@ -148,7 +149,79 @@ String _messageToSummary(ChatMessage message) {
   return '${message.role.name}: [${parts.join(', ')}]';
 }
 
-Future<void> dumpStream(Stream<ChatResult<String>> stream) async {
-  await stream.forEach((r) => stdout.write(r.output));
-  stdout.write('\n');
+void dumpUsage(LanguageModelUsage? usage) {
+  if (usage == null) return;
+  stdout.writeln('\n### Usage:');
+  stdout.writeln('- Prompt tokens: ${usage.promptTokens}');
+  stdout.writeln('- Response tokens: ${usage.responseTokens}');
+  stdout.writeln('- Total tokens: ${usage.totalTokens}');
+}
+
+void dumpMetadata(
+  Map<String, Object?> metadata, {
+  String prefix = '',
+  int maxLength = 64,
+}) {
+  if (metadata.isEmpty) return;
+  final trimmed = _recursiveTrimJson(metadata, maxLength: maxLength);
+  const encoder = JsonEncoder();
+  final serialized = encoder.convert(trimmed);
+  stdout.writeln('$prefix$serialized');
+}
+
+/// Recursively processes a JSON structure, trimming string values and
+/// parsing string values that contain JSON
+Object? _recursiveTrimJson(Object? value, {required int maxLength}) {
+  if (value == null) return null;
+
+  // Handle strings: try to parse as JSON, otherwise trim
+  if (value is String) {
+    // Try to parse as JSON
+    try {
+      final parsed = jsonDecode(value);
+      // Recursively process the parsed JSON
+      return _recursiveTrimJson(parsed, maxLength: maxLength);
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      // Not JSON, just trim the string
+      return _clip(value, maxLength: maxLength);
+    }
+  }
+
+  // Handle lists recursively
+  if (value is List) {
+    return value
+        .map((item) => _recursiveTrimJson(item, maxLength: maxLength))
+        .toList();
+  }
+
+  // Handle maps recursively
+  if (value is Map) {
+    return value.map(
+      (key, val) =>
+          MapEntry(key, _recursiveTrimJson(val, maxLength: maxLength)),
+    );
+  }
+
+  // All other primitives (numbers, bools, etc.) pass through unchanged
+  return value;
+}
+
+String _clip(String input, {required int maxLength}) {
+  if (input.length <= maxLength) return input;
+  final safeLength = maxLength <= 3 ? maxLength : maxLength - 3;
+  final prefix = safeLength <= 0 ? '' : input.substring(0, safeLength);
+  return '$prefix...';
+}
+
+String clipWithNull(Object? value, {int maxLength = 256}) =>
+    _clip(value?.toString() ?? 'null', maxLength: maxLength);
+
+void dumpImage(String name, String baseFilename, Uint8List bytes) {
+  final filename =
+      'tmp/${baseFilename}_${DateTime.now().millisecondsSinceEpoch}.png';
+  final out = File(filename);
+  out.createSync(recursive: true);
+  out.writeAsBytesSync(bytes);
+  stdout.writeln('  🎨 $name mage saved: $filename (${bytes.length} bytes)');
 }

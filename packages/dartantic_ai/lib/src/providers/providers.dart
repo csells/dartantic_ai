@@ -6,6 +6,7 @@ import 'google_provider.dart';
 import 'mistral_provider.dart';
 import 'ollama_provider.dart';
 import 'openai_provider.dart';
+import 'openai_responses_provider.dart';
 
 export 'anthropic_provider.dart';
 export 'cohere_provider.dart';
@@ -13,16 +14,17 @@ export 'google_provider.dart';
 export 'mistral_provider.dart';
 export 'ollama_provider.dart';
 export 'openai_provider.dart';
+export 'openai_responses_provider.dart';
 
 /// Providers for built-in chat and embeddings models.
 class Providers {
   // Private cache fields for lazy initialization
   static OpenAIProvider? _openai;
+  static OpenAIResponsesProvider? _openaiResponses;
   static OpenAIProvider? _openrouter;
   static OpenAIProvider? _together;
   static MistralProvider? _mistral;
   static CohereProvider? _cohere;
-  static OpenAIProvider? _lambda;
   static OpenAIProvider? _googleOpenAI;
   static GoogleProvider? _google;
   static AnthropicProvider? _anthropic;
@@ -32,18 +34,22 @@ class Providers {
   /// OpenAI provider (cloud, OpenAI API).
   static OpenAIProvider get openai => _openai ??= OpenAIProvider();
 
+  /// OpenAI Responses provider (Responses API with reasoning metadata).
+  static OpenAIResponsesProvider get openaiResponses =>
+      _openaiResponses ??= OpenAIResponsesProvider();
+
   /// OpenRouter provider (OpenAI-compatible, multi-model cloud).
   static OpenAIProvider get openrouter => _openrouter ??= OpenAIProvider(
     name: 'openrouter',
     displayName: 'OpenRouter',
-    defaultModelNames: {ModelKind.chat: 'google/gemini-2.0-flash-001'},
+    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
     baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
     apiKeyName: 'OPENROUTER_API_KEY',
     caps: {
       ProviderCaps.chat,
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
   );
 
@@ -61,7 +67,7 @@ class Providers {
     },
     baseUrl: Uri.parse('https://api.together.xyz/v1'),
     apiKeyName: 'TOGETHER_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput, ProviderCaps.vision},
+    caps: {ProviderCaps.chat, ProviderCaps.typedOutput},
   );
 
   /// Mistral AI provider (native API, cloud).
@@ -70,22 +76,12 @@ class Providers {
   /// Cohere provider (OpenAI-compatible, cloud).
   static CohereProvider get cohere => _cohere ??= CohereProvider();
 
-  /// Lambda provider (OpenAI-compatible, cloud).
-  static OpenAIProvider get lambda => _lambda ??= OpenAIProvider(
-    name: 'lambda',
-    displayName: 'Lambda',
-    defaultModelNames: {ModelKind.chat: 'hermes-3-llama-3.1-405b-fp8'},
-    baseUrl: Uri.parse('https://api.lambda.ai/v1'),
-    apiKeyName: 'LAMBDA_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput, ProviderCaps.vision},
-  );
-
   /// Gemini (OpenAI-compatible) provider (Google AI, OpenAI API).
   static OpenAIProvider get googleOpenAI => _googleOpenAI ??= OpenAIProvider(
     name: 'google-openai',
     displayName: 'Google AI (OpenAI-compatible)',
     defaultModelNames: {
-      ModelKind.chat: 'gemini-2.0-flash',
+      ModelKind.chat: 'gemini-2.5-flash',
       ModelKind.embeddings: 'text-embedding-004',
     },
     baseUrl: Uri.parse(
@@ -97,7 +93,7 @@ class Providers {
       ProviderCaps.embeddings,
       ProviderCaps.multiToolCalls,
       ProviderCaps.typedOutput,
-      ProviderCaps.vision,
+      ProviderCaps.chatVision,
     },
   );
 
@@ -119,12 +115,7 @@ class Providers {
     defaultModelNames: {ModelKind.chat: 'llama3.2'},
     baseUrl: Uri.parse('http://localhost:11434/v1'),
     apiKeyName: null,
-    caps: {
-      ProviderCaps.chat,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.vision,
-    },
+    caps: {ProviderCaps.chat},
   );
 
   /// Returns a list of all available providers (static fields above).
@@ -145,11 +136,11 @@ class Providers {
   /// Returns all intrinsic providers (lazily evaluated).
   static List<Provider> get _intrinsicProviders => <Provider>[
     openai,
+    openaiResponses,
     openrouter,
     together,
     mistral,
     cohere,
-    lambda,
     google,
     googleOpenAI,
     anthropic,

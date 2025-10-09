@@ -11,34 +11,9 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
-
-    for (final providerModel in providers) {
-      test('$providerModel: $description', () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-        final provider = Providers.get(providerName);
-        await testFunction(provider);
-      });
-    }
-  }
-
   group('Chat Models', () {
     group('basic chat completions (80% cases)', () {
       runProviderTest('simple single-turn chat', (provider) async {
@@ -138,8 +113,8 @@ void main() {
           'What language am I learning?',
           history: history,
         );
-        expect(result.output.toLowerCase(), contains('dart'));
         history.addAll(result.messages);
+        expect(result.output.toLowerCase(), contains('dart'));
 
         // Further reference
         result = await agent.send(
@@ -204,19 +179,24 @@ void main() {
 
         final history = <ChatMessage>[
           ChatMessage.system(
-            'You are a helpful assistant who always mentions '
-            'the word "fantastic" in your responses.',
+            'You are a helpful assistant who always responds like a pirate. '
+            'Begin every reply with "Ahoy" and sprinkle pirate slang.',
           ),
         ];
 
         // Turn 1
         var result = await agent.send('What is 2+2?', history: history);
-        expect(result.output.toLowerCase(), contains('fantastic'));
         history.addAll(result.messages);
+        expect(
+          result.output.toLowerCase(),
+          anyOf(contains('ahoy'), contains('matey'), contains('arr')),
+        );
 
         // Turn 2
         result = await agent.send('What color is the sky?', history: history);
-        expect(result.output.toLowerCase(), contains('fantastic'));
+        history.addAll(result.messages);
+
+        expect(result.output.toLowerCase(), contains('ahoy'));
       });
     });
 

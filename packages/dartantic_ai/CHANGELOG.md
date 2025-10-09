@@ -1,3 +1,31 @@
+## 1.1.0
+
+This is a big release!
+- Added the OpenAI Responses provider built on `openai_core`, including session
+  persistence (aka prompt caching), intrinsic server-side tools, and thinking
+  metadata streams. Thanks to @jezell for his most excellent `openai_core`
+  package and his quick turn-around on my blocking issues!
+  - Streaming thinking and server-side tool call progress
+  - Server-side image generation with quality, size and partial progress as well
+    as generated image returned as part for ease of access
+  - Server-side web search with full progress reports
+  - Server-side code interpreter with reusable containers and returning of
+    generated files of all types as parts for ease of access
+  - Full server-side vector search tool with example showing how to upload files
+    and query vectors
+  - GPT-5 Codex access!
+- Replaced the Lambda provider with the new `openai_compat.dart` sample
+- Filtered Cohere models to "Live" entries and updated the default chat model
+- Surface usage totals for every provider consistently
+- Added support for the `DARTANTIC_LOG_LEVEL` environment variable for one-line
+  logging configuration
+- Support for the fully
+  [spec](https://google.github.io/dotprompt/implementors/)-compliant
+  [dotprompt_dart package](https://pub.dev/packages/dotprompt_dart)
+- Published all of the specs for dartantic in a new Specifications section in
+  the docs
+- 1300+ tests to ensure feature compatibility across the set of supported LLMs
+
 ## 1.0.8
 
 - fix a intermittent anthropic tool-calling error with streaming responses

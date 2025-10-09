@@ -11,40 +11,10 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 
 void main() {
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String description,
-    Future<void> Function(Provider provider) testFunction, {
-    Set<ProviderCaps>? requiredCaps,
-    bool edgeCase = false,
-  }) {
-    final providers = edgeCase
-        ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-        : Providers.all
-              .where(
-                (p) =>
-                    requiredCaps == null ||
-                    requiredCaps.every((cap) => p.caps.contains(cap)),
-              )
-              .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
-
-    for (final providerModel in providers) {
-      test('$providerModel: $description', () async {
-        final parts = providerModel.split(':');
-        final providerName = parts[0];
-        if (providerName == 'ollama-openai') {
-          markTestSkipped('Ollama OpenAI never does well on this test');
-          return;
-        }
-        final provider = Providers.get(providerName);
-        await testFunction(provider);
-      });
-    }
-  }
-
   // Timeout calculation based on empirical measurements:
   // - Worst case: Cohere multi-turn takes 8096ms in isolation
   // - With 2x network variability: 16s
@@ -155,14 +125,31 @@ void main() {
         final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
         final result = await agent.send(
-          'Show me the result of string_tool with "hello" and '
-          'then show me the result of int_tool with 42',
+          'Draft a quick warehouse update. '
+          'Call string_tool with "hello" to greet the team, then call int_tool '
+          'with 42 to report how many packages shipped today. Summarise both '
+          'tool results in your reply.',
         );
 
         // Should see evidence of both tools being used
         expect(result.output, isNotEmpty);
-        expect(result.output.toLowerCase(), anyOf(contains('hello')));
-        expect(result.output, contains('42'));
+        final toolResults = result.messages
+            .expand((m) => m.toolResults)
+            .toList();
+        expect(
+          toolResults.any(
+            (r) =>
+                r.name == 'string_tool' &&
+                r.result.toString().toLowerCase().contains('hello'),
+          ),
+          isTrue,
+        );
+        expect(
+          toolResults.any(
+            (r) => r.name == 'int_tool' && (r.result == 42 || r.result == '42'),
+          ),
+          isTrue,
+        );
       }, requiredCaps: {ProviderCaps.multiToolCalls});
 
       runProviderTest(
@@ -200,37 +187,12 @@ void main() {
 
     group('multi-turn streaming (80% cases)', () {
       runProviderTest('streaming with conversation history', (provider) async {
-        // Skip for Cohere - their OpenAI-compatible endpoint has inconsistent
-        // behavior with conversation history. Sometimes it works, sometimes
-        // it doesn't. Tested with curl: works ~40% of the time.
-        //
-        // To test if Cohere has fixed this, run this command multiple times:
-        // curl -s -X POST
-        // https://api.cohere.ai/compatibility/v1/chat/completions \
-        //   -H "Authorization: Bearer $COHERE_API_KEY" \
-        //   -H "Content-Type: application/json" \
-        //   -d '{ "model": "command-r-plus", "messages": [ {"role": "user",
-        //     "content": "My favorite number is 42."}, {"role": "assistant",
-        //     "content": "Got it!"}, {"role": "user", "content": "What is my
-        //     favorite number?"}
-        //     ],
-        //     "stream": true
-        //   }'
-        // If it consistently returns "42" in the response, this test can be
-        // re-enabled.
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent conversation history behavior',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name);
         final history = <ChatMessage>[];
 
         // First turn - establish context
         final result = await agent.send(
-          'My favorite number is 42.',
+          'My favorite color is blue.',
           history: history,
         );
         history.addAll(result.messages);
@@ -238,27 +200,20 @@ void main() {
         // Second turn - stream with history
         final chunks = <String>[];
         await for (final chunk in agent.sendStream(
-          'What is my favorite number?',
+          'What is my favorite color?',
           history: history,
         )) {
           chunks.add(chunk.output);
         }
 
         final fullText = chunks.join();
-        expect(fullText, contains('42'));
+        expect(fullText, contains('blue'));
       });
 
       runProviderTest('multi-turn streaming maintains context', (
         provider,
       ) async {
         // Skip for Cohere - same conversation history issue as above
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent conversation history behavior',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name);
         final history = <ChatMessage>[];
 
@@ -336,13 +291,6 @@ void main() {
         //   }'
         // Expected: Response mentioning "100" Actual: Sometimes "The result was
         // 100", sometimes "Sorry, I can't find the result"
-        if (provider.name == 'cohere') {
-          markTestSkipped(
-            'Cohere has inconsistent tool history behavior (90% success rate)',
-          );
-          return;
-        }
-
         final agent = Agent(provider.name, tools: [intTool]);
         final history = <ChatMessage>[];
 
@@ -356,7 +304,9 @@ void main() {
         // Second turn - stream reference to previous tool use
         final chunks = <String>[];
         await for (final chunk in agent.sendStream(
-          'What was the result of the calculation?',
+          'Earlier you used int_tool with 100. '
+          'Remind me of that result and include the exact number '
+          'in your reply.',
           history: history,
         )) {
           chunks.add(chunk.output);

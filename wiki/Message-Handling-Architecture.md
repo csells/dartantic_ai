@@ -183,7 +183,9 @@ For typed output (structured JSON responses), see [[Typed-Output-Architecture]].
 
 - When `outputSchema` is provided, Agent adds a `return_result` tool
 - Tool results are still consolidated into single user messages as normal
-- The final JSON output replaces the text output in ChatResult
+- Providers stream JSON chunks for progressive rendering; orchestration forwards those chunks but never replays them later. If an application needs the full JSON payload, it must accumulate the streamed text itself.
+- The Agent convenience APIs (`send`, `sendFor`) perform that accumulation internally so they can decode once streaming completes.
+- The final `ChatResult` from streaming still carries the usual metadata and tool parts, but it does not include the streamed JSON text again.
 
 ## Streaming Enhancements
 
@@ -277,6 +279,61 @@ graph TD
   {"role": "tool", "tool_call_id": "2", "content": "result2"}
   ```
 
+### OpenAI Responses
+- **Requirement**: Stateful session management with message continuity
+- **Session Persistence (`store` parameter)**:
+  - `store: true` (default): Maintains conversation state across requests
+  - `store: false`: Stateless operation, sends full history each time
+- **Format**: Event-based streaming with session metadata
+- **Unique Streaming Behavior**:
+  - **Text streaming**: Returns empty `output` with full message in `messages[0]` to preserve metadata
+  - **Tool-only responses**: Returns full message in both `output` and `messages`
+  - This pattern ensures session metadata is preserved during accumulation
+- **Key Behaviors**:
+  - **With `store: true`**:
+    - First request: Sends full conversation history
+    - Subsequent requests: Only sends new messages after session anchor point
+    - Stores `responseId` in message metadata for continuations
+    - Reduces token usage by avoiding redundant message transmission
+  - **With `store: false`**:
+    - Every request sends complete conversation history
+    - No session metadata stored or retrieved
+    - Higher token usage but simpler state management
+- **Message Validation**:
+  - Enforces strict user/model alternation before accepting messages
+  - Validates synchronously (unlike other providers)
+  - Exposed race conditions other providers missed
+- **Session Metadata Storage**:
+  ```json
+  {
+    "_responses_session": {
+      "response_id": "resp_123abc",
+      "pending_items": [...],
+      "timestamp": 1732231000
+    }
+  }
+  ```
+- **History Scanning Algorithm**:
+  - Scans messages newest to oldest for session metadata
+  - Stops at first `_responses_session` found for performance
+  - Uses session anchor to determine which messages to send
+- **Example Session Flow**:
+  ```
+  Turn 1 (store: true):
+    → Send: [system, user1]
+    ← Response: model1 with responseId="resp_001"
+    ← Metadata stored: {"response_id": "resp_001"}
+
+  Turn 2 (store: true):
+    → Send: user2 only (previousResponseId="resp_001")
+    ← Response: model2 with responseId="resp_002"
+    ← Metadata updated: {"response_id": "resp_002"}
+
+  Turn 3 (store: false):
+    → Send: [system, user1, model1, user2, model2, user3]
+    ← Response: model3 (no metadata stored)
+  ```
+
 ### Anthropic
 - **Requirement**: Tool results can be in a single user message
 - **Format**: One user message with multiple tool_result blocks
@@ -293,6 +350,37 @@ graph TD
 ### Ollama
 - **Requirement**: Varies by endpoint (native vs OpenAI-compatible)
 - **Format**: Adapts based on endpoint type
+
+## ChatResult Streaming Patterns
+
+Providers return `ChatResult` with different patterns for `output` and `messages` fields during streaming:
+
+### Standard Pattern (Most Providers)
+- **Behavior**: Same message in both `output` and `messages`
+- **Example**: OpenAI, Google, Anthropic (non-streaming cases)
+- **Accumulation**: Uses `output` field
+- **Metadata**: Present in both fields
+
+### OpenAI Responses Pattern (Text Streaming)
+- **Behavior**: Empty `output`, full message with metadata in `messages[0]`
+- **Example**: OpenAI Responses when streaming text content
+- **Accumulation**: Must use `messages[0]` to preserve session metadata
+- **Metadata**: Only in `messages[0]`, lost if using `output`
+
+### OpenAI Responses Pattern (Tool-Only)
+- **Behavior**: Full message in both `output` and `messages`
+- **Example**: OpenAI Responses when only executing tools (no text)
+- **Accumulation**: Can use either field
+- **Metadata**: Present in both fields
+
+### Empty Response Pattern
+- **Behavior**: Empty `output`, empty or minimal `messages`
+- **Example**: Anthropic during certain streaming chunks
+- **Accumulation**: Uses empty `output`
+- **Metadata**: None or minimal
+
+### Orchestrator Accumulation Strategy
+The orchestrator must check if `output.parts.isEmpty && messages.isNotEmpty` and use `messages[0]` for accumulation to ensure metadata preservation across all provider patterns. This adaptive approach ensures session state and other metadata are never lost during streaming.
 
 ## Mapper Transformations
 
@@ -468,4 +556,47 @@ Agent → StreamingOrchestrator → ChatModel → Provider API
 StreamingState → ToolExecutor → MessageAccumulator
 ```
 
+## Thinking/Reasoning Metadata
 
+### Overview
+
+Some providers (like OpenAI Responses with reasoning models) support "thinking" or "reasoning" metadata that represents the model's internal thought process before generating a response. This metadata flows through the system in a specific way to ensure consistency and avoid duplication.
+
+### Metadata Flow
+
+1. **Streaming Events**: Thinking arrives as `ResponseReasoningSummaryTextDelta` events during streaming
+2. **Event Mapper**:
+   - Routes thinking to `ChatResult.metadata['thinking']` instead of output text
+   - Tracks reasoning output indices to filter reasoning text from regular output stream
+   - Skips `Reasoning` items in final `ResponseCompleted` event to prevent duplication
+   - Only accumulates thinking from streaming delta events
+   - **Does NOT** add thinking to message metadata (only session info in message metadata)
+3. **Orchestrator**: Forwards metadata-only chunks (not just text chunks)
+4. **Agent.send()**: Accumulates thinking from all streaming chunks into final `ChatResult.metadata`
+5. **Agent**: Yields ChatResults when metadata OR text is present
+
+### Consistent API
+
+Thinking metadata is accessible in result metadata for both `sendStream()` and `send()`:
+
+- **sendStream()**: `chunk.metadata['thinking']` - arrives in real-time as the model thinks
+- **send()**: `result.metadata['thinking']` - contains complete accumulated thinking from all chunks
+- **Message metadata**: Does NOT contain thinking (only `_responses_session` for session continuation)
+
+Both methods provide thinking in `ChatResult.metadata`, but message metadata remains clean (processing data only).
+
+### Reasoning Text Filtering
+
+The event mapper prevents reasoning text from appearing in the regular output stream:
+
+- Tracks reasoning output indices via `ResponseReasoningDone` events
+- Filters `ResponseOutputTextDelta` events that match reasoning indices
+- Ensures only the actual response text streams to the user
+- Reasoning text is available exclusively via `thinking` metadata
+
+### Implementation Notes
+
+- The thinking text is clean metadata without any formatting
+- Display formatting (like `[[...]]` brackets) should be added by the presentation layer
+- Only specific models (gpt-5, o1, o3, etc.) with reasoning capabilities generate this metadata
+- Thinking is never duplicated - it's only accumulated from streaming delta events, never from the final `Reasoning` items in `ResponseCompleted`

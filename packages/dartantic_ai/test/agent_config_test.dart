@@ -410,10 +410,10 @@ void main() {
         expect(agent.providerName, equals('claude')); // Keeps original input
 
         // Test google aliases
-        agent = Agent('gemini:gemini-2.0-flash');
+        agent = Agent('gemini:gemini-2.5-flash');
         expect(agent.providerName, equals('gemini'));
 
-        agent = Agent('google:gemini-2.0-flash');
+        agent = Agent('google:gemini-2.5-flash');
         expect(agent.providerName, equals('google'));
       });
     });
@@ -453,10 +453,12 @@ void main() {
         expect(anthropic.name, equals('anthropic'));
 
         // Discovery by capabilities
-        final visionProviders = Providers.allWith({ProviderCaps.vision});
+        final visionProviders = Providers.allWith({ProviderCaps.chatVision});
         expect(visionProviders.length, greaterThan(0));
         expect(
-          visionProviders.every((p) => p.caps.contains(ProviderCaps.vision)),
+          visionProviders.every(
+            (p) => p.caps.contains(ProviderCaps.chatVision),
+          ),
           isTrue,
         );
       });

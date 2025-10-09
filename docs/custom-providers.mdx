@@ -84,7 +84,7 @@ If you'd like to participate in the named lookup of providers, you can add your 
 
 ```dart
 // Add your custom provider to the registry
-Provider.providerMap['echo'] = EchoProvider();
+Providers.providerMap['echo'] = EchoProvider();
 
 // Use it like any built-in provider
 final agent = Agent('echo');

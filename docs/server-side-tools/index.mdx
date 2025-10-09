@@ -1,0 +1,94 @@
+---
+title: Server-Side Tools
+description: "Use provider-hosted capabilities such as web search, code execution, and image creation without writing local tool handlers."
+---
+
+Server-side tools run entirely on the provider's infrastructure. They stream
+progress events, produce final deliverables, and keep your application logic
+focused on orchestration instead of implementation. Currently, **OpenAI
+Responses** is the only built-in provider that implements server-side tools.
+When other providers adopt similar features, they'll be exposed from the
+providers as appropriate.
+
+## Enabling Tools
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {
+      OpenAIServerSideTool.webSearch,
+      OpenAIServerSideTool.fileSearch,
+    },
+  ),
+);
+```
+
+Pick the tools you want per request. Providers default to their own safe
+configuration if you omit the set.
+
+## Streaming Metadata
+
+Each tool streams structured metadata under a predictable key:
+
+| Tool | Metadata key |
+|------|--------------|
+| Web search | `metadata['web_search']` |
+| File search | `metadata['file_search']` |
+| Image generation | `metadata['image_generation']` |
+| Code interpreter | `metadata['code_interpreter']` |
+
+Metadata is delivered on every `ChatResult` during streaming, which you can use
+to show live progress, log it, or feed it into analytics.
+
+```dart
+await for (final chunk in agent.sendStream('Recent Dart news?')) {
+  final searchEvents = chunk.metadata['web_search'] as List?;
+  if (searchEvents != null) {
+    for (final event in searchEvents) {
+      stdout.writeln('stage: ${event['type']}');
+    }
+  }
+}
+```
+
+## Message Content
+
+Final deliverables (images, generated files, synthesized summaries) arrive as
+normal message parts so you can handle them with the usual `ChatMessage` APIs.
+
+## Configuration Blocks
+
+Each tool exposes an optional configuration object:
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.webSearch},
+    webSearchConfig: const WebSearchConfig(
+      contextSize: WebSearchContextSize.high,
+      followupQuestions: true,
+    ),
+  ),
+);
+```
+
+Configuration objects are provider-specific today but live under the generic
+API surface, so additional providers can add their own implementations later.
+
+## Pages
+
+- [Web Search](/server-side-tools/web-search)
+- [File Search](/server-side-tools/file-search)
+- [Image Generation](/server-side-tools/image-generation)
+- [Code Interpreter](/server-side-tools/code-interpreter)
+
+## Examples
+
+- [Server-side tool demos](https://github.com/csells/dartantic_ai/tree/main/packages/dartantic_ai/example/bin/server_side_tools)
+
+## Related Topics
+
+- [Thinking Metadata](/thinking) – Combine reasoning output with tool progress
+- [Tool Calling](/tool-calling) – Define your own local tools

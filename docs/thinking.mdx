@@ -1,0 +1,89 @@
+---
+title: Thinking Metadata
+description: "Surface model reasoning without forcing it into the conversation transcript."
+---
+
+Some providers expose a separate "thinking" channel that streams the model's
+reasoning metadata alongside the normal message output. This lets you display or
+inspect the model's inner monologue without sending it back to the model or to
+end users who just want the final answer.
+
+At the moment, **OpenAI Responses** is the only built-in provider that supports
+thinking metadata, but the generated metadata is provider-agnostic so additional
+providers can adopt it later without it requiring any changes to your code.
+
+## Enable Thinking
+
+You can enabled thinking for the OpenAI Responses provider by setting the
+`reasoningSummary` parameter to `OpenAIReasoningSummary.detailed`.
+
+```dart
+final agent = Agent(
+  'openai-responses:gpt-5',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
+);
+
+final result = await agent.send('In one sentence, how does quicksort work?');
+final thinking = result.metadata['thinking'] as String?;
+
+if (thinking != null && thinking.isNotEmpty) {
+  print('[[${thinking.trim()}]]');
+}
+print(result.output);
+```
+
+Key points:
+- The reasoning stream is emitted through `ChatResult.metadata['thinking']`
+- Thinking metadata doesn't appear in `ChatMessage.metadata`
+- Metadata is not fed back to the model, so you control where (or if) it is
+  displayed
+
+## Streaming Thinking
+
+```dart
+final history = <ChatMessage>[];
+var stillThinking = true;
+stdout.write('[[');
+
+final thinkingBuffer = StringBuffer();
+await for (final chunk in agent.sendStream(
+  'In one sentence: how does quicksort work?',
+)) {
+  final thinking = chunk.metadata['thinking'] as String?;
+  final hasThinking = thinking != null && thinking.isNotEmpty;
+  final hasText = chunk.output.isNotEmpty;
+
+  if (hasThinking) {
+    thinkingBuffer.write(thinking);
+    stdout.write(thinking);
+  }
+
+  if (hasText) {
+    if (stillThinking) {
+      stillThinking = false;
+      stdout.writeln(']]\n');
+    }
+    stdout.write(chunk.output);
+  }
+
+  history.addAll(chunk.messages);
+}
+
+stdout.writeln('\n');
+```
+
+The stream delivers reasoning deltas incrementally, so you can render a live
+"thought bubble" while the model is working. Each chunk may include text output,
+thinking metadata, or both.
+
+## Examples
+
+- [Thinking demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/thinking.dart)
+
+## Related Topics
+
+- [Streaming Output](/streaming-output) – Combine thinking with live text
+- [Server-Side Tools](/server-side-tools) – Providers can expose both thinking
+  metadata and intrinsic tools

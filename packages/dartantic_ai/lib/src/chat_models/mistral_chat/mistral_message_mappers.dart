@@ -123,7 +123,7 @@ extension CreateChatCompletionStreamResponseMapper
       messages: [message],
       finishReason: _mapFinishReason(choice.finishReason),
       metadata: {'model': model, 'created': created},
-      usage: const LanguageModelUsage(),
+      usage: null,
     );
   }
 }

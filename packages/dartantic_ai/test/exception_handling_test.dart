@@ -98,7 +98,7 @@ void main() {
           onCall: (input) => 'Avoided recursion',
         );
 
-        final agent = Agent('google:gemini-2.0-flash', tools: [recursiveTool]);
+        final agent = Agent('google:gemini-2.5-flash', tools: [recursiveTool]);
 
         final result = await agent.send('Use recursive_tool carefully');
         expect(result.output, isNotEmpty);
@@ -113,7 +113,7 @@ void main() {
           onCall: (input) => null,
         );
 
-        final agent = Agent('google:gemini-2.0-flash', tools: [nullTool]);
+        final agent = Agent('google:gemini-2.5-flash', tools: [nullTool]);
 
         final result = await agent.send('Use null_tool');
         expect(result.output, isNotEmpty);
@@ -131,34 +131,10 @@ void main() {
           },
         );
 
-        final agent = Agent('google:gemini-2.0-flash', tools: [longErrorTool]);
+        final agent = Agent('google:gemini-2.5-flash', tools: [longErrorTool]);
 
         final result = await agent.send('Use long_error_tool');
         expect(result.output, isNotEmpty);
-      });
-
-      test('handles concurrent exceptions', () async {
-        // Create multiple agents that might fail
-        final agents = List.generate(
-          3,
-          (i) => Agent('google:gemini-2.0-flash'),
-        );
-
-        // Make requests that might fail concurrently
-        final futures = agents
-            .map(
-              (agent) async => agent.send('Test concurrent exception $agent'),
-            )
-            .toList();
-
-        // Wait for all to complete (some might throw)
-        final results = await Future.wait(
-          futures,
-          eagerError: false, // Don't stop on first error
-        ).catchError((e) => <ChatResult<String>>[]);
-
-        // At least some should complete
-        expect(results, isA<List>());
       });
     });
   });

@@ -144,14 +144,16 @@ void main() {
 
       // Usage information may not always be available depending on the model
       final usage = result.usage;
-      // If usage is provided, check the tokens if they are available
-      final promptTokens = usage.promptTokens;
-      if (promptTokens != null) {
-        expect(promptTokens, greaterThan(0));
-      }
-      final responseTokens = usage.responseTokens;
-      if (responseTokens != null) {
-        expect(responseTokens, greaterThan(0));
+      if (usage != null) {
+        // If usage is provided, check the tokens if they are available
+        final promptTokens = usage.promptTokens;
+        if (promptTokens != null) {
+          expect(promptTokens, greaterThan(0));
+        }
+        final responseTokens = usage.responseTokens;
+        if (responseTokens != null) {
+          expect(responseTokens, greaterThan(0));
+        }
       }
       // Finish reason should be either stop or unspecified
       expect(

@@ -3,6 +3,8 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
+
 class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
   DummyProvider()
     : super(
@@ -217,108 +219,87 @@ void main() {
   });
 
   group('Cross-provider behavior', () {
-    test(
-      'default orchestrator: continues once then stops for each provider',
-      () async {
-        final toolProviders = Providers.allWith({
-          ProviderCaps.chat,
-          ProviderCaps.multiToolCalls,
-        });
-
-        final writeFile = Tool(
-          name: 'write_file',
-          description: 'Create or overwrite a file',
-          inputSchema: JsonSchema.create({
-            'type': 'object',
-            'properties': {
-              'path': {'type': 'string'},
-              'content': {'type': 'string'},
-            },
-            'required': ['path', 'content'],
-          }),
-          onCall: (args) async => {'ok': true},
-        );
-
-        for (final base in toolProviders) {
-          final wrapper = WrapperProvider(base);
-          final agent = Agent.forProvider(
-            wrapper,
-            chatModelName: base.defaultModelNames[ModelKind.chat],
-            tools: [writeFile],
-          );
-
-          final result = await agent.send('minimal');
-
-          // 1) tool call, 2) first empty (continue), 3) second empty (stop)
-          expect(
-            wrapper.lastModel.sendCalls,
-            equals(3),
-            reason: 'provider=${base.name}',
-          );
-          expect(result.messages, isNotEmpty, reason: 'provider=${base.name}');
-          final lastMsg = result.messages.last;
-          expect(
-            lastMsg.role,
-            equals(ChatMessageRole.model),
-            reason: 'provider=${base.name}',
-          );
-          expect(lastMsg.parts, isEmpty, reason: 'provider=${base.name}');
-        }
-      },
-    );
-
-    test('typed-output orchestrator path does not loop', () async {
-      final toolProviders = Providers.allWith({
-        ProviderCaps.chat,
-        ProviderCaps.multiToolCalls,
-      });
-
-      final writeFile = Tool(
-        name: 'write_file',
-        description: 'Create or overwrite a file',
-        inputSchema: JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'path': {'type': 'string'},
-            'content': {'type': 'string'},
-          },
-          'required': ['path', 'content'],
-        }),
-        onCall: (args) async => {'ok': true},
-      );
-
-      final outputSchema = JsonSchema.create({
+    final writeFile = Tool(
+      name: 'write_file',
+      description: 'Create or overwrite a file',
+      inputSchema: JsonSchema.create({
         'type': 'object',
         'properties': {
-          'ok': {'type': 'boolean'},
+          'path': {'type': 'string'},
+          'content': {'type': 'string'},
         },
-        'required': ['ok'],
-      });
+        'required': ['path', 'content'],
+      }),
+      onCall: (args) async => {'ok': true},
+    );
 
-      for (final base in toolProviders) {
-        final wrapper = WrapperProvider(base);
+    runProviderTest(
+      'default orchestrator continues once then stops',
+      (provider) async {
+        final wrapper = WrapperProvider(provider);
         final agent = Agent.forProvider(
           wrapper,
-          chatModelName: base.defaultModelNames[ModelKind.chat],
+          chatModelName: provider.defaultModelNames[ModelKind.chat],
           tools: [writeFile],
         );
 
-        final result = await agent.send('minimal', outputSchema: outputSchema);
+        final result = await agent.send('minimal');
 
-        // Expect at least 2 sendStream calls and no unbounded growth
         expect(
-          wrapper.lastModel.sendCalls >= 2,
-          isTrue,
-          reason: 'provider=${base.name}',
+          wrapper.lastModel.sendCalls,
+          equals(3),
+          reason: 'provider=${provider.name}',
+        );
+        expect(
+          result.messages,
+          isNotEmpty,
+          reason: 'provider=${provider.name}',
         );
         final lastMsg = result.messages.last;
         expect(
           lastMsg.role,
           equals(ChatMessageRole.model),
-          reason: 'provider=${base.name}',
+          reason: 'provider=${provider.name}',
         );
-        expect(lastMsg.parts, isEmpty, reason: 'provider=${base.name}');
-      }
+        expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
+      },
+      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+    );
+
+    final outputSchema = JsonSchema.create({
+      'type': 'object',
+      'properties': {
+        'ok': {'type': 'boolean'},
+      },
+      'required': ['ok'],
     });
+
+    runProviderTest(
+      'typed-output orchestrator path does not loop',
+      (provider) async {
+        final wrapper = WrapperProvider(provider);
+        final agent = Agent.forProvider(
+          wrapper,
+          chatModelName: provider.defaultModelNames[ModelKind.chat],
+          tools: [writeFile],
+        );
+
+        final result = await agent.send('minimal', outputSchema: outputSchema);
+
+        expect(
+          wrapper.lastModel.sendCalls >= 2,
+          isTrue,
+          reason: 'provider=${provider.name}',
+        );
+        final lastMsg = result.messages.last;
+        expect(
+          lastMsg.role,
+          equals(ChatMessageRole.model),
+          reason: 'provider=${provider.name}',
+        );
+        expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
+      },
+      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+    );
   });
 }

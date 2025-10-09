@@ -7,7 +7,9 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
+import '../platform/platform.dart';
 import '../providers/providers.dart';
+import 'agent_response_accumulator.dart';
 import 'model_string_parser.dart';
 import 'orchestrators/default_streaming_orchestrator.dart';
 import 'orchestrators/streaming_orchestrator.dart';
@@ -43,6 +45,8 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
   }) {
+    _checkLoggingEnvironment();
+
     // parse the model string into a provider name, chat model name, and
     // embeddings model name
     final parser = ModelStringParser.parse(model);
@@ -86,6 +90,8 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
   }) {
+    _checkLoggingEnvironment();
+
     _logger.info(
       'Creating agent from provider: ${provider.name}, '
       'chat model: $chatModelName, '
@@ -162,40 +168,19 @@ class Agent {
       'Running agent with prompt and ${history.length} history messages',
     );
 
-    final allNewMessages = <ChatMessage>[];
-    var finalOutput = '';
-    var finalResult = ChatResult<String>(
-      output: '',
-      finishReason: FinishReason.unspecified,
-      metadata: const <String, dynamic>{},
-      usage: const LanguageModelUsage(),
-    );
+    final accumulator = AgentResponseAccumulator();
 
-    await for (final result in sendStream(
+    await sendStream(
       prompt,
       history: history,
       attachments: attachments,
       outputSchema: outputSchema,
-    )) {
-      if (result.output.isNotEmpty) {
-        finalOutput += result.output;
-      }
-      allNewMessages.addAll(result.messages);
-      finalResult = result;
-    }
+    ).forEach(accumulator.add);
 
-    // Return final result with all accumulated messages
-    finalResult = ChatResult<String>(
-      id: finalResult.id,
-      output: finalOutput,
-      messages: allNewMessages,
-      finishReason: finalResult.finishReason,
-      metadata: finalResult.metadata,
-      usage: finalResult.usage,
-    );
+    final finalResult = accumulator.buildFinal();
 
     _logger.info(
-      'Agent run completed with ${allNewMessages.length} new messages, '
+      'Agent run completed with ${finalResult.messages.length} new messages, '
       'finish reason: ${finalResult.finishReason}',
     );
 
@@ -284,24 +269,25 @@ class Agent {
     );
 
     try {
-      // Create and yield user message
+      // Create user message
       final newUserMessage = ChatMessage.user(prompt, parts: attachments);
-
       _assertNoMultipleTextParts([newUserMessage]);
+
+      // Initialize state BEFORE yielding to prevent race conditions
+      final conversationHistory = List<ChatMessage>.from([
+        ...history,
+        newUserMessage,
+      ]);
+
+      // Now yield the user message
       yield ChatResult<String>(
         id: '',
         output: '',
         messages: [newUserMessage],
         finishReason: FinishReason.unspecified,
         metadata: const <String, dynamic>{},
-        usage: const LanguageModelUsage(),
+        usage: null,
       );
-
-      // Initialize state
-      final conversationHistory = List<ChatMessage>.from([
-        ...history,
-        newUserMessage,
-      ]);
 
       final state = StreamingState(
         conversationHistory: conversationHistory,
@@ -309,9 +295,10 @@ class Agent {
       );
 
       // Select and configure orchestrator
+      // Use the model's actual tools list (after any filtering by the model)
       final orchestrator = _selectOrchestrator(
         outputSchema: outputSchema,
-        tools: model.tools,
+        tools: model.tools, // This is the filtered list from the model
       );
 
       orchestrator.initialize(state);
@@ -324,15 +311,15 @@ class Agent {
             state,
             outputSchema: outputSchema,
           )) {
-            // Yield streaming text
-            if (result.output.isNotEmpty) {
+            // Yield streaming text or metadata
+            if (result.output.isNotEmpty || result.metadata.isNotEmpty) {
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: result.output,
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: result.metadata,
-                usage: result.usage ?? const LanguageModelUsage(),
+                usage: result.usage,
               );
             }
 
@@ -347,7 +334,22 @@ class Agent {
                 messages: result.messages,
                 finishReason: result.finishReason,
                 metadata: result.metadata,
-                usage: result.usage ?? const LanguageModelUsage(),
+                usage: result.usage,
+              );
+            }
+
+            // Yield final result if it has usage (for completion signal)
+            if (result.usage != null &&
+                result.output.isEmpty &&
+                result.messages.isEmpty &&
+                result.metadata.isEmpty) {
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: '',
+                messages: const [],
+                finishReason: result.finishReason,
+                metadata: const {},
+                usage: result.usage,
               );
             }
 
@@ -391,7 +393,6 @@ class Agent {
           tools?.any((t) => t.name == kReturnResultToolName) ?? false;
 
       return TypedOutputStreamingOrchestrator(
-        provider: _provider,
         hasReturnResultTool: hasReturnResultTool,
       );
     }
@@ -448,6 +449,16 @@ class Agent {
   ///   onRecord: (record) => myLogger.log(record),
   /// );
   /// ```
+  ///
+  /// Can also be set from DARTANTIC_LOG_LEVEL environment variable.
+  ///
+  /// Supported environment values: FINE, INFO, WARNING, SEVERE, OFF. By
+  /// default, there is no logging if not set or invalid unless explicitly set.
+  ///
+  /// Example usage:
+  /// ```bash
+  /// DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+  /// ```
   static LoggingOptions get loggingOptions => _loggingOptions;
   static LoggingOptions _loggingOptions = const LoggingOptions();
   static StreamSubscription<LogRecord>? _loggingSubscription;
@@ -480,5 +491,23 @@ class Agent {
       // Call the configured handler
       _loggingOptions.onRecord(record);
     });
+  }
+
+  static var _loggingEnvironmentChecked = false;
+  static void _checkLoggingEnvironment() {
+    if (_loggingEnvironmentChecked) return;
+
+    final envValue = tryGetEnv('DARTANTIC_LOG_LEVEL');
+    final level = switch (envValue?.toUpperCase()) {
+      'FINE' => Level.FINE,
+      'INFO' => Level.INFO,
+      'WARNING' => Level.WARNING,
+      'SEVERE' => Level.SEVERE,
+      'OFF' => Level.OFF,
+      _ => null, // Default for missing/invalid values
+    };
+    if (level != null) loggingOptions = LoggingOptions(level: level);
+
+    _loggingEnvironmentChecked = true;
   }
 }

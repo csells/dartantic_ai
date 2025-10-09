@@ -64,6 +64,7 @@ flowchart LR
 | Provider   | Typed Output | Method | Simultaneous Tools+Output |
 |------------|--------------|--------|---------------------------|
 | OpenAI     | ✅          | Native response_format | ✅ |
+| OpenAI Responses | ✅     | Native text_format (stateful) | ✅ |
 | OpenRouter | ✅          | Native (OpenAI-compatible) | ✅ |
 | Anthropic  | ✅          | return_result tool | ✅ |
 | Google     | ✅          | Native responseSchema | ❌ (TODO: add return_result) |
@@ -94,6 +95,25 @@ ResponseFormat.jsonSchema(
 )
 ```
 
+#### OpenAI Responses Provider
+
+The OpenAI Responses provider uses the stateful Responses API with session management:
+
+```dart
+// OpenAI Responses uses text_format with session continuations
+TextFormatJsonSchema(
+  name: 'dartantic_output',
+  schema: outputSchema.schemaMap,
+  strict: true,
+)
+```
+
+Key differences from regular OpenAI:
+- **Stateful Sessions**: Maintains conversation state across requests with `previousResponseId`
+- **Message Validation**: Enforces strict user/model message alternation
+- **Session Metadata**: Stores session IDs in message metadata for continuations
+- **Native JSON Support**: Like OpenAI, it has native typed output support without `return_result`
+
 The Agent always adds the return_result tool when outputSchema is provided, regardless of provider. 
 
 **Empirically verified behavior**:
@@ -105,6 +125,13 @@ The Agent's logic handles both cases identically:
 - If not: use the model's direct output (OpenAI and other native providers)
 
 This unified approach allows the Agent to support both native typed output (OpenAI, Google, etc.) and tool-based typed output (Anthropic) transparently.
+
+#### Streaming Semantics
+
+- **Progressive streaming**: Providers that emit schema-constrained JSON incrementally may stream partial chunks. Orchestrators forward those deltas so clients can render progressive JSON (see `example/bin/typed_output.dart`).
+- **Message contents**: During streaming, the assistant message attached to each chunk remains empty (other than metadata/tool parts). The JSON payload exists only in the streamed text chunks, so callers that care about the text must accumulate `chunk.output` themselves.
+- **Final decoding**: APIs such as `Agent.send()` and `Agent.sendFor()` buffer the streamed chunks internally and decode once streaming completes. External consumers that want the final JSON document must follow the same pattern: concatenate the streamed chunks and parse once because the terminal assistant message does not repeat the streamed text.
+- **Provider responsibility**: Provider implementations should avoid emitting conflicting chunks; once a fragment is streamed it cannot be “taken back.” If a provider cannot supply coherent streaming deltas, it should suppress progressive JSON and emit only the final payload.
 
 **Still TODO**: Make Google and Ollama work with the return_result pattern when both tools and typed output are needed.
 
@@ -376,6 +403,28 @@ try {
 - **Behavior**: Uses native format and returns JSON directly (ignores return_result tool)
 - **Tools**: Can use tools and typed output simultaneously
 - **Verified**: Testing shows OpenAI uses native response_format even when return_result tool is present
+
+### OpenAI Responses
+- **Method**: Native `text_format` parameter with stateful session management
+- **Behavior**: Uses native format and returns JSON directly (filters out return_result tool)
+- **Tools**: Can use tools and typed output simultaneously
+- **Session Management**:
+  - Maintains conversation state across requests using `responseId`
+  - Stores session metadata in message.metadata for conversation continuations
+  - Only sends new messages after the session anchor point to reduce token usage
+- **Message Validation**:
+  - Enforces strict user/model message alternation synchronously
+  - Validates messages before sending to API (unlike other providers)
+  - Exposed race conditions in Agent that other providers missed
+- **Key Differences from Regular OpenAI**:
+  - Uses stateful Responses API instead of stateless Chat Completions
+  - Requires session ID tracking for multi-turn conversations
+  - Validates message structure more strictly
+  - Filters out return_result tool since it has native JSON support
+- **Implementation Notes**:
+  - OpenAIResponsesChatModel overrides `tools` getter to filter return_result
+  - OpenAIResponsesMessageMapper handles session metadata and message mapping
+  - OpenAIResponsesEventMapper processes streaming events and builds results
 
 ### Anthropic
 - **Method**: return_result tool pattern

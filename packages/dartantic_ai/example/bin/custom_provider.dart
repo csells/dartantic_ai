@@ -13,12 +13,12 @@ void main() async {
   print('Using the echo provider');
   final agent = Agent('echo');
   const prompt = 'Hello, world!';
-  final response = await agent.send(prompt);
+  final result = await agent.send(prompt);
 
   print('Prompt: "$prompt"');
-  print('Response: "${response.output}"');
+  print('Response: "${result.output}"');
   print('');
-  dumpMessages(response.messages);
+  dumpMessages(result.messages);
   print('');
   print('Successfully echoed the prompt!');
 

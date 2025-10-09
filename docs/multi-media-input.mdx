@@ -1,8 +1,11 @@
 ---
 title: "Multimedia Input"
+description: "Because sometimes words aren't enough—your AI needs to see what's in your fridge too."
 ---
 
-Because sometimes words aren't enough—your AI needs to see what's in your fridge too.
+Dartantic supports multi-modal input, including text, images, PDFs and other
+binary attachments. You can attach local files, download files from URLs, 
+attach raw bytes, attach links, or mix and match all of the above.
 
 ## Local Files
 
@@ -34,6 +37,18 @@ final result = await agent.send(
   attachments: [await DataPart.fromFile(fridgeFile)],
 );
 // "I see leftover pizza, expired milk, and... is that a science experiment?"
+
+// Responses API can request richer vision detail
+final responsesAgent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    imageDetail: ImageDetail.high,
+  ),
+);
+await responsesAgent.send(
+  'Describe the fridge image with extra detail',
+  attachments: [await DataPart.fromFile(fridgeFile)],
+);
 ```
 
 ## Download from URL
@@ -82,7 +97,7 @@ final result = await agent.send(
 );
 ```
 
-## Multiple Attachments
+## Mix and Match Attachments
 
 You can mix and match:
 

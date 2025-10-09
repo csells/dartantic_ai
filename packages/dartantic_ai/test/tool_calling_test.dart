@@ -20,36 +20,11 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
 import 'test_utils.dart';
 
 void main() {
-  // Get all providers that support tools
-  final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-
-  // Helper to run parameterized tests
-  void runProviderTest(
-    String testName,
-    Future<void> Function(Provider provider) testFunction, {
-    Timeout? timeout,
-  }) {
-    group(testName, () {
-      for (final provider in toolProviders) {
-        test(
-          '${provider.name} - $testName',
-          () async {
-            if (provider.name == 'ollama-openai') {
-              markTestSkipped('Ollama OpenAI never does well on this test');
-              return;
-            }
-            await testFunction(provider);
-          },
-          timeout: timeout ?? const Timeout(Duration(seconds: 30)),
-        );
-      }
-    });
-  }
-
   group('Tool Calling', () {
     group('single tool calls', () {
       test('calls a simple string tool', () async {
@@ -112,43 +87,47 @@ void main() {
 
       // Moved to edge cases section
 
-      runProviderTest('handles single tool calls correctly', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool]);
+      runProviderTest(
+        'handles single tool calls correctly',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool]);
 
-        final response = await agent.send(
-          'Use the string_tool with input "test ${provider.name}"',
-        );
-
-        // Check that tool was executed and result is in messages
-        final toolResults = response.messages
-            .expand((msg) => msg.toolResults)
-            .toList();
-        expect(
-          toolResults,
-          isNotEmpty,
-          reason: 'Provider ${provider.name} should execute the tool',
-        );
-
-        // Check all results are correct (provider might call multiple times)
-        for (final tr in toolResults) {
-          expect(
-            tr.result,
-            equals('String result: test ${provider.name}'),
-            reason: 'Provider ${provider.name} should pass correct arguments',
+          final response = await agent.send(
+            'Use the string_tool with input "test ${provider.name}"',
           );
-        }
 
-        // Response should mention the tool result
-        expect(
-          response.output.toLowerCase(),
-          anyOf(
-            contains('test ${provider.name}'),
-            contains('string_tool'),
-            contains('string result'),
-          ),
-          reason: 'Provider ${provider.name} should reference tool result',
-        );
-      });
+          // Check that tool was executed and result is in messages
+          final toolResults = response.messages
+              .expand((msg) => msg.toolResults)
+              .toList();
+          expect(
+            toolResults,
+            isNotEmpty,
+            reason: 'Provider ${provider.name} should execute the tool',
+          );
+
+          // Check all results are correct (provider might call multiple times)
+          for (final tr in toolResults) {
+            expect(
+              tr.result,
+              equals('String result: test ${provider.name}'),
+              reason: 'Provider ${provider.name} should pass correct arguments',
+            );
+          }
+
+          // Response should mention the tool result
+          expect(
+            response.output.toLowerCase(),
+            anyOf(
+              contains('test ${provider.name}'),
+              contains('string_tool'),
+              contains('string result'),
+            ),
+            reason: 'Provider ${provider.name} should reference tool result',
+          );
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
     });
 
     group('multiple tool calls', () {
@@ -247,149 +226,162 @@ void main() {
         }
       });
 
-      runProviderTest('handles multiple different tools', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool, intTool]);
+      runProviderTest(
+        'handles multiple different tools',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
-        final response = await agent.send(
-          'Call string_tool with "multi ${provider.name}" and '
-          'int_tool with 42',
-        );
+          final response = await agent.send(
+            'Customer onboarding requires two steps. '
+            'First, call string_tool to produce the text '
+            '"Welcome message for ${provider.name}". '
+            'Second, call int_tool with the value 42 to record the '
+            'total number of welcome packets prepared. After running both '
+            'tools, summarise what you did.',
+          );
 
-        // Check that both tools were executed
-        final toolResults = response.messages
-            .expand((msg) => msg.toolResults)
-            .toList();
-        expect(
-          toolResults,
-          hasLength(2),
-          reason: 'Provider ${provider.name} should execute both tools',
-        );
+          // Check that both tools were executed
+          final toolResults = response.messages
+              .expand((msg) => msg.toolResults)
+              .toList();
+          expect(
+            toolResults,
+            hasLength(2),
+            reason: 'Provider ${provider.name} should execute both tools',
+          );
 
-        // Check for specific results (order may vary)
-        final results = toolResults.map((tr) => tr.result).toList();
-        expect(
-          results,
-          contains('String result: multi ${provider.name}'),
-          reason:
-              'Provider ${provider.name} should execute string_tool correctly',
-        );
-        expect(
-          results.any((r) => r == 42 || r == '42'),
-          isTrue,
-          reason: 'Provider ${provider.name} should execute int_tool correctly',
-        );
+          // Check for specific results (order may vary)
+          final results = toolResults.map((tr) => tr.result).toList();
+          expect(
+            results,
+            contains('String result: Welcome message for ${provider.name}'),
+            reason:
+                'Provider ${provider.name} should execute '
+                'string_tool correctly',
+          );
+          expect(
+            results.any((r) => r == 42 || r == '42'),
+            isTrue,
+            reason:
+                'Provider ${provider.name} should execute int_tool correctly',
+          );
 
-        // Validate message history follows correct pattern
-        validateMessageHistory(response.messages);
-      });
+          // Validate message history follows correct pattern
+          validateMessageHistory(response.messages);
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
 
-      runProviderTest('handles same tool multiple times with different args', (
-        provider,
-      ) async {
-        final agent = Agent(provider.name, tools: [weatherTool]);
+      runProviderTest(
+        'handles same tool multiple times with different args',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [weatherTool]);
 
-        final response = await agent.send(
-          'What is the weather in Boston and in Los Angeles?',
-        );
+          final response = await agent.send(
+            'What is the weather in Boston and in Los Angeles?',
+          );
 
-        // Should have called weather tool twice
-        final toolResults = response.messages
-            .expand((msg) => msg.toolResults)
-            .toList();
-        expect(
-          toolResults,
-          hasLength(greaterThanOrEqualTo(2)),
-          reason:
-              'Provider ${provider.name} should call weather tool at least '
-              'twice',
-        );
+          // Should have called weather tool twice
+          final toolResults = response.messages
+              .expand((msg) => msg.toolResults)
+              .toList();
+          expect(
+            toolResults,
+            hasLength(greaterThanOrEqualTo(2)),
+            reason:
+                'Provider ${provider.name} should call weather tool at least '
+                'twice',
+          );
 
-        // Check for results
-        final results = toolResults.map((tr) => tr.result).toList();
-        final allResults = results.join(' ');
-        expect(
-          allResults.toLowerCase(),
-          contains('boston'),
-          reason: 'Provider ${provider.name} should get Boston weather',
-        );
-        expect(
-          allResults.toLowerCase(),
-          contains('los angeles'),
-          reason: 'Provider ${provider.name} should get LA weather',
-        );
-      });
+          // Check for results
+          final results = toolResults.map((tr) => tr.result).toList();
+          final allResults = results.join(' ');
+          expect(
+            allResults.toLowerCase(),
+            contains('boston'),
+            reason: 'Provider ${provider.name} should get Boston weather',
+          );
+          expect(
+            allResults.toLowerCase(),
+            contains('los angeles'),
+            reason: 'Provider ${provider.name} should get LA weather',
+          );
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
 
-      runProviderTest('handles same tool with same args multiple times', (
-        provider,
-      ) async {
-        final agent = Agent(provider.name, tools: [stringTool]);
+      runProviderTest(
+        'handles same tool with same args multiple times',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool]);
 
-        // Ask it to call the same tool multiple times with same args
-        final response = await agent.send(
-          'Call string_tool three times with input '
-          '"repeat ${provider.name}"',
-        );
+          // Ask it to call the same tool multiple times with same args
+          final response = await agent.send(
+            'Call string_tool three times with input '
+            '"repeat ${provider.name}"',
+          );
 
-        // Should have at least one tool result
-        final toolResults = response.messages
-            .expand((msg) => msg.toolResults)
-            .toList();
-        expect(
-          toolResults,
-          isNotEmpty,
-          reason: 'Provider ${provider.name} should execute tool at least once',
-        );
+          // Should have at least one tool result
+          final toolResults = response.messages
+              .expand((msg) => msg.toolResults)
+              .toList();
+          expect(
+            toolResults,
+            isNotEmpty,
+            reason:
+                'Provider ${provider.name} should execute tool at least once',
+          );
 
-        // All results should be correct
-        for (final tr in toolResults) {
-          if (tr.name == 'string_tool') {
-            expect(
-              tr.result,
-              equals('String result: repeat ${provider.name}'),
-              reason:
-                  'Provider ${provider.name} tool results should be correct',
-            );
+          // All results should be correct
+          for (final tr in toolResults) {
+            if (tr.name == 'string_tool') {
+              expect(
+                tr.result,
+                equals('String result: repeat ${provider.name}'),
+                reason:
+                    'Provider ${provider.name} tool results should be correct',
+              );
+            }
           }
-        }
 
-        // The provider might call it 1, 2, 3 or more times - all are valid
-      });
+          // The provider might call it 1, 2, 3 or more times - all are valid
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+      );
     });
 
     // Edge cases moved to dedicated section at bottom
     group('edge cases (limited providers)', () {
-      // Test edge cases on only 1-2 providers to save resources
-      final edgeCaseProviders = <Provider>[
-        Providers.openai,
-        Providers.anthropic,
-      ];
-      test('handles null return values', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles null return values',
+        (provider) async {
           final agent = Agent(provider.name, tools: [nullTool]);
           final response = await agent.send('Call the null_tool');
-          // Should handle null gracefully
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles empty string returns', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles empty string returns',
+        (provider) async {
           final agent = Agent(provider.name, tools: [emptyStringTool]);
           final response = await agent.send('Call the empty_string_tool');
-          // Should complete without error
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles very long string returns', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles very long string returns',
+        (provider) async {
           final agent = Agent(provider.name, tools: [veryLongStringTool]);
           final response = await agent.send(
-            'show the result of calling very_long_string_tool '
-            'with repeat_count 10',
+            'show the result of calling very_long_string_tool with '
+            'repeat_count 10',
           );
-          // Model should either include the Lorem ipsum text or mention it
-          // handled a long string
           expect(
             response.output.toLowerCase(),
             anyOf(
@@ -399,30 +391,34 @@ void main() {
               contains('repeated'),
             ),
           );
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles unicode in tool results', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles unicode in tool results',
+        (provider) async {
           final agent = Agent(provider.name, tools: [unicodeTool]);
           final response = await agent.send('Call the unicode_tool');
           expect(response.output, isNotEmpty);
 
-          // Check that the tool was actually called and returned unicode
           final toolResults = response.messages
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, isNotEmpty);
           expect(toolResults.first.result, contains('👋'));
           expect(toolResults.first.result, contains('世界'));
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles special characters in tool results', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles special characters in tool results',
+        (provider) async {
           final agent = Agent(provider.name, tools: [specialCharsTool]);
           final response = await agent.send('Call the special_chars_tool');
-          // Model may either include the raw output or describe it
           expect(
             response.output.toLowerCase(),
             anyOf(
@@ -434,13 +430,14 @@ void main() {
               contains('quote'),
             ),
           );
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      // Removed - already covered above
-
-      test('handles no-params tools', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles no-params tools',
+        (provider) async {
           final agent = Agent(provider.name, tools: [noParamsTool]);
 
           final response = await agent.send('Call the no_params_tool');
@@ -448,38 +445,42 @@ void main() {
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, isNotEmpty);
-
-          // Check all results are correct (provider might call multiple times)
           for (final tr in toolResults) {
             expect(tr.result, equals('Called with no parameters'));
           }
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles missing required parameters', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles missing required parameters',
+        (provider) async {
           final agent = Agent(provider.name, tools: [strictTypeTool]);
 
-          // Model should either request missing params or handle gracefully
           final response = await agent.send(
             'Call strict_type_tool but only provide string_param "test"',
           );
           expect(response.output, isA<String>());
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
 
-      test('handles tool with no parameters', () async {
-        for (final provider in edgeCaseProviders) {
+      runProviderTest(
+        'handles tool with no parameters',
+        (provider) async {
           final agent = Agent(provider.name, tools: [noParamsTool]);
           final response = await agent.send('Call the no_params_tool');
-          // Check that tool was executed and result is in messages
           final toolResults = response.messages
               .expand((msg) => msg.toolResults)
               .toList();
           expect(toolResults, hasLength(1));
           expect(toolResults.first.result, equals('Called with no parameters'));
-        }
-      });
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        edgeCase: true,
+      );
     });
 
     group('error handling', () {
@@ -535,6 +536,9 @@ void main() {
                 'gracefully',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        // TODO: Remove once we migrate off google_generative_ai (issue #6)
+        skipProviders: {'google', 'google-openai'},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -558,26 +562,34 @@ void main() {
         );
       });
 
-      runProviderTest('stream tool calls correctly', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool]);
+      runProviderTest(
+        'stream tool calls correctly',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool]);
 
-        final chunks = <String>[];
-        await for (final chunk in agent.sendStream(
-          'Show me the result of calling the string_tool with input '
-          '"test ${provider.name}"',
-        )) {
-          chunks.add(chunk.output);
-        }
+          final chunks = <String>[];
+          await for (final chunk in agent.sendStream(
+            'We owe customer support a quick update. Use string_tool to repeat '
+            'the phrase "Status update for ${provider.name}" and share the '
+            'result with me as you stream the response.',
+          )) {
+            chunks.add(chunk.output);
+          }
 
-        final fullResponse = chunks.join();
-        // Every provider should successfully stream and use the tool
-        expect(fullResponse, isNotEmpty);
-        expect(
-          fullResponse.toLowerCase(),
-          anyOf(contains('test'), contains(provider.name)),
-          reason: 'Provider ${provider.name} failed to stream tool results',
-        );
-      }, timeout: const Timeout(Duration(minutes: 3)));
+          final fullResponse = chunks.join();
+          // Every provider should successfully stream and use the tool
+          expect(fullResponse, isNotEmpty);
+          expect(
+            fullResponse.toLowerCase(),
+            anyOf(contains('status update'), contains(provider.name)),
+            reason: 'Provider ${provider.name} failed to stream tool results',
+          );
+        },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+        // TODO: Remove once we migrate off google_generative_ai (issue #6)
+        skipProviders: {'google'},
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
 
       test('streams multiple tool calls', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool, intTool]);
@@ -707,6 +719,8 @@ void main() {
                 'result in response',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -740,6 +754,8 @@ void main() {
             reason: 'Provider ${provider.name} did not execute tool',
           );
         },
+        requiredCaps: {ProviderCaps.multiToolCalls},
+
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

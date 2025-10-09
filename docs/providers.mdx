@@ -1,5 +1,6 @@
 ---
 title: Providers
+description: "Providers for chat and embeddings models."
 ---
 
 Out of the box support for 11 providers, with more to come.
@@ -9,6 +10,7 @@ Out of the box support for 11 providers, with more to come.
 | Provider | Default Model | Default Embedding Model | Capabilities | Notes |
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
+| **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | - | Chat, Vision, Tools, Streaming | No embeddings |
 | **Google** | `gemini-2.0-flash-exp` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
@@ -16,7 +18,6 @@ Out of the box support for 11 providers, with more to come.
 | **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
 | **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
 | **Together AI** | `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | - | Chat, Tools, Streaming | Open source models |
-| **Lambda** | `hermes-3-llama-3.1-405b-fp8` | - | Chat, Tools, Streaming | Research models |
 | **Google-OpenAI** | `gemini-2.0-flash-exp` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
 | **Ollama-OpenAI** | `llama3.2:latest` | - | Chat, Tools, Streaming | Ollama via OpenAI API |
 
@@ -25,6 +26,7 @@ Out of the box support for 11 providers, with more to come.
 | Provider | Provider Prefix | Aliases | API Key | Provider Type |
 |----------|----------------|---------|---------|---------------|
 | **OpenAI** | `openai` | - | `OPENAI_API_KEY` | `OpenAIProvider` |
+| **OpenAI Responses** | `openai-responses` | - | `OPENAI_API_KEY` | `OpenAIResponsesProvider` |
 | **Anthropic** | `anthropic` | `claude` | `ANTHROPIC_API_KEY` | `AnthropicProvider` |
 | **Google** | `google` | `gemini`, `googleai` | `GEMINI_API_KEY` | `GoogleProvider` |
 | **Mistral** | `mistral` | - | `MISTRAL_API_KEY` | `MistralProvider` |
@@ -32,7 +34,6 @@ Out of the box support for 11 providers, with more to come.
 | **Ollama** | `ollama` | - | None (local) | `OllamaProvider` |
 | **OpenRouter** | `openrouter` | - | `OPENROUTER_API_KEY` | `OpenAIProvider` |
 | **Together AI** | `togetherai` | `together` | `TOGETHER_API_KEY` | `OpenAIProvider` |
-| **Lambda** | `lambda` | - | `LAMBDA_API_KEY` | `OpenAIProvider` |
 | **Google-OpenAI** | `google-openai` | - | `GEMINI_API_KEY` | `OpenAIProvider` |
 | **Ollama-OpenAI** | `ollama-openai` | - | None (local) | `OpenAIProvider` |
 
@@ -56,6 +57,9 @@ Agent('anthropic:claude-3-5-sonnet');
 
 // Chat + embeddings
 Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
+
+// Responses API features (thinking, server-side tools)
+Agent('openai-responses:gpt-5');
 ```
 
 ## Find Providers
@@ -65,7 +69,7 @@ Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 Providers.all
 
 // By capability
-Providers.allWith({ProviderCaps.vision})
+Providers.allWith({ProviderCaps.chatVision})
 
 // By name
 Providers.get('claude') // → anthropic
@@ -101,11 +105,12 @@ if (provider.caps.contains(ProviderCaps.embeddings)) {
 
 - **`chat`** - Chat conversations
 - **`embeddings`** - Vector embeddings
-- **`vision`** - Image/file processing
+- **`chatVision`** - Image/file processing handled by the chat model
 - **`toolCalls`** - Function calling
 - **`multiToolCalls`** - Multiple tool calls
 - **`streaming`** - Stream responses
 - **`typedOutput`** - Structured output
+- **`thinking`** - Provider streams reasoning metadata (e.g. OpenAI Responses)
 
 ## List Models
 

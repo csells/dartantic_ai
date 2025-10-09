@@ -6,12 +6,12 @@ The `ModelStringParser` supports flexible URI-based parsing with multiple format
 
 ### Supported Formats
 
-| Format | Example | Parsed Result |
-|--------|---------|---------------|
-| **Provider only** | `openai` | provider: `openai`, chat: `null`, embeddings: `null` |
-| **Provider:model** | `openai:gpt-4o` | provider: `openai`, chat: `gpt-4o`, embeddings: `null` |
-| **Provider/model** | `openai/gpt-4o` | provider: `openai`, chat: `gpt-4o`, embeddings: `null` |
-| **Query params** | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3` |
+| Format             | Example                                          | Parsed Result                                                      |
+| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------ |
+| **Provider only**  | `openai`                                         | provider: `openai`, chat: `null`, embeddings: `null`               |
+| **Provider:model** | `openai:gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
+| **Provider/model** | `openai/gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
+| **Query params**   | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3` |
 
 ### Parsing Flow
 
@@ -86,17 +86,16 @@ flowchart TD
 
 ### Provider Defaults Table
 
-| Provider | Chat Default | Embeddings Default |
-|----------|--------------|-------------------|
-| OpenAI | `gpt-4o` | `text-embedding-3-small` |
-| Anthropic | `claude-3-5-sonnet-20241022` | N/A (no embeddings) |
-| Google | `gemini-2.0-flash` | `models/text-embedding-004` |
-| Mistral | `mistral-7b-instruct` | `mistral-embed` |
-| Cohere | `command-r-plus` | `embed-v4.0` |
-| Ollama | `llama3.2` | N/A (no embeddings) |
-| OpenRouter | `google/gemini-2.0-flash` | N/A (chat only) |
-| Together | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only) |
-| Lambda | `hermes-3-llama-3.1-405b-fp8` | N/A (chat only) |
+| Provider   | Chat Default                             | Embeddings Default          |
+| ---------- | ---------------------------------------- | --------------------------- |
+| OpenAI     | `gpt-4o`                                 | `text-embedding-3-small`    |
+| Anthropic  | `claude-3-5-sonnet-20241022`             | N/A (no embeddings)         |
+| Google     | `gemini-2.0-flash`                       | `models/text-embedding-004` |
+| Mistral    | `mistral-7b-instruct`                    | `mistral-embed`             |
+| Cohere     | `command-r-plus`                         | `embed-v4.0`                |
+| Ollama     | `llama3.2`                               | N/A (no embeddings)         |
+| OpenRouter | `google/gemini-2.0-flash`                | N/A (chat only)             |
+| Together   | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only)             |
 
 ### Provider Configuration
 

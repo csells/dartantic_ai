@@ -17,8 +17,8 @@ enum ProviderCaps {
   /// native response_format (OpenAI).
   typedOutputWithTools,
 
-  /// The provider supports vision/multi-modal input (images, etc.).
-  vision,
+  /// The provider's chat models support vision/multi-modal input.
+  chatVision,
 
   /// The provider can stream or return model reasoning ("thinking").
   ///

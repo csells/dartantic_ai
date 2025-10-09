@@ -8,6 +8,8 @@ The dartantic_ai package provides a unified interface to 15+ LLM providers throu
 - Tool/function calling 
 - Structured JSON output
 - Multiple provider types (cloud APIs, local models)
+- Provider-hosted capabilities (server-side tools) when available
+- Model reasoning streams ("thinking") for compatible providers
 - Comprehensive logging and debugging
 
 ## Core Architectural Principles
@@ -368,11 +370,31 @@ final embeddingsProviders = Providers.allWith({ProviderCaps.embeddings});
 4. Reference specification documents
 5. Let exceptions bubble up
 
-## Related Specifications
+## Complete Documentation Index
 
-- **Provider Setup**: [[OpenAI-Compat]] - API keys and configuration
-- **Implementation Guide**: [[Provider-Implementation-Guide]] - Adding new providers
-- **State Management**: [[State-Management-Architecture]] - StreamingState details
+### Core Architecture
+- **[[Home]]** - This document: comprehensive overview of the dartantic_ai package architecture
+- **[[Unified-Provider-Architecture]]** - Single provider interface for both chat and embeddings operations with capability discovery
+- **[[Orchestration-Layer-Architecture]]** - Coordinates streaming workflows, tool execution, and business logic across providers
+- **[[Message-Handling-Architecture]]** - Message structure and transformation semantics across Agent and Mapper layers
+- **[[State-Management-Architecture]]** - StreamingState system for managing mutable state during streaming operations
+- **[[Architecture-Best-Practices]]** - Core architectural principles (DRY, SRP, KISS, YAGNI, separation of concerns)
+
+### Features & Capabilities
+- **[[Streaming-Tool-Call-Architecture]]** - Provider-specific streaming patterns, tool ID coordination, and message accumulation
+- **[[Typed-Output-Architecture]]** - Structured JSON output with native schema support and tool-based fallback
+- **[[Logging-Architecture]]** - Hierarchical, configurable logging with domain-based organization
+- **[[Server-Side-Tools-Tech-Design]]** - Architecture for provider-executed tools (web search, code interpreter, image generation)
+
+### Configuration & Setup
+- **[[Agent-Config-Spec]]** - API key resolution, environment variables, and cross-platform configuration
+- **[[Model-Configuration-Spec]]** - Provider defaults and model resolution patterns
+- **[[Model-String-Format]]** - Model string parsing formats (URI-based, colon, slash notation)
+
+### Implementation Guides
+- **[[Provider-Implementation-Guide]]** - Step-by-step guide for adding new providers
+- **[[OpenAI-Compat]]** - OpenAI-compatible provider setup, API keys, and configuration
+- **[[Test-Spec]]** - Comprehensive testing strategy with capability-based filtering
 
 ## Future Considerations
 

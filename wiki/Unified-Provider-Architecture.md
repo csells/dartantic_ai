@@ -237,7 +237,7 @@ Key patterns:
 
 ### OpenAI-Compatible Pattern
 
-Many providers use OpenAI's API format. The `OpenAIProvider` class can be instantiated with different configurations to support multiple providers (OpenRouter, Together, Lambda, etc.). See how `Providers.openrouter` and others are defined as configured OpenAIProvider instances.
+Many providers use OpenAI's API format. The `OpenAIProvider` class can be instantiated with different configurations to support multiple providers (OpenRouter, Together, etc.). See how `Providers.openrouter` and others are defined as configured OpenAIProvider instances.
 
 ### Custom Provider Pattern
 
@@ -299,16 +299,16 @@ While Agent is the primary interface, direct model creation is supported for adv
 
 ### Provider Capability Matrix
 
-| Provider | Chat | Embeddings | Tools | Typed Output | Tools+Typed | Vision |
-|----------|:----:|:----------:|:-----:|:------------:|:-----------:|:------:|
-| OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Google | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Anthropic | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Mistral | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Cohere | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Ollama | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| OpenRouter | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Together | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Provider   | Chat  | Embeddings | Tools | Typed Output | Tools+Typed | Vision |
+| ---------- | :---: | :--------: | :---: | :----------: | :---------: | :----: |
+| OpenAI     |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |
+| Google     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ✅    |
+| Anthropic  |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
+| Mistral    |   ✅   |     ✅      |   ❌   |      ❌       |      ❌      |   ✅    |
+| Cohere     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ❌    |
+| Ollama     |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
+| OpenRouter |   ✅   |     ❌      |   ✅   |      ✅       |      ❌      |   ✅    |
+| Together   |   ✅   |     ❌      |   ❌   |      ✅       |      ❌      |   ✅    |
 
 **Legend:**
 - **Tools** = `multiToolCalls` capability
@@ -322,7 +322,7 @@ While Agent is the primary interface, direct model creation is supported for adv
 
 ### Limited Tool Support
 - **Mistral**: No tool calling support
-- **Cohere, Lambda**: Cannot use typed output with tools simultaneously
+- **Cohere**: Cannot use typed output with tools simultaneously
 
 ### Full-Featured Providers
 - **OpenAI**: Supports all capabilities

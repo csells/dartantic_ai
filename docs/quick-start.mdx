@@ -1,8 +1,7 @@
 ---
 title: Quick Start
+description: "Zero to hero; no PhD required."
 ---
-
-Zero to hero; no PhD required.
 
 ## Install
 
@@ -26,9 +25,9 @@ export MISTRAL_API_KEY="..."
 export OPENROUTER_API_KEY="..."
 export TOGETHER_API_KEY="..."
 export COHERE_API_KEY="..."
-export LAMBDA_API_KEY="..."
 
 # Ollama runs locally - no key needed
+# OpenAI Responses reuses OPENAI_API_KEY
 ```
 Prefer to handle API keys server-side. Take special care to not expose them in
 your client code.
@@ -44,7 +43,7 @@ takes a model string.
 void main() async {
   // Create an agent with a model string
   final agent = Agent(
-    'openai',  // Can also use 'openai:gpt-4o' or 'openai/gpt-4o'
+    'openai',  // Try 'openai:gpt-4o' or 'gemini:gemini-2.0-flash'
   );
 
   // Run the agent with a prompt and system message
