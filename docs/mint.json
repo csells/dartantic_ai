@@ -33,49 +33,54 @@
   ],
   "anchors": [
     {
-      "name": "Documentation",
-      "icon": "book-open-cover",
-      "url": "https://mintlify.com/docs"
-    },
-    {
-      "name": "Community",
+      "name": "Discussion ↗",
       "icon": "slack",
-      "url": "https://mintlify.com/community"
+      "url": "https://github.com/csells/dartantic_ai/discussions"
     },
     {
-      "name": "Blog",
+      "name": "API Reference ↗",
+      "icon": "book-open-cover",
+      "url": "https://pub.dev/documentation/dartantic_ai/latest/"
+    },
+    {
+      "name": "Blog ↗",
       "icon": "newspaper",
-      "url": "https://mintlify.com/blog"
+      "url": "https://sellsbrothers.com"
     }
   ],
   "navigation": [
     {
-      "group": "Get Started",
+      "group": "Getting Started",
       "pages": [
         "index",
         "quick-start",
-        "environment-setup"
+        "agentic-behavior",
+        "providers",
+        "migration-guide",
+        "notes-on-ai-codegen",
+        "contributing"
       ]
     },
     {
-      "group": "Core Features",
+      "group": "Features",
       "pages": [
-        "providers",
-        "tool-calling",
+        "streaming-output",
         "multi-turn-chat",
         "typed-output",
-        "streaming-output",
-        "embeddings"
+        "tool-calling",
+        "system-messages",
+        "multi-media-input"
       ]
     },
     {
-      "group": "Advanced Topics",
+      "group": "Advanced",
       "pages": [
-        "agentic-behavior",
+        "embeddings",
         "thinking",
-        "custom-providers",
-        "multi-media-input",
-        "using-dotprompt"
+        "usage-tracking",
+        "automatic-retry",
+        "logging",
+        "custom-providers"
       ]
     },
     {
@@ -89,27 +94,11 @@
       ]
     },
     {
-      "group": "Developer Tools",
-      "pages": [
-        "logging",
-        "error-handling",
-        "usage-tracking",
-        "automatic-retry"
-      ]
-    },
-    {
       "group": "Integration",
       "pages": [
-        "mcp-support"
-      ]
-    },
-    {
-      "group": "Resources",
-      "pages": [
-        "migration-guide",
-        "contributing",
-        "notes-on-ai-codegen",
-        "system-messages"
+        "environment-setup",
+        "mcp-support",
+        "using-dotprompt"
       ]
     }
   ],
