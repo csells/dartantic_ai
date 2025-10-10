@@ -2,7 +2,6 @@
 # Flutter build artifacts
 build/
 .flutter-plugins-dependencies
-example/.env
 
 # Test coverage
 coverage/

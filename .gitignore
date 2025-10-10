@@ -7,3 +7,4 @@
 pubspec.lock
 .vscode/settings.json
 .DS_Store
+packages/dartantic_ai/example/.env
