@@ -33,28 +33,34 @@ dependencies:
   firebase_core: ^3.12.0
 ```
 
-## Firebase Setup
+## Backend Setup Requirements
 
-1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+### Google AI Backend (Development)
+- **No Firebase project required** for basic usage
+- Only needs Google AI API key 
+- Direct access to Gemini Developer API
+- Simpler setup for prototyping and development
 
-2. Follow the [Firebase Flutter setup guide](https://firebase.google.com/docs/flutter/setup) for your platform
-
-3. Enable Firebase AI Logic in your Firebase console
-
-4. (Optional) Set up [App Check](https://firebase.google.com/docs/app-check) for enhanced security
+### Vertex AI Backend (Production)
+- **Requires Firebase project** with Google Cloud billing enabled
+- Full Firebase integration with security features
+- Follow the [Firebase Flutter setup guide](https://firebase.google.com/docs/flutter/setup) for your platform
+- Enable Firebase AI Logic in your Firebase console
+- (Optional) Set up [App Check](https://firebase.google.com/docs/app-check) for enhanced security
 
 ## Usage
 
 ### Backend Selection
 
-Firebase AI supports two backends:
+Firebase AI supports two backends with different setup requirements:
 
 **Google AI Backend** (for development/testing):
-- Direct access to Google AI API
-- Simpler setup, no Firebase project required for basic usage
+- Uses Gemini Developer API directly
+- No Firebase project needed - just an API key
 - Good for prototyping and development
 
 **Vertex AI Backend** (for production):
+- Requires complete Firebase project setup
 - Full Firebase integration with security features
 - App Check, Firebase Auth support
 - Production-ready infrastructure
@@ -66,20 +72,20 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:dartantic_firebase_ai/dartantic_firebase_ai.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-// Initialize Firebase
+// Initialize Firebase (required for both backends)
 await Firebase.initializeApp();
 
-// Option 1: Vertex AI (default, production-ready)
-Providers.providerMap['firebase'] = FirebaseAIProvider();
+// Option 1: Vertex AI (production-ready, requires Firebase project)
+Providers.providerMap['firebase-vertex'] = FirebaseAIProvider();
 
-// Option 2: Google AI (simpler, for development)
-Providers.providerMap['firebase_dev'] = FirebaseAIProvider(
+// Option 2: Google AI (development, minimal Firebase setup)
+Providers.providerMap['firebase-google'] = FirebaseAIProvider(
   backend: FirebaseAIBackend.googleAI,
 );
 
 // Create agents
-final prodAgent = Agent('firebase:gemini-2.0-flash');
-final devAgent = Agent('firebase_dev:gemini-2.0-flash');
+final prodAgent = Agent('firebase-vertex:gemini-2.0-flash');
+final devAgent = Agent('firebase-google:gemini-2.0-flash');
 
 // Send a message
 final result = await prodAgent.send('Explain quantum computing');
@@ -151,15 +157,26 @@ The `FirebaseAIChatOptions` class supports:
 3. **Set up Firebase Security Rules** to protect your data
 4. **Monitor usage** in Firebase console to detect anomalies
 
+## Dependencies and Requirements
+
+**This package requires Flutter** - it cannot be used in pure Dart projects due to:
+- Flutter-specific Firebase SDK dependencies (`firebase_core`, `firebase_auth`, etc.)
+- Platform-specific Firebase initialization code
+- Flutter framework dependencies for UI integrations
+
+For pure Dart projects, consider using the `dartantic_google` provider instead.
+
 ## Comparison to Google Provider
 
 | Feature | Google Provider | Firebase AI Provider |
 |---------|----------------|---------------------|
 | API Access | Direct Gemini API | Through Firebase |
+| Setup | API key only | Firebase project + API key |
 | Security | API key only | App Check + Auth |
-| Platforms | All Dart | Flutter only |
+| Platforms | All Dart platforms | Flutter only |
 | On-Device | No | Yes (preview) |
 | Cost Control | Manual | Firebase quotas |
+| Dependencies | HTTP client only | Full Firebase SDK |
 
 ## Contributing
 

@@ -45,15 +45,16 @@ class _DemoScreenState extends State<DemoScreen> {
     });
 
     try {
-      // Register Firebase AI providers for both backends
-      Providers.providerMap['firebase'] = FirebaseAIProvider();
-      Providers.providerMap['firebase_google'] = FirebaseAIProvider(
+      // Register Firebase AI providers with new naming
+      Providers.providerMap['firebase-vertex'] = FirebaseAIProvider();
+      Providers.providerMap['firebase-google'] = FirebaseAIProvider(
         backend: FirebaseAIBackend.googleAI,
       );
       
       setState(() {
         _logs.add('✅ FirebaseAIProvider registered successfully');
-        _logs.add('✅ Provider available as: firebase');
+        _logs.add('✅ Vertex AI provider available as: firebase-vertex');
+        _logs.add('✅ Google AI provider available as: firebase-google');
         _logs.add('✅ Supports model: gemini-2.0-flash-exp');
         _logs.add('✅ Capabilities: chatVision');
         _providerReady = true;
@@ -70,14 +71,14 @@ class _DemoScreenState extends State<DemoScreen> {
 
   void _testAgentCreation() {
     try {
-      // Create agents with both Firebase AI backends
-      final vertexAgent = Agent('firebase:gemini-2.0-flash-exp');
-      final googleAgent = Agent('firebase_google:gemini-2.0-flash-exp');
+      // Create agents with both Firebase AI backends using new naming
+      final vertexAgent = Agent('firebase-vertex:gemini-2.0-flash-exp');
+      final googleAgent = Agent('firebase-google:gemini-2.0-flash-exp');
       
       setState(() {
         _logs.add('🎯 Agents created successfully!');
-        _logs.add('✅ Vertex AI: firebase:gemini-2.0-flash-exp');
-        _logs.add('✅ Google AI: firebase_google:gemini-2.0-flash-exp');
+        _logs.add('✅ Vertex AI: firebase-vertex:gemini-2.0-flash-exp');
+        _logs.add('✅ Google AI: firebase-google:gemini-2.0-flash-exp');
         _logs.add('✅ Ready for chat operations');
         _logs.add('✅ Agent instances: ${vertexAgent.runtimeType}, ${googleAgent.runtimeType}');
         _logs.add('');

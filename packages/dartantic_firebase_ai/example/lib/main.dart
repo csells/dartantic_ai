@@ -45,12 +45,16 @@ class _DemoScreenState extends State<DemoScreen> {
     });
 
     try {
-      // Register Firebase AI provider
-      Providers.providerMap['firebase'] = FirebaseAIProvider();
+      // Register Firebase AI providers with new naming
+      Providers.providerMap['firebase-vertex'] = FirebaseAIProvider();
+      Providers.providerMap['firebase-google'] = FirebaseAIProvider(
+        backend: FirebaseAIBackend.googleAI,
+      );
       
       setState(() {
         _logs.add('✅ FirebaseAIProvider registered successfully');
-        _logs.add('✅ Provider available as: firebase');
+        _logs.add('✅ Vertex AI provider available as: firebase-vertex');
+        _logs.add('✅ Google AI provider available as: firebase-google');
         _logs.add('✅ Supports model: gemini-2.0-flash-exp');
         _logs.add('✅ Capabilities: chatVision');
         _providerReady = true;
@@ -67,12 +71,12 @@ class _DemoScreenState extends State<DemoScreen> {
 
   void _testAgentCreation() {
     try {
-      // Create agent with Firebase AI
-      final agent = Agent('firebase:gemini-2.0-flash-exp');
+      // Create agent with Firebase AI (using Vertex AI backend)
+      final agent = Agent('firebase-vertex:gemini-2.0-flash-exp');
       
       setState(() {
         _logs.add('🎯 Agent created successfully!');
-        _logs.add('✅ Model: firebase:gemini-2.0-flash-exp');
+        _logs.add('✅ Model: firebase-vertex:gemini-2.0-flash-exp');
         _logs.add('✅ Ready for chat operations');
         _logs.add('✅ Agent instance: ${agent.runtimeType}');
         _logs.add('');

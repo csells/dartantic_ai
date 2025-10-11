@@ -9,14 +9,17 @@ void main() async {
   logger.info('================================');
   
   try {
-    // Step 1: Register Firebase AI provider
-    logger.info('\n📝 Step 1: Registering Firebase AI Provider...');
-    Providers.providerMap['firebase'] = FirebaseAIProvider();
-    logger.info('✅ FirebaseAIProvider registered successfully');
+    // Step 1: Register Firebase AI providers with new naming
+    logger.info('\n📝 Step 1: Registering Firebase AI Providers...');
+    Providers.providerMap['firebase-vertex'] = FirebaseAIProvider();
+    Providers.providerMap['firebase-google'] = FirebaseAIProvider(
+      backend: FirebaseAIBackend.googleAI,
+    );
+    logger.info('✅ Firebase AI Providers registered successfully');
     
-    // Step 2: Create Agent
+    // Step 2: Create Agent (using Vertex AI backend)
     logger.info('\n📝 Step 2: Creating Agent...');
-    final agent = Agent('firebase:gemini-2.0-flash-exp');
+    final agent = Agent('firebase-vertex:gemini-2.0-flash-exp');
     logger.info('✅ Agent created: ${agent.runtimeType}');
     logger.info('✅ Model: firebase:gemini-2.0-flash-exp');
     

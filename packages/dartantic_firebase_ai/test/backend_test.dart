@@ -30,6 +30,7 @@ void main() {
       );
       expect(provider.backend, equals(FirebaseAIBackend.googleAI));
       expect(provider.displayName, equals('Firebase AI (Google AI)'));
+      expect(provider.aliases, contains('firebase-google'));
     });
 
     test('can create chat models with different backends', () {

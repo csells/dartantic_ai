@@ -4,10 +4,13 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_firebase_ai/dartantic_firebase_ai.dart';
 
 void main() async {
-  // Register Firebase AI provider
-  Providers.providerMap['firebase'] = FirebaseAIProvider();
+  // Register Firebase AI providers with new naming
+  Providers.providerMap['firebase-vertex'] = FirebaseAIProvider();
+  Providers.providerMap['firebase-google'] = FirebaseAIProvider(
+    backend: FirebaseAIBackend.googleAI,
+  );
   
-  const model = 'firebase:gemini-2.0-flash';
+  const model = 'firebase-vertex:gemini-2.0-flash';
   await singleTurnChat(model);
   await singleTurnChatStream(model);
   await multiModalDemo(model);

@@ -33,7 +33,7 @@ void main() {
     test('has correct basic properties', () {
       expect(provider.name, equals('firebase_ai'));
       expect(provider.displayName, equals('Firebase AI (Vertex AI)')); // Updated for dual backend support
-      expect(provider.aliases, contains('firebase'));
+      expect(provider.aliases, contains('firebase-vertex'));
       expect(provider.apiKey, isNull);
       expect(provider.apiKeyName, isNull);
       expect(provider.baseUrl, isNull);
@@ -437,7 +437,7 @@ void main() {
     test('provider supports URI-based model string format', () {
       // Provider name should work in model string parsing
       expect(testProvider.name, equals('firebase_ai'));
-      expect(testProvider.aliases, contains('firebase'));
+      expect(testProvider.aliases, contains('firebase-vertex'));
       
       // These would be handled by the main dartantic model string parser
       // Just verify our provider has the right name/aliases for compatibility

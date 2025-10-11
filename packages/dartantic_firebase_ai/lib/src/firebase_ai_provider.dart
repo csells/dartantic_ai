@@ -53,7 +53,9 @@ class FirebaseAIProvider
           ProviderCaps.chatVision,
           ProviderCaps.thinking,
         },
-        aliases: const ['firebase'],
+        aliases: backend == FirebaseAIBackend.googleAI 
+            ? const ['firebase-google']
+            : const ['firebase-vertex'],
       );
 
   /// The backend type this provider instance uses.
