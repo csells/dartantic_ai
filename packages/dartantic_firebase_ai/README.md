@@ -33,17 +33,24 @@ dependencies:
   firebase_core: ^3.12.0
 ```
 
-## Backend Setup Requirements
+## Setup Requirements
+
+**Important:** Both backends require Flutter SDK, Firebase Core initialization, and a Firebase project configuration.
+
+### Common Requirements (Both Backends)
+- **Flutter SDK** (not just Dart)
+- **Firebase Core initialization** (`Firebase.initializeApp()`)
+- **Firebase project configuration** (minimal config acceptable)
 
 ### Google AI Backend (Development)
-- **No Firebase project required** for basic usage
-- Only needs Google AI API key 
-- Direct access to Gemini Developer API
-- Simpler setup for prototyping and development
+- Uses **Gemini Developer API** through Firebase SDK
+- Requires Google AI API key for authentication
+- Simpler authentication setup
+- Good for prototyping and development
 
-### Vertex AI Backend (Production)
-- **Requires Firebase project** with Google Cloud billing enabled
-- Full Firebase integration with security features
+### Vertex AI Backend (Production)  
+- Uses **Vertex AI through Firebase** infrastructure
+- Requires **full Firebase project setup** with Google Cloud billing enabled
 - Follow the [Firebase Flutter setup guide](https://firebase.google.com/docs/flutter/setup) for your platform
 - Enable Firebase AI Logic in your Firebase console
 - (Optional) Set up [App Check](https://firebase.google.com/docs/app-check) for enhanced security
@@ -52,11 +59,10 @@ dependencies:
 
 ### Backend Selection
 
-Firebase AI supports two backends with different setup requirements:
+Firebase AI supports two backends with different API endpoints but similar setup:
 
 **Google AI Backend** (for development/testing):
-- Uses Gemini Developer API directly
-- No Firebase project needed - just an API key
+- Routes requests to Gemini Developer API
 - Good for prototyping and development
 
 **Vertex AI Backend** (for production):
