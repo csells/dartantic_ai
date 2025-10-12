@@ -7,13 +7,14 @@ repository: https://github.com/csells/dartantic_ai
 homepage: https://docs.dartantic.com
 
 environment:
-  sdk: ^3.8.0
+  sdk: ^3.9.0
 
 dependencies:
   anthropic_sdk_dart: ^0.2.2
   collection: ^1.19.1
   dartantic_interface: ^1.1.0
-  google_generative_ai: ^0.4.7
+  google_cloud_ai_generativelanguage_v1: ^0.1.0
+  google_cloud_protobuf: ^0.1.0
   html: ^0.15.6
   http: ^1.4.0
   json_schema: ^5.1.8
@@ -31,3 +32,15 @@ dependencies:
 dev_dependencies:
   all_lint_rules_community: ^0.0.43
   test: ^1.24.0
+
+dependency_overrides:
+  google_cloud_ai_generativelanguage_v1:
+    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_ai_generativelanguage_v1
+  google_cloud_gax:
+    path: /Users/csells/temp/google-cloud-dart/packages/google_cloud_gax
+  google_cloud_longrunning:
+    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_longrunning
+  google_cloud_protobuf:
+    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_protobuf
+  google_cloud_rpc:
+    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_rpc

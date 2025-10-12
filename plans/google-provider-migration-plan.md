@@ -3,69 +3,100 @@
 ## Objective
 Replace usage of the deprecated `google_generative_ai` SDK with the generated `google_cloud_ai_generativelanguage_v1` package while keeping the dartantic Google provider’s public surface (providers/models/mappers) and all existing tests unchanged.
 
-## 1. Dependencies
-- Remove `google_generative_ai` from `packages/dartantic_ai/pubspec.yaml`.
-- Add the generated package and any required transitive deps: `google_cloud_ai_generativelanguage_v1`, `google_cloud_gax`, `google_cloud_protobuf`, `google_cloud_longrunning`, `google_cloud_rpc`.
-- Introduce a local `dependency_overrides` entry (path/git) so the generated package is available until it is published or vendored.
+The implementation of the generated package is here: /Users/csells/temp/google-cloud-dart/generated/google_cloud_ai_generativelanguage_v1/lib/generativelanguage.dart
 
-## 2. Shared Mapping Utilities
-- Add helpers to convert between `Map<String, dynamic>` and protobuf `Struct`/`Value` for tool arguments & results (place with existing mapper helpers).
-- Port JSON-schema → `Schema` conversion logic to the new protobuf types, preserving the same validation behavior.
-- Extend safety-setting mappers to emit `SafetySetting` / `HarmCategory` enums based on current `GoogleChatModelOptions`.
+---
 
-## 3. Message Mappers
-- Rewrite `google_message_mappers.dart` to target the generated `Content`, `Part`, `FunctionCall`, `FunctionResponse`, `Blob`, and `FileData` types.
-- Keep tool-result grouping and tool-id assignment exactly as today (`ToolIdHelpers` and `return_result` filtering).
-- Map `Candidate.finishReason` values (including new enum members) onto dartantic’s `FinishReason`.
+- [x] **1. Dependencies**  
+  Specs: `wiki/Provider-Implementation-Guide.md`, `wiki/Unified-Provider-Architecture.md`  
+  External refs: `/Users/csells/temp/google-cloud-dart/generated/google_cloud_ai_generativelanguage_v1/lib/generativelanguage.dart`  
+  - Removed `google_generative_ai` from `packages/dartantic_ai/pubspec.yaml`.  
+  - Added generated client + required deps: `google_cloud_ai_generativelanguage_v1`, `google_cloud_protobuf`, `google_cloud_gax`, `google_cloud_longrunning`, `google_cloud_rpc`.  
+  - Added `dependency_overrides` pointing to the generated repo so we can iterate before publication.
 
-## 4. Chat Model Implementation
-- Replace `google_generative_ai.GenerativeModel` usage in `google_chat_model.dart` with a `GenerativeService` client constructed over `CustomHttpClient` so headers/retry logic stay centralized.
-- Build `GenerateContentRequest` per send: extract system instructions, map history via the new mappers, assemble `GenerationConfig`, `SafetySetting`, tool declarations, and optional `ToolConfig` (code execution).
-- Update streaming to call `streamGenerateContent`, translate each chunk into `ChatResult<ChatMessage>`, and preserve logging/usage metadata.
-- Remove the old client caching that existed solely for system instruction updates.
+- [x] **2. Shared Mapping Utilities**  
+  Specs: `wiki/Message-Handling-Architecture.md` (Tool Result Handling), `wiki/Typed-Output-Architecture.md`  
+  External refs: same generated file for proto types  
+  - Added `protobuf_value_helpers.dart` for Map ⇄ `gl.Struct`/`gl.Value` conversions.  
+  - Added `google_schema_helpers.dart` for JSON Schema → `gl.Schema`.  
+  - Extended safety-setting mappers to return `gl.SafetySetting` / `gl.HarmCategory`.
 
-## 5. Embeddings Model
-- Replace calls to `GenerativeModel.embedContent` / `batchEmbedContents` with `GenerativeService.embedContent` / `batchEmbedContents`.
-- Produce `EmbedContentRequest` batches with prior defaults (task type, dimensions, batching) and keep token-estimation behavior identical.
-- Ensure `CustomHttpClient` continues to inject API key headers for both single and batch operations.
+- [x] **3. Message Mappers**  
+  Specs: `wiki/Message-Handling-Architecture.md`, `wiki/Streaming-Tool-Call-Architecture.md`  
+  External refs: `gl.Content`, `gl.Part`, `gl.FunctionCall`, `gl.FunctionResponse`, `gl.Candidate` in generated client  
+  - Replaced mapper conversions with generated proto classes.  
+  - Preserved tool-result batching (`ToolIdHelpers`, `return_result` filtering).  
+  - Added finish-reason mapping for new enum members.
 
-## 6. Provider Layer
-- Keep `GoogleProvider`’s constructor, default models, caps, and aliases unchanged.
-- Instantiate the refactored chat/embeddings models with the same parameters (`tools`, `temperature`, `options`, `baseUrl` overrides).
-- Replace `listModels()` HTTP logic with `ModelService.listModels`, translating to `ModelInfo` using existing heuristics (kinds, metadata, logging, error handling).
-- Verify provider-level `baseUrl` overrides still work; if the generated client hardcodes the host, extend `CustomHttpClient` or wrap `ServiceClient` to honor overrides.
+- [x] **4. Chat Model Implementation**  
+  Specs: `wiki/Provider-Implementation-Guide.md`, `wiki/Orchestration-Layer-Architecture.md`, `wiki/Message-Handling-Architecture.md`  
+  External refs: `GenerativeService` + request/response types in generated client  
+  - Swapped `GenerativeModel` for `gl.GenerativeService` using `CustomHttpClient`.  
+  - Build `gl.GenerateContentRequest` per send (system instructions, safety, schema, tool config).  
+  - Stream via `streamGenerateContent` and convert chunks into `ChatResult`.  
+  - Removed bespoke client caching.
 
-## 7. Cleanup & Validation
-- Remove all remaining `google_generative_ai` imports/usages across the repo.
-- Run targeted tests that cover Google chat, embeddings, tools, streaming, and typed output:
-  - `dart test packages/dartantic_ai/test/tool_calling_test.dart`
-  - `dart test packages/dartantic_ai/test/chat_models_test.dart`
-  - `dart test packages/dartantic_ai/test/streaming_test.dart`
-  - `dart test packages/dartantic_ai/test/multi_provider_test.dart`
-  - `dart test packages/dartantic_ai/test/embeddings_test.dart`
-  - `dart test packages/dartantic_ai/test/provider_discovery_test.dart`
-- Smoke-test examples (`packages/dartantic_ai/example/bin/multi_turn_chat.dart`) with a Gemini model to confirm behavior parity.
+- [x] **5. Embeddings Model**  
+  Specs: `wiki/Provider-Implementation-Guide.md` (Embeddings), `wiki/Unified-Provider-Architecture.md`  
+  External refs: `gl.EmbedContentRequest`, `gl.BatchEmbedContentsRequest`  
+  - Use generated service for query + batch embeddings.  
+  - Retained batching/token estimation logic.  
+  - Continued using `CustomHttpClient` for auth headers.
 
-## 8. Follow-Up
-- Revisit TODOs that skip Google tests (e.g., `tool_calling_test.dart:540`) once the migration lands.
-- Document the dependency change in `CHANGELOG.md` and relevant docs (`docs/providers.mdx`) while noting that the API surface stayed stable.
+- [x] **6. Provider Layer**  
+  Specs: `wiki/Unified-Provider-Architecture.md`, `wiki/Provider-Implementation-Guide.md`  
+  External refs: `gl.ModelService.listModels`  
+  - Preserved public ctor, caps, aliases.  
+  - Instantiated new chat/embedding models with existing params.  
+  - Replaced `listModels()` HTTP call with generated `ModelService`.  
+  - Verified base URL override path via `CustomHttpClient`.
 
-## 9. Add support for gemini thinking
-- investigate how thinking is configurated and exposed via the new generatied
-  gemini API
-- add support for thinking that exposes thinking as described in `thinking.mdx`
-- update the google provider to exposes the thinking provider cap
-- update the `thinking.dart` sample to work for gemini
-- ensure the `thinking_metadata_test.dart` tests work for gemini
+- [ ] **7. Cleanup & Validation** *(in progress)*  
+  Specs: `wiki/Test-Spec.md`  
+  - Remove any lingering `google_generative_ai` imports (complete audit still pending).  
+  - Run targeted suites:  
+    1. `dart test packages/dartantic_ai/test/tool_calling_test.dart`  
+    2. `dart test packages/dartantic_ai/test/chat_models_test.dart`  
+    3. `dart test packages/dartantic_ai/test/streaming_test.dart`  
+    4. `dart test packages/dartantic_ai/test/multi_provider_test.dart`  
+    5. `dart test packages/dartantic_ai/test/embeddings_test.dart`  
+    6. `dart test packages/dartantic_ai/test/provider_discovery_test.dart`  
+  - Smoke-test `packages/dartantic_ai/example/bin/multi_turn_chat.dart` with a Gemini model.  
+  - **Current status:** test runs are failing early due to missing/invalid provider API keys during migration; stabilizing the suite is the highest priority hand-off item.
 
-## 10. Add support for gemini prompt caching
-- investigate how prompt caching aka session management works for the openai
-  responses API
-- investigate how prompt caching aka session management is exposes via the new
-  generated gemini API
-- enable prompt caching for gemini via google chat model options; default to
-  true
-- add tests to ensure that gemini prompt caching works for gemini the same way
-  it works for the openai responses provider
-- add tests to ensure that multi-provider chats with tool calls and typed output
-  work with prompt caching enabled
+- [ ] **8. Follow-Up**  
+  Specs: `wiki/Architecture-Best-Practices.md` (documentation hygiene)  
+  - Revisit TODOs that skip Google (e.g., `tool_calling_test.dart:540`) once tests are green.  
+  - Document dependency changes in `packages/dartantic_ai/CHANGELOG.md` and `docs/providers.mdx`.
+
+- [ ] **9. Add support for Gemini thinking** *(blocked on API surface)*  
+  Specs: `wiki/Message-Handling-Architecture.md` (“Thinking Metadata”), `wiki/Orchestration-Layer-Architecture.md`  
+  External refs: generated client currently exposes no explicit reasoning/thinking stream; confirm latest Gemini docs before implementation.  
+  - Investigate how the new API surfaces reasoning/thinking metadata.  
+  - Add provider cap, plumb `metadata['thinking']`, update `thinking.dart`.  
+  - Ensure `thinking_metadata_test.dart` passes for Gemini.
+
+- [ ] **10. Add support for Gemini prompt caching** *(blocked on API docs)*  
+  Specs: none specific; `wiki/Streaming-Tool-Call-Architecture.md` mentions caching at orchestration level.  
+  - Research Gemini prompt caching/session APIs (analogous to OpenAI Responses).  
+  - Expose options in `GoogleChatModelOptions` (default to true), wire into requests.  
+  - Add parity tests covering single- and multi-provider flows.
+
+---
+
+### Previous Work References
+- Generated Google client: `/Users/csells/temp/google-cloud-dart/generated/google_cloud_ai_generativelanguage_v1/lib/generativelanguage.dart` (sidekick output, includes `GenerativeService`, `ModelService`, `EmbedContentRequest`, etc.).  
+- Shared helper additions:  
+  - `packages/dartantic_ai/lib/src/chat_models/helpers/protobuf_value_helpers.dart`  
+  - `packages/dartantic_ai/lib/src/chat_models/helpers/google_schema_helpers.dart`
+- Updated implementations:  
+  - `packages/dartantic_ai/lib/src/chat_models/google_chat/google_chat_model.dart`  
+  - `packages/dartantic_ai/lib/src/chat_models/google_chat/google_message_mappers.dart`  
+  - `packages/dartantic_ai/lib/src/embeddings_models/google_embeddings/google_embeddings_model.dart`  
+  - `packages/dartantic_ai/lib/src/providers/google_provider.dart`
+
+### Outstanding Risks / Next Steps
+1. **Fix test harness failures** – export provider API keys (`packages/dartantic_ai/example/.env`) and re-run suites above to ensure no regressions.  
+2. **Thinking & prompt caching** – pending clarity on Gemini API surface; watch for updates to generated client or cloud docs.  
+3. **Documentation & changelog** – update once tests pass and feature gaps are resolved.  
+4. **Audit for leftover `google_generative_ai` imports** – ensure full removal across repo.

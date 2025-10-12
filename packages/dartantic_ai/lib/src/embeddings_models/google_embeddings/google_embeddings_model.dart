@@ -1,6 +1,6 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:google_generative_ai/google_generative_ai.dart'
-    show Content, EmbedContentRequest, GenerativeModel, TaskType;
+import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
+    as gl;
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
@@ -22,8 +22,7 @@ class GoogleEmbeddingsModel
     super.dimensions,
     super.batchSize = 100,
     GoogleEmbeddingsModelOptions? options,
-  }) : _apiKey = apiKey,
-       _httpClient = CustomHttpClient(
+  }) : _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
          baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
          headers: {'x-goog-api-key': apiKey},
@@ -38,13 +37,14 @@ class GoogleEmbeddingsModel
                batchSize: batchSize,
              ),
        ) {
-    _googleAiClient = _createGoogleAiClient();
+    _service = gl.GenerativeService(client: _httpClient);
 
     _logger.info(
       'Created Google embeddings model: ${this.name} '
       '(dimensions: $dimensions, batchSize: $batchSize)',
     );
   }
+
   static final _logger = Logger('dartantic.embeddings.models.google');
 
   /// The environment variable name for the Google API key.
@@ -58,9 +58,8 @@ class GoogleEmbeddingsModel
     'https://generativelanguage.googleapis.com/v1beta',
   );
 
-  final String _apiKey;
-  late final CustomHttpClient _httpClient;
-  late GenerativeModel _googleAiClient;
+  late final gl.GenerativeService _service;
+  final CustomHttpClient _httpClient;
 
   @override
   Future<EmbeddingsResult> embedQuery(
@@ -75,11 +74,15 @@ class GoogleEmbeddingsModel
       '(length: $queryLength, dimensions: $effectiveDimensions)',
     );
 
-    final data = await _googleAiClient.embedContent(
-      Content.text(query),
-      taskType: TaskType.retrievalQuery,
+    final request = gl.EmbedContentRequest(
+      model: _normalizeModelName(name),
+      content: gl.Content(parts: [gl.Part(text: query)]),
+      taskType: gl.TaskType.retrievalQuery,
       outputDimensionality: effectiveDimensions,
     );
+
+    final response = await _service.embedContent(request);
+    final embedding = response.embedding?.values ?? const <double>[];
 
     // Google doesn't provide token usage, so estimate
     final estimatedTokens = (queryLength / 4).round();
@@ -90,7 +93,7 @@ class GoogleEmbeddingsModel
     );
 
     final result = EmbeddingsResult(
-      output: data.embedding.values,
+      output: embedding,
       finishReason: FinishReason.stop,
       metadata: {
         'model': name,
@@ -141,6 +144,7 @@ class GoogleEmbeddingsModel
     );
 
     final allEmbeddings = <List<double>>[];
+    final modelName = _normalizeModelName(name);
 
     for (var i = 0; i < batches.length; i++) {
       final batch = batches[i];
@@ -153,23 +157,26 @@ class GoogleEmbeddingsModel
         '(${batch.length} texts, $batchCharacters chars)',
       );
 
-      final data = await _googleAiClient.batchEmbedContents(
-        batch
+      final request = gl.BatchEmbedContentsRequest(
+        model: modelName,
+        requests: batch
             .map(
-              (text) => EmbedContentRequest(
-                Content.text(text),
-                taskType: TaskType.retrievalDocument,
+              (text) => gl.EmbedContentRequest(
+                model: modelName,
+                content: gl.Content(parts: [gl.Part(text: text)]),
+                taskType: gl.TaskType.retrievalDocument,
                 outputDimensionality: effectiveDimensions,
               ),
             )
             .toList(growable: false),
       );
 
-      // Extract embeddings
-      final batchEmbeddings = data.embeddings
-          .map((p) => p.values)
-          .nonNulls
-          .toList(growable: false);
+      final response = await _service.batchEmbedContents(request);
+      final batchEmbeddings =
+          response.embeddings
+              ?.map((embedding) => embedding.values ?? const <double>[])
+              .toList(growable: false) ??
+          const <List<double>>[];
       allEmbeddings.addAll(batchEmbeddings);
 
       _logger.fine(
@@ -208,9 +215,10 @@ class GoogleEmbeddingsModel
   }
 
   @override
-  void dispose() => _httpClient.close();
+  void dispose() {
+    _service.close();
+  }
 
-  /// Create a new [GenerativeModel] instance.
-  GenerativeModel _createGoogleAiClient() =>
-      GenerativeModel(model: name, apiKey: _apiKey, httpClient: _httpClient);
+  String _normalizeModelName(String model) =>
+      model.contains('/') ? model : 'models/$model';
 }
