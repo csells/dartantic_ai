@@ -73,69 +73,27 @@ extension MessageListMapper on List<ChatMessage> {
   }
 
   gl.Content _mapUserMessage(ChatMessage message) {
-    final parts = <gl.Part>[];
     _logger.fine('Mapping user message with ${message.parts.length} parts');
-    for (final part in message.parts) {
-      switch (part) {
-        case TextPart(:final text):
-          if (text.isNotEmpty) parts.add(gl.Part(text: text));
-        case DataPart(:final bytes, :final mimeType):
-          parts.add(
-            gl.Part(
-              inlineData: gl.Blob(mimeType: mimeType, data: bytes),
-            ),
-          );
-        case LinkPart(:final url, :final mimeType):
-          parts.add(
-            gl.Part(
-              fileData: gl.FileData(
-                fileUri: url.toString(),
-                mimeType: mimeType,
-              ),
-            ),
-          );
-        case ToolPart(:final kind) when kind == ToolPartKind.result:
-          parts.add(_mapToolResultPart(part));
-        case ToolPart():
-          // Tool call parts in user messages should not be sent to Gemini.
-          break;
-      }
-    }
-    return gl.Content(parts: parts, role: 'user');
+    return gl.Content(
+      parts: _mapParts(
+        message.parts,
+        includeToolCalls: false,
+        includeToolResults: true,
+      ),
+      role: 'user',
+    );
   }
 
   gl.Content _mapModelMessage(ChatMessage message) {
-    final parts = <gl.Part>[];
     _logger.fine('Mapping model message with ${message.parts.length} parts');
-
-    for (final part in message.parts) {
-      switch (part) {
-        case TextPart(:final text):
-          if (text.isNotEmpty) parts.add(gl.Part(text: text));
-        case DataPart(:final bytes, :final mimeType):
-          parts.add(
-            gl.Part(
-              inlineData: gl.Blob(mimeType: mimeType, data: bytes),
-            ),
-          );
-        case LinkPart(:final url, :final mimeType):
-          parts.add(
-            gl.Part(
-              fileData: gl.FileData(
-                fileUri: url.toString(),
-                mimeType: mimeType,
-              ),
-            ),
-          );
-        case ToolPart(:final kind) when kind == ToolPartKind.call:
-          parts.add(_mapToolCallPart(part));
-        case ToolPart():
-          // Tool results are grouped separately.
-          break;
-      }
-    }
-
-    return gl.Content(parts: parts, role: 'model');
+    return gl.Content(
+      parts: _mapParts(
+        message.parts,
+        includeToolCalls: true,
+        includeToolResults: false,
+      ),
+      role: 'model',
+    );
   }
 
   gl.Content _mapToolResultMessages(List<ChatMessage> messages) {
@@ -146,34 +104,56 @@ extension MessageListMapper on List<ChatMessage> {
     );
 
     for (final message in messages) {
-      for (final part in message.parts) {
-        switch (part) {
-          case ToolPart(:final kind) when kind == ToolPartKind.result:
-            parts.add(_mapToolResultPart(part));
-          case TextPart(:final text):
-            if (text.isNotEmpty) parts.add(gl.Part(text: text));
-          case DataPart(:final bytes, :final mimeType):
-            parts.add(
-              gl.Part(
-                inlineData: gl.Blob(mimeType: mimeType, data: bytes),
-              ),
-            );
-          case LinkPart(:final url, :final mimeType):
-            parts.add(
-              gl.Part(
-                fileData: gl.FileData(
-                  fileUri: url.toString(),
-                  mimeType: mimeType,
-                ),
-              ),
-            );
-          default:
-            break;
-        }
-      }
+      parts.addAll(
+        _mapParts(
+          message.parts,
+          includeToolCalls: false,
+          includeToolResults: true,
+        ),
+      );
     }
 
     return gl.Content(parts: parts, role: 'user');
+  }
+
+  List<gl.Part> _mapParts(
+    Iterable<Part> parts, {
+    required bool includeToolCalls,
+    required bool includeToolResults,
+  }) {
+    final mappedParts = <gl.Part>[];
+
+    for (final part in parts) {
+      switch (part) {
+        case TextPart(:final text):
+          if (text.isNotEmpty) mappedParts.add(gl.Part(text: text));
+        case DataPart(:final bytes, :final mimeType):
+          mappedParts.add(
+            gl.Part(
+              inlineData: gl.Blob(mimeType: mimeType, data: bytes),
+            ),
+          );
+        case LinkPart(:final url, :final mimeType):
+          mappedParts.add(
+            gl.Part(
+              fileData: gl.FileData(
+                fileUri: url.toString(),
+                mimeType: mimeType,
+              ),
+            ),
+          );
+        case ToolPart(:final kind):
+          if (includeToolCalls && kind == ToolPartKind.call) {
+            mappedParts.add(_mapToolCallPart(part));
+          } else if (includeToolResults && kind == ToolPartKind.result) {
+            mappedParts.add(_mapToolResultPart(part));
+          }
+        default:
+          break;
+      }
+    }
+
+    return mappedParts;
   }
 
   gl.Part _mapToolCallPart(ToolPart part) {
