@@ -1,3 +1,14 @@
+## 1.2.0
+
+- Migrated Google provider from deprecated `google_generative_ai` to generated
+  `google_cloud_ai_generativelanguage_v1` package. This is an internal
+  implementation change with no API surface changes for users. The migration
+  includes:
+  - New dependency on `google_cloud_ai_generativelanguage_v1` and related
+    packages
+  - Removed deprecated `google_generative_ai` dependency
+  - All existing Google provider functionality preserved
+
 ## 1.1.0
 
 This is a big release!
