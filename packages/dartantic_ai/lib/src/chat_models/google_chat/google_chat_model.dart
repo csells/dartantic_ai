@@ -4,10 +4,11 @@ import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 
 import '../../agent/tool_constants.dart';
 import '../../custom_http_client.dart';
-import '../../providers/google_provider.dart';
+import '../../providers/google_api_utils.dart';
 import '../../retry_http_client.dart';
 import '../helpers/google_schema_helpers.dart';
 import 'google_chat_options.dart';
@@ -20,14 +21,14 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
   GoogleChatModel({
     required super.name,
     required String apiKey,
-    Uri? baseUrl,
+    required Uri baseUrl,
     http.Client? client,
     List<Tool>? tools,
     super.temperature,
     super.defaultOptions = const GoogleChatModelOptions(),
   }) : _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
-         baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
+         baseUrl: baseUrl,
          headers: {'x-goog-api-key': apiKey},
          queryParams: const {},
        ),
@@ -48,6 +49,9 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
 
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
+
+  @visibleForTesting
+  Uri get resolvedBaseUrl => _httpClient.baseUrl;
 
   @override
   Stream<ChatResult<ChatMessage>> sendStream(
@@ -87,7 +91,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     GoogleChatModelOptions? options,
     JsonSchema? outputSchema,
   }) {
-    final normalizedModel = _normalizeModelName(name);
+    final normalizedModel = normalizeGoogleModelName(name);
     final safetySettings =
         (options?.safetySettings ?? defaultOptions.safetySettings)
             ?.toSafetySettings();
@@ -189,9 +193,6 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     }
     return null;
   }
-
-  String _normalizeModelName(String model) =>
-      model.contains('/') ? model : 'models/$model';
 
   @override
   void dispose() {

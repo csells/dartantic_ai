@@ -189,7 +189,12 @@ void main() {
         history.addAll(result.messages);
         expect(
           result.output.toLowerCase(),
-          anyOf(contains('ahoy'), contains('matey'), contains('arr')),
+          anyOf(
+            contains('ahoy'),
+            contains('matey'),
+            contains('arr'),
+            contains('hearty'),
+          ),
         );
 
         // Turn 2

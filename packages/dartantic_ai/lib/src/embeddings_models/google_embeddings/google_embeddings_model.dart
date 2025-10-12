@@ -3,9 +3,10 @@ import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
     as gl;
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 
 import '../../custom_http_client.dart';
-import '../../providers/google_provider.dart';
+import '../../providers/google_api_utils.dart';
 import '../../retry_http_client.dart';
 import '../chunk_list.dart';
 import 'google_embeddings_model_options.dart';
@@ -16,7 +17,7 @@ class GoogleEmbeddingsModel
   /// Creates a new Google AI embeddings model.
   GoogleEmbeddingsModel({
     required String apiKey,
-    Uri? baseUrl,
+    required Uri baseUrl,
     http.Client? client,
     String? name,
     super.dimensions,
@@ -24,7 +25,7 @@ class GoogleEmbeddingsModel
     GoogleEmbeddingsModelOptions? options,
   }) : _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
-         baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
+         baseUrl: baseUrl,
          headers: {'x-goog-api-key': apiKey},
          queryParams: const {},
        ),
@@ -47,19 +48,14 @@ class GoogleEmbeddingsModel
 
   static final _logger = Logger('dartantic.embeddings.models.google');
 
-  /// The environment variable name for the Google API key.
-  static const apiKeyName = 'GEMINI_API_KEY';
-
   /// The default model name.
   static const defaultName = 'text-embedding-004';
 
-  /// The default base URL for the Google AI API.
-  static final defaultBaseUrl = Uri.parse(
-    'https://generativelanguage.googleapis.com/v1beta',
-  );
-
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
+
+  @visibleForTesting
+  Uri get resolvedBaseUrl => _httpClient.baseUrl;
 
   @override
   Future<EmbeddingsResult> embedQuery(
@@ -75,7 +71,7 @@ class GoogleEmbeddingsModel
     );
 
     final request = gl.EmbedContentRequest(
-      model: _normalizeModelName(name),
+      model: normalizeGoogleModelName(name),
       content: gl.Content(parts: [gl.Part(text: query)]),
       taskType: gl.TaskType.retrievalQuery,
       outputDimensionality: effectiveDimensions,
@@ -144,7 +140,7 @@ class GoogleEmbeddingsModel
     );
 
     final allEmbeddings = <List<double>>[];
-    final modelName = _normalizeModelName(name);
+    final modelName = normalizeGoogleModelName(name);
 
     for (var i = 0; i < batches.length; i++) {
       final batch = batches[i];
@@ -218,7 +214,4 @@ class GoogleEmbeddingsModel
   void dispose() {
     _service.close();
   }
-
-  String _normalizeModelName(String model) =>
-      model.contains('/') ? model : 'models/$model';
 }

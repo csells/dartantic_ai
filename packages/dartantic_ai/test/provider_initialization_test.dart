@@ -52,6 +52,30 @@ void main() {
       );
     });
 
+    test('Google provider propagates base URL to chat model', () {
+      final customBaseUrl = Uri.parse('https://example.com/custom/');
+      final provider = GoogleProvider(
+        apiKey: 'test-api-key',
+        baseUrl: customBaseUrl,
+      );
+
+      final model = provider.createChatModel() as GoogleChatModel;
+
+      expect(model.resolvedBaseUrl, equals(customBaseUrl));
+    });
+
+    test('Google provider propagates base URL to embeddings model', () {
+      final customBaseUrl = Uri.parse('https://example.com/custom/');
+      final provider = GoogleProvider(
+        apiKey: 'test-api-key',
+        baseUrl: customBaseUrl,
+      );
+
+      final model = provider.createEmbeddingsModel() as GoogleEmbeddingsModel;
+
+      expect(model.resolvedBaseUrl, equals(customBaseUrl));
+    });
+
     test('Ollama provider works without API key', () {
       final provider = Providers.get('ollama');
 

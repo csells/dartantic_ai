@@ -122,6 +122,7 @@ class LoggingProvider extends GoogleProvider {
       tools: tools,
       temperature: temperature,
       apiKey: apiKey!,
+      baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
       client: LoggingHttpClient(),
       defaultOptions: GoogleChatModelOptions(
         temperature: temperature ?? options?.temperature,

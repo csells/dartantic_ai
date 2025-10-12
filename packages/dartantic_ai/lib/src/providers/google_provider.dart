@@ -11,6 +11,7 @@ import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
+import 'google_api_utils.dart';
 
 /// Provider for Google Gemini native API.
 class GoogleProvider
@@ -18,7 +19,7 @@ class GoogleProvider
   /// Creates a new Google AI provider instance.
   ///
   /// [apiKey]: The API key to use for the Google AI API.
-  GoogleProvider({String? apiKey})
+  GoogleProvider({String? apiKey, super.baseUrl})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
@@ -35,8 +36,7 @@ class GoogleProvider
           ProviderCaps.typedOutput,
           ProviderCaps.chatVision,
         },
-        aliases: ['gemini'],
-        baseUrl: null,
+        aliases: const ['gemini'],
       );
 
   static final Logger _logger = Logger('dartantic.chat.providers.google');
@@ -45,9 +45,7 @@ class GoogleProvider
   static const defaultApiKeyName = 'GEMINI_API_KEY';
 
   /// The default base URL for the Google AI API.
-  static final defaultBaseUrl = Uri.parse(
-    'https://generativelanguage.googleapis.com/v1beta',
-  );
+  static final defaultBaseUrl = GoogleApiConfig.defaultBaseUrl;
 
   @override
   ChatModel<GoogleChatModelOptions> createChatModel({
@@ -73,6 +71,7 @@ class GoogleProvider
       tools: tools,
       temperature: temperature,
       apiKey: apiKey!,
+      baseUrl: baseUrl ?? defaultBaseUrl,
       defaultOptions: GoogleChatModelOptions(
         topP: options?.topP,
         topK: options?.topK,
@@ -103,7 +102,7 @@ class GoogleProvider
     return GoogleEmbeddingsModel(
       name: modelName,
       apiKey: apiKey!,
-      baseUrl: baseUrl,
+      baseUrl: baseUrl ?? defaultBaseUrl,
       options: options,
     );
   }
