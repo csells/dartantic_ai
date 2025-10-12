@@ -17,7 +17,7 @@ void main() async {
     },
   ).listTools();
 
-  const model = 'openai-responses';
+  const model = 'gemini:gemini-2.5-pro';
   await singleMcpServer(model);
   await multipleToolsAndMcpServers(model);
   exit(0);

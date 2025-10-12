@@ -59,7 +59,15 @@ class ProtobufValueHelpers {
       return list?.map(valueToJson).toList(growable: false) ?? const [];
     }
     if (value.stringValue != null) return value.stringValue;
-    if (value.numberValue != null) return value.numberValue;
+    if (value.numberValue != null) {
+      final num = value.numberValue!;
+      // Convert to int if it's a whole number, preserving compatibility
+      // with integer-typed tool parameters
+      if (num.toInt().toDouble() == num) {
+        return num.toInt();
+      }
+      return num;
+    }
     if (value.boolValue != null) return value.boolValue;
     return null; // nullValue or unset → null
   }

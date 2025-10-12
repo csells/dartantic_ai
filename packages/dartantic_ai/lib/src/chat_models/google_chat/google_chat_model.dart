@@ -102,10 +102,20 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       outputSchema: outputSchema,
     );
 
+    final contents = messages.toContentList();
+
+    // Gemini API requires at least one non-empty content item
+    if (contents.isEmpty || contents.every((c) => c.parts?.isEmpty ?? true)) {
+      throw ArgumentError(
+        'Cannot generate content with empty input. '
+        'At least one message with non-empty content is required.',
+      );
+    }
+
     return gl.GenerateContentRequest(
       model: normalizedModel,
       systemInstruction: _extractSystemInstruction(messages),
-      contents: messages.toContentList(),
+      contents: contents,
       safetySettings: safetySettings,
       generationConfig: generationConfig,
       tools: (tools ?? const []).toToolList(

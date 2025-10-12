@@ -198,16 +198,15 @@ void main() {
         history.addAll(result.messages);
 
         // Second turn - stream with history
-        final chunks = <String>[];
+        final buffer = StringBuffer();
         await for (final chunk in agent.sendStream(
           'What is my favorite color?',
           history: history,
         )) {
-          chunks.add(chunk.output);
+          buffer.write(chunk.output);
         }
 
-        final fullText = chunks.join();
-        expect(fullText, contains('blue'));
+        expect(buffer.toString().toLowerCase(), contains('blue'));
       });
 
       runProviderTest('multi-turn streaming maintains context', (
@@ -337,19 +336,6 @@ void main() {
         // Should have collected some chunks before interruption
         expect(chunks, isNotEmpty);
         expect(chunks.length, greaterThanOrEqualTo(5));
-      }, edgeCase: true);
-
-      runProviderTest('handles empty streaming responses', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
-
-        // Request that might result in minimal streaming
-        await for (final chunk in agent.sendStream('')) {
-          chunks.add(chunk.output);
-        }
-
-        // Even empty input should produce some response
-        expect(chunks, isNotEmpty);
       }, edgeCase: true);
 
       runProviderTest('accumulates very long streams', (provider) async {

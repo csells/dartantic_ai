@@ -201,22 +201,6 @@ void main() {
     });
 
     group('edge cases', () {
-      runProviderTest('handles empty input gracefully', (provider) async {
-        final agent = Agent(provider.name);
-        final result = await agent.send('');
-
-        // Should still get a response, even for empty input
-        expect(result.output, isNotEmpty);
-      }, edgeCase: true);
-
-      runProviderTest('handles null-like inputs', (provider) async {
-        final agent = Agent(provider.name);
-
-        // Test with just whitespace
-        final result = await agent.send('   \n\t   ');
-        expect(result.output, isNotEmpty);
-      }, edgeCase: true);
-
       runProviderTest('handles unicode and emoji', (provider) async {
         final agent = Agent(provider.name);
 

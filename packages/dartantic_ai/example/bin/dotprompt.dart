@@ -8,7 +8,7 @@ import 'package:dotprompt_dart/dotprompt_dart.dart';
 void main() async {
   final dotPrompt = DotPrompt('''
 ---
-model: openai
+model: gemini
 input:
   default:
     length: 3

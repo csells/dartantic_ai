@@ -24,7 +24,7 @@ Future<void> envLogging() async {
   final level = Platform.environment['DARTANTIC_LOG_LEVEL']!;
   print('DARTANTIC_LOG_LEVEL = $level');
 
-  final agent = Agent('openai');
+  final agent = Agent('gemini');
   const prompt = 'Hello! Just say hi back.';
   final result = await agent.send(prompt);
 
@@ -36,7 +36,7 @@ Future<void> defaultLogging() async {
   print('\nDefault Logging');
   Agent.loggingOptions = const LoggingOptions();
 
-  final agent = Agent('openai');
+  final agent = Agent('gemini');
   const prompt = 'Hello! Just say hi back.';
   final result = await agent.send(prompt);
 
@@ -48,7 +48,7 @@ Future<void> levelFiltering() async {
   print('\nLevel Filtering');
   Agent.loggingOptions = const LoggingOptions(level: Level.FINE);
 
-  final agent = Agent('openai');
+  final agent = Agent('gemini');
   const prompt = 'Quick test';
   final result = await agent.send(prompt);
   print('User: $prompt');
@@ -59,7 +59,7 @@ Future<void> stringFiltering() async {
   print('\nString Filtering');
   Agent.loggingOptions = const LoggingOptions(filter: 'openai');
 
-  final openaiAgent = Agent('openai');
+  final openaiAgent = Agent('gemini');
   final result = await openaiAgent.send('Test OpenAI');
   print('User: Test OpenAI');
   print('${openaiAgent.displayName}: ${result.output}');
@@ -75,7 +75,7 @@ Future<void> customHandlers() async {
     },
   );
 
-  final agent = Agent('openai');
+  final agent = Agent('gemini');
   final result = await agent.send('Show me colors!');
   print('User: Show me colors!');
   print('${agent.displayName}: ${result.output}');

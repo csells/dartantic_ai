@@ -7,7 +7,6 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() async {
   const model = 'openai-responses';
-  // const model = 'openai'; // Testing with standard OpenAI API for now
   await summarizeTextFile(model);
   await analyzeImages(model);
   await processTextWithImages(model);

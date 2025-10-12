@@ -91,7 +91,10 @@ class GoogleSchemaHelpers {
           minItems: schema['minItems'] as int?,
         );
       case 'object':
-        final properties = schema['properties'] as Map<String, dynamic>? ?? {};
+        final rawProperties = schema['properties'];
+        final properties = rawProperties != null
+            ? Map<String, dynamic>.from(rawProperties as Map)
+            : <String, dynamic>{};
         final mappedProperties = properties.map(
           (key, value) => MapEntry(
             key,

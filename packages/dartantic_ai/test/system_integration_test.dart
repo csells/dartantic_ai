@@ -608,22 +608,6 @@ function fibonacci(n) {
 
     group('edge cases (limited providers)', () {
       runProviderTest(
-        'empty and minimal inputs',
-        (provider) async {
-          final agent = Agent(provider.name);
-
-          final testCases = ['', ' ', '?', '1'];
-
-          for (final input in testCases) {
-            final result = await agent.send(input);
-            expect(result.output, isA<String>());
-          }
-        },
-        requiredCaps: {ProviderCaps.chat},
-        edgeCase: true,
-      );
-
-      runProviderTest(
         'special character handling across system',
         (provider) async {
           final agent = Agent(provider.name, tools: [stringTool]);

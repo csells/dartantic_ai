@@ -5,7 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
 void main() async {
-  const model = 'openai-responses';
+  const model = 'gemini';
   await multiTurnChat(model);
   await multiTurnChatStream(model);
   exit(0);
