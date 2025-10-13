@@ -1,5 +1,6 @@
 ## 1.2.0
 
+Another big release!
 - Migrated Google provider from deprecated `google_generative_ai` to generated
   `google_cloud_ai_generativelanguage_v1` package. This is an internal
   implementation change with no API surface changes for users. The migration
