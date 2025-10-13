@@ -99,6 +99,7 @@ void main(List<String> args) async {
 
   dumpFiles(history);
   dumpMessages(history);
+  exit(0);
 }
 
 void dumpFiles(List<ChatMessage> history) {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
@@ -91,11 +90,8 @@ class OpenAIResponsesChatModel
   ) async {
     _logger.fine('Downloading container file: $fileId from $containerId');
 
-    // Get filename from metadata using workaround
-    final fileName = await _retrieveContainerFileNameWorkaround(
-      containerId,
-      fileId,
-    );
+    final metadata = await _client.retrieveContainerFile(containerId, fileId);
+    final fileName = _extractFileName(metadata.path);
 
     final bytes = await _client.retrieveContainerFileContent(
       containerId,
@@ -103,75 +99,6 @@ class OpenAIResponsesChatModel
     );
 
     return ContainerFileData(bytes: bytes, fileName: fileName);
-  }
-
-  /// TODO: Remove this workaround once openai_core is fixed.
-  ///
-  /// TEMPORARY WORKAROUND for https://github.com/meshagent/openai_core/issues/6
-  ///
-  /// The OpenAI API returns "bytes": null when retrieving container file
-  /// metadata, but openai_core 0.10.1's ContainerFile.fromJson() expects bytes
-  /// to always be a non-null integer (line 165), causing a type cast error.
-  ///
-  /// This method manually calls the API and parses only the 'path' field,
-  /// avoiding the broken fromJson() method.
-  ///
-  /// When openai_core is fixed, delete this method and use: final metadata =
-  ///   await _client.retrieveContainerFile(containerId, fileId); return
-  ///   _extractFileName(metadata.path);
-  Future<String> _retrieveContainerFileNameWorkaround(
-    String containerId,
-    String fileId,
-  ) async {
-    try {
-      final uri = Uri.parse(
-        'https://api.openai.com/v1/containers/$containerId/files/$fileId',
-      );
-
-      final effectiveApiKey = apiKey ?? _client.apiKey;
-      if (effectiveApiKey == null) {
-        throw Exception('No API key available for retrieving file metadata');
-      }
-
-      _logger.fine('Fetching container file metadata from $uri');
-
-      // Create request manually to ensure proper headers
-      final request = http.Request('GET', uri)
-        ..headers.addAll({
-          'Authorization': 'Bearer $effectiveApiKey',
-          'OpenAI-Beta': 'responses=v1',
-        });
-
-      final streamedResponse = await _client.httpClient.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-
-      _logger.fine('Container file metadata response: ${response.statusCode}');
-
-      if (response.statusCode != 200) {
-        _logger.warning(
-          'Failed to retrieve container file metadata: ${response.statusCode} '
-          '${response.body}',
-        );
-        return fileId; // Fallback to fileId
-      }
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final path = json['path'] as String?;
-
-      if (path == null || path.isEmpty) {
-        _logger.fine('No path in metadata, using fileId');
-        return fileId; // Fallback to fileId
-      }
-
-      final extractedName = _extractFileName(path);
-      _logger.fine('Extracted filename: $extractedName from path: $path');
-      return extractedName;
-    } on Exception catch (e, stackTrace) {
-      _logger.warning(
-        'Error retrieving container file metadata: $e\n$stackTrace',
-      );
-      return fileId; // Fallback to fileId on any error
-    }
   }
 
   /// Extracts the filename from a container file path.
