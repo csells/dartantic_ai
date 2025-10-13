@@ -19,6 +19,8 @@
     workflow: Phase 1 executes tools, Phase 2 requests structured output. This
     makes Google functionally equivalent to OpenAI and Anthropic for typed
     output + tools use cases.
+- Used the updated openai_core package to refactor OpenAIResponsesChatModel to
+  eliminate workaround for retrieving container file names. 
 
 ## 1.1.0
 
