@@ -9,7 +9,7 @@ import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
 void main() async {
-  const model = 'openai-responses';
+  const model = 'claude';
   final provider = Providers.get(model);
   assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
   final agent = Agent.forProvider(

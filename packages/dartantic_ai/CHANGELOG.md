@@ -8,6 +8,11 @@
     packages
   - Removed deprecated `google_generative_ai` dependency
   - All existing Google provider functionality preserved
+- Internal chat orchestration rearchitecture to simplify Agent and chat model
+  implementations and to focus per-provider orchestration on individual
+  providers.
+  - Added Anthropic orchestration provider to handle the toolcall-based
+    method of typed output it requires.
 
 ## 1.1.0
 

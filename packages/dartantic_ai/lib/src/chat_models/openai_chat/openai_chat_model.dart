@@ -4,7 +4,6 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_dart/openai_dart.dart';
 
-import '../../agent/tool_constants.dart';
 import '../../retry_http_client.dart';
 import 'openai_chat_options.dart';
 import 'openai_message_mappers.dart';
@@ -37,37 +36,19 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
        ),
        super(
          defaultOptions: defaultOptions ?? const OpenAIChatOptions(),
-         // Filter out return_result tool as OpenAI has native typed output
-         // support
-         tools: () {
-           if (tools == null) return null;
-           final filtered = tools
-               .where((t) => t.name != kReturnResultToolName)
-               .toList();
-           return filtered.isEmpty ? null : filtered;
-         }(),
+         tools: tools,
        ) {
     // Validate that providers with known tool limitations don't use tools
-    // Check the original tools parameter BEFORE filtering
     if (tools != null && tools.isNotEmpty) {
       final normalizedBaseUrl = baseUrl?.toString().toLowerCase() ?? '';
 
       // Together AI doesn't support OpenAI-style tool calls
-      // Exception: Allow return_result tool for typed output support
       if (normalizedBaseUrl.contains('together.xyz')) {
-        final hasOnlyReturnResult =
-            tools.length == 1 && tools.first.name == kReturnResultToolName;
-
-        if (!hasOnlyReturnResult) {
-          throw ArgumentError(
-            'Together AI does not support OpenAI-compatible tool calls. '
-            'Their streaming API returns tools in a custom format with '
-            '<|python_tag|> prefix instead of standard tool_calls.',
-          );
-        }
-
-        // If only return_result tool, we'll filter it out and use
-        // response_format
+        throw ArgumentError(
+          'Together AI does not support OpenAI-compatible tool calls. '
+          'Their streaming API returns tools in a custom format with '
+          '<|python_tag|> prefix instead of standard tool_calls.',
+        );
       }
     }
   }

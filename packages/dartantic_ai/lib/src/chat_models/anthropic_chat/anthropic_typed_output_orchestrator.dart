@@ -4,31 +4,33 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
-import '../streaming_state.dart';
-import '../tool_constants.dart';
-import '../tool_executor.dart';
-import 'default_streaming_orchestrator.dart';
-import 'streaming_orchestrator.dart';
+import '../../agent/orchestrators/default_streaming_orchestrator.dart';
+import '../../agent/orchestrators/streaming_orchestrator.dart';
+import '../../agent/streaming_state.dart';
+import '../../agent/tool_executor.dart';
+import '../../providers/anthropic_provider.dart';
 
-/// Orchestrator that normalises typed output flows, including providers that
-/// expose the `return_result` tool.
-class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
-  /// Creates a typed output streaming orchestrator.
-  const TypedOutputStreamingOrchestrator({required this.hasReturnResultTool});
+/// Orchestrator for Anthropic's typed output with return_result tool pattern.
+///
+/// Anthropic uses a special 'return_result' tool that the model calls with
+/// structured JSON matching the output schema. This orchestrator handles:
+/// - Detecting return_result tool calls
+/// - Suppressing any text output (only JSON matters)
+/// - Extracting and returning the structured result
+class AnthropicTypedOutputOrchestrator extends DefaultStreamingOrchestrator {
+  /// Creates an Anthropic typed output orchestrator.
+  const AnthropicTypedOutputOrchestrator();
 
-  /// Whether the model exposes the `return_result` tool.
-  final bool hasReturnResultTool;
-
-  static final _logger = Logger('dartantic.orchestrator.typed');
+  static final _logger = Logger('dartantic.orchestrator.anthropic-typed');
 
   @override
-  String get providerHint => 'typed-output';
+  String get providerHint => 'anthropic-typed-output';
 
   @override
   bool allowTextStreaming(
     StreamingState state,
     ChatResult<ChatMessage> result,
-  ) => !hasReturnResultTool;
+  ) => false; // Never stream text, always wait for return_result
 
   @override
   Future<void> beforeModelStream(
@@ -37,7 +39,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
     JsonSchema? outputSchema,
   }) async {
     _logger.fine(
-      'Typed output orchestrator starting '
+      'Anthropic typed output orchestrator starting '
       'with ${state.conversationHistory.length} history messages',
     );
   }
@@ -109,7 +111,9 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
     ToolExecutionResult? returnResult;
 
     for (final result in executionResults) {
-      if (result.toolPart.name == kReturnResultToolName && result.isSuccess) {
+      if (result.toolPart.name ==
+              AnthropicProvider.kAnthropicReturnResultTool &&
+          result.isSuccess) {
         returnResult = result;
       } else {
         otherResults.add(result);
@@ -177,7 +181,7 @@ class TypedOutputStreamingOrchestrator extends DefaultStreamingOrchestrator {
   ToolPart? _findReturnResultCall(ChatMessage message) {
     for (final part in message.parts.whereType<ToolPart>()) {
       if (part.kind == ToolPartKind.call &&
-          part.name == kReturnResultToolName) {
+          part.name == AnthropicProvider.kAnthropicReturnResultTool) {
         return part;
       }
     }

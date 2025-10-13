@@ -106,11 +106,125 @@ The implementation of the generated package is here:
     - Bug fixes implemented
   - ✅ Verified `docs/providers.mdx` (no changes needed - already generic)
 
-- [ ] **9. Add support for Gemini thinking** *(blocked on API surface)*  
-  Specs: `wiki/Message-Handling-Architecture.md` (“Thinking Metadata”),
-  `wiki/Orchestration-Layer-Architecture.md`  
+- [x] **9. Orchestrator Selection Refactoring - Phase 1 (Anthropic)**
+  Specs: `wiki/Orchestration-Layer-Architecture.md`,
+  `wiki/Provider-Implementation-Guide.md`
+
+  **Key Architectural Decision:**
+  Moved orchestration to **Provider level** (not ChatModel) via
+  `ChatOrchestratorProvider` interface. Providers know about tools before model
+  creation and can inject/modify tools (like Anthropic's return_result), then
+  pass modified tools to model.
+
+  **Actual Implementation:**
+  1. ✅ Created `ChatOrchestratorProvider` interface in
+     `lib/src/providers/chat_orchestrator_provider.dart`:
+     ```dart
+     abstract interface class ChatOrchestratorProvider {
+       (StreamingOrchestrator, List<Tool>?) getChatOrchestratorAndTools({
+         required JsonSchema? outputSchema,
+         required List<Tool>? tools,
+       });
+     }
+     ```
+  2. ✅ AnthropicProvider implements ChatOrchestratorProvider:
+     - Returns `AnthropicTypedOutputOrchestrator` when outputSchema provided
+     - Injects return_result tool via `_toolsToUse()` helper
+     - Tool collision detection (prevents user tools named 'return_result')
+  3. ✅ Created `AnthropicTypedOutputOrchestrator`:
+     - File: `lib/src/chat_models/anthropic_chat/anthropic_typed_output_orchestrator.dart`
+     - Extends DefaultStreamingOrchestrator
+     - Handles return_result tool detection and execution
+     - Suppresses text output, extracts JSON from tool result
+  4. ✅ Updated Agent.sendStream():
+     - Gets orchestrator and tools from provider BEFORE creating model
+     - Uses modified tools for both model creation and toolMap
+     - Code at lines 244-257 in `agent.dart`
+  5. ✅ Simplified AnthropicChatModel:
+     - No longer implements orchestrator logic
+     - Just uses tools from constructor (which are already modified by provider)
+  6. ✅ Removed general TypedOutputStreamingOrchestrator (no longer exists)
+
+  **Results:**
+  - ✅ All tests passing including `typed_output_with_tools_test.dart` for Anthropic
+  - ✅ Example app `typed_output.dart` working with all scenarios
+  - ✅ Clean architecture: Provider encapsulates orchestration, ChatModel remains simple
+  - ✅ Foundation ready for Phase 2 (Google double agent)
+
+- [ ] **10. Orchestrator Selection Refactoring - Phase 2 (Google)**
+  Specs: `wiki/Orchestration-Layer-Architecture.md`,
+  `wiki/Provider-Implementation-Guide.md`, GitHub issue #32
+  **Objective:** Enable typed output with tools for Google provider using double
+  agent pattern.
+
+  **Implementation Steps:**
+  1. Create GoogleDoubleAgentOrchestrator:
+     - New file: `lib/src/chat_models/google_chat/google_double_agent_orchestrator.dart`
+     - Extends DefaultStreamingOrchestrator
+     - Two-phase workflow in `processIteration()`:
+       - **Phase 1:** Call model with tools (no outputSchema), execute all tool calls, suppress text
+       - **Phase 2:** Call model with outputSchema + tool results (no tools), return structured JSON
+     - Override `allowTextStreaming()` to suppress text during phase 1
+     - Use existing StreamingState and ToolExecutor infrastructure
+  2. Implement ChatOrchestratorProvider in GoogleProvider:
+     ```dart
+     class GoogleProvider extends Provider<...>
+         implements ChatOrchestratorProvider {
+       @override
+       (StreamingOrchestrator, List<Tool>?) getChatOrchestratorAndTools({
+         required JsonSchema? outputSchema,
+         required List<Tool>? tools,
+       }) {
+         final hasTools = tools != null && tools.isNotEmpty;
+
+         if (outputSchema != null && hasTools) {
+           // Double agent: tools + typed output
+           return (const GoogleDoubleAgentOrchestrator(), tools);
+         }
+
+         // Standard cases use default
+         return (const DefaultStreamingOrchestrator(), tools);
+       }
+     }
+     ```
+  3. Remove error check in GoogleChatModel.sendStream():
+     - Lines 56-62 currently throw when tools + outputSchema used together
+     - Remove this check (now supported via double agent)
+  4. Add ProviderCaps.typedOutputWithTools to GoogleProvider:
+     - File: `lib/src/providers/google_provider.dart` line 31-37
+     - Both Anthropic and Google provide capability (different mechanisms)
+     - Tests in typed_output_with_tools_test.dart will run for Google
+  5. Run tests: `dart test test/typed_output_with_tools_test.dart -n "google"`
+
+  **Success Criteria:**
+  - ✅ Google provider implements ChatOrchestratorProvider
+  - ✅ GoogleDoubleAgentOrchestrator successfully runs two-phase workflow
+  - ✅ Tests in typed_output_with_tools_test.dart pass for Google
+  - ✅ No errors when using tools + outputSchema with Google
+  - ✅ Architecture consistent with Anthropic (provider-level orchestration)
+  - ✅ GitHub issue #32 resolved
+
+- [ ] **11. Documentation Updates**
+  Specs: All affected wiki pages
+  - Update `wiki/Orchestration-Layer-Architecture.md`:
+    - Document ChatModel.getOrchestratorAndTools() method
+    - Explain orchestrator selection is now ChatModel's responsibility
+    - Document provider-specific orchestrators pattern
+  - Update `wiki/Provider-Implementation-Guide.md`:
+    - Add getOrchestratorAndTools() to ChatModel implementation guide
+    - Document when to override (only for provider-specific behavior)
+    - Add examples: Anthropic (return_result), Google (double agent)
+  - Update `wiki/Typed-Output-Architecture.md`:
+    - Remove references to kReturnResultToolName global constant
+    - Document Anthropic's automatic return_result injection
+    - Document Google's double agent pattern
+  - Update CHANGELOG.md with architectural improvements
+
+- [ ] **12. Add support for Gemini thinking** *(blocked on API surface)*
+  Specs: `wiki/Message-Handling-Architecture.md` ("Thinking Metadata"),
+  `wiki/Orchestration-Layer-Architecture.md`
   External refs: generated client currently exposes no explicit
-  reasoning/thinking stream; confirm latest Gemini docs before implementation.  
-  - Investigate how the new API surfaces reasoning/thinking metadata.  
-  - Add provider cap, plumb `metadata['thinking']`, update `thinking.dart`.  
+  reasoning/thinking stream; confirm latest Gemini docs before implementation.
+  - Investigate how the new API surfaces reasoning/thinking metadata.
+  - Add provider cap, plumb `metadata['thinking']`, update `thinking.dart`.
   - Ensure `thinking_metadata_test.dart` passes for Gemini.

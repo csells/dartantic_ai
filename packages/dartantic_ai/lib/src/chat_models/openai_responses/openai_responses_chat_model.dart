@@ -7,7 +7,6 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_core/openai_core.dart' as openai;
 
-import '../../agent/tool_constants.dart';
 import '../../retry_http_client.dart';
 import 'openai_responses_chat_options.dart';
 import 'openai_responses_event_mapper.dart';
@@ -46,21 +45,8 @@ class OpenAIResponsesChatModel
   /// API key used for authentication.
   final String? apiKey;
 
-  @override
-  List<Tool>? get tools {
-    // Filter out return_result from the tools list since we handle
-    // outputSchema natively. See wiki/Typed-Output-Architecture.md for the
-    // rationale behind delegating the removal to providers with native JSON
-    // support.
-    final baseTools = super.tools;
-    if (baseTools == null) return null;
-    return baseTools
-        .where((tool) => tool.name != kReturnResultToolName)
-        .toList();
-  }
-
   List<openai.Tool> _buildFunctionTools() {
-    final registeredTools = tools; // Already filtered by the getter
+    final registeredTools = tools;
     if (registeredTools == null || registeredTools.isEmpty) {
       return const [];
     }

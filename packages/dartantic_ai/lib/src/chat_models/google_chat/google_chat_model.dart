@@ -6,7 +6,6 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
-import '../../agent/tool_constants.dart';
 import '../../custom_http_client.dart';
 import '../../providers/google_api_utils.dart';
 import '../../retry_http_client.dart';
@@ -23,7 +22,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     required String apiKey,
     required Uri baseUrl,
     http.Client? client,
-    List<Tool>? tools,
+    super.tools,
     super.temperature,
     super.defaultOptions = const GoogleChatModelOptions(),
   }) : _httpClient = CustomHttpClient(
@@ -31,11 +30,6 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
          baseUrl: baseUrl,
          headers: {'x-goog-api-key': apiKey},
          queryParams: const {},
-       ),
-       super(
-         // Filter out return_result tool as Google has native typed output
-         // support via responseMimeType: 'application/json'
-         tools: tools?.where((t) => t.name != kReturnResultToolName).toList(),
        ) {
     _logger.info(
       'Creating Google model: $name '
@@ -50,6 +44,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
 
+  /// The resolved base URL.
   @visibleForTesting
   Uri get resolvedBaseUrl => _httpClient.baseUrl;
 

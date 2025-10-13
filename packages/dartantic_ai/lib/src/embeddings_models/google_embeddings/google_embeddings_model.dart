@@ -54,6 +54,7 @@ class GoogleEmbeddingsModel
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
 
+  /// The resolved base URL.
   @visibleForTesting
   Uri get resolvedBaseUrl => _httpClient.baseUrl;
 
