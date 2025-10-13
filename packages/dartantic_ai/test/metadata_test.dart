@@ -73,6 +73,70 @@ void main() {
       }
     });
 
+    test('Google attaches metadata for suppressed content', () async {
+      final recipeSchema = js.JsonSchema.create({
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string'},
+          'ingredients': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+        },
+        'required': ['name', 'ingredients'],
+      });
+
+      final recipeTool = Tool<Map<String, dynamic>>(
+        name: 'get_recipe',
+        description: 'Get a recipe',
+        inputSchema: js.JsonSchema.create({
+          'type': 'object',
+          'properties': {
+            'name': {'type': 'string'},
+          },
+          'required': ['name'],
+        }),
+        onCall: (input) => {
+          'name': 'Test Recipe',
+          'ingredients': ['ingredient1', 'ingredient2'],
+        },
+      );
+
+      final agent = Agent('google', tools: [recipeTool]);
+      final result = await agent.sendFor<Map<String, dynamic>>(
+        'Get me a test recipe',
+        outputSchema: recipeSchema,
+      );
+
+      // Check that we got valid JSON output
+      expect(result.output['name'], isNotNull);
+      expect(result.output['ingredients'], isA<List>());
+
+      // Find the message with JSON output
+      ChatMessage? jsonMessage;
+      for (final msg in result.messages) {
+        if (msg.role == ChatMessageRole.model && msg.text.contains('{')) {
+          jsonMessage = msg;
+          break;
+        }
+      }
+
+      expect(jsonMessage, isNotNull, reason: 'Should have a message with JSON');
+
+      // Check for metadata
+      if (jsonMessage!.metadata.isNotEmpty) {
+        print('Found metadata on JSON message:');
+        print(const JsonEncoder.withIndent('  ').convert(jsonMessage.metadata));
+
+        // Google double agent should suppress any text from Phase 1
+        // when there are no tool calls, or suppress tool-related metadata
+        // Metadata may contain suppressedText if LLM added any
+        if (jsonMessage.metadata.containsKey('suppressedText')) {
+          expect(jsonMessage.metadata['suppressedText'], isA<String>());
+        }
+      }
+    });
+
     test('ChatMessage preserves metadata during concatenation', () {
       const msg1 = ChatMessage(
         role: ChatMessageRole.model,

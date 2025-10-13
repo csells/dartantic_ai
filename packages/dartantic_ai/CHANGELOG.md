@@ -13,6 +13,12 @@
   providers.
   - Added Anthropic orchestration provider to handle the toolcall-based
     method of typed output it requires.
+  - Added Google double agent orchestrator to support typed output with
+    tools simultaneously. Google's API doesn't support tools and `outputSchema`
+    in a single call, so the orchestrator transparently executes a two-phase
+    workflow: Phase 1 executes tools, Phase 2 requests structured output. This
+    makes Google functionally equivalent to OpenAI and Anthropic for typed
+    output + tools use cases.
 
 ## 1.1.0
 

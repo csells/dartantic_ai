@@ -54,14 +54,6 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     GoogleChatModelOptions? options,
     JsonSchema? outputSchema,
   }) {
-    if (outputSchema != null && (tools?.isNotEmpty ?? false)) {
-      throw ArgumentError(
-        'Google Gemini does not support using tools and typed output '
-        '(outputSchema) simultaneously. Either use tools without outputSchema, '
-        'or use outputSchema without tools.',
-      );
-    }
-
     final request = _buildRequest(
       messages,
       options: options,
@@ -111,13 +103,19 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       );
     }
 
+    // Google doesn't support tools + outputSchema simultaneously.
+    // When outputSchema is provided, exclude tools (double agent phase 2).
+    final toolsToSend = outputSchema != null
+        ? const <Tool>[]
+        : (tools ?? const <Tool>[]);
+
     return gl.GenerateContentRequest(
       model: normalizedModel,
       systemInstruction: _extractSystemInstruction(messages),
       contents: contents,
       safetySettings: safetySettings,
       generationConfig: generationConfig,
-      tools: (tools ?? const []).toToolList(
+      tools: toolsToSend.toToolList(
         enableCodeExecution: enableCodeExecution,
       ),
     );

@@ -109,8 +109,32 @@ if (provider.caps.contains(ProviderCaps.embeddings)) {
 - **`toolCalls`** - Function calling
 - **`multiToolCalls`** - Multiple tool calls
 - **`streaming`** - Stream responses
-- **`typedOutput`** - Structured output
+- **`typedOutput`** - Structured JSON output
+- **`typedOutputWithTools`** - Structured output combined with tool calls
 - **`thinking`** - Provider streams reasoning metadata (e.g. OpenAI Responses)
+
+### Typed Output With Tools
+
+The `typedOutputWithTools` capability indicates a provider can handle both
+function calling and structured JSON output in the same request:
+
+| Provider | Support | Implementation |
+|----------|---------|----------------|
+| OpenAI | ✅ | Native `response_format` |
+| Anthropic | ✅ | `return_result` tool |
+| Google | ✅ | Double agent orchestrator |
+| Together AI | ✅ | OpenAI-compatible |
+| OpenRouter | ✅ | OpenAI-compatible |
+| Ollama | ❌ | Coming soon |
+| Cohere | ❌ | API limitation |
+
+**Anthropic's approach** uses the `return_result` tool pattern. This is a
+special tool that allows the model to return a structured JSON response. This
+is handled automatically by the Anthropic provider.
+
+**Google's approach** uses a transparent two-phase workflow: Phase 1 executes
+tools, Phase 2 requests structured output. This is handled automatically by the
+Google provider.
 
 ## List Models
 
@@ -130,6 +154,9 @@ await for (final model in provider.listModels()) {
 
 ## Examples
 
-- [List all provider models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/provider_models.dart)
-- [Multi-provider conversations](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
-- [Custom providers](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
+- [List all provider
+  models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/provider_models.dart)
+- [Multi-provider
+  conversations](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
+- [Custom
+  providers](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)

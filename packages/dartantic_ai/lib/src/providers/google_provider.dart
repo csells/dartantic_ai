@@ -2,20 +2,26 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
     as gl;
 import 'package:http/http.dart' as http;
+import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
+import '../agent/orchestrators/default_streaming_orchestrator.dart';
+import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/google_chat/google_chat_model.dart';
 import '../chat_models/google_chat/google_chat_options.dart';
+import '../chat_models/google_chat/google_double_agent_orchestrator.dart';
 import '../custom_http_client.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
+import 'chat_orchestrator_provider.dart';
 import 'google_api_utils.dart';
 
 /// Provider for Google Gemini native API.
 class GoogleProvider
-    extends Provider<GoogleChatModelOptions, GoogleEmbeddingsModelOptions> {
+    extends Provider<GoogleChatModelOptions, GoogleEmbeddingsModelOptions>
+    implements ChatOrchestratorProvider {
   /// Creates a new Google AI provider instance.
   ///
   /// [apiKey]: The API key to use for the Google AI API.
@@ -34,6 +40,7 @@ class GoogleProvider
           ProviderCaps.embeddings,
           ProviderCaps.multiToolCalls,
           ProviderCaps.typedOutput,
+          ProviderCaps.typedOutputWithTools,
           ProviderCaps.chatVision,
         },
         aliases: const ['gemini'],
@@ -46,6 +53,22 @@ class GoogleProvider
 
   /// The default base URL for the Google AI API.
   static final defaultBaseUrl = GoogleApiConfig.defaultBaseUrl;
+
+  @override
+  (StreamingOrchestrator, List<Tool>?) getChatOrchestratorAndTools({
+    required JsonSchema? outputSchema,
+    required List<Tool>? tools,
+  }) {
+    final hasTools = tools != null && tools.isNotEmpty;
+
+    if (outputSchema != null && hasTools) {
+      // Double agent: tools + typed output (requires stateful orchestrator)
+      return (GoogleDoubleAgentOrchestrator(), tools);
+    }
+
+    // Standard cases use default
+    return (const DefaultStreamingOrchestrator(), tools);
+  }
 
   @override
   ChatModel<GoogleChatModelOptions> createChatModel({
