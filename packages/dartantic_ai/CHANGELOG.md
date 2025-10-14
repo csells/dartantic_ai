@@ -23,6 +23,8 @@ Another big release!
 - Used the updated openai_core package to refactor OpenAIResponsesChatModel to
   eliminate workaround for retrieving container file names. 
 - Fixed the `homepage` tag in the `pubspec.yaml`.
+- Added [llms.txt](https://docs.dartantic.ai/llms.txt) and
+  [llms-full.txt](https://docs.dartantic.ai/llms-full.txt) for LLM readers.
 
 ## 1.1.0
 
