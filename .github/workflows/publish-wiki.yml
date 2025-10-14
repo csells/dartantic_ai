@@ -1,0 +1,23 @@
+name: Publish wiki
+on:
+  push:
+    branches: [main]          # adjust if your default branch is different
+    paths:
+      - wiki/**               # run only when docs change
+      - .github/workflows/publish-wiki.yml
+
+permissions:
+  contents: write             # lets the Action push to the wiki repo
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Andrew-Chen-Wang/github-wiki-action@v5
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        with:
+          path: wiki
+          commit-message: "docs: sync from main branch"
