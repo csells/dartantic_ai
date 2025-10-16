@@ -10,7 +10,7 @@ with generative AI easier and more fun!
   autonomously chain tool calls together to solve multi-step problems without
   human intervention.
 - **Multiple Providers Out of the Box** - OpenAI, OpenAI Responses, Google,
-  Anthropic, Mistral, Cohere, Ollama, and more
+  Anthropic, Mistral, Cohere, Ollama, LlamaCpp (local GGUF models), and more
 - **Streaming Output** - Real-time response generation
 - **Typed Outputs and Tool Calling** - Uses Dart types and JSON serialization
 - **Multimedia Input** - Process text, images, and files

@@ -1,3 +1,8 @@
+## 1.x.0
+
+- Added LlamaCpp provider for running local GGUF models using the llama_cpp_dart
+  package. Enables fully local AI inference without network API calls.
+
 ## 1.1.0
 
 This is a big release!

@@ -384,6 +384,93 @@ abstract class Provider {
 11. **Metadata**: All metadata values must be JSON-serializable (String, num, bool, List, Map, null)
 12. **Tool ID Coordination**: Use `tool_id_helpers.dart` for providers that don't supply tool IDs
 
+## File-Based Provider Pattern (No API or Base URL)
+
+For providers that work with local files instead of HTTP APIs (e.g., LlamaCpp with GGUF files):
+
+```dart
+class LlamaCppProvider extends Provider<LlamaCppChatOptions, EmbeddingsModelOptions> {
+  static final Logger _logger = Logger('dartantic.chat.providers.llama_cpp');
+
+  LlamaCppProvider({
+    super.name = 'llama_cpp',
+    super.displayName = 'LlamaCpp',
+    String? modelPath,
+    this.libraryPath,
+    this.modelParams,
+    this.contextParams,
+    this.samplerParams,
+    this.promptFormat,
+    super.apiKey,
+    super.baseUrl,
+    super.apiKeyName,
+  }) : super(
+          defaultModelNames: {
+            ModelKind.chat: modelPath ?? '',
+          },
+          caps: const {ProviderCaps.chat},
+        );
+
+  /// Provider-specific configuration (not baseUrl or apiKey)
+  final String? libraryPath;
+  final ModelParams? modelParams;
+  final ContextParams? contextParams;
+  final SamplerParams? samplerParams;
+  final PromptFormat? promptFormat;
+
+  @override
+  ChatModel<LlamaCppChatOptions> createChatModel({
+    String? name,
+    List<Tool>? tools,
+    double? temperature,
+    LlamaCppChatOptions? options,
+  }) {
+    final modelPath = name ?? defaultModelNames[ModelKind.chat];
+    if (modelPath == null || modelPath.isEmpty) {
+      throw ArgumentError(
+        'LlamaCpp provider requires a model path. '
+        'Provide a path to a GGUF model file.',
+      );
+    }
+
+    return LlamaCppChatModel(
+      name: modelPath,
+      tools: tools,
+      temperature: temperature,
+      defaultOptions: options ?? const LlamaCppChatOptions(),
+      libraryPath: libraryPath,
+      modelParams: modelParams,
+      contextParams: contextParams,
+      samplerParams: samplerParams,
+      promptFormat: promptFormat,
+    );
+  }
+
+  @override
+  EmbeddingsModel<EmbeddingsModelOptions> createEmbeddingsModel({
+    String? name,
+    EmbeddingsModelOptions? options,
+  }) {
+    throw UnsupportedError(
+      'LlamaCpp does not support embeddings models in this implementation',
+    );
+  }
+
+  @override
+  Stream<ModelInfo> listModels() async* {
+    // File-based providers typically can't list models
+    _logger.info('LlamaCpp provider does not support listing models');
+  }
+}
+```
+
+Key differences for file-based providers:
+- No HTTP client or API endpoints
+- Model name is a file path, not a model identifier
+- Provider-specific configuration (library paths, model params) instead of baseUrl
+- May not support model listing
+- Validate file paths at model creation time
+
 ## Special Cases
 
 ### Different API Endpoints

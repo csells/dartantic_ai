@@ -3,7 +3,7 @@ title: Providers
 description: "Providers for chat and embeddings models."
 ---
 
-Out of the box support for 11 providers, with more to come.
+Out of the box support for 12 providers, with more to come.
 
 ## Provider Capabilities
 
@@ -16,6 +16,7 @@ Out of the box support for 11 providers, with more to come.
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
 | **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
+| **LlamaCpp** | (path to GGUF file) | - | Chat, Streaming | Local GGUF models, no API needed |
 | **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
 | **Together AI** | `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | - | Chat, Tools, Streaming | Open source models |
 | **Google-OpenAI** | `gemini-2.0-flash-exp` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
@@ -32,6 +33,7 @@ Out of the box support for 11 providers, with more to come.
 | **Mistral** | `mistral` | - | `MISTRAL_API_KEY` | `MistralProvider` |
 | **Cohere** | `cohere` | - | `COHERE_API_KEY` | `CohereProvider` |
 | **Ollama** | `ollama` | - | None (local) | `OllamaProvider` |
+| **LlamaCpp** | `llama_cpp` | - | None (local) | `LlamaCppProvider` |
 | **OpenRouter** | `openrouter` | - | `OPENROUTER_API_KEY` | `OpenAIProvider` |
 | **Together AI** | `togetherai` | `together` | `TOGETHER_API_KEY` | `OpenAIProvider` |
 | **Google-OpenAI** | `google-openai` | - | `GEMINI_API_KEY` | `OpenAIProvider` |
@@ -60,6 +62,9 @@ Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 
 // Responses API features (thinking, server-side tools)
 Agent('openai-responses:gpt-5');
+
+// Local GGUF model with LlamaCpp (use query parameter for file paths)
+Agent('llama_cpp?chat=/path/to/your/model.gguf');
 ```
 
 ## Find Providers
@@ -128,8 +133,65 @@ await for (final model in provider.listModels()) {
 // - openai:gpt-3.5-turbo  (chat)
 ```
 
+## Local Models with LlamaCpp
+
+LlamaCpp enables running GGUF format models locally without any API calls or internet connection.
+
+### Requirements
+
+1. A GGUF model file (download from [Hugging Face](https://huggingface.co/models?library=gguf))
+2. The llama.cpp shared library (automatically included with `llama_cpp_dart` package)
+
+### Usage
+
+```dart
+// Using Agent API with model path (use query parameter format)
+final agent = Agent('llama_cpp?chat=/path/to/model.gguf');
+final result = await agent.send('What is AI?');
+print(result.output);
+
+// Streaming support
+await for (final chunk in agent.sendStream('Explain quantum physics')) {
+  stdout.write(chunk.output);
+}
+
+// Using Provider API for advanced configuration
+final provider = LlamaCppProvider(
+  modelPath: '/path/to/model.gguf',
+  promptFormat: ChatMLFormat(), // or AlpacaFormat(), GeminiFormat(), etc.
+  contextParams: ContextParams(nCtx: 4096),
+  samplerParams: SamplerParams(
+    temperature: 0.7,
+    topP: 0.9,
+  ),
+);
+final model = provider.createChatModel(temperature: 0.8);
+```
+
+### Prompt Formats
+
+LlamaCpp supports multiple prompt formats:
+- `ChatMLFormat()` - ChatML format (default)
+- `AlpacaFormat()` - Alpaca format
+- `GeminiFormat()` - Gemini format
+
+### Limitations
+
+- **No tool calling**: LlamaCpp doesn't support function calling
+- **No typed output**: JSON schema validation not supported
+- **No embeddings**: Only chat models supported
+- **No model listing**: Uses local files only
+
+### Example Models
+
+Download GGUF models from Hugging Face:
+- [Llama 2 7B Chat](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF)
+- [Mistral 7B Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF)
+- [Phi-3 Mini](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf)
+
 ## Examples
 
+- [LlamaCpp local models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/llama_cpp_example.dart)
 - [List all provider models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/provider_models.dart)
 - [Multi-provider conversations](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
 - [Custom providers](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
