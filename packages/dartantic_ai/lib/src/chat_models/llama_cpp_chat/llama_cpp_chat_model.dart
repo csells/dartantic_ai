@@ -71,7 +71,7 @@ class LlamaCppChatModel extends ChatModel<LlamaCppChatOptions> {
     _logger.info('Initializing LlamaCpp model from: $_modelPath');
 
     if (_libraryPath != null) {
-      Llama.libraryPath = _libraryPath!;
+      Llama.libraryPath = _libraryPath;
     }
 
     final loadCommand = LlamaLoad(
@@ -86,17 +86,23 @@ class LlamaCppChatModel extends ChatModel<LlamaCppChatOptions> {
 
     try {
       await _llamaParent!.init();
-    } catch (e) {
-      _logger.warning('Init timeout (expected for large models): $e');
-      // Continue - the model may still be loading
+    } on TimeoutException catch (e) {
+      // TimeoutException from init() is expected for large models
+      // The model continues loading in the background, so we poll status below
+      _logger.info(
+        'Init timed out (expected for large models), '
+        'waiting for ready status: $e',
+      );
     }
+    // Let all other exceptions bubble up
 
     // Wait for model to be ready (can take longer than init timeout)
     _logger.info('Waiting for model to be ready...');
     const maxAttempts = 120; // 2 minutes total
     var attempts = 0;
 
-    while (_llamaParent!.status != LlamaStatus.ready && attempts < maxAttempts) {
+    while (_llamaParent!.status != LlamaStatus.ready &&
+        attempts < maxAttempts) {
       await Future.delayed(const Duration(milliseconds: 1000));
       attempts++;
 
@@ -113,9 +119,9 @@ class LlamaCppChatModel extends ChatModel<LlamaCppChatOptions> {
     }
 
     if (_llamaParent!.status != LlamaStatus.ready) {
-      _logger.warning(
-        'Model status is ${_llamaParent!.status} after $attempts seconds. '
-        'Attempting to continue anyway.',
+      throw StateError(
+        'Model failed to reach ready status after $attempts seconds. '
+        'Final status: ${_llamaParent!.status}',
       );
     }
 
