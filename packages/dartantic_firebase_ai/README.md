@@ -133,17 +133,6 @@ final agent = Agent.forProvider(
 final result = await agent.send('What\'s the weather in San Francisco?');
 ```
 
-### Hybrid On-Device Inference
-
-```dart
-final agent = Agent.forProvider(
-  FirebaseAIProvider(),
-  options: FirebaseAIChatOptions(
-    inferenceMode: InferenceMode.preferOnDevice, // Local first, cloud fallback
-  ),
-);
-```
-
 ## Configuration Options
 
 The `FirebaseAIChatOptions` class supports:
@@ -154,7 +143,6 @@ The `FirebaseAIChatOptions` class supports:
 - `maxOutputTokens` - Maximum tokens to generate
 - `stopSequences` - Stop generation sequences
 - `safetySettings` - Content safety configuration
-- `inferenceMode` - Hybrid inference mode (preview)
 
 ## Security Best Practices
 
@@ -180,9 +168,11 @@ For pure Dart projects, consider using the `dartantic_google` provider instead.
 | Setup | API key only | Firebase project + API key |
 | Security | API key only | App Check + Auth |
 | Platforms | All Dart platforms | Flutter only |
-| On-Device | No | Yes (preview) |
+| On-Device | No | No (web only) |
 | Cost Control | Manual | Firebase quotas |
 | Dependencies | HTTP client only | Full Firebase SDK |
+
+> **Note**: On-device inference is available for web apps via [Firebase AI Logic](https://firebase.blog/posts/2025/06/hybrid-inference-firebase-ai-logic/), but not yet supported for Flutter mobile apps.
 
 ## Contributing
 
