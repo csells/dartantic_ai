@@ -1,4 +1,4 @@
-import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
 
 /// Helpers for converting JSON schema maps into Google Gemini [gl.Schema]

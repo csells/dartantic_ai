@@ -503,6 +503,8 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   // Do not emit tool use blocks at start; emit at stop with full args.
   final a.ToolUseBlock _ => const [],
   final a.ToolResultBlock tr => [TextPart(tr.content.text)],
+  // TODO: Handle Anthropic thinking blocks.
+  a.ThinkingBlock() => const [],
 };
 
 /// Maps an Anthropic [a.BlockDelta] to message parts.
@@ -510,6 +512,8 @@ List<Part> _mapContentBlockDelta(String? lastToolId, a.BlockDelta blockDelta) =>
     switch (blockDelta) {
       final a.TextBlockDelta t => [TextPart(t.text)],
       final a.InputJsonBlockDelta _ => const [],
+      // TODO: Handle Anthropic thinking blocks.
+      a.ThinkingBlockDelta() => const [],
     };
 
 /// Extension on [List<Tool>] to convert tool specs to Anthropic SDK tools.

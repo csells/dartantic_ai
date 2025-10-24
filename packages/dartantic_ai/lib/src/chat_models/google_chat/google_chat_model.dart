@@ -1,5 +1,5 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
@@ -115,9 +115,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       contents: contents,
       safetySettings: safetySettings,
       generationConfig: generationConfig,
-      tools: toolsToSend.toToolList(
-        enableCodeExecution: enableCodeExecution,
-      ),
+      tools: toolsToSend.toToolList(enableCodeExecution: enableCodeExecution),
     );
   }
 

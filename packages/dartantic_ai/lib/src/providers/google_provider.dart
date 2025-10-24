@@ -1,5 +1,5 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
@@ -158,7 +158,7 @@ class GoogleProvider
           if (info != null) yield info;
         }
         pageToken = response.nextPageToken;
-      } while (pageToken != null && pageToken.isNotEmpty);
+      } while (pageToken?.isNotEmpty ?? false);
     } catch (error, stackTrace) {
       _logger.warning(
         'Failed to fetch models from Google API',

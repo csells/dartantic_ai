@@ -224,9 +224,7 @@ class GoogleDoubleAgentOrchestrator extends DefaultStreamingOrchestrator {
       final mergedMetadata = <String, dynamic>{
         ...state.suppressedToolCallMetadata,
         if (state.suppressedTextParts.isNotEmpty)
-          'suppressedText': state.suppressedTextParts
-              .map((p) => p.text)
-              .join(),
+          'suppressedText': state.suppressedTextParts.map((p) => p.text).join(),
       };
 
       final finalMessage = ChatMessage(

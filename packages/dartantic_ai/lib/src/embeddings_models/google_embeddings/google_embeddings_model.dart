@@ -1,5 +1,5 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:google_cloud_ai_generativelanguage_v1/generativelanguage.dart'
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
