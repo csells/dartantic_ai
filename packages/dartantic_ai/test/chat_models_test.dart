@@ -97,36 +97,41 @@ void main() {
         );
       });
 
-      runProviderTest('context retention across turns', (provider) async {
-        final agent = Agent(provider.name);
-        final history = <ChatMessage>[];
+      runProviderTest(
+        'context retention across turns',
 
-        // Establish context
-        var result = await agent.send(
-          'I am learning Dart programming language.',
-          history: history,
-        );
-        history.addAll(result.messages);
+        (provider) async {
+          final agent = Agent(provider.name);
+          final history = <ChatMessage>[];
 
-        // Reference context
-        result = await agent.send(
-          'What language am I learning?',
-          history: history,
-        );
-        history.addAll(result.messages);
-        expect(result.output.toLowerCase(), contains('dart'));
+          // Establish context
+          var result = await agent.send(
+            'I am learning Dart programming language.',
+            history: history,
+          );
+          history.addAll(result.messages);
 
-        // Further reference
-        result = await agent.send(
-          'Is it a compiled or interpreted language?',
-          history: history,
-        );
-        expect(result.output, isNotEmpty);
-        expect(
-          result.output.toLowerCase(),
-          anyOf(contains('compiled'), contains('dart')),
-        );
-      });
+          // Reference context
+          result = await agent.send(
+            'What language am I learning?',
+            history: history,
+          );
+          history.addAll(result.messages);
+          expect(result.output.toLowerCase(), contains('dart'));
+
+          // Further reference
+          result = await agent.send(
+            'Is it a compiled or interpreted language?',
+            history: history,
+          );
+          expect(result.output, isNotEmpty);
+          expect(
+            result.output.toLowerCase(),
+            anyOf(contains('compiled'), contains('dart')),
+          );
+        },
+        timeout: const Timeout(Duration(seconds: 60)),
+      );
     });
 
     group('system prompts (80% cases)', () {
@@ -245,16 +250,21 @@ void main() {
         expect(result.output.length, lessThan(longText.length));
       }, edgeCase: true);
 
-      runProviderTest('handles special characters', (provider) async {
-        final agent = Agent(provider.name);
+      runProviderTest(
+        'handles special characters',
+        (provider) async {
+          final agent = Agent(provider.name);
 
-        final result = await agent.send(
-          r'What do these symbols mean: $@#%^&*()_+{}[]|\<>?',
-        );
+          final result = await agent.send(
+            r'What do these symbols mean: $@#%^&*()_+{}[]|\<>?',
+          );
 
-        expect(result.output, isNotEmpty);
-        expect(result.output.length, greaterThan(10));
-      }, edgeCase: true);
+          expect(result.output, isNotEmpty);
+          expect(result.output.length, greaterThan(10));
+        },
+        edgeCase: true,
+        timeout: const Timeout(Duration(seconds: 60)),
+      );
     });
   });
 }

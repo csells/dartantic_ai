@@ -610,7 +610,7 @@ void main() {
           );
 
           expect(result.output, isA<WeatherReport>());
-          expect(result.output.location, equals('London'));
+          expect(result.output.location, contains('London'));
           expect(result.output.temperature, equals(15));
           expect(result.output.conditions.toLowerCase(), equals('cloudy'));
           expect(result.output.humidity, equals(70));

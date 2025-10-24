@@ -2,26 +2,21 @@
 
 Another big release!
 - Migrated Google provider from deprecated `google_generative_ai` to generated
-  `google_cloud_ai_generativelanguage_v1` package. This is an internal
-  implementation change with no API surface changes for users. The migration
-  includes:
-  - New dependency on `google_cloud_ai_generativelanguage_v1` and related
-    packages
-  - Removed deprecated `google_generative_ai` dependency
-  - All existing Google provider functionality preserved
+  `google_cloud_ai_generativelanguage_v1beta` package. This is an internal
+  implementation change with no API surface changes for users.
 - Internal chat orchestration rearchitecture to simplify Agent and chat model
   implementations and to focus per-provider orchestration on individual
   providers.
   - Added Anthropic orchestration provider to handle the toolcall-based method
     of typed output it requires.
-  - Added Google double agent orchestrator to support typed output with tools
+  - Added Google "double agent" orchestrator to support typed output with tools
     simultaneously. Google's API doesn't support tools and `outputSchema` in a
     single call, so the orchestrator transparently executes a two-phase
     workflow: Phase 1 executes tools, Phase 2 requests structured output. This
     makes Google functionally equivalent to OpenAI and Anthropic for typed
     output + tools use cases.
-- Used the updated openai_core package to refactor OpenAIResponsesChatModel to
-  eliminate workaround for retrieving container file names. 
+- Used the updated `openai_core` package to refactor `OpenAIResponsesChatModel`
+  to eliminate workaround for retrieving container file names. 
 - Fixed the `homepage` tag in the `pubspec.yaml`.
 - Added [llms.txt](https://docs.dartantic.ai/llms.txt) and
   [llms-full.txt](https://docs.dartantic.ai/llms-full.txt) for LLM readers.
