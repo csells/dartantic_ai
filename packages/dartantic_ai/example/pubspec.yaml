@@ -24,17 +24,3 @@ dev_dependencies:
   all_lint_rules_community: ^0.0.43
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
-
-dependency_overrides:
-  dartantic_interface:
-    path: ../../dartantic_interface
-  google_cloud_ai_generativelanguage_v1:
-    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_ai_generativelanguage_v1
-  google_cloud_gax:
-    path: /Users/csells/temp/google-cloud-dart/packages/google_cloud_gax
-  google_cloud_longrunning:
-    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_longrunning
-  google_cloud_protobuf:
-    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_protobuf
-  google_cloud_rpc:
-    path: /Users/csells/temp/google-cloud-dart/generated/google_cloud_rpc
