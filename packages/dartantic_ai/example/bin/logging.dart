@@ -57,12 +57,13 @@ Future<void> levelFiltering() async {
 
 Future<void> stringFiltering() async {
   print('\nString Filtering');
-  Agent.loggingOptions = const LoggingOptions(filter: 'openai');
+  Agent.loggingOptions = const LoggingOptions(filter: 'google');
 
-  final openaiAgent = Agent('gemini');
-  final result = await openaiAgent.send('Test OpenAI');
-  print('User: Test OpenAI');
-  print('${openaiAgent.displayName}: ${result.output}');
+  final agent = Agent('gemini');
+  const prompt = 'Hello!';
+  final result = await agent.send(prompt);
+  print('User: $prompt');
+  print('${agent.displayName}: ${result.output}');
 }
 
 Future<void> customHandlers() async {

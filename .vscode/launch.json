@@ -8,6 +8,12 @@
       "program": "packages/dartantic_ai/example/bin/chat.dart"
     },
     {
+      "name": "custom_http_client",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/custom_http_client.dart"
+    },
+    {
       "name": "custom_provider",
       "request": "launch",
       "type": "dart",
@@ -68,6 +74,12 @@
       "program": "packages/dartantic_ai/example/bin/multimedia.dart"
     },
     {
+      "name": "openai_compat",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/openai_compat.dart"
+    },
+    {
       "name": "provider_models",
       "request": "launch",
       "type": "dart",
@@ -92,6 +104,12 @@
       "program": "packages/dartantic_ai/example/bin/system_message.dart"
     },
     {
+      "name": "thinking",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/thinking.dart"
+    },
+    {
       "name": "typed_output",
       "request": "launch",
       "type": "dart",
@@ -102,18 +120,6 @@
       "request": "launch",
       "type": "dart",
       "program": "packages/dartantic_ai/example/bin/usage_tracking.dart"
-    },
-    {
-      "name": "custom_http_client",
-      "request": "launch",
-      "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/custom_http_client.dart"
-    },
-    {
-      "name": "thinking",
-      "request": "launch",
-      "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/thinking.dart"
     },
     {
       "name": "server-side code interpreter",

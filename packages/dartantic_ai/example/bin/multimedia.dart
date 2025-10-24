@@ -6,7 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() async {
-  const model = 'openai-responses';
+  const model = 'gemini';
   await summarizeTextFile(model);
   await analyzeImages(model);
   await processTextWithImages(model);
