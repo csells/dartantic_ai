@@ -61,6 +61,17 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
                 outputSchema: outputSchema,
               ),
             )
+            .handleError((Object e, StackTrace st) {
+              // Handle unknown event types gracefully (e.g., signature_delta)
+              // These are new Anthropic API features not yet in the SDK
+              if (e.toString().contains('Invalid union type')) {
+                _logger.fine('Skipping unknown Anthropic event type: $e');
+                // Don't rethrow - just skip this event
+                return;
+              }
+              // Rethrow all other errors
+              Error.throwWithStackTrace(e, st);
+            })
             .transform(MessageStreamEventTransformer())) {
       chunkCount++;
       _logger.fine('Received Anthropic stream chunk $chunkCount');

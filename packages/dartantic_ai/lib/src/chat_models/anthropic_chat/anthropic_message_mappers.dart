@@ -9,6 +9,7 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 import 'package:rxdart/rxdart.dart' show WhereNotNullExtension;
 
+import '../../shared/anthropic_thinking_metadata.dart';
 import '../helpers/message_part_helpers.dart';
 import 'anthropic_chat.dart';
 
@@ -65,6 +66,7 @@ a.CreateMessageRequest createMessageRequest(
     toolChoice: hasTools
         ? const a.ToolChoice(type: a.ToolChoiceType.auto)
         : null,
+    thinking: options?.thinking ?? defaultOptions.thinking,
     stream: true,
   );
 }
@@ -211,19 +213,43 @@ extension MessageListMapper on List<ChatMessage> {
       );
     } else {
       // Response with tool calls
+      final blocks = <a.Block>[];
+
+      // Anthropic requires thinking block before tool_use blocks when present
+      // Retrieve thinking block data (includes signature) from metadata
+      final thinkingBlockData =
+          AnthropicThinkingMetadata.getThinkingBlock(message.metadata);
+      if (thinkingBlockData != null) {
+        final thinking =
+            AnthropicThinkingMetadata.thinkingText(thinkingBlockData);
+        final signature =
+            AnthropicThinkingMetadata.signature(thinkingBlockData);
+
+        if (thinking != null && thinking.isNotEmpty) {
+          blocks.add(
+            a.Block.thinking(
+              type: a.ThinkingBlockType.thinking,
+              thinking: thinking,
+              signature: signature,  // Include original signature
+            ),
+          );
+        }
+      }
+
+      // Add tool_use blocks
+      blocks.addAll(
+        toolParts.map(
+          (toolPart) => a.Block.toolUse(
+            id: toolPart.id,
+            name: toolPart.name,
+            input: toolPart.arguments ?? {},
+          ),
+        ),
+      );
+
       return a.Message(
         role: a.MessageRole.assistant,
-        content: a.MessageContent.blocks(
-          toolParts
-              .map(
-                (toolPart) => a.Block.toolUse(
-                  id: toolPart.id,
-                  name: toolPart.name,
-                  input: toolPart.arguments ?? {},
-                ),
-              )
-              .toList(growable: false),
-        ),
+        content: a.MessageContent.blocks(blocks),
       );
     }
   }
@@ -301,6 +327,12 @@ class MessageStreamEventTransformer
 
   /// Seed arguments captured from ToolUseBlock.start when provided fully.
   final Map<int, Map<String, dynamic>> _toolSeedArgsByIndex = {};
+
+  /// Accumulator for thinking content during streaming.
+  final StringBuffer _thinkingBuffer = StringBuffer();
+
+  /// Signature from the thinking block (if present).
+  String? _thinkingSignature;
 
   /// Binds this transformer to a stream of [a.MessageStreamEvent]s, producing a
   /// stream of [ChatResult]s.
@@ -381,6 +413,11 @@ class MessageStreamEventTransformer
       }
     }
 
+    // Capture thinking block signature for later reconstruction
+    if (cb is a.ThinkingBlock && cb.signature != null) {
+      _thinkingSignature = cb.signature;
+    }
+
     return ChatResult<ChatMessage>(
       id: lastMessageId,
       output: ChatMessage(role: ChatMessageRole.model, parts: parts),
@@ -394,6 +431,32 @@ class MessageStreamEventTransformer
   ChatResult<ChatMessage> _mapContentBlockDeltaEvent(
     a.ContentBlockDeltaEvent e,
   ) {
+    // Handle ThinkingBlockDelta to accumulate thinking and emit as metadata
+    if (e.delta is a.ThinkingBlockDelta) {
+      final delta = e.delta as a.ThinkingBlockDelta;
+      _thinkingBuffer.write(delta.thinking);
+      _logger.fine('ThinkingBlockDelta: "${delta.thinking}"');
+
+      // Build thinking block metadata for reconstruction (includes signature)
+      final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
+        thinking: _thinkingBuffer.toString(),
+        signature: _thinkingSignature,
+      );
+
+      return ChatResult<ChatMessage>(
+        id: lastMessageId,
+        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+        messages: const [],
+        finishReason: FinishReason.unspecified,
+        metadata: {
+          'thinking': delta.thinking,  // For user-facing streaming deltas
+          AnthropicThinkingMetadata.thinkingBlockKey:
+              thinkingBlockData,  // For history reconstruction
+        },
+        usage: null,
+      );
+    }
+
     // Handle InputJsonBlockDelta specially to accumulate arguments
     if (e.delta is a.InputJsonBlockDelta &&
         _toolCallIdByIndex.containsKey(e.index)) {
@@ -471,12 +534,38 @@ class MessageStreamEventTransformer
   }
 
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
+    // Emit final thinking block metadata if thinking was present
+    final finalMetadata = <String, dynamic>{};
+    if (_thinkingBuffer.isNotEmpty) {
+      final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
+        thinking: _thinkingBuffer.toString(),
+        signature: _thinkingSignature,
+      );
+      finalMetadata[AnthropicThinkingMetadata.thinkingBlockKey] =
+          thinkingBlockData;
+    }
+
     // Clear any tracking state for safety
     lastMessageId = null;
     _toolCallIdByIndex.clear();
     _toolNameByIndex.clear();
     _toolArgumentsByIndex.clear();
     _toolSeedArgsByIndex.clear();
+    _thinkingBuffer.clear();
+    _thinkingSignature = null;
+
+    // Return final metadata if any
+    if (finalMetadata.isNotEmpty) {
+      return ChatResult<ChatMessage>(
+        id: lastMessageId,
+        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+        messages: const [],
+        finishReason: FinishReason.unspecified,
+        metadata: finalMetadata,
+        usage: null,
+      );
+    }
+
     return null;
   }
 }
@@ -503,7 +592,7 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   // Do not emit tool use blocks at start; emit at stop with full args.
   final a.ToolUseBlock _ => const [],
   final a.ToolResultBlock tr => [TextPart(tr.content.text)],
-  // TODO: Handle Anthropic thinking blocks.
+  // Thinking blocks are filtered from message parts (metadata only).
   a.ThinkingBlock() => const [],
 };
 
@@ -512,7 +601,7 @@ List<Part> _mapContentBlockDelta(String? lastToolId, a.BlockDelta blockDelta) =>
     switch (blockDelta) {
       final a.TextBlockDelta t => [TextPart(t.text)],
       final a.InputJsonBlockDelta _ => const [],
-      // TODO: Handle Anthropic thinking blocks.
+      // Thinking deltas handled in _mapContentBlockDeltaEvent (metadata only).
       a.ThinkingBlockDelta() => const [],
     };
 

@@ -5,11 +5,15 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
 void main() async {
-  // enable thinking output with gpt-5
+  // Enable thinking output with Claude Sonnet 4.5 or GPT-5
   final agent = Agent(
-    'openai-responses:gpt-5',
-    chatModelOptions: const OpenAIResponsesChatModelOptions(
-      reasoningSummary: OpenAIReasoningSummary.detailed,
+    'anthropic:claude-sonnet-4-5',
+    chatModelOptions: const AnthropicChatOptions(
+      maxTokens: 16000,
+      thinking: ThinkingConfig.enabled(
+        type: ThinkingConfigEnabledType.enabled,
+        budgetTokens: 10000,
+      ),
     ),
   );
 

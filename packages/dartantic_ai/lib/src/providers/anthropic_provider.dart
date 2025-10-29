@@ -36,6 +36,7 @@ class AnthropicProvider
           ProviderCaps.typedOutput,
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.chatVision,
+          ProviderCaps.thinking,
         },
         aliases: ['claude'],
         baseUrl: null,
@@ -81,6 +82,7 @@ class AnthropicProvider
         maxTokens: options?.maxTokens,
         stopSequences: options?.stopSequences,
         userId: options?.userId,
+        thinking: options?.thinking,
       ),
     );
   }

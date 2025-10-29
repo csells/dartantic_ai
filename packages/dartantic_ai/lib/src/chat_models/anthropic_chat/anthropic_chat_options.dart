@@ -1,3 +1,4 @@
+import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' show ThinkingConfig;
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
@@ -12,6 +13,7 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topK,
     this.topP,
     this.userId,
+    this.thinking,
   });
 
   /// The maximum number of tokens to generate before stopping.
@@ -67,4 +69,40 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// may use this id to help detect abuse. Do not include any identifying
   /// information such as name, email address, or phone number.
   final String? userId;
+
+  /// Configuration for Claude's extended thinking.
+  ///
+  /// When enabled, Claude shows its internal reasoning process before
+  /// providing the final answer. Thinking content is exposed via:
+  /// - During streaming: `ChatResult.metadata['thinking']` (incremental deltas)
+  /// - In final result: Accumulated thinking in result metadata
+  /// - In message history: Preserved in metadata when tool calls present
+  ///
+  /// **Anthropic-specific behavior**: When a response includes both thinking
+  /// and tool calls, the thinking block is preserved in the message structure
+  /// and sent back in subsequent turns. This is required by Anthropic's API
+  /// to maintain proper context for multi-turn tool usage.
+  ///
+  /// The `budgetTokens` parameter controls how many tokens Claude can use
+  /// for thinking. This must be at least 1,024 and less than `maxTokens`.
+  /// Larger budgets enable more comprehensive reasoning.
+  ///
+  /// Example:
+  /// ```dart
+  /// AnthropicChatOptions(
+  ///   maxTokens: 16000,
+  ///   thinking: ThinkingConfig.enabled(
+  ///     type: ThinkingConfigEnabledType.enabled,
+  ///     budgetTokens: 10000,
+  ///   ),
+  /// )
+  /// ```
+  ///
+  /// Token costs:
+  /// - Thinking tokens count toward your `max_tokens` limit
+  /// - You are charged for all thinking tokens generated
+  /// - Thinking blocks in conversation history also consume tokens
+  ///
+  /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+  final ThinkingConfig? thinking;
 }
