@@ -536,13 +536,19 @@ class MessageStreamEventTransformer
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
     // Emit final thinking block metadata if thinking was present
     final finalMetadata = <String, dynamic>{};
+    Map<String, Object?>? messageMetadata;
     if (_thinkingBuffer.isNotEmpty) {
+      final thinkingText = _thinkingBuffer.toString();
       final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
-        thinking: _thinkingBuffer.toString(),
+        thinking: thinkingText,
         signature: _thinkingSignature,
       );
+      finalMetadata['thinking'] = thinkingText;
       finalMetadata[AnthropicThinkingMetadata.thinkingBlockKey] =
           thinkingBlockData;
+      messageMetadata = {
+        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
+      };
     }
 
     // Clear any tracking state for safety
@@ -559,7 +565,13 @@ class MessageStreamEventTransformer
       return ChatResult<ChatMessage>(
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: const [],
+        messages: [
+          ChatMessage(
+            role: ChatMessageRole.model,
+            parts: const [],
+            metadata: messageMetadata ?? const {},
+          ),
+        ],
         finishReason: FinishReason.unspecified,
         metadata: finalMetadata,
         usage: null,
