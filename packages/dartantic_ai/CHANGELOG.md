@@ -1,3 +1,34 @@
+## 1.2.0
+
+Another big release!
+- Migrated Google provider from deprecated `google_generative_ai` to generated
+  `google_cloud_ai_generativelanguage_v1beta` package. This is an internal
+  implementation change with no API surface changes for users. However, it does
+  fix some response formatting issues the deprecated package was having as the
+  underlying API changed; it's so nice to be using the Google-supported package
+  again!
+- Internal chat orchestration rearchitecture to simplify Agent and chat model
+  implementations and to focus per-provider orchestration on individual
+  providers.
+  - Added Anthropic orchestration provider to handle the toolcall-based method
+    of typed output it requires.
+  - Added Google "double agent" orchestrator to support typed output with tools
+    simultaneously. Google's API doesn't support tools and `outputSchema` in a
+    single call, so the orchestrator transparently executes a two-phase
+    workflow: Phase 1 executes tools, Phase 2 requests structured output. This
+    makes Google functionally equivalent to OpenAI and Anthropic for typed
+    output + tools use cases.
+- Restored support for the web! A rogue AI coding agent wrote docs that pulled
+  in `dart:io`, disabling web support. dartantic_ai fully supports the web and
+  if it ever says it doesn't, that's a bug.
+- Used the updated `openai_core` package to refactor `OpenAIResponsesChatModel`
+  to eliminate workaround for retrieving container file names. 
+- Updated the default Anthropic model to `claude-sonnet-4-0`, although of course
+  you can use whichever model you want.
+- Fixed the `homepage` tag in the `pubspec.yaml`.
+- Added [llms.txt](https://docs.dartantic.ai/llms.txt) and
+  [llms-full.txt](https://docs.dartantic.ai/llms-full.txt) for LLM readers.
+
 ## 1.1.0
 
 This is a big release!
@@ -59,14 +90,15 @@ This is a big release!
    aggressive about constructing providers before they were used and checking
    API keys before they were needed, which was causing this issue. For example,
    if you wanted to use `Agent('google')` and didn't have the MISTRAL_API_KEY
-   set (why would you?), string lookup creates all of the providers, which caused
-   all of them to check for their API key and -- BOOM.
+   set (why would you?), string lookup creates all of the providers, which
+   caused all of them to check for their API key and -- BOOM.
 
 ## 1.0.4
 
 - Updated LLM SDK dependencies:
   - `anthropic_sdk_dart`: 0.2.1 → 0.2.2
-  - `openai_dart`: 0.5.2 → 0.5.3 (adds nullable choices field support for Groq compatibility)
+  - `openai_dart`: 0.5.2 → 0.5.3 (adds nullable choices field support for Groq
+    compatibility)
   - `mistralai_dart`: 0.0.4 → 0.0.5
   - `ollama_dart`: 0.2.3 → 0.2.4
 

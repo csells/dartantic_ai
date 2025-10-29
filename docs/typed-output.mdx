@@ -130,15 +130,55 @@ This is useful if you'd like to render the JSON progressively as it's streamed.
 
 ## With Tools
 
-Some providers support both tools and typed output in the same request. See the
-[typed output
+Most providers support both tools and typed output in the same request, allowing
+you to gather information via tools and return structured results:
+
+```dart
+final weatherTool = Tool(
+  name: 'get_weather',
+  description: 'Get current weather',
+  inputSchema: weatherInputSchema,
+  onCall: (input) => getWeather(input['city']),
+);
+
+final agent = Agent('openai', tools: [weatherTool]);
+
+final result = await agent.sendFor<WeatherReport>(
+  'Get weather for Seattle and format as a report',
+  outputSchema: WeatherReport.schema,
+  outputFromJson: WeatherReport.fromJson,
+);
+
+print(result.output); // WeatherReport with structured data
+```
+
+### Provider Support
+
+| Provider | Tools + Typed Output | Method |
+|----------|---------------------|---------|
+| OpenAI | ✅ | Native response_format |
+| Anthropic | ✅ | return_result tool |
+| Google | ✅ | Double agent orchestrator |
+| Together | ✅ | OpenAI-compatible |
+| OpenRouter | ✅ | OpenAI-compatible |
+| Ollama | ❌ | Coming soon |
+| Cohere | ❌ | API limitation |
+
+**Google's Double Agent Pattern**: Google's API doesn't support tools and typed
+output in a single call, but dartantic handles this transparently with a
+two-phase approach: first executing tools, then requesting structured output
+with the tool results.
+
+See the [typed output
 example](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/typed_output.dart)
-for more details.
+for working code.
 
 ## Examples
 
-- [Typed output basics](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/typed_output.dart)
-- [Chat with typed output](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
+- [Typed output
+  basics](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/typed_output.dart)
+- [Chat with typed
+  output](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
 
 ## Next Steps
 

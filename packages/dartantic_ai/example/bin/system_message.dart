@@ -4,7 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
 
 Future<void> main() async {
-  const model = 'openai-responses';
+  const model = 'gemini';
   await tutorSystemMessage(model);
   await differentSystemMessage(model);
   await noSystemMessage(model);

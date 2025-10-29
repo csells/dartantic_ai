@@ -18,6 +18,8 @@ export 'openai_responses_provider.dart';
 
 /// Providers for built-in chat and embeddings models.
 class Providers {
+  Providers._();
+
   // Private cache fields for lazy initialization
   static OpenAIProvider? _openai;
   static OpenAIResponsesProvider? _openaiResponses;

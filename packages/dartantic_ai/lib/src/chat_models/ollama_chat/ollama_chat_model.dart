@@ -8,7 +8,6 @@ import 'package:logging/logging.dart';
 import 'package:ollama_dart/ollama_dart.dart'
     show GenerateChatCompletionResponse, OllamaClient;
 
-import '../../agent/tool_constants.dart';
 import '../../providers/ollama_provider.dart';
 import 'ollama_chat_options.dart';
 import 'ollama_message_mappers.dart' as ollama_mappers;
@@ -31,9 +30,7 @@ class OllamaChatModel extends ChatModel<OllamaChatOptions> {
        super(
          name: name,
          defaultOptions: defaultOptions ?? const OllamaChatOptions(),
-         // Filter out return_result tool as Ollama has native typed output
-         // support via format: 'json'
-         tools: tools?.where((t) => t.name != kReturnResultToolName).toList(),
+         tools: tools,
        ) {
     _logger.info(
       'Creating Ollama model: $name '

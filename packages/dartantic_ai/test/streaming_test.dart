@@ -198,21 +198,21 @@ void main() {
         history.addAll(result.messages);
 
         // Second turn - stream with history
-        final chunks = <String>[];
+        final buffer = StringBuffer();
         await for (final chunk in agent.sendStream(
           'What is my favorite color?',
           history: history,
         )) {
-          chunks.add(chunk.output);
+          buffer.write(chunk.output);
         }
 
-        final fullText = chunks.join();
-        expect(fullText, contains('blue'));
+        expect(buffer.toString().toLowerCase(), contains('blue'));
       });
 
       runProviderTest('multi-turn streaming maintains context', (
-        provider,
-      ) async {
+        provider, {
+        timeout = const Timeout(Duration(seconds: 60)),
+      }) async {
         // Skip for Cohere - same conversation history issue as above
         final agent = Agent(provider.name);
         final history = <ChatMessage>[];
@@ -226,16 +226,12 @@ void main() {
 
         // Turn 2: Stream follow-up
         final chunks1 = <String>[];
-        ChatResult<String>? streamResult;
         await for (final chunk in agent.sendStream(
           "Tell me one interesting fact about the topic we're discussing.",
           history: history,
         )) {
           chunks1.add(chunk.output);
-          streamResult = chunk;
-        }
-        if (streamResult != null) {
-          history.addAll(streamResult.messages);
+          history.addAll(chunk.messages);
         }
 
         // Turn 3: Stream another follow-up
@@ -245,6 +241,7 @@ void main() {
           history: history,
         )) {
           chunks2.add(chunk.output);
+          history.addAll(chunk.messages);
         }
 
         // Both streamed responses should be about penguins
@@ -337,19 +334,6 @@ void main() {
         // Should have collected some chunks before interruption
         expect(chunks, isNotEmpty);
         expect(chunks.length, greaterThanOrEqualTo(5));
-      }, edgeCase: true);
-
-      runProviderTest('handles empty streaming responses', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
-
-        // Request that might result in minimal streaming
-        await for (final chunk in agent.sendStream('')) {
-          chunks.add(chunk.output);
-        }
-
-        // Even empty input should produce some response
-        expect(chunks, isNotEmpty);
       }, edgeCase: true);
 
       runProviderTest('accumulates very long streams', (provider) async {

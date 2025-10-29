@@ -89,6 +89,16 @@
           "anchor": "Blog",
           "href": "https://sellsbrothers.com",
           "icon": "newspaper"
+        },
+        {
+          "anchor": "llms.txt",
+          "href": "llms.txt",
+          "icon": "computer"
+        },
+        {
+          "anchor": "llms-full.txt",
+          "href": "llms-full.txt",
+          "icon": "computer"
         }
       ]
     }

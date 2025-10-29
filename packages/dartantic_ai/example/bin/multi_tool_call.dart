@@ -5,7 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  const model = 'openai-responses';
+  const model = 'gemini';
   await multipleTools(model);
   await multipleToolsStream(model);
   await multipleDependentTools(model);

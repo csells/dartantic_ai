@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
@@ -8,14 +7,12 @@ import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
 import '../platform/platform.dart';
+import '../providers/chat_orchestrator_provider.dart';
 import '../providers/providers.dart';
 import 'agent_response_accumulator.dart';
 import 'model_string_parser.dart';
 import 'orchestrators/default_streaming_orchestrator.dart';
-import 'orchestrators/streaming_orchestrator.dart';
-import 'orchestrators/typed_output_streaming_orchestrator.dart';
 import 'streaming_state.dart';
-import 'tool_constants.dart';
 
 /// An agent that manages chat models and provides tool execution and message
 /// collection capabilities.
@@ -243,27 +240,17 @@ class Agent {
       'history messages',
     );
 
-    // Prepare tools, including return_result if needed
-    var tools = _tools;
-    if (outputSchema != null) {
-      final returnResultTool = Tool<Map<String, dynamic>>(
-        name: kReturnResultToolName,
-        description:
-            'REQUIRED: You MUST call this tool to return the final result. '
-            'Use this tool to format and return your response according to '
-            'the specified JSON schema. Call this after gathering any '
-            'necessary information from other tools.',
-        inputSchema: outputSchema,
-
-        onCall: (args) async => json.encode(args),
-      );
-      tools = [...?_tools, returnResultTool];
-    }
+    final (orchestrator, toolsToUse) = (_provider is ChatOrchestratorProvider
+        ? (_provider as ChatOrchestratorProvider).getChatOrchestratorAndTools(
+            outputSchema: outputSchema,
+            tools: _tools,
+          )
+        : (const DefaultStreamingOrchestrator(), _tools));
 
     // Create model directly from provider
     final model = _provider.createChatModel(
       name: _chatModelName,
-      tools: tools,
+      tools: toolsToUse,
       temperature: _temperature,
       options: chatModelOptions,
     );
@@ -291,14 +278,7 @@ class Agent {
 
       final state = StreamingState(
         conversationHistory: conversationHistory,
-        toolMap: {for (final tool in model.tools ?? <Tool>[]) tool.name: tool},
-      );
-
-      // Select and configure orchestrator
-      // Use the model's actual tools list (after any filtering by the model)
-      final orchestrator = _selectOrchestrator(
-        outputSchema: outputSchema,
-        tools: model.tools, // This is the filtered list from the model
+        toolMap: {for (final tool in toolsToUse ?? <Tool>[]) tool.name: tool},
       );
 
       orchestrator.initialize(state);
@@ -383,23 +363,6 @@ class Agent {
       )
       .embedDocuments(texts);
 
-  /// Selects the appropriate orchestrator based on context
-  StreamingOrchestrator _selectOrchestrator({
-    required JsonSchema? outputSchema,
-    required List<Tool>? tools,
-  }) {
-    if (outputSchema != null) {
-      final hasReturnResultTool =
-          tools?.any((t) => t.name == kReturnResultToolName) ?? false;
-
-      return TypedOutputStreamingOrchestrator(
-        hasReturnResultTool: hasReturnResultTool,
-      );
-    }
-
-    return const DefaultStreamingOrchestrator();
-  }
-
   /// Asserts that no message in the list contains more than one TextPart.
   ///
   /// This helps catch streaming consolidation issues where text content gets
@@ -428,7 +391,7 @@ class Agent {
   static Map<String, String> environment = {};
 
   /// Controls whether environment lookups should only use [Agent.environment]
-  /// and ignore [Platform.environment]. This is useful for testing to ensure
+  /// and ignore Platform.environment. This is useful for testing to ensure
   /// complete control over environment variables.
   static bool useAgentEnvironmentOnly = false;
 

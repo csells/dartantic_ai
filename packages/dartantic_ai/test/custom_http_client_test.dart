@@ -135,6 +135,7 @@ class CustomGoogleProvider extends GoogleProvider {
   }) => GoogleChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
     apiKey: apiKey!,
+    baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
     client: client,
     tools: tools,
     temperature: temperature,

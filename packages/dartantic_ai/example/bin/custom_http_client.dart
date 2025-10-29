@@ -105,39 +105,36 @@ class LoggingHttpClient extends http.BaseClient {
 }
 
 /// Custom provider that uses a logging HTTP client
-class LoggingProvider extends OpenAIResponsesProvider {
+class LoggingProvider extends GoogleProvider {
   LoggingProvider({super.apiKey});
 
   @override
-  ChatModel<OpenAIResponsesChatModelOptions> createChatModel({
+  ChatModel<GoogleChatModelOptions> createChatModel({
     String? name,
     List<Tool>? tools,
     double? temperature,
-    OpenAIResponsesChatModelOptions? options,
+    GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
-    return OpenAIResponsesChatModel(
+    return GoogleChatModel(
       name: modelName,
       tools: tools,
       temperature: temperature,
-      apiKey: apiKey,
-      httpClient: LoggingHttpClient(),
-      defaultOptions: OpenAIResponsesChatModelOptions(
+      apiKey: apiKey!,
+      baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
+      client: LoggingHttpClient(),
+      defaultOptions: GoogleChatModelOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
         maxOutputTokens: options?.maxOutputTokens,
-        store: options?.store ?? true,
-        metadata: options?.metadata,
-        include: options?.include,
-        parallelToolCalls: options?.parallelToolCalls,
-        toolChoice: options?.toolChoice,
-        reasoning: options?.reasoning,
-        reasoningEffort: options?.reasoningEffort,
-        reasoningSummary: options?.reasoningSummary,
-        responseFormat: options?.responseFormat,
-        truncationStrategy: options?.truncationStrategy,
-        user: options?.user,
+        topK: options?.topK,
+        candidateCount: options?.candidateCount,
+        stopSequences: options?.stopSequences,
+        responseMimeType: options?.responseMimeType,
+        responseSchema: options?.responseSchema,
+        safetySettings: options?.safetySettings,
+        enableCodeExecution: options?.enableCodeExecution,
       ),
     );
   }

@@ -1,8 +1,11 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:google_generative_ai/google_generative_ai.dart' as g;
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
+    as gl;
 import 'package:logging/logging.dart';
 
+import '../helpers/google_schema_helpers.dart';
 import '../helpers/message_part_helpers.dart';
+import '../helpers/protobuf_value_helpers.dart';
 import '../helpers/tool_id_helpers.dart';
 import 'google_chat.dart'
     show
@@ -13,14 +16,13 @@ import 'google_chat.dart'
 /// Logger for Google message mapping operations.
 final Logger _logger = Logger('dartantic.chat.mappers.google');
 
-/// Extension on [List<Message>] to convert messages to Google
-/// Generative AI SDK content.
+/// Extension on [List<ChatMessage>] to convert messages to Gemini content.
 extension MessageListMapper on List<ChatMessage> {
-  /// Converts this list of [ChatMessage]s to a list of [g.Content]s.
+  /// Converts this list of [ChatMessage]s to a list of [gl.Content]s.
   ///
-  /// Groups consecutive tool result messages into a single
-  /// g.Content.functionResponses() as required by Google's API.
-  List<g.Content> toContentList() {
+  /// Groups consecutive tool result messages into a single `Content` so we can
+  /// attach all [gl.FunctionResponse] parts in one payload.
+  List<gl.Content> toContentList() {
     final nonSystemMessages = where(
       (message) => message.role != ChatMessageRole.system,
     ).toList();
@@ -28,48 +30,30 @@ extension MessageListMapper on List<ChatMessage> {
       'Converting ${nonSystemMessages.length} non-system messages to Google '
       'format',
     );
-    final result = <g.Content>[];
+
+    final result = <gl.Content>[];
 
     for (var i = 0; i < nonSystemMessages.length; i++) {
       final message = nonSystemMessages[i];
-
-      // Check if this is a tool result message
       final hasToolResults = message.parts.whereType<ToolPart>().any(
-        (p) => p.result != null,
+        (p) => p.kind == ToolPartKind.result,
       );
 
       if (hasToolResults) {
-        // Collect all consecutive tool result messages
-        final toolMessages = [message];
+        final toolMessages = <ChatMessage>[message];
         var j = i + 1;
-        _logger.fine(
-          'Found tool result message at index $i, collecting consecutive tool '
-          'messages',
-        );
         while (j < nonSystemMessages.length) {
-          final nextMsg = nonSystemMessages[j];
-          final nextHasToolResults = nextMsg.parts.whereType<ToolPart>().any(
-            (p) => p.result != null,
+          final next = nonSystemMessages[j];
+          final nextHasToolResults = next.parts.whereType<ToolPart>().any(
+            (p) => p.kind == ToolPartKind.result,
           );
-          if (nextHasToolResults) {
-            toolMessages.add(nextMsg);
-            j++;
-          } else {
-            break;
-          }
+          if (!nextHasToolResults) break;
+          toolMessages.add(next);
+          j++;
         }
-
-        // Create a single g.Content.functionResponses with all tool responses
-        _logger.fine(
-          'Creating function responses for ${toolMessages.length} tool '
-          'messages',
-        );
         result.add(_mapToolResultMessages(toolMessages));
-
-        // Skip the processed messages
         i = j - 1;
       } else {
-        // Handle non-tool messages normally
         result.add(_mapMessage(message));
       }
     }
@@ -77,10 +61,10 @@ extension MessageListMapper on List<ChatMessage> {
     return result;
   }
 
-  g.Content _mapMessage(ChatMessage message) {
+  gl.Content _mapMessage(ChatMessage message) {
     switch (message.role) {
       case ChatMessageRole.system:
-        throw AssertionError('System messages should be filtered out');
+        throw AssertionError('System messages should already be filtered out');
       case ChatMessageRole.user:
         return _mapUserMessage(message);
       case ChatMessageRole.model:
@@ -88,259 +72,396 @@ extension MessageListMapper on List<ChatMessage> {
     }
   }
 
-  g.Content _mapUserMessage(ChatMessage message) {
-    final contentParts = <g.Part>[];
+  gl.Content _mapUserMessage(ChatMessage message) {
     _logger.fine('Mapping user message with ${message.parts.length} parts');
-
-    for (final part in message.parts) {
-      switch (part) {
-        case TextPart(:final text):
-          contentParts.add(g.TextPart(text));
-        case DataPart(:final bytes, :final mimeType):
-          contentParts.add(g.DataPart(mimeType, bytes));
-        case LinkPart(:final url):
-          contentParts.add(g.FilePart(url));
-        case ToolPart():
-          // Tool parts in user messages are handled separately as tool results
-          break;
-      }
-    }
-
-    return g.Content.multi(contentParts);
+    return gl.Content(
+      parts: _mapParts(
+        message.parts,
+        includeToolCalls: false,
+        includeToolResults: true,
+      ),
+      role: 'user',
+    );
   }
 
-  g.Content _mapModelMessage(ChatMessage message) {
-    final contentParts = <g.Part>[];
-
-    // Add text parts
-    final textParts = message.parts.whereType<TextPart>();
+  gl.Content _mapModelMessage(ChatMessage message) {
     _logger.fine('Mapping model message with ${message.parts.length} parts');
-    for (final part in textParts) {
-      if (part.text.isNotEmpty) {
-        contentParts.add(g.TextPart(part.text));
-      }
-    }
-
-    // Add tool calls
-    final toolParts = message.parts.whereType<ToolPart>();
-    var toolCallCount = 0;
-    for (final part in toolParts) {
-      if (part.kind == ToolPartKind.call) {
-        // This is a tool call, not a result
-        contentParts.add(g.FunctionCall(part.name, part.arguments ?? {}));
-        toolCallCount++;
-      }
-    }
-    _logger.fine('Added $toolCallCount tool calls to model message');
-
-    return g.Content.model(contentParts);
+    return gl.Content(
+      parts: _mapParts(
+        message.parts,
+        includeToolCalls: true,
+        includeToolResults: false,
+      ),
+      role: 'model',
+    );
   }
 
-  /// Maps multiple tool result messages to a single
-  /// g.Content.functionResponses. This is required by Google's API - all
-  /// function responses must be grouped together
-  g.Content _mapToolResultMessages(List<ChatMessage> messages) {
-    final functionResponses = <g.FunctionResponse>[];
+  gl.Content _mapToolResultMessages(List<ChatMessage> messages) {
+    final parts = <gl.Part>[];
     _logger.fine(
-      'Mapping ${messages.length} tool result messages to Google function '
-      'responses',
+      'Creating function responses for ${messages.length} tool result '
+      'messages',
     );
 
     for (final message in messages) {
-      for (final part in message.parts) {
-        if (part is ToolPart && part.kind == ToolPartKind.result) {
-          // Google's FunctionResponse requires a Map<String, Object?>
-          // If the result is already a Map, use it directly
-          // Otherwise, wrap it in a Map with a "result" key
-          // ignore: avoid_dynamic_calls
-          final response = ToolResultHelpers.ensureMap(part.result);
+      parts.addAll(
+        _mapParts(
+          message.parts,
+          includeToolCalls: false,
+          includeToolResults: true,
+        ),
+      );
+    }
 
-          // Extract the original function name from our generated ID
-          final functionName =
-              ToolIdHelpers.extractToolNameFromId(part.id) ?? part.name;
-          _logger.fine('Creating function response for tool: $functionName');
+    return gl.Content(parts: parts, role: 'user');
+  }
 
-          functionResponses.add(g.FunctionResponse(functionName, response));
-        }
+  List<gl.Part> _mapParts(
+    Iterable<Part> parts, {
+    required bool includeToolCalls,
+    required bool includeToolResults,
+  }) {
+    final mappedParts = <gl.Part>[];
+
+    for (final part in parts) {
+      switch (part) {
+        case TextPart(:final text):
+          if (text.isNotEmpty) mappedParts.add(gl.Part(text: text));
+        case DataPart(:final bytes, :final mimeType):
+          mappedParts.add(
+            gl.Part(
+              inlineData: gl.Blob(mimeType: mimeType, data: bytes),
+            ),
+          );
+        case LinkPart(:final url, :final mimeType):
+          mappedParts.add(
+            gl.Part(
+              fileData: gl.FileData(
+                fileUri: url.toString(),
+                mimeType: mimeType,
+              ),
+            ),
+          );
+        case ToolPart(:final kind):
+          if (includeToolCalls && kind == ToolPartKind.call) {
+            mappedParts.add(_mapToolCallPart(part));
+          } else if (includeToolResults && kind == ToolPartKind.result) {
+            mappedParts.add(_mapToolResultPart(part));
+          }
+        default:
+          break;
       }
     }
 
-    return g.Content.functionResponses(functionResponses);
+    return mappedParts;
+  }
+
+  gl.Part _mapToolCallPart(ToolPart part) {
+    final arguments = part.arguments ?? const <String, dynamic>{};
+    final callId = part.id.isNotEmpty
+        ? part.id
+        : ToolIdHelpers.generateToolCallId(
+            toolName: part.name,
+            providerHint: 'google',
+            arguments: arguments,
+          );
+
+    return gl.Part(
+      functionCall: gl.FunctionCall(
+        id: callId,
+        name: part.name,
+        args: ProtobufValueHelpers.structFromJson(arguments),
+      ),
+    );
+  }
+
+  gl.Part _mapToolResultPart(ToolPart part) {
+    final responseMap = ToolResultHelpers.ensureMap(part.result);
+    _logger.fine('Creating function response for tool: ${part.name}');
+
+    final responseId = part.id.isNotEmpty
+        ? part.id
+        : ToolIdHelpers.generateToolCallId(
+            toolName: part.name,
+            providerHint: 'google',
+            arguments: responseMap,
+          );
+
+    return gl.Part(
+      functionResponse: gl.FunctionResponse(
+        id: responseId,
+        name: part.name,
+        response: ProtobufValueHelpers.structFromJson(responseMap),
+      ),
+    );
   }
 }
 
-/// Extension on [g.GenerateContentResponse] to convert to [ChatResult].
-extension GenerateContentResponseMapper on g.GenerateContentResponse {
-  /// Converts this [g.GenerateContentResponse] to a [ChatResult].
+/// Extension on [gl.GenerateContentResponse] to convert to [ChatResult].
+extension GenerateContentResponseMapper on gl.GenerateContentResponse {
+  /// Converts this [gl.GenerateContentResponse] to a [ChatResult].
   ChatResult<ChatMessage> toChatResult(String model) {
-    final candidate = candidates.first;
-    final parts = <Part>[];
-    _logger.fine('Converting Google response to ChatResult: model=$model');
+    final candidateList = candidates;
+    if (candidateList == null || candidateList.isEmpty) {
+      throw StateError('Google response did not contain any candidates.');
+    }
 
-    // Process all parts from the response
+    final candidate = candidateList.first;
+    final parts = <Part>[];
+    final executableCodeParts = <gl.ExecutableCode>[];
+    final executionResults = <gl.CodeExecutionResult>[];
+
+    final contentParts = candidate.content?.parts ?? const <gl.Part>[];
     _logger.fine(
-      'Processing ${candidate.content.parts.length} parts from Google response',
+      'Processing ${contentParts.length} parts from Google response',
     );
-    for (final part in candidate.content.parts) {
-      switch (part) {
-        case g.TextPart(:final text):
-          if (text.isNotEmpty) {
-            parts.add(TextPart(text));
-          }
-        case g.DataPart(:final mimeType, :final bytes):
-          parts.add(DataPart(bytes, mimeType: mimeType));
-        case g.FilePart(:final uri):
-          parts.add(LinkPart(uri));
-        case g.FunctionCall(:final name, :final args):
-          _logger.fine('Processing function call: $name');
-          // Generate a unique ID for this tool call
-          final toolId = ToolIdHelpers.generateToolCallId(
-            toolName: name,
-            providerHint: 'google',
+
+    for (final part in contentParts) {
+      final text = part.text;
+      if (text != null && text.isNotEmpty) {
+        parts.add(TextPart(text));
+      }
+
+      final blob = part.inlineData;
+      final blobData = blob?.data;
+      if (blob != null && blobData != null) {
+        parts.add(
+          DataPart(
+            blobData,
+            mimeType: blob.mimeType ?? 'application/octet-stream',
+          ),
+        );
+      }
+
+      final fileData = part.fileData;
+      if (fileData != null && fileData.fileUri != null) {
+        parts.add(
+          LinkPart(Uri.parse(fileData.fileUri!), mimeType: fileData.mimeType),
+        );
+      }
+
+      final functionCall = part.functionCall;
+      if (functionCall != null) {
+        final args = ProtobufValueHelpers.structToJson(functionCall.args);
+        final callId = (functionCall.id != null && functionCall.id!.isNotEmpty)
+            ? functionCall.id!
+            : ToolIdHelpers.generateToolCallId(
+                toolName: functionCall.name ?? 'tool',
+                providerHint: 'google',
+                arguments: args,
+              );
+        parts.add(
+          ToolPart.call(
+            id: callId,
+            name: functionCall.name ?? 'tool',
             arguments: args,
-          );
-          parts.add(ToolPart.call(id: toolId, name: name, arguments: args));
-        case g.FunctionResponse():
-          // Function responses shouldn't appear in model output
-          break;
-        case g.ExecutableCode():
-          // Could map to a custom part type in the future
-          break;
-        case g.CodeExecutionResult():
-          // Could map to a custom part type in the future
-          break;
+          ),
+        );
+      }
+
+      final functionResponse = part.functionResponse;
+      if (functionResponse != null) {
+        final responseMap = ProtobufValueHelpers.structToJson(
+          functionResponse.response,
+        );
+        final responseId =
+            (functionResponse.id != null && functionResponse.id!.isNotEmpty)
+            ? functionResponse.id!
+            : ToolIdHelpers.generateToolCallId(
+                toolName: functionResponse.name ?? 'tool',
+                providerHint: 'google',
+                arguments: responseMap,
+              );
+        parts.add(
+          ToolPart.result(
+            id: responseId,
+            name: functionResponse.name ?? 'tool',
+            result: responseMap,
+          ),
+        );
+      }
+
+      final executableCode = part.executableCode;
+      if (executableCode != null) {
+        executableCodeParts.add(executableCode);
+      }
+
+      final executionResult = part.codeExecutionResult;
+      if (executionResult != null) {
+        executionResults.add(executionResult);
       }
     }
 
     final message = ChatMessage(role: ChatMessageRole.model, parts: parts);
 
+    final metadata = <String, dynamic>{
+      'model': model,
+      if (modelVersion != null) 'model_version': modelVersion,
+    };
+
+    final blockReason = promptFeedback?.blockReason?.value;
+    if (blockReason != null) {
+      metadata['block_reason'] = blockReason;
+    }
+
+    final safetyRatings = candidate.safetyRatings
+        ?.map(
+          (rating) => {
+            'category': rating.category?.value,
+            'probability': rating.probability?.value,
+          },
+        )
+        .toList(growable: false);
+    if (safetyRatings != null && safetyRatings.isNotEmpty) {
+      metadata['safety_ratings'] = safetyRatings;
+    }
+
+    final citations = candidate.citationMetadata?.citationSources
+        ?.map(
+          (s) => {
+            'start_index': s.startIndex,
+            'end_index': s.endIndex,
+            'uri': s.uri,
+            'license': s.license,
+          },
+        )
+        .toList(growable: false);
+    if (citations != null && citations.isNotEmpty) {
+      metadata['citation_metadata'] = citations;
+    }
+
+    if (executableCodeParts.isNotEmpty) {
+      metadata['executable_code'] = executableCodeParts
+          .map((code) => code.toJson())
+          .toList(growable: false);
+    }
+    if (executionResults.isNotEmpty) {
+      metadata['code_execution_result'] = executionResults
+          .map((result) => result.toJson())
+          .toList(growable: false);
+    }
+
+    metadata.removeWhere(
+      (_, value) => value == null || (value is List && value.isEmpty),
+    );
+
     return ChatResult<ChatMessage>(
       output: message,
       messages: [message],
       finishReason: _mapFinishReason(candidate.finishReason),
-      metadata: {
-        'model': model,
-        'block_reason': promptFeedback?.blockReason?.name,
-        'block_reason_message': promptFeedback?.blockReasonMessage,
-        'safety_ratings': candidate.safetyRatings
-            ?.map(
-              (r) => {
-                'category': r.category.name,
-                'probability': r.probability.name,
-              },
+      metadata: metadata,
+      usage: usageMetadata != null
+          ? LanguageModelUsage(
+              promptTokens: usageMetadata?.promptTokenCount,
+              responseTokens: usageMetadata?.candidatesTokenCount,
+              totalTokens: usageMetadata?.totalTokenCount,
             )
-            .toList(growable: false),
-        'citation_metadata': candidate.citationMetadata?.citationSources
-            .map(
-              (s) => {
-                'start_index': s.startIndex,
-                'end_index': s.endIndex,
-                'uri': s.uri.toString(),
-                'license': s.license,
-              },
-            )
-            .toList(growable: false),
-        'finish_message': candidate.finishMessage,
-        'executable_code': candidate.content.parts
-            .whereType<g.ExecutableCode>()
-            .map((code) => code.toJson())
-            .toList(growable: false),
-        'code_execution_result': candidate.content.parts
-            .whereType<g.CodeExecutionResult>()
-            .map((result) => result.toJson())
-            .toList(growable: false),
-      },
-      usage: LanguageModelUsage(
-        promptTokens: usageMetadata?.promptTokenCount,
-        responseTokens: usageMetadata?.candidatesTokenCount,
-        totalTokens: usageMetadata?.totalTokenCount,
-      ),
+          : null,
     );
   }
 
-  FinishReason _mapFinishReason(g.FinishReason? reason) => switch (reason) {
-    g.FinishReason.unspecified => FinishReason.unspecified,
-    g.FinishReason.stop => FinishReason.stop,
-    g.FinishReason.maxTokens => FinishReason.length,
-    g.FinishReason.safety => FinishReason.contentFilter,
-    g.FinishReason.recitation => FinishReason.recitation,
-    g.FinishReason.other => FinishReason.unspecified,
-    null => FinishReason.unspecified,
-  };
+  FinishReason _mapFinishReason(gl.Candidate_FinishReason? reason) {
+    switch (reason) {
+      case gl.Candidate_FinishReason.stop:
+        return FinishReason.stop;
+      case gl.Candidate_FinishReason.maxTokens:
+        return FinishReason.length;
+      case gl.Candidate_FinishReason.safety ||
+          gl.Candidate_FinishReason.blocklist ||
+          gl.Candidate_FinishReason.prohibitedContent ||
+          gl.Candidate_FinishReason.imageSafety ||
+          gl.Candidate_FinishReason.spii:
+        return FinishReason.contentFilter;
+      case gl.Candidate_FinishReason.recitation:
+        return FinishReason.recitation;
+      case gl.Candidate_FinishReason.malformedFunctionCall:
+        return FinishReason.unspecified;
+      case gl.Candidate_FinishReason.language ||
+          gl.Candidate_FinishReason.other ||
+          gl.Candidate_FinishReason.finishReasonUnspecified ||
+          null:
+        return FinishReason.unspecified;
+    }
+    return FinishReason.unspecified;
+  }
 }
 
 /// Extension on [List<ChatGoogleGenerativeAISafetySetting>] to convert to
-/// Google SDK safety settings.
+/// Gemini safety settings.
 extension SafetySettingsMapper on List<ChatGoogleGenerativeAISafetySetting> {
-  /// Converts this list of [ChatGoogleGenerativeAISafetySetting]s to a list of
-  /// [g.SafetySetting]s.
-  List<g.SafetySetting> toSafetySettings() {
+  /// Converts this list of safety settings to [gl.SafetySetting]s.
+  List<gl.SafetySetting> toSafetySettings() {
     _logger.fine('Converting $length safety settings to Google format');
     return map(
-      (setting) => g.SafetySetting(
-        switch (setting.category) {
+      (setting) => gl.SafetySetting(
+        category: switch (setting.category) {
           ChatGoogleGenerativeAISafetySettingCategory.unspecified =>
-            g.HarmCategory.unspecified,
+            gl.HarmCategory.harmCategoryUnspecified,
           ChatGoogleGenerativeAISafetySettingCategory.harassment =>
-            g.HarmCategory.harassment,
+            gl.HarmCategory.harmCategoryHarassment,
           ChatGoogleGenerativeAISafetySettingCategory.hateSpeech =>
-            g.HarmCategory.hateSpeech,
+            gl.HarmCategory.harmCategoryHateSpeech,
           ChatGoogleGenerativeAISafetySettingCategory.sexuallyExplicit =>
-            g.HarmCategory.sexuallyExplicit,
+            gl.HarmCategory.harmCategorySexuallyExplicit,
           ChatGoogleGenerativeAISafetySettingCategory.dangerousContent =>
-            g.HarmCategory.dangerousContent,
+            gl.HarmCategory.harmCategoryDangerousContent,
         },
-        switch (setting.threshold) {
+        threshold: switch (setting.threshold) {
           ChatGoogleGenerativeAISafetySettingThreshold.unspecified =>
-            g.HarmBlockThreshold.unspecified,
+            gl.SafetySetting_HarmBlockThreshold.harmBlockThresholdUnspecified,
           ChatGoogleGenerativeAISafetySettingThreshold.blockLowAndAbove =>
-            g.HarmBlockThreshold.low,
+            gl.SafetySetting_HarmBlockThreshold.blockLowAndAbove,
           ChatGoogleGenerativeAISafetySettingThreshold.blockMediumAndAbove =>
-            g.HarmBlockThreshold.medium,
+            gl.SafetySetting_HarmBlockThreshold.blockMediumAndAbove,
           ChatGoogleGenerativeAISafetySettingThreshold.blockOnlyHigh =>
-            g.HarmBlockThreshold.high,
+            gl.SafetySetting_HarmBlockThreshold.blockOnlyHigh,
           ChatGoogleGenerativeAISafetySettingThreshold.blockNone =>
-            g.HarmBlockThreshold.none,
+            gl.SafetySetting_HarmBlockThreshold.blockNone,
         },
       ),
     ).toList(growable: false);
   }
 }
 
-/// Extension on [List<Tool>?] to convert to Google SDK tool list.
+/// Extension on [List<Tool>?] to convert to Gemini tools.
 extension ChatToolListMapper on List<Tool>? {
-  /// Converts this list of [Tool]s to a list of [g.Tool]s, optionally
-  /// enabling code execution.
-  List<g.Tool>? toToolList({required bool enableCodeExecution}) {
+  /// Converts this list of [Tool]s to a list of [gl.Tool]s, optionally enabling
+  /// code execution.
+  List<gl.Tool>? toToolList({required bool enableCodeExecution}) {
     final hasTools = this != null && this!.isNotEmpty;
     _logger.fine(
       'Converting tools to Google format: hasTools=$hasTools, '
       'enableCodeExecution=$enableCodeExecution, '
       'toolCount=${this?.length ?? 0}',
     );
-    if (!hasTools && !enableCodeExecution) {
-      return null;
-    }
+
     final functionDeclarations = hasTools
         ? this!
               .map(
-                (tool) => g.FunctionDeclaration(
-                  tool.name,
-                  tool.description,
-                  Map<String, dynamic>.from(
-                    tool.inputSchema.schemaMap ?? {},
-                  ).toSchema(),
+                (tool) => gl.FunctionDeclaration(
+                  name: tool.name,
+                  description: tool.description,
+                  parameters: tool.inputSchema.schemaMap != null
+                      ? GoogleSchemaHelpers.schemaFromJson(
+                          Map<String, dynamic>.from(
+                            tool.inputSchema.schemaMap!,
+                          ),
+                        )
+                      : null,
                 ),
               )
               .toList(growable: false)
         : null;
-    final codeExecution = enableCodeExecution ? g.CodeExecution() : null;
+
+    final codeExecution = enableCodeExecution ? gl.CodeExecution() : null;
+
     if ((functionDeclarations == null || functionDeclarations.isEmpty) &&
         codeExecution == null) {
       return null;
     }
+
     return [
-      g.Tool(
+      gl.Tool(
         functionDeclarations: functionDeclarations,
         codeExecution: codeExecution,
       ),
@@ -348,83 +469,9 @@ extension ChatToolListMapper on List<Tool>? {
   }
 }
 
-/// Extension on [Map<String, dynamic>] to convert to Google SDK schema.
-extension SchemaMapper on Map<String, dynamic> {
-  /// Converts this map to a [g.Schema].
-  g.Schema toSchema() {
-    final jsonSchema = this;
-    final type = jsonSchema['type'] as String;
-    final description = jsonSchema['description'] as String?;
-    _logger.fine('Converting schema to Google format: type=$type');
-    final nullable = jsonSchema['nullable'] as bool?;
-    final enumValues = (jsonSchema['enum'] as List?)?.cast<String>();
-    final format = jsonSchema['format'] as String?;
-    final items = jsonSchema['items'] != null
-        ? Map<String, dynamic>.from(jsonSchema['items'] as Map)
-        : null;
-    final properties = jsonSchema['properties'] != null
-        ? Map<String, dynamic>.from(jsonSchema['properties'] as Map)
-        : null;
-    final requiredProperties = (jsonSchema['required'] as List?)
-        ?.cast<String>();
-
-    switch (type) {
-      case 'string':
-        if (enumValues != null) {
-          return g.Schema.enumString(
-            enumValues: enumValues,
-            description: description,
-            nullable: nullable,
-          );
-        } else {
-          return g.Schema.string(description: description, nullable: nullable);
-        }
-      case 'number':
-        return g.Schema.number(
-          description: description,
-          nullable: nullable,
-          format: format,
-        );
-      case 'integer':
-        return g.Schema.integer(
-          description: description,
-          nullable: nullable,
-          format: format,
-        );
-      case 'boolean':
-        return g.Schema.boolean(description: description, nullable: nullable);
-      case 'array':
-        if (items != null) {
-          final itemsSchema = items.toSchema();
-          _logger.fine('Converting array schema with items');
-          return g.Schema.array(
-            items: itemsSchema,
-            description: description,
-            nullable: nullable,
-          );
-        }
-        throw ArgumentError('Array schema must have "items" property');
-      case 'object':
-        if (properties != null) {
-          final propertiesSchema = properties.map(
-            (key, value) => MapEntry(
-              key,
-              Map<String, dynamic>.from(value as Map).toSchema(),
-            ),
-          );
-          _logger.fine(
-            'Converting object schema with ${properties.length} properties',
-          );
-          return g.Schema.object(
-            properties: propertiesSchema,
-            requiredProperties: requiredProperties,
-            description: description,
-            nullable: nullable,
-          );
-        }
-        throw ArgumentError('Object schema must have "properties" property');
-      default:
-        throw ArgumentError('Invalid schema type: $type');
-    }
-  }
+/// Extension on [Map<String, dynamic>] to convert to a Gemini [gl.Schema].
+extension GoogleSchemaMapper on Map<String, dynamic> {
+  /// Converts this map to a [gl.Schema].
+  gl.Schema toGoogleSchema() =>
+      GoogleSchemaHelpers.schemaFromJson(Map<String, dynamic>.from(this));
 }

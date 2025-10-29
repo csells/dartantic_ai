@@ -11,7 +11,7 @@ Out of the box support for 11 providers, with more to come.
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
 | **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
-| **Anthropic** | `claude-3-5-sonnet-20241022` | - | Chat, Vision, Tools, Streaming | No embeddings |
+| **Anthropic** | `claude-sonnet-4-0` | - | Chat, Vision, Tools, Streaming | No embeddings |
 | **Google** | `gemini-2.0-flash-exp` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
@@ -109,8 +109,32 @@ if (provider.caps.contains(ProviderCaps.embeddings)) {
 - **`toolCalls`** - Function calling
 - **`multiToolCalls`** - Multiple tool calls
 - **`streaming`** - Stream responses
-- **`typedOutput`** - Structured output
+- **`typedOutput`** - Structured JSON output
+- **`typedOutputWithTools`** - Structured output combined with tool calls
 - **`thinking`** - Provider streams reasoning metadata (e.g. OpenAI Responses)
+
+### Typed Output With Tools
+
+The `typedOutputWithTools` capability indicates a provider can handle both
+function calling and structured JSON output in the same request:
+
+| Provider | Support | Implementation |
+|----------|---------|----------------|
+| OpenAI | ✅ | Native `response_format` |
+| Anthropic | ✅ | `return_result` tool |
+| Google | ✅ | Double agent orchestrator |
+| Together AI | ✅ | OpenAI-compatible |
+| OpenRouter | ✅ | OpenAI-compatible |
+| Ollama | ❌ | Coming soon |
+| Cohere | ❌ | API limitation |
+
+**Anthropic's approach** uses the `return_result` tool pattern. This is a
+special tool that allows the model to return a structured JSON response. This
+is handled automatically by the Anthropic provider.
+
+**Google's approach** uses a transparent two-phase workflow: Phase 1 executes
+tools, Phase 2 requests structured output. This is handled automatically by the
+Google provider.
 
 ## List Models
 
@@ -130,6 +154,9 @@ await for (final model in provider.listModels()) {
 
 ## Examples
 
-- [List all provider models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/provider_models.dart)
-- [Multi-provider conversations](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
-- [Custom providers](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
+- [List all provider
+  models](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/provider_models.dart)
+- [Multi-provider
+  conversations](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_provider.dart)
+- [Custom
+  providers](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)

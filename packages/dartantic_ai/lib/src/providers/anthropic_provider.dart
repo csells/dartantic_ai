@@ -2,15 +2,21 @@ import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
+import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
+import '../agent/orchestrators/default_streaming_orchestrator.dart';
+import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/anthropic_chat/anthropic_chat.dart';
+import '../chat_models/anthropic_chat/anthropic_typed_output_orchestrator.dart';
 import '../chat_models/chat_utils.dart';
 import '../platform/platform.dart';
+import 'chat_orchestrator_provider.dart';
 
 /// Provider for Anthropic Claude native API.
 class AnthropicProvider
-    extends Provider<AnthropicChatOptions, EmbeddingsModelOptions> {
+    extends Provider<AnthropicChatOptions, EmbeddingsModelOptions>
+    implements ChatOrchestratorProvider {
   /// Creates a new Anthropic provider instance.
   ///
   /// [apiKey]: The API key to use for the Anthropic API.
@@ -23,7 +29,7 @@ class AnthropicProvider
         apiKeyName: defaultApiKeyName,
         name: 'anthropic',
         displayName: 'Anthropic',
-        defaultModelNames: {ModelKind.chat: 'claude-3-5-sonnet-20241022'},
+        defaultModelNames: {ModelKind.chat: 'claude-sonnet-4-0'},
         caps: {
           ProviderCaps.chat,
           ProviderCaps.multiToolCalls,
@@ -122,5 +128,53 @@ class AnthropicProvider
         extra: extra,
       );
     }
+  }
+
+  /// The name of the return_result tool.
+  static const kAnthropicReturnResultTool = 'return_result';
+
+  @override
+  (StreamingOrchestrator, List<Tool>?) getChatOrchestratorAndTools({
+    required JsonSchema? outputSchema,
+    required List<Tool>? tools,
+  }) => (
+    outputSchema == null
+        ? const DefaultStreamingOrchestrator()
+        : const AnthropicTypedOutputOrchestrator(),
+    _toolsToUse(outputSchema: outputSchema, tools: tools),
+  );
+
+  // If outputSchema is provided, add the return_result tool to the tools list
+  // otherwise return the tools list unchanged. The return_result tool is
+  // required for typed output and it's what the orchestrator will use to
+  // return the final result.
+  static List<Tool>? _toolsToUse({
+    required JsonSchema? outputSchema,
+    required List<Tool>? tools,
+  }) {
+    if (outputSchema == null) return tools;
+
+    // Check for tool name collision
+    if (tools?.any((t) => t.name == kAnthropicReturnResultTool) ?? false) {
+      throw ArgumentError(
+        'Tool name "$kAnthropicReturnResultTool" is reserved by '
+        'Anthropic provider for typed output. '
+        'Please use a different tool name.',
+      );
+    }
+
+    return [
+      ...?tools,
+      Tool<Map<String, dynamic>>(
+        name: kAnthropicReturnResultTool,
+        description:
+            'REQUIRED: You MUST call this tool to return the final result. '
+            'Use this tool to format and return your response according to '
+            'the specified JSON schema. Call this after gathering any '
+            'necessary information from other tools.',
+        inputSchema: outputSchema,
+        onCall: (input) async => input,
+      ),
+    ];
   }
 }

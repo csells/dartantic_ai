@@ -464,3 +464,168 @@ final result = await agent.send('Hello');
 // Test embeddings
 final embed = await agent.embedQuery('test');
 ```
+
+## Custom Orchestrators for Provider Limitations
+
+Some providers have API limitations that require custom orchestration logic. The `ChatOrchestratorProvider` interface allows providers to supply their own orchestrators based on the request context.
+
+### When to Use Custom Orchestrators
+
+Use a custom orchestrator when:
+1. **API Limitations**: Provider doesn't support certain combinations of features (e.g., tools + typed output)
+2. **Special Workflows**: Provider requires multi-step workflows for certain capabilities
+3. **Optimization**: Provider-specific patterns can be optimized for better performance
+
+### Implementing ChatOrchestratorProvider
+
+```dart
+import 'package:json_schema/json_schema.dart';
+import '../agent/orchestrators/streaming_orchestrator.dart';
+import '../agent/orchestrators/default_streaming_orchestrator.dart';
+import 'chat_orchestrator_provider.dart';
+
+class GoogleProvider extends Provider<GoogleChatModelOptions, GoogleEmbeddingsModelOptions>
+    implements ChatOrchestratorProvider {
+  // ... existing provider code ...
+
+  @override
+  (StreamingOrchestrator, List<Tool>?) getChatOrchestratorAndTools({
+    required JsonSchema? outputSchema,
+    required List<Tool>? tools,
+  }) {
+    final hasTools = tools != null && tools.isNotEmpty;
+
+    if (outputSchema != null && hasTools) {
+      // Use custom orchestrator for tools + typed output
+      // Note: Not const because orchestrator has mutable state
+      return (GoogleDoubleAgentOrchestrator(), tools);
+    }
+
+    // Standard cases use default orchestrator
+    return (const DefaultStreamingOrchestrator(), tools);
+  }
+}
+```
+
+### Example: Google Double Agent Pattern
+
+Google's API doesn't support using tools and `outputSchema` simultaneously. The `GoogleDoubleAgentOrchestrator` works around this with a two-phase approach:
+
+**Phase 1 - Tool Execution:**
+- Send request with tools (no outputSchema)
+- Suppress text output (only care about tool calls)
+- Execute all tool calls
+- Accumulate tool results
+
+**Phase 2 - Structured Output:**
+- Send tool results with outputSchema (no tools)
+- Return structured JSON output
+- Attach metadata about suppressed content from Phase 1
+
+```dart
+class GoogleDoubleAgentOrchestrator extends DefaultStreamingOrchestrator {
+  // Instance state is safe - each request gets new orchestrator instance
+  bool _isPhase1 = true;
+
+  @override
+  String get providerHint => 'google-double-agent';
+
+  @override
+  void initialize(StreamingState state) {
+    super.initialize(state);
+    _isPhase1 = true;
+  }
+
+  @override
+  Stream<StreamingIterationResult> processIteration(
+    ChatModel<ChatModelOptions> model,
+    StreamingState state, {
+    JsonSchema? outputSchema,
+  }) async* {
+    if (_isPhase1) {
+      // Phase 1: Execute tools
+      yield* _executePhase1(model, state);
+
+      // Transition to Phase 2
+      if (!_isPhase1) {
+        yield* processIteration(model, state, outputSchema: outputSchema);
+      }
+    } else {
+      // Phase 2: Get structured output
+      yield* _executePhase2(model, state, outputSchema);
+    }
+  }
+
+  @override
+  bool allowTextStreaming(
+    StreamingState state,
+    ChatResult<ChatMessage> result,
+  ) => !_isPhase1; // Only stream text in Phase 2
+}
+```
+
+### Model Behavior Changes
+
+When implementing a double agent pattern, the model's `sendStream()` method needs to conditionally exclude tools when `outputSchema` is present:
+
+```dart
+@override
+Stream<ChatResult<ChatMessage>> sendStream(
+  List<ChatMessage> messages, {
+  GoogleChatModelOptions? options,
+  JsonSchema? outputSchema,
+}) {
+  final request = _buildRequest(
+    messages,
+    options: options,
+    outputSchema: outputSchema,
+  );
+
+  // ... streaming implementation
+}
+
+gl.GenerateContentRequest _buildRequest(
+  List<ChatMessage> messages, {
+  GoogleChatModelOptions? options,
+  JsonSchema? outputSchema,
+}) {
+  // Google doesn't support tools + outputSchema simultaneously.
+  // When outputSchema is provided, exclude tools (double agent phase 2).
+  final toolsToSend = outputSchema != null
+      ? const <Tool>[]
+      : (tools ?? const <Tool>[]);
+
+  return gl.GenerateContentRequest(
+    model: normalizedModel,
+    systemInstruction: _extractSystemInstruction(messages),
+    contents: contents,
+    generationConfig: generationConfig,
+    tools: toolsToSend.toToolList(
+      enableCodeExecution: enableCodeExecution,
+    ),
+  );
+}
+```
+
+### Key Implementation Notes
+
+1. **Instance State**: Custom orchestrators can have mutable instance variables because each request gets a new orchestrator instance
+2. **Metadata Preservation**: Use `StreamingState.addSuppressedTextParts()` and `addSuppressedMetadata()` to track suppressed content
+3. **Tool Result Consolidation**: Phase 1 executes tools and adds results to history before Phase 2
+4. **Text Suppression**: Override `allowTextStreaming()` to control when text is streamed to the user
+5. **Clean Separation**: The orchestrator handles workflow logic; the model handles API communication
+
+### Provider Capabilities
+
+When implementing a double agent pattern, declare the appropriate capability:
+
+```dart
+caps: {
+  ProviderCaps.chat,
+  ProviderCaps.tools,
+  ProviderCaps.typedOutput,
+  ProviderCaps.typedOutputWithTools, // Declare this capability
+},
+```
+
+This ensures the provider is included in tests that verify tools + typed output functionality.
