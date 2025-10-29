@@ -89,7 +89,7 @@ flowchart TD
 | Provider   | Chat Default                             | Embeddings Default          |
 | ---------- | ---------------------------------------- | --------------------------- |
 | OpenAI     | `gpt-4o`                                 | `text-embedding-3-small`    |
-| Anthropic  | `claude-3-5-sonnet-20241022`             | N/A (no embeddings)         |
+| Anthropic  | `claude-sonnet-4-0`                      | N/A (no embeddings)         |
 | Google     | `gemini-2.0-flash`                       | `models/text-embedding-004` |
 | Mistral    | `mistral-7b-instruct`                    | `mistral-embed`             |
 | Cohere     | `command-r-plus`                         | `embed-v4.0`                |

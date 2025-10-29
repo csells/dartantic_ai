@@ -29,7 +29,7 @@ class AnthropicProvider
         apiKeyName: defaultApiKeyName,
         name: 'anthropic',
         displayName: 'Anthropic',
-        defaultModelNames: {ModelKind.chat: 'claude-3-5-sonnet-20241022'},
+        defaultModelNames: {ModelKind.chat: 'claude-sonnet-4-0'},
         caps: {
           ProviderCaps.chat,
           ProviderCaps.multiToolCalls,

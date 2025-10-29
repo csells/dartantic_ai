@@ -178,8 +178,8 @@ void main() {
         final agent2 = Agent('openai:gpt-4o');
         expect(agent2.model, contains('gpt-4o'));
 
-        final agent3 = Agent('anthropic:claude-3-5-sonnet-20241022');
-        expect(agent3.model, contains('claude-3-5-sonnet-20241022'));
+        final agent3 = Agent('anthropic:claude-sonnet-4-0');
+        expect(agent3.model, contains('claude-sonnet-4-0'));
       });
 
       test('default model names follow conventions', () {

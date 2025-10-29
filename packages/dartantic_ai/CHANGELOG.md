@@ -3,7 +3,10 @@
 Another big release!
 - Migrated Google provider from deprecated `google_generative_ai` to generated
   `google_cloud_ai_generativelanguage_v1beta` package. This is an internal
-  implementation change with no API surface changes for users.
+  implementation change with no API surface changes for users. However, it does
+  fix some response formatting issues the deprecated package was having as the
+  underlying API changed; it's so nice to be using the Google-supported package
+  again!
 - Internal chat orchestration rearchitecture to simplify Agent and chat model
   implementations and to focus per-provider orchestration on individual
   providers.
@@ -20,6 +23,8 @@ Another big release!
   if it ever says it doesn't, that's a bug.
 - Used the updated `openai_core` package to refactor `OpenAIResponsesChatModel`
   to eliminate workaround for retrieving container file names. 
+- Updated the default Anthropic model to `claude-sonnet-4-0`, although of course
+  you can use whichever model you want.
 - Fixed the `homepage` tag in the `pubspec.yaml`.
 - Added [llms.txt](https://docs.dartantic.ai/llms.txt) and
   [llms-full.txt](https://docs.dartantic.ai/llms-full.txt) for LLM readers.
