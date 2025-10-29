@@ -1,18 +1,12 @@
 ## 1.3.0
 
 - **Ollama Typed Output Support**: Ollama now supports JSON schema natively
-  through the updated `ollama_dart` package, e.g.
-  ```dart
-  final agent = Agent('ollama:qwen2.5:7b-instruct');
-  final result = await agent.sendFor<Person>(
-    'Generate a person named Jane',
-    outputSchema: personSchema,
-    outputFromJson: Person.fromJson,
-  );
-  ```
+  through the updated `ollama_dart` package.
 - **Mistral Usage Tracking**: The updated `mistralai_dart` package now includes
   the usage field natively in `ChatCompletionStreamResponse`, providing accurate
   token counts for prompt, response, and totals.
+- **Cohere Multi-Tool Calling Disabled**: Removed `ProviderCaps.multiToolCalls`
+  from Cohere due to a bug in their OpenAI-compatible API wrt to toolcall IDs.
 
 ## 1.2.0
 
