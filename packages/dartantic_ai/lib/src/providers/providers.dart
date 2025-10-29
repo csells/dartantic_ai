@@ -60,7 +60,6 @@ class Providers {
   /// - Note: Tool support is disabled because Together's streaming API returns
   ///   tool calls in a custom format with `<|python_tag|>` prefix instead of
   ///   the standard OpenAI tool_calls format while streaming.
-  /// - TODO: perhaps move to non-streaming?
   static OpenAIProvider get together => _together ??= OpenAIProvider(
     name: 'together',
     displayName: 'Together AI',
