@@ -26,10 +26,12 @@ o.GenerateChatCompletionRequest generateChatCompletionRequest(
     'Creating Ollama chat completion request for model: $modelName '
     'with ${messages.length} messages',
   );
-  // Use native Ollama format parameter for structured output Note: When
-  // outputSchema is provided, the caller handles schema directly via HTTP
+
+  // Use native Ollama format parameter for structured output
   final format = outputSchema != null
-      ? null // Schema handled separately via direct HTTP
+      ? o.GenerateChatCompletionRequestFormat.schema(
+          Map<String, dynamic>.from(outputSchema.schemaMap ?? {}),
+        )
       : options?.format ?? defaultOptions.format;
 
   return o.GenerateChatCompletionRequest(

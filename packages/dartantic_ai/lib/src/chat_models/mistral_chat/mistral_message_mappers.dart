@@ -123,7 +123,19 @@ extension CreateChatCompletionStreamResponseMapper
       messages: [message],
       finishReason: _mapFinishReason(choice.finishReason),
       metadata: {'model': model, 'created': created},
-      usage: null,
+      usage: usage != null ? _mapUsage(usage!) : null,
+    );
+  }
+
+  LanguageModelUsage _mapUsage(ChatCompletionUsage usage) {
+    _logger.fine(
+      'Mapping stream usage: prompt=${usage.promptTokens}, '
+      'response=${usage.completionTokens}, total=${usage.totalTokens}',
+    );
+    return LanguageModelUsage(
+      promptTokens: usage.promptTokens,
+      responseTokens: usage.completionTokens,
+      totalTokens: usage.totalTokens,
     );
   }
 }
