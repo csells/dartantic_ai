@@ -27,7 +27,11 @@ class CohereProvider extends OpenAIProvider {
         caps: {
           ProviderCaps.chat,
           ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
+          // Note: multiToolCalls disabled due to Cohere API bug.
+          // Cohere's OpenAI-compatible endpoint generates non-unique tool IDs
+          // (e.g., "tool_name0") that collide across conversation turns,
+          // violating their own requirement that IDs be unique. This causes
+          // 400 errors in multi-turn tool calling scenarios.
           ProviderCaps.typedOutput,
         },
         baseUrl: cohereDefaultBaseUrl,
