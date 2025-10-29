@@ -300,6 +300,20 @@ Clean message semantics and transformations. See [[Message-Handling-Architecture
 - Tool result consolidation
 - Provider-specific mappers
 
+### 🧠 **Thinking (Extended Reasoning)**
+LLM reasoning transparency across providers. See [[Thinking]].
+- Streaming thinking deltas via metadata
+- Provider-specific configuration (OpenAI Responses, Anthropic)
+- Metadata-first design (thinking not sent to model)
+- Token budget controls
+
+### 🛠️ **Server-Side Tools**
+Provider-hosted capabilities with progress streaming. See [[Server-Side-Tools-Tech-Design]].
+- Web search, image generation, code interpreter
+- Streaming event metadata
+- Content deliverables as DataParts
+- Session persistence
+
 ### 📋 **Logging**
 Hierarchical, configurable logging. See [[Logging-Architecture]].
 - Simple configuration via `Agent.loggingOptions`
