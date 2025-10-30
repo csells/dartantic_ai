@@ -1,5 +1,9 @@
 ## 1.3.0
 
+- **Anthropic Extended Thinking Support**: Added support for Anthropic's
+  extended thinking (chain-of-thought reasoning) exposed in the same way as the
+  OpenAI Responses provider does, so you can write your code to look for
+  thinking output regardless of the provider.
 - **Ollama Typed Output Support**: Ollama now supports JSON schema natively
   through the updated `ollama_dart` package.
 - **Mistral Usage Tracking**: The updated `mistralai_dart` package now includes

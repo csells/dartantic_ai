@@ -38,17 +38,13 @@ print(result.output);
 
 ### Anthropic
 
-Enable thinking with explicit token budget control:
+Enable thinking with a simple boolean flag:
 
 ```dart
 final agent = Agent(
   'anthropic:claude-sonnet-4-5',
   chatModelOptions: const AnthropicChatOptions(
-    maxTokens: 16000,
-    thinking: ThinkingConfig.enabled(
-      type: ThinkingConfigEnabledType.enabled,
-      budgetTokens: 10000,  // Must be at least 1024 and less than maxTokens
-    ),
+    thinkingEnabled: true,  // Defaults to false
   ),
 );
 
@@ -60,6 +56,18 @@ if (thinking != null && thinking.isNotEmpty) {
 }
 print(result.output);
 ```
+
+You can optionally control the token budget:
+
+```dart
+AnthropicChatOptions(
+  thinkingEnabled: true,
+  thinkingBudgetTokens: 8192,  // Defaults to 4096
+)
+```
+
+Anthropic recommends starting with smaller budgets (4k-10k) and scaling up based
+on task complexity. The Anthropic SDK validates minimum/maximum constraints.
 
 ### Key Points
 

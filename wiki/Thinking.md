@@ -194,16 +194,11 @@ Anthropic's Messages API supports extended thinking through the `thinking` param
 
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart';
 
 final agent = Agent(
   'anthropic:claude-sonnet-4-5',
-  chatModelOptions: AnthropicChatOptions(
-    maxTokens: 16000,
-    thinking: ThinkingConfig.enabled(
-      type: ThinkingConfigEnabledType.enabled,
-      budgetTokens: 10000,  // Must be < maxTokens
-    ),
+  chatModelOptions: const AnthropicChatOptions(
+    thinkingEnabled: true,
   ),
 );
 ```
@@ -211,19 +206,19 @@ final agent = Agent(
 #### Thinking Configuration
 
 ```dart
-// Enable thinking with token budget
-ThinkingConfig.enabled(
-  type: ThinkingConfigEnabledType.enabled,
-  budgetTokens: 10000,  // Minimum: 1024, must be < maxTokens
+// Enable thinking with default budget (4096 tokens)
+AnthropicChatOptions(
+  thinkingEnabled: true,
+)
+
+// Enable with custom budget
+AnthropicChatOptions(
+  thinkingEnabled: true,
+  thinkingBudgetTokens: 8192,  // SDK validates constraints
 )
 
 // Disable thinking (default)
-ThinkingConfig.disabled(
-  type: ThinkingConfigDisabledType.disabled,
-)
-
-// Or simply omit the parameter
-AnthropicChatOptions()  // thinking defaults to null (disabled)
+AnthropicChatOptions()  // thinkingEnabled defaults to false
 ```
 
 #### Implementation Details
@@ -302,12 +297,13 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topP,
     this.stopSequences,
     this.userId,
-    this.thinking,  // NEW: Extended thinking configuration
+    this.thinkingEnabled = false,
+    this.thinkingBudgetTokens,
   });
 
   // ... existing fields ...
 
-  /// Configuration for Claude's extended thinking.
+  /// Enable Claude's extended thinking (chain-of-thought reasoning).
   ///
   /// When enabled, Claude shows its internal reasoning process before
   /// providing the final answer. Thinking content is exposed via:
@@ -320,18 +316,10 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// and sent back in subsequent turns. This is required by Anthropic's API
   /// to maintain proper context for multi-turn tool usage.
   ///
-  /// The `budgetTokens` parameter controls how many tokens Claude can use
-  /// for thinking. This must be at least 1,024 and less than `maxTokens`.
-  /// Larger budgets enable more comprehensive reasoning.
-  ///
   /// Example:
   /// ```dart
   /// AnthropicChatOptions(
-  ///   maxTokens: 16000,
-  ///   thinking: ThinkingConfig.enabled(
-  ///     type: ThinkingConfigEnabledType.enabled,
-  ///     budgetTokens: 10000,
-  ///   ),
+  ///   thinkingEnabled: true,
   /// )
   /// ```
   ///
@@ -341,7 +329,17 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// - Thinking blocks in conversation history also consume tokens
   ///
   /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-  final ThinkingConfig? thinking;
+  final bool thinkingEnabled;
+
+  /// Optional token budget for thinking (defaults to 4096).
+  ///
+  /// Controls how many tokens Claude can use for its internal reasoning.
+  /// Must be at least 1,024 and less than `maxTokens`.
+  /// Larger budgets enable more comprehensive reasoning.
+  ///
+  /// Anthropic recommends starting with lower values (4k-10k) and scaling up
+  /// based on task complexity. If not specified, defaults to 4096 tokens.
+  final int? thinkingBudgetTokens;
 }
 ```
 
@@ -374,7 +372,26 @@ a.CreateMessageRequest createMessageRequest(
     tools: structuredTools,
     toolChoice: hasTools ? const a.ToolChoice(type: a.ToolChoiceType.auto) : null,
     stream: true,
-    thinking: options?.thinking ?? defaultOptions.thinking,  // NEW: Pass thinking config
+    thinking: _buildThinkingConfig(options, defaultOptions),  // Build from simple boolean
+  );
+}
+
+// Helper to construct ThinkingConfig from simple options
+a.ThinkingConfig? _buildThinkingConfig(
+  AnthropicChatOptions? options,
+  AnthropicChatOptions defaultOptions,
+) {
+  final thinkingEnabled = options?.thinkingEnabled ?? defaultOptions.thinkingEnabled;
+  if (!thinkingEnabled) return null;
+
+  final maxTokens = options?.maxTokens ?? defaultOptions.maxTokens ?? _defaultMaxTokens;
+  final budgetTokens = options?.thinkingBudgetTokens ??
+      defaultOptions.thinkingBudgetTokens ??
+      (maxTokens * 0.75).round();
+
+  return a.ThinkingConfig.enabled(
+    type: a.ThinkingConfigEnabledType.enabled,
+    budgetTokens: max(budgetTokens, 1024),  // Ensure minimum
   );
 }
 ```
@@ -383,9 +400,9 @@ a.CreateMessageRequest createMessageRequest(
 
 | Feature | OpenAI Responses | Anthropic |
 |---------|-----------------|-----------|
-| **Configuration Type** | Enum (`brief`, `detailed`, `auto`) | Object with token budget |
-| **Minimum Budget** | Implicit (model-controlled) | 1,024 tokens (explicit) |
-| **Maximum Budget** | Model-controlled | User-specified (< `max_tokens`) |
+| **Configuration Type** | Enum (`brief`, `detailed`, `auto`) | Boolean flag with optional budget |
+| **Minimum Budget** | Implicit (model-controlled) | SDK-enforced (defaults to 4096) |
+| **Maximum Budget** | Model-controlled | User-specified via `thinkingBudgetTokens` (< `max_tokens`) |
 | **Token Accounting** | Separate reasoning budget | Counts toward `max_tokens` |
 | **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` |
 | **Content Block** | No (metadata only) | Yes (`Block.thinking()`) |
@@ -494,12 +511,9 @@ void main() async {
 void main() async {
   final agent = Agent(
     'anthropic:claude-sonnet-4-5',
-    chatModelOptions: AnthropicChatOptions(
-      maxTokens: 16000,
-      thinking: ThinkingConfig.enabled(
-        type: ThinkingConfigEnabledType.enabled,
-        budgetTokens: 8000,
-      ),
+    chatModelOptions: const AnthropicChatOptions(
+      thinkingEnabled: true,
+      thinkingBudgetTokens: 8192,  // Optional, defaults to 4096
     ),
   );
 
@@ -546,12 +560,8 @@ Future<void> compareThinkingAcrossProviders() async {
   // Anthropic
   final anthropicAgent = Agent(
     'anthropic:claude-sonnet-4-5',
-    chatModelOptions: AnthropicChatOptions(
-      maxTokens: 8000,
-      thinking: ThinkingConfig.enabled(
-        type: ThinkingConfigEnabledType.enabled,
-        budgetTokens: 4000,
-      ),
+    chatModelOptions: const AnthropicChatOptions(
+      thinkingEnabled: true,
     ),
   );
 
@@ -585,23 +595,20 @@ Future<void> demonstrateThinking(Agent agent, String question) async {
 
 ```dart
 // test/anthropic_chat_options_test.dart
-test('thinking config passes through to SDK', () {
+test('thinking enabled with custom budget', () {
   final options = AnthropicChatOptions(
-    thinking: ThinkingConfig.enabled(
-      type: ThinkingConfigEnabledType.enabled,
-      budgetTokens: 5000,
-    ),
+    thinkingEnabled: true,
+    thinkingBudgetTokens: 5000,
   );
 
-  expect(options.thinking, isNotNull);
-  expect(options.thinking, isA<ThinkingConfigEnabled>());
-  final enabled = options.thinking as ThinkingConfigEnabled;
-  expect(enabled.budgetTokens, 5000);
+  expect(options.thinkingEnabled, true);
+  expect(options.thinkingBudgetTokens, 5000);
 });
 
-test('thinking defaults to null (disabled)', () {
+test('thinking defaults to disabled', () {
   final options = AnthropicChatOptions();
-  expect(options.thinking, isNull);
+  expect(options.thinkingEnabled, false);
+  expect(options.thinkingBudgetTokens, isNull);
 });
 ```
 
@@ -609,7 +616,7 @@ test('thinking defaults to null (disabled)', () {
 
 ```dart
 // test/anthropic_message_mappers_test.dart
-test('thinking config included in CreateMessageRequest', () {
+test('thinking config built from simple options', () {
   final messages = [
     const ChatMessage.user('Test prompt'),
   ];
@@ -617,17 +624,14 @@ test('thinking config included in CreateMessageRequest', () {
   final request = createMessageRequest(
     messages,
     modelName: 'claude-sonnet-4-5',
-    options: AnthropicChatOptions(
-      thinking: ThinkingConfig.enabled(
-        type: ThinkingConfigEnabledType.enabled,
-        budgetTokens: 3000,
-      ),
+    options: const AnthropicChatOptions(
+      thinkingEnabled: true,
+      thinkingBudgetTokens: 3000,
     ),
     defaultOptions: const AnthropicChatOptions(),
   );
 
   expect(request.thinking, isNotNull);
-  expect(request.thinking, isA<ThinkingConfigEnabled>());
 });
 
 test('thinking blocks filtered from final message parts', () {
@@ -718,12 +722,8 @@ group('Anthropic Extended Thinking Integration', () {
   test('thinking appears in metadata during streaming', () async {
     final agent = Agent(
       'anthropic:claude-sonnet-4-5',
-      chatModelOptions: AnthropicChatOptions(
-        maxTokens: 8000,
-        thinking: ThinkingConfig.enabled(
-          type: ThinkingConfigEnabledType.enabled,
-          budgetTokens: 4000,
-        ),
+      chatModelOptions: const AnthropicChatOptions(
+        thinkingEnabled: true,
       ),
     );
 
@@ -745,12 +745,8 @@ group('Anthropic Extended Thinking Integration', () {
   test('non-streaming thinking in result metadata', () async {
     final agent = Agent(
       'anthropic:claude-sonnet-4-5',
-      chatModelOptions: AnthropicChatOptions(
-        maxTokens: 8000,
-        thinking: ThinkingConfig.enabled(
-          type: ThinkingConfigEnabledType.enabled,
-          budgetTokens: 4000,
-        ),
+      chatModelOptions: const AnthropicChatOptions(
+        thinkingEnabled: true,
       ),
     );
 
@@ -764,12 +760,8 @@ group('Anthropic Extended Thinking Integration', () {
   test('thinking blocks not in message history', () async {
     final agent = Agent(
       'anthropic:claude-sonnet-4-5',
-      chatModelOptions: AnthropicChatOptions(
-        maxTokens: 8000,
-        thinking: ThinkingConfig.enabled(
-          type: ThinkingConfigEnabledType.enabled,
-          budgetTokens: 4000,
-        ),
+      chatModelOptions: const AnthropicChatOptions(
+        thinkingEnabled: true,
       ),
     );
 
@@ -788,12 +780,8 @@ group('Anthropic Extended Thinking Integration', () {
     final agent = Agent(
       'anthropic:claude-sonnet-4-5',
       tools: [weatherTool],
-      chatModelOptions: AnthropicChatOptions(
-        maxTokens: 8000,
-        thinking: ThinkingConfig.enabled(
-          type: ThinkingConfigEnabledType.enabled,
-          budgetTokens: 4000,
-        ),
+      chatModelOptions: const AnthropicChatOptions(
+        thinkingEnabled: true,
       ),
     );
 

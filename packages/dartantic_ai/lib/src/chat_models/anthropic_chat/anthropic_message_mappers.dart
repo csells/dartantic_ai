@@ -16,6 +16,55 @@ import 'anthropic_chat.dart';
 final Logger _logger = Logger('dartantic.chat.mappers.anthropic');
 
 const _defaultMaxTokens = 1024;
+const _defaultThinkingBudgetTokens = 4096; // Reasonable default
+const _defaultMaxTokensWithThinking = 8192; // Room for thinking + response
+
+/// Calculates the appropriate maxTokens value.
+///
+/// When thinking is enabled, ensures maxTokens is large enough to accommodate
+/// both the thinking budget and the response.
+int _calculateMaxTokens({
+  required AnthropicChatOptions? options,
+  required AnthropicChatOptions defaultOptions,
+  required a.ThinkingConfig? thinkingConfig,
+}) {
+  // If maxTokens is explicitly set, use it
+  if (options?.maxTokens != null) return options!.maxTokens!;
+  if (defaultOptions.maxTokens != null) return defaultOptions.maxTokens!;
+
+  // If thinking is enabled, use larger default
+  if (thinkingConfig != null) {
+    return _defaultMaxTokensWithThinking;
+  }
+
+  // Otherwise use standard default
+  return _defaultMaxTokens;
+}
+
+/// Builds the ThinkingConfig from options, or null if thinking is disabled.
+///
+/// If thinkingBudgetTokens is not specified, uses a reasonable default.
+/// The Anthropic SDK will validate constraints (minimum, maximum, etc.).
+a.ThinkingConfig? _buildThinkingConfig(
+  AnthropicChatOptions? options,
+  AnthropicChatOptions defaultOptions,
+) {
+  // Check if thinking is enabled in either options or defaults
+  final thinkingEnabled =
+      options?.thinkingEnabled ?? defaultOptions.thinkingEnabled;
+  if (!thinkingEnabled) return null;
+
+  // Get explicit budget if provided, otherwise use our default
+  // Let Anthropic SDK validate the actual constraints
+  final budgetTokens = options?.thinkingBudgetTokens ??
+      defaultOptions.thinkingBudgetTokens ??
+      _defaultThinkingBudgetTokens;
+
+  return a.ThinkingConfig.enabled(
+    type: a.ThinkingConfigEnabledType.enabled,
+    budgetTokens: budgetTokens,
+  );
+}
 
 /// Creates an Anthropic [a.CreateMessageRequest] from a list of messages and
 /// options.
@@ -46,11 +95,20 @@ a.CreateMessageRequest createMessageRequest(
     'Tool configuration: hasTools=$hasTools, toolCount=${tools?.length ?? 0}',
   );
 
+  // Build thinking config first to check if thinking is enabled
+  final thinkingConfig = _buildThinkingConfig(options, defaultOptions);
+
+  // Calculate appropriate maxTokens based on whether thinking is enabled
+  final maxTokens = _calculateMaxTokens(
+    options: options,
+    defaultOptions: defaultOptions,
+    thinkingConfig: thinkingConfig,
+  );
+
   return a.CreateMessageRequest(
     model: a.Model.modelId(modelName),
     messages: messagesDtos,
-    maxTokens:
-        options?.maxTokens ?? defaultOptions.maxTokens ?? _defaultMaxTokens,
+    maxTokens: maxTokens,
     stopSequences: options?.stopSequences ?? defaultOptions.stopSequences,
     system: systemMsg != null
         ? a.CreateMessageRequestSystem.text(systemMsg)
@@ -66,7 +124,7 @@ a.CreateMessageRequest createMessageRequest(
     toolChoice: hasTools
         ? const a.ToolChoice(type: a.ToolChoiceType.auto)
         : null,
-    thinking: options?.thinking ?? defaultOptions.thinking,
+    thinking: thinkingConfig,
     stream: true,
   );
 }

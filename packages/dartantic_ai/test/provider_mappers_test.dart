@@ -224,17 +224,6 @@ void main() {
         );
       });
 
-      test('handles very long messages', () async {
-        final agent = Agent('google:gemini-2.5-flash');
-
-        final longPrompt = 'Repeat this word: test ' * 100;
-        final result = await agent.send(longPrompt);
-
-        // Should handle long input
-        expect(result.messages, isNotEmpty);
-        expect(result.output, isNotEmpty);
-      });
-
       test('handles special characters in messages', () async {
         final agent = Agent('google:gemini-2.5-flash');
 

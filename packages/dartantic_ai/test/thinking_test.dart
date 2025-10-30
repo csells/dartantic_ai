@@ -344,11 +344,7 @@ Agent _createAgentWithThinking(Provider provider, {List<Tool>? tools}) {
         fullModelString,
         tools: tools,
         chatModelOptions: const AnthropicChatOptions(
-          maxTokens: 16000,
-          thinking: ThinkingConfig.enabled(
-            type: ThinkingConfigEnabledType.enabled,
-            budgetTokens: 10000,
-          ),
+          thinkingEnabled: true,
         ),
       );
     default:

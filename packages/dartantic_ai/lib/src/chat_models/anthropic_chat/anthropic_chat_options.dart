@@ -1,4 +1,3 @@
-import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' show ThinkingConfig;
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
@@ -13,7 +12,8 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topK,
     this.topP,
     this.userId,
-    this.thinking,
+    this.thinkingEnabled = false,
+    this.thinkingBudgetTokens,
   });
 
   /// The maximum number of tokens to generate before stopping.
@@ -70,7 +70,7 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// information such as name, email address, or phone number.
   final String? userId;
 
-  /// Configuration for Claude's extended thinking.
+  /// Enable Claude's extended thinking (chain-of-thought reasoning).
   ///
   /// When enabled, Claude shows its internal reasoning process before
   /// providing the final answer. Thinking content is exposed via:
@@ -83,18 +83,11 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// and sent back in subsequent turns. This is required by Anthropic's API
   /// to maintain proper context for multi-turn tool usage.
   ///
-  /// The `budgetTokens` parameter controls how many tokens Claude can use
-  /// for thinking. This must be at least 1,024 and less than `maxTokens`.
-  /// Larger budgets enable more comprehensive reasoning.
-  ///
   /// Example:
   /// ```dart
   /// AnthropicChatOptions(
   ///   maxTokens: 16000,
-  ///   thinking: ThinkingConfig.enabled(
-  ///     type: ThinkingConfigEnabledType.enabled,
-  ///     budgetTokens: 10000,
-  ///   ),
+  ///   thinkingEnabled: true,
   /// )
   /// ```
   ///
@@ -104,5 +97,17 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// - Thinking blocks in conversation history also consume tokens
   ///
   /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-  final ThinkingConfig? thinking;
+  final bool thinkingEnabled;
+
+  /// Optional token budget for thinking (defaults to 4096).
+  ///
+  /// Controls how many tokens Claude can use for its internal reasoning.
+  /// Larger budgets enable more comprehensive reasoning.
+  ///
+  /// Anthropic recommends starting with lower values (4k-10k) and scaling up
+  /// based on task complexity. If not specified, defaults to 4096 tokens.
+  ///
+  /// The Anthropic SDK validates minimum and maximum constraints based on
+  /// their current API requirements.
+  final int? thinkingBudgetTokens;
 }

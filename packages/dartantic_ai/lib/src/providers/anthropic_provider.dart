@@ -82,7 +82,8 @@ class AnthropicProvider
         maxTokens: options?.maxTokens,
         stopSequences: options?.stopSequences,
         userId: options?.userId,
-        thinking: options?.thinking,
+        thinkingEnabled: options?.thinkingEnabled ?? false,
+        thinkingBudgetTokens: options?.thinkingBudgetTokens,
       ),
     );
   }
