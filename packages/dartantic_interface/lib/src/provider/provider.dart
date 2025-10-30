@@ -80,6 +80,7 @@ abstract class Provider<
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     TChatOptions? options,
   });
 
