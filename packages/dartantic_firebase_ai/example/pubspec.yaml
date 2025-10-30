@@ -1,0 +1,31 @@
+name: firebase_ai_example
+description: Example app demonstrating Firebase AI provider usage
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dartantic_firebase_ai:
+    path: ../
+  dartantic_ai:
+    path: ../../dartantic_ai
+  dartantic_interface: ^1.1.0
+
+  firebase_core: any
+  logging: ^1.2.0
+dependency_overrides:
+  dartantic_interface:
+    path: ../../dartantic_interface
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

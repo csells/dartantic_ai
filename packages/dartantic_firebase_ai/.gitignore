@@ -1,0 +1,10 @@
+
+# Flutter build artifacts
+build/
+.flutter-plugins-dependencies
+
+# Test coverage
+coverage/
+
+# AI development notes
+ai_notes/
