@@ -1,3 +1,8 @@
+## 1.2.0
+
+- added optional 'thinking' field to ChatResult for enhanced reasoning output
+- updated Provider to support thinking feature toggle
+
 ## 1.1.0
 
 - ProviderCaps.vision => ProviderCaps.chatVision to tighten the meaning
