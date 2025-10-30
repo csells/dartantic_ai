@@ -8,14 +8,16 @@ reasoning metadata alongside the normal message output. This lets you display or
 inspect the model's inner monologue without sending it back to the model or to
 end users who just want the final answer.
 
-At the moment, **OpenAI Responses** is the only built-in provider that supports
-thinking metadata, but the generated metadata is provider-agnostic so additional
-providers can adopt it later without it requiring any changes to your code.
+Both **OpenAI Responses** and **Anthropic** support thinking metadata. The
+generated metadata is provider-agnostic, so additional providers can adopt it
+later without requiring any changes to your code.
 
 ## Enable Thinking
 
-You can enabled thinking for the OpenAI Responses provider by setting the
-`reasoningSummary` parameter to `OpenAIReasoningSummary.detailed`.
+### OpenAI Responses
+
+Enable thinking by setting the `reasoningSummary` parameter to
+`OpenAIReasoningSummary.detailed`:
 
 ```dart
 final agent = Agent(
@@ -34,11 +36,40 @@ if (thinking != null && thinking.isNotEmpty) {
 print(result.output);
 ```
 
-Key points:
+### Anthropic
+
+Enable thinking with explicit token budget control:
+
+```dart
+final agent = Agent(
+  'anthropic:claude-sonnet-4-5',
+  chatModelOptions: const AnthropicChatOptions(
+    maxTokens: 16000,
+    thinking: ThinkingConfig.enabled(
+      type: ThinkingConfigEnabledType.enabled,
+      budgetTokens: 10000,  // Must be at least 1024 and less than maxTokens
+    ),
+  ),
+);
+
+final result = await agent.send('In one sentence, how does quicksort work?');
+final thinking = result.metadata['thinking'] as String?;
+
+if (thinking != null && thinking.isNotEmpty) {
+  print('[[${thinking.trim()}]]');
+}
+print(result.output);
+```
+
+### Key Points
+
 - The reasoning stream is emitted through `ChatResult.metadata['thinking']`
 - Thinking metadata doesn't appear in `ChatMessage.metadata`
-- Metadata is not fed back to the model, so you control where (or if) it is
-  displayed
+- Metadata is typically not fed back to the model, so you control where (or if)
+  it is displayed
+- **Important**: When using Anthropic with tool calls, thinking blocks are
+  automatically preserved in conversation history as required by their API. This
+  increases token costs on subsequent turns.
 
 ## Streaming Thinking
 

@@ -437,22 +437,14 @@ class MessageStreamEventTransformer
       _thinkingBuffer.write(delta.thinking);
       _logger.fine('ThinkingBlockDelta: "${delta.thinking}"');
 
-      // Build thinking block metadata for reconstruction (includes signature)
-      final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
-        thinking: _thinkingBuffer.toString(),
-        signature: _thinkingSignature,
-      );
+      final thinkingMetadata = _buildThinkingMetadata(delta.thinking);
 
       return ChatResult<ChatMessage>(
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
         messages: const [],
         finishReason: FinishReason.unspecified,
-        metadata: {
-          'thinking': delta.thinking,  // For user-facing streaming deltas
-          AnthropicThinkingMetadata.thinkingBlockKey:
-              thinkingBlockData,  // For history reconstruction
-        },
+        metadata: thinkingMetadata.metadata,
         usage: null,
       );
     }
@@ -534,22 +526,9 @@ class MessageStreamEventTransformer
   }
 
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
-    // Emit final thinking block metadata if thinking was present
-    final finalMetadata = <String, dynamic>{};
-    Map<String, Object?>? messageMetadata;
-    if (_thinkingBuffer.isNotEmpty) {
-      final thinkingText = _thinkingBuffer.toString();
-      final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
-        thinking: thinkingText,
-        signature: _thinkingSignature,
-      );
-      finalMetadata['thinking'] = thinkingText;
-      finalMetadata[AnthropicThinkingMetadata.thinkingBlockKey] =
-          thinkingBlockData;
-      messageMetadata = {
-        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
-      };
-    }
+    final thinkingMetadata = _thinkingBuffer.isNotEmpty
+        ? _buildThinkingMetadata(_thinkingBuffer.toString())
+        : null;
 
     // Clear any tracking state for safety
     lastMessageId = null;
@@ -561,7 +540,7 @@ class MessageStreamEventTransformer
     _thinkingSignature = null;
 
     // Return final metadata if any
-    if (finalMetadata.isNotEmpty) {
+    if (thinkingMetadata != null) {
       return ChatResult<ChatMessage>(
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
@@ -569,16 +548,33 @@ class MessageStreamEventTransformer
           ChatMessage(
             role: ChatMessageRole.model,
             parts: const [],
-            metadata: messageMetadata ?? const {},
+            metadata: thinkingMetadata.messageMetadata,
           ),
         ],
         finishReason: FinishReason.unspecified,
-        metadata: finalMetadata,
+        metadata: thinkingMetadata.metadata,
         usage: null,
       );
     }
 
     return null;
+  }
+
+  ({Map<String, dynamic> metadata, Map<String, Object?> messageMetadata})
+      _buildThinkingMetadata(String thinkingForMetadata) {
+    final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
+      thinking: _thinkingBuffer.toString(),
+      signature: _thinkingSignature,
+    );
+    return (
+      metadata: {
+        'thinking': thinkingForMetadata,
+        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
+      },
+      messageMetadata: {
+        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
+      },
+    );
   }
 }
 

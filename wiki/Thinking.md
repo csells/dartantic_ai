@@ -28,7 +28,7 @@ Thinking (also called "extended reasoning" or "chain-of-thought") is a capabilit
 | Provider | Capability | Status | Configuration |
 |----------|-----------|--------|---------------|
 | OpenAI Responses | Reasoning Summary | ✅ Implemented | `reasoningSummary` parameter |
-| Anthropic | Extended Thinking | 🚧 Planned | `thinking` parameter |
+| Anthropic | Extended Thinking | ✅ Implemented | `thinking` parameter |
 | Others | N/A | ❌ Not supported | - |
 
 ## Generic Architecture
@@ -59,7 +59,10 @@ graph TD
 1. **Metadata-First Design**: Thinking appears in `ChatResult.metadata['thinking']`, not as a primary message part
 2. **Streaming Transparency**: During streaming, thinking deltas are emitted as they arrive
 3. **Accumulation**: Full thinking text is accumulated and available in final result
-4. **History Isolation**: By default, thinking is NOT sent back to the model in conversation history
+4. **History Isolation**: Thinking is typically NOT sent back to the model in conversation history
+   - **Exception**: Anthropic requires thinking blocks to be preserved when tool calls are present
+   - This is handled transparently by the provider implementation
+   - Users pay for thinking tokens on every turn when using tools with Anthropic
 5. **Provider Agnostic**: Same consumption pattern works across all providers
 
 ### Metadata Flow
@@ -251,82 +254,34 @@ BlockDelta.thinking(
 
 **Dartantic Mapping Strategy**:
 
-Despite Anthropic including thinking in message content, Dartantic follows the established pattern:
+Despite Anthropic including thinking in message content, Dartantic follows the established pattern with one important exception:
 
 1. **During streaming**: Extract thinking deltas and emit as `ChatResult.metadata['thinking']`
 2. **After completion**: Accumulate full thinking in result metadata
-3. **In message history**: Filter thinking blocks from `ChatMessage.parts`
+3. **In message history**: Thinking blocks are preserved in metadata when tool calls are present
 
-This maintains the principle that "metadata is never sent to the model."
+⚠️ **Important**: When a response includes both thinking and tool calls, the thinking block is preserved in the message structure and sent back in subsequent turns. This is required by Anthropic's API to maintain proper context for multi-turn tool usage. Users are charged for these thinking tokens on every turn.
 
-**Implementation Algorithm**:
+**Implementation Flow**:
 
-```dart
-class MessageStreamEventTransformer {
-  Stream<ChatResult<ChatMessage>> bind(Stream<MessageStreamEvent> stream) async* {
-    final thinkingBuffer = StringBuffer();
-    final textBuffer = StringBuffer();
-    final contentBlocks = <Block>[];
+The Anthropic message mapper handles thinking through the following high-level flow:
 
-    await for (final event in stream) {
-      yield* event.map(
-        contentBlockDelta: (delta) {
-          return delta.delta.map(
-            textDelta: (text) {
-              // Handle text normally
-              textBuffer.write(text.text);
-              return ChatResult(...);
-            },
-            thinking: (thinkingDelta) {
-              // Accumulate thinking
-              thinkingBuffer.write(thinkingDelta.thinking);
+1. **Streaming Phase**:
+   - Accumulate thinking deltas in a buffer as `ThinkingBlockDelta` events arrive
+   - Emit each delta as `ChatResult.metadata['thinking']` for real-time display
+   - Capture the cryptographic signature from the `ThinkingBlock.start` event
 
-              // Emit as metadata
-              return ChatResult<ChatMessage>(
-                output: const ChatMessage(
-                  role: ChatMessageRole.model,
-                  parts: [],
-                ),
-                messages: const [],
-                metadata: {'thinking': thinkingDelta.thinking},
-                usage: null,
-              );
-            },
-            inputJsonDelta: (json) {
-              // Handle tool input
-              return ChatResult(...);
-            },
-          );
-        },
-        contentBlockStop: (stop) {
-          // Store content block but filter thinking blocks
-          final block = event.contentBlock;
-          if (block is! ThinkingBlock) {
-            contentBlocks.add(block);
-          }
-          // Thinking blocks excluded from message content
-        },
-        messageStop: (_) {
-          // Build final message WITHOUT thinking blocks
-          final message = ChatMessage(
-            role: ChatMessageRole.model,
-            parts: _convertBlocksToParts(contentBlocks),  // No thinking
-          );
+2. **Completion Phase**:
+   - Store accumulated thinking text and signature in message metadata
+   - When tool calls are present, preserve the complete thinking block data
+   - Filter thinking blocks from message parts for regular (non-tool) responses
 
-          // Include accumulated thinking in result metadata
-          return ChatResult(
-            output: message,
-            messages: [message],
-            metadata: {
-              'thinking': thinkingBuffer.toString(),  // Full thinking
-            },
-          );
-        },
-      );
-    }
-  }
-}
-```
+3. **History Reconstruction**:
+   - When sending messages back to Anthropic, check for thinking block metadata
+   - If present and tool calls exist, reconstruct the `Block.thinking()` with original signature
+   - Place thinking block before tool_use blocks (required by Anthropic's API)
+
+See `anthropic_message_mappers.dart` for the complete implementation.
 
 **Token Accounting**:
 - Thinking tokens count toward `max_tokens` limit
@@ -358,7 +313,12 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// providing the final answer. Thinking content is exposed via:
   /// - During streaming: `ChatResult.metadata['thinking']` (incremental deltas)
   /// - In final result: Accumulated thinking in result metadata
-  /// - In message history: Filtered from message parts (metadata only)
+  /// - In message history: Preserved in metadata when tool calls present
+  ///
+  /// **Anthropic-specific behavior**: When a response includes both thinking
+  /// and tool calls, the thinking block is preserved in the message structure
+  /// and sent back in subsequent turns. This is required by Anthropic's API
+  /// to maintain proper context for multi-turn tool usage.
   ///
   /// The `budgetTokens` parameter controls how many tokens Claude can use
   /// for thinking. This must be at least 1,024 and less than `maxTokens`.
@@ -378,7 +338,7 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// Token costs:
   /// - Thinking tokens count toward your `max_tokens` limit
   /// - You are charged for all thinking tokens generated
-  /// - Previous thinking blocks are NOT sent in conversation history
+  /// - Thinking blocks in conversation history also consume tokens
   ///
   /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
   final ThinkingConfig? thinking;
@@ -430,9 +390,9 @@ a.CreateMessageRequest createMessageRequest(
 | **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` |
 | **Content Block** | No (metadata only) | Yes (`Block.thinking()`) |
 | **Signature** | No | Yes (optional cryptographic) |
-| **Dartantic Representation** | `metadata['thinking']` only | `metadata['thinking']` (blocks filtered) |
-| **Message History** | Never included | Filtered from parts |
-| **Tool Use Compatibility** | Full support | Full support |
+| **Dartantic Representation** | `metadata['thinking']` only | `metadata['thinking']` + stored for reconstruction |
+| **Message History** | Never included | Preserved when tool calls present |
+| **Tool Use Compatibility** | Full support | Full support (thinking auto-preserved) |
 | **Temperature Constraints** | None | Cannot use with modified temperature |
 | **Top-K Constraints** | None | Cannot use |
 | **Top-P Constraints** | None | Limited to 0.95-1.0 range |
@@ -870,16 +830,18 @@ test('OpenAI Responses provider declares thinking capability', () {
 
 ### Test Coverage Requirements
 
-- ✅ Options serialization and defaults
-- ✅ Message mapper passes thinking config
-- ✅ Streaming transformer extracts thinking deltas
-- ✅ Thinking accumulation in buffer
-- ✅ Thinking blocks filtered from message parts
-- ✅ Thinking appears in metadata only
-- ✅ End-to-end streaming with thinking
-- ✅ Non-streaming thinking in result metadata
-- ✅ Thinking with tool calls
-- ✅ Provider capability declarations
+Tests should cover the following areas:
+
+- Options serialization and defaults
+- Message mapper passes thinking config
+- Streaming transformer extracts thinking deltas
+- Thinking accumulation in buffer
+- Thinking blocks filtered from message parts
+- Thinking appears in metadata only
+- End-to-end streaming with thinking
+- Non-streaming thinking in result metadata
+- Thinking with tool calls
+- Provider capability declarations
 
 ## Implementation Guidelines
 
@@ -949,30 +911,14 @@ If implementing thinking support for a new provider:
 
 ### Error Handling
 
-```dart
-// If thinking configuration is invalid
-if (options.thinking != null && options.thinking.budgetTokens < 1024) {
-  throw ArgumentError(
-    'Thinking budget must be at least 1,024 tokens, got: ${options.thinking.budgetTokens}',
-  );
-}
+Provider implementations should validate thinking configuration and reject invalid requests:
 
-// If thinking budget exceeds max tokens
-if (options.thinking != null &&
-    options.thinking.budgetTokens >= options.maxTokens) {
-  throw ArgumentError(
-    'Thinking budget (${options.thinking.budgetTokens}) must be less than '
-    'max_tokens (${options.maxTokens})',
-  );
-}
+- **Budget too small**: Providers should reject requests with `budgetTokens < 1024` (Anthropic minimum)
+- **Budget exceeds max tokens**: Providers should reject requests where `budgetTokens >= maxTokens`
+- **Unsupported provider**: Agent should check `ProviderCaps.thinking` capability before enabling thinking
+- **Invalid parameter combinations**: Some providers restrict temperature, top-K, or top-P when thinking is enabled
 
-// If provider doesn't support thinking
-if (!provider.caps.contains(ProviderCaps.thinking)) {
-  throw UnsupportedError(
-    'Provider ${provider.name} does not support extended thinking',
-  );
-}
-```
+Error handling is implemented in the provider-specific code, not in the design document.
 
 ### Performance Considerations
 

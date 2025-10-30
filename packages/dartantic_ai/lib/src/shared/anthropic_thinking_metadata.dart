@@ -26,14 +26,6 @@ class AnthropicThinkingMetadata {
     return null;
   }
 
-  /// Stores thinking block data onto a chat message metadata map.
-  static void setThinkingBlock(
-    Map<String, Object?> metadata,
-    Map<String, Object?> blockData,
-  ) {
-    metadata[thinkingBlockKey] = blockData;
-  }
-
   /// Creates a serializable thinking block data map from the provided fields.
   static Map<String, Object?> buildThinkingBlock({
     required String thinking,
