@@ -94,6 +94,23 @@ This enables test suites to run feature-specific tests only on supporting provid
 - Models themselves decide whether to throw errors
 - Allows experimentation with undocumented features
 
+### Provider API Boundaries
+
+dartantic never re-exports raw SDK model types from the underlying vendor
+packages (OpenAI, Anthropic, Google, etc.). Provider configuration that is
+exposed through `dartantic_interface` must remain provider-agnostic or be
+expressed with our own neutral data structures. When a vendor requires
+additional parameters (for example OpenAI’s `tool_choice` payload), the
+provider implementation adapts our neutral options into the SDK-specific
+types internally and always passes vendor-specific handles (or `null`) on the
+wire. This ensures:
+- **Stable public API** – upstream SDK changes do not leak through the unified
+  interface.
+- **Pluggable providers** – callers do not need vendor dependency imports to
+  configure a provider.
+- **Testability** – fake or test providers can mirror the same neutral option
+  contracts without pulling transitively on third-party SDKs.
+
 ## Provider Registry
 
 The Provider class maintains a static registry of all available providers (see `lib/src/providers/provider.dart`):

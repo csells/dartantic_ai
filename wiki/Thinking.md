@@ -27,9 +27,9 @@ Thinking (also called "extended reasoning" or "chain-of-thought") is a capabilit
 
 | Provider | Capability | Status | Configuration |
 |----------|-----------|--------|---------------|
-| OpenAI Responses | Reasoning Summary | ✅ Implemented | `reasoningSummary` parameter |
-| Anthropic | Extended Thinking | ✅ Implemented | `thinking` parameter |
-| Google | Extended Thinking | ✅ Implemented | `thinkingEnabled` + `thinkingBudgetTokens` |
+| OpenAI Responses | Reasoning Summary | ✅ Implemented | Agent-level `enableThinking` + optional `reasoningSummary` |
+| Anthropic | Extended Thinking | ✅ Implemented | Agent-level `enableThinking` + optional `thinkingBudgetTokens` |
+| Google | Extended Thinking | ✅ Implemented | Agent-level `enableThinking` + optional `thinkingBudgetTokens` |
 | Others | N/A | ❌ Not supported | - |
 
 ## Generic Architecture
@@ -57,14 +57,16 @@ graph TD
 
 ### Core Principles
 
-1. **Dedicated Surface**: Thinking appears in `ChatResult.thinking`, not as a primary message part
-2. **Streaming Transparency**: During streaming, thinking deltas are emitted through the `thinking` field as they arrive
-3. **Accumulation**: The agent accumulator concatenates all streamed deltas and exposes the full thinking text in the final result
-4. **History Isolation**: Thinking is typically NOT sent back to the model in conversation history
+1. **Agent-Level Configuration**: Thinking is enabled via `enableThinking: true` parameter at the Agent constructor level, not in provider-specific options
+2. **Dedicated Surface**: Thinking appears in `ChatResult.thinking`, not as a primary message part
+3. **Streaming Transparency**: During streaming, thinking deltas are emitted through the `thinking` field as they arrive
+4. **Accumulation**: The agent accumulator concatenates all streamed deltas and exposes the full thinking text in the final result
+5. **History Isolation**: Thinking is typically NOT sent back to the model in conversation history
    - **Exception**: Anthropic requires thinking blocks (with signatures) to be preserved when tool calls are present
    - This is handled transparently by the provider implementation via `_anthropic_thinking_block` metadata
    - Users pay for thinking tokens on every turn when using tools with Anthropic
-5. **Provider Agnostic**: Same consumption pattern works across all providers
+6. **Provider-Specific Fine-Tuning**: Options classes (e.g., `AnthropicChatOptions`, `GoogleChatModelOptions`) contain only provider-specific tuning parameters like token budgets, not the enable flag
+7. **Provider Agnostic**: Same consumption pattern works across all providers
 
 ### Metadata Flow
 
@@ -109,12 +111,20 @@ OpenAI's Responses API supports reasoning through the `reasoning` parameter and 
 
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:openai_core/openai_core.dart';
 
+// Simple configuration - enable thinking with default settings
 final agent = Agent(
   'openai-responses:gpt-5',
+  enableThinking: true,  // Automatically uses reasoningSummary: detailed
+);
+
+// Advanced configuration - customize reasoning options
+final agentAdvanced = Agent(
+  'openai-responses:gpt-5',
+  enableThinking: true,
   chatModelOptions: const OpenAIResponsesChatModelOptions(
-    reasoningSummary: OpenAIReasoningSummary.detailed,
+    reasoningSummary: OpenAIReasoningSummary.brief,  // Override default
+    reasoningEffort: OpenAIReasoningEffort.high,
   ),
 );
 ```
@@ -166,6 +176,8 @@ Stream<ChatResult<ChatMessage>> _handleReasoningSummaryDelta(
 
 **Signature**: No cryptographic signature provided
 
+**Implementation Note**: Unlike Anthropic and Google, OpenAI Responses does not store the `enableThinking` flag in the ChatModel. Instead, the Provider merges thinking configuration into the options object before creating the ChatModel. This allows for more granular control through the options-based reasoning configuration.
+
 #### Message Handling
 
 ```dart
@@ -196,30 +208,20 @@ Anthropic's Messages API supports extended thinking through the `thinking` param
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+// Simple configuration - enable thinking with default budget (4096 tokens)
 final agent = Agent(
   'anthropic:claude-sonnet-4-5',
+  enableThinking: true,
+);
+
+// Advanced configuration - customize token budget
+final agentCustomBudget = Agent(
+  'anthropic:claude-sonnet-4-5',
+  enableThinking: true,
   chatModelOptions: const AnthropicChatOptions(
-    thinkingEnabled: true,
+    thinkingBudgetTokens: 8192,  // Optional: override default budget
   ),
 );
-```
-
-#### Thinking Configuration
-
-```dart
-// Enable thinking with default budget (4096 tokens)
-AnthropicChatOptions(
-  thinkingEnabled: true,
-)
-
-// Enable with custom budget
-AnthropicChatOptions(
-  thinkingEnabled: true,
-  thinkingBudgetTokens: 8192,  // SDK validates constraints
-)
-
-// Disable thinking (default)
-AnthropicChatOptions()  // thinkingEnabled defaults to false
 ```
 
 #### Implementation Details
@@ -287,115 +289,12 @@ See `anthropic_message_mappers.dart` for the complete implementation.
 
 **Signature**: Anthropic provides optional cryptographic signature for authenticity verification
 
-#### Options Integration
-
-```dart
-class AnthropicChatOptions extends ChatModelOptions {
-  const AnthropicChatOptions({
-    this.maxTokens,
-    this.temperature,
-    this.topK,
-    this.topP,
-    this.stopSequences,
-    this.userId,
-    this.thinkingEnabled = false,
-    this.thinkingBudgetTokens,
-  });
-
-  // ... existing fields ...
-
-  /// Enable Claude's extended thinking (chain-of-thought reasoning).
-  ///
-  /// When enabled, Claude shows its internal reasoning process before
-  /// providing the final answer. Thinking content is exposed via:
-  /// - During streaming: `ChatResult.thinking` (incremental deltas)
-  /// - In final result: Accumulated thinking in result metadata
-  /// - In message history: Preserved in metadata when tool calls present
-  ///
-  /// **Anthropic-specific behavior**: When a response includes both thinking
-  /// and tool calls, the thinking block is preserved in the message structure
-  /// and sent back in subsequent turns. This is required by Anthropic's API
-  /// to maintain proper context for multi-turn tool usage.
-  ///
-  /// Example:
-  /// ```dart
-  /// AnthropicChatOptions(
-  ///   thinkingEnabled: true,
-  /// )
-  /// ```
-  ///
-  /// Token costs:
-  /// - Thinking tokens count toward your `max_tokens` limit
-  /// - You are charged for all thinking tokens generated
-  /// - Thinking blocks in conversation history also consume tokens
-  ///
-  /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-  final bool thinkingEnabled;
-
-  /// Optional token budget for thinking (defaults to 4096).
-  ///
-  /// Controls how many tokens Claude can use for its internal reasoning.
-  /// Must be at least 1,024 and less than `maxTokens`.
-  /// Larger budgets enable more comprehensive reasoning.
-  ///
-  /// Anthropic recommends starting with lower values (4k-10k) and scaling up
-  /// based on task complexity. If not specified, defaults to 4096 tokens.
-  final int? thinkingBudgetTokens;
-}
-```
-
-#### Message Mapper Changes
-
-```dart
-a.CreateMessageRequest createMessageRequest(
-  List<ChatMessage> messages, {
-  required String modelName,
-  required AnthropicChatOptions? options,
-  required AnthropicChatOptions defaultOptions,
-  List<Tool>? tools,
-  double? temperature,
-  JsonSchema? outputSchema,
-}) {
-  // ... existing parameter handling ...
-
-  return a.CreateMessageRequest(
-    model: a.Model.modelId(modelName),
-    messages: messagesDtos,
-    maxTokens: options?.maxTokens ?? defaultOptions.maxTokens ?? _defaultMaxTokens,
-    stopSequences: options?.stopSequences ?? defaultOptions.stopSequences,
-    system: systemMsg != null ? a.CreateMessageRequestSystem.text(systemMsg) : null,
-    temperature: temperature ?? options?.temperature ?? defaultOptions.temperature,
-    topK: options?.topK ?? defaultOptions.topK,
-    topP: options?.topP ?? defaultOptions.topP,
-    metadata: a.CreateMessageRequestMetadata(
-      userId: options?.userId ?? defaultOptions.userId,
-    ),
-    tools: structuredTools,
-    toolChoice: hasTools ? const a.ToolChoice(type: a.ToolChoiceType.auto) : null,
-    stream: true,
-    thinking: _buildThinkingConfig(options, defaultOptions),  // Build from simple boolean
-  );
-}
-
-// Helper to construct ThinkingConfig from simple options
-a.ThinkingConfig? _buildThinkingConfig(
-  AnthropicChatOptions? options,
-  AnthropicChatOptions defaultOptions,
-) {
-  final thinkingEnabled = options?.thinkingEnabled ?? defaultOptions.thinkingEnabled;
-  if (!thinkingEnabled) return null;
-
-  final maxTokens = options?.maxTokens ?? defaultOptions.maxTokens ?? _defaultMaxTokens;
-  final budgetTokens = options?.thinkingBudgetTokens ??
-      defaultOptions.thinkingBudgetTokens ??
-      (maxTokens * 0.75).round();
-
-  return a.ThinkingConfig.enabled(
-    type: a.ThinkingConfigEnabledType.enabled,
-    budgetTokens: max(budgetTokens, 1024),  // Ensure minimum
-  );
-}
-```
+**Token Budget Configuration**:
+- Default: 4096 tokens
+- Optional override via `AnthropicChatOptions.thinkingBudgetTokens`
+- Minimum: 1,024 tokens
+- Maximum: Less than `maxTokens`
+- Anthropic recommends 4k-10k for most tasks, scaling up for complex reasoning
 
 ### Google
 
@@ -406,36 +305,29 @@ Google's Gemini API supports extended thinking through the `thinkingConfig` para
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+// Simple configuration - enable thinking with dynamic budget (model decides)
 final agent = Agent(
   'google:gemini-2.5-flash',
+  enableThinking: true,
+);
+
+// Advanced configuration - customize token budget
+final agentCustomBudget = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
   chatModelOptions: const GoogleChatModelOptions(
-    thinkingEnabled: true,
+    thinkingBudgetTokens: 8192,  // Optional: override dynamic default
   ),
 );
-```
 
-#### Thinking Configuration
-
-```dart
-// Enable thinking with dynamic budget (model decides)
-GoogleChatModelOptions(
-  thinkingEnabled: true,
-)
-
-// Enable with custom budget
-GoogleChatModelOptions(
-  thinkingEnabled: true,
-  thinkingBudgetTokens: 8192,
-)
-
-// Use dynamic thinking (model decides optimal budget)
-GoogleChatModelOptions(
-  thinkingEnabled: true,
-  thinkingBudgetTokens: -1,  // Explicit dynamic mode
-)
-
-// Disable thinking (default)
-GoogleChatModelOptions()  // thinkingEnabled defaults to false
+// Explicit dynamic thinking (model decides optimal budget)
+final agentDynamic = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
+  chatModelOptions: const GoogleChatModelOptions(
+    thinkingBudgetTokens: -1,  // Explicit dynamic mode
+  ),
+);
 ```
 
 #### Implementation Details
@@ -489,66 +381,31 @@ See `google_message_mappers.dart` for the complete implementation.
 
 **Thought Signatures**: Google provides optional encrypted signatures for thinking blocks to maintain context across multi-turn conversations with function calling.
 
-#### Options Integration
-
-```dart
-class GoogleChatModelOptions extends ChatModelOptions {
-  const GoogleChatModelOptions({
-    // ... existing fields ...
-    this.thinkingEnabled = false,
-    this.thinkingBudgetTokens,
-  });
-
-  // ... existing fields ...
-
-  /// Enable extended thinking (chain-of-thought reasoning).
-  ///
-  /// When enabled, Gemini shows its internal reasoning process before
-  /// providing the final answer. Thinking content is exposed via:
-  /// - During streaming: `ChatResult.thinking` (incremental
-  ///   deltas)
-  /// - In final result: Accumulated thinking in result metadata
-  /// - In message history: Thinking is NOT included in message parts
-  ///   (metadata only)
-  ///
-  /// Token costs:
-  /// - Thinking tokens count toward your `maxOutputTokens` limit
-  /// - You are charged for all thinking tokens generated
-  ///
-  /// See: https://ai.google.dev/gemini-api/docs/thinking
-  final bool thinkingEnabled;
-
-  /// Optional token budget for thinking.
-  ///
-  /// Controls how many tokens Gemini can use for its internal reasoning.
-  /// The range varies by model:
-  /// - Gemini 2.5 Pro: 128-32768 (default: dynamic)
-  /// - Gemini 2.5 Flash: 0-24576 (default: dynamic)
-  /// - Gemini 2.5 Flash-Lite: 512-24576 (no default)
-  ///
-  /// Set to -1 for dynamic thinking (model decides budget based on
-  /// complexity). Set to 0 to disable thinking (same as thinkingEnabled:
-  /// false).
-  ///
-  /// If not specified and thinkingEnabled is true, uses dynamic thinking
-  /// (-1).
-  final int? thinkingBudgetTokens;
-}
-```
+**Token Budget Configuration**:
+- Default: Dynamic (-1, model decides optimal budget)
+- Optional override via `GoogleChatModelOptions.thinkingBudgetTokens`
+- Ranges vary by model:
+  - Gemini 2.5 Pro: 128-32768 tokens
+  - Gemini 2.5 Flash: 0-24576 tokens
+  - Gemini 2.5 Flash-Lite: 512-24576 tokens
+- Set to -1 for dynamic thinking (recommended)
+- Set to 0 to disable thinking
 
 ## Provider Comparison
 
 | Feature | OpenAI Responses | Anthropic | Google |
 |---------|-----------------|-----------|---------|
-| **Configuration Type** | Enum (`brief`, `detailed`, `auto`) | Boolean flag with optional budget | Boolean flag with optional budget |
-| **Minimum Budget** | Implicit (model-controlled) | SDK-enforced (defaults to 4096) | Model-specific (128-512 tokens) |
-| **Maximum Budget** | Model-controlled | User-specified via `thinkingBudgetTokens` (< `max_tokens`) | Model-specific (24576-32768 tokens) |
+| **Enable Method** | Agent `enableThinking` parameter | Agent `enableThinking` parameter | Agent `enableThinking` parameter |
+| **ChatModel Storage** | No (merged into options at Provider level) | Yes (stored in ChatModel field) | Yes (stored in ChatModel field) |
+| **Fine-Tuning Options** | `reasoningSummary`, `reasoningEffort` | `thinkingBudgetTokens` | `thinkingBudgetTokens` |
+| **Default Behavior** | `reasoningSummary: detailed` when enabled | 4096 token budget | Dynamic (-1, model decides) |
+| **Token Budget Control** | No (model-controlled) | Yes (4096 default, min 1024) | Yes (dynamic default, model-specific ranges) |
 | **Dynamic Budget** | No | No | Yes (-1 for model-determined) |
 | **Token Accounting** | Separate reasoning budget | Counts toward `max_tokens` | Counts toward `maxOutputTokens` |
 | **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` | Text parts with `thought=true` |
 | **Content Block** | No (metadata only) | Yes (`Block.thinking()`) | Yes (Part with `thought` flag) |
 | **Signature** | No | Yes (optional cryptographic) | Yes (optional encrypted) |
-| **Dartantic Representation** | `ChatResult.thinking` | `ChatResult.thinking` + `_anthropic_thinking_block` metadata for tool replay | `ChatResult.thinking` |
+| **Dartantic Representation** | `ChatResult.thinking` | `ChatResult.thinking` + metadata for tool replay | `ChatResult.thinking` |
 | **Message History** | Never included | Preserved when tool calls present | Never included |
 | **Tool Use Compatibility** | Full support | Full support (thinking auto-preserved) | Full support |
 | **Temperature Constraints** | None | Cannot use with modified temperature | None |
@@ -624,9 +481,7 @@ Future<void> demonstrateNonStreamingThinking(Agent agent) async {
 void main() async {
   final agent = Agent(
     'openai-responses:gpt-5',
-    chatModelOptions: const OpenAIResponsesChatModelOptions(
-      reasoningSummary: OpenAIReasoningSummary.detailed,
-    ),
+    enableThinking: true,  // Uses reasoningSummary: detailed by default
   );
 
   stdout.write('Question: What are the first 10 prime numbers?\n\n');
@@ -652,10 +507,7 @@ void main() async {
 void main() async {
   final agent = Agent(
     'anthropic:claude-sonnet-4-5',
-    chatModelOptions: const AnthropicChatOptions(
-      thinkingEnabled: true,
-      thinkingBudgetTokens: 8192,  // Optional, defaults to 4096
-    ),
+    enableThinking: true,  // Uses 4096 token budget by default
   );
 
   stdout.write('Question: Explain quantum entanglement\n\n');
@@ -687,10 +539,7 @@ void main() async {
 void main() async {
   final agent = Agent(
     'google:gemini-2.5-flash',
-    chatModelOptions: const GoogleChatModelOptions(
-      thinkingEnabled: true,
-      thinkingBudgetTokens: -1,  // Dynamic thinking (model decides)
-    ),
+    enableThinking: true,  // Uses dynamic budget (-1) by default
   );
 
   stdout.write('Question: Solve a complex math problem\n\n');
@@ -725,9 +574,7 @@ Future<void> compareThinkingAcrossProviders() async {
   // OpenAI Responses
   final openaiAgent = Agent(
     'openai-responses:gpt-5',
-    chatModelOptions: const OpenAIResponsesChatModelOptions(
-      reasoningSummary: OpenAIReasoningSummary.detailed,
-    ),
+    enableThinking: true,
   );
 
   print('=== OpenAI Responses ===');
@@ -736,9 +583,7 @@ Future<void> compareThinkingAcrossProviders() async {
   // Anthropic
   final anthropicAgent = Agent(
     'anthropic:claude-sonnet-4-5',
-    chatModelOptions: const AnthropicChatOptions(
-      thinkingEnabled: true,
-    ),
+    enableThinking: true,
   );
 
   print('\n=== Anthropic Extended Thinking ===');
@@ -747,9 +592,7 @@ Future<void> compareThinkingAcrossProviders() async {
   // Google
   final googleAgent = Agent(
     'google:gemini-2.5-flash',
-    chatModelOptions: const GoogleChatModelOptions(
-      thinkingEnabled: true,
-    ),
+    enableThinking: true,
   );
 
   print('\n=== Google Extended Thinking ===');
@@ -776,324 +619,97 @@ Future<void> demonstrateThinking(Agent agent, String question) async {
 
 ## Testing Strategy
 
-### Unit Tests
-
-#### Options Serialization
-
-```dart
-// test/anthropic_chat_options_test.dart
-test('thinking enabled with custom budget', () {
-  final options = AnthropicChatOptions(
-    thinkingEnabled: true,
-    thinkingBudgetTokens: 5000,
-  );
-
-  expect(options.thinkingEnabled, true);
-  expect(options.thinkingBudgetTokens, 5000);
-});
-
-test('thinking defaults to disabled', () {
-  final options = AnthropicChatOptions();
-  expect(options.thinkingEnabled, false);
-  expect(options.thinkingBudgetTokens, isNull);
-});
-```
-
-#### Message Mapper
-
-```dart
-// test/anthropic_message_mappers_test.dart
-test('thinking config built from simple options', () {
-  final messages = [
-    const ChatMessage.user('Test prompt'),
-  ];
-
-  final request = createMessageRequest(
-    messages,
-    modelName: 'claude-sonnet-4-5',
-    options: const AnthropicChatOptions(
-      thinkingEnabled: true,
-      thinkingBudgetTokens: 3000,
-    ),
-    defaultOptions: const AnthropicChatOptions(),
-  );
-
-  expect(request.thinking, isNotNull);
-});
-
-test('thinking blocks filtered from final message parts', () {
-  // Mock streaming response with thinking blocks
-  final events = [
-    // ... thinking events ...
-  ];
-
-  final transformer = MessageStreamEventTransformer();
-  final results = await transformer.bind(Stream.fromIterable(events)).toList();
-
-  // Find final message
-  final finalMessage = results.last.messages.last;
-
-  // Verify no thinking in parts
-  final hasThinkingPart = finalMessage.parts.any((p) {
-    // Check if part represents thinking content
-    return false;  // Should never find thinking in parts
-  });
-
-  expect(hasThinkingPart, false);
-
-  // Verify thinking in metadata
-  expect(results.last.thinking, isNotEmpty);
-});
-```
-
-#### Streaming Transformer
-
-```dart
-// test/anthropic_streaming_test.dart
-test('thinking deltas emit metadata chunks', () async {
-  final thinkingDeltas = [
-    'Step 1: ',
-    'Analyze the problem. ',
-    'Step 2: ',
-    'Calculate the result.',
-  ];
-
-  // Create mock stream with thinking events
-  final events = thinkingDeltas.map((delta) =>
-    MessageStreamEvent.contentBlockDelta(
-      delta: BlockDelta.thinking(
-        thinking: delta,
-        type: ThinkingBlockDeltaType.thinkingDelta,
-      ),
-      index: 0,
-    ),
-  );
-
-  final transformer = MessageStreamEventTransformer();
-  final results = await transformer.bind(Stream.fromIterable(events)).toList();
-
-  // Each delta should produce a metadata chunk
-  expect(results.length, thinkingDeltas.length);
-
-  for (var i = 0; i < results.length; i++) {
-    expect(results[i].thinking, thinkingDeltas[i]);
-  }
-});
-
-test('thinking accumulates in buffer', () async {
-  // Test that full thinking is available in final result
-  final events = [
-    // ... multiple thinking delta events ...
-    // ... final message stop event ...
-  ];
-
-  final transformer = MessageStreamEventTransformer();
-  final results = await transformer.bind(Stream.fromIterable(events)).toList();
-
-  final finalResult = results.last;
-  final fullThinking = finalResult.thinking as String;
-
-  expect(fullThinking, contains('Step 1:'));
-  expect(fullThinking, contains('Step 2:'));
-  expect(fullThinking, isNot(isEmpty));
-});
-```
-
-### Integration Tests
-
-#### End-to-End Thinking
-
-```dart
-// test/anthropic_thinking_integration_test.dart
-group('Anthropic Extended Thinking Integration', () {
-  test('thinking appears in metadata during streaming', () async {
-    final agent = Agent(
-      'anthropic:claude-sonnet-4-5',
-      chatModelOptions: const AnthropicChatOptions(
-        thinkingEnabled: true,
-      ),
-    );
-
-    final thinkingChunks = <String>[];
-    await for (final chunk in agent.sendStream(
-      'What is 23 * 47? Show your work.',
-    )) {
-      final thinking = chunk.thinking as String?;
-      if (thinking != null) {
-        thinkingChunks.add(thinking);
-      }
-    }
-
-    expect(thinkingChunks, isNotEmpty);
-    final fullThinking = thinkingChunks.join();
-    expect(fullThinking.length, greaterThan(50));
-  });
-
-  test('non-streaming thinking in result metadata', () async {
-    final agent = Agent(
-      'anthropic:claude-sonnet-4-5',
-      chatModelOptions: const AnthropicChatOptions(
-        thinkingEnabled: true,
-      ),
-    );
-
-    final result = await agent.send('Calculate 156 ÷ 12');
-
-    final thinking = result.thinking as String?;
-    expect(thinking, isNotNull);
-    expect(thinking, isNotEmpty);
-  });
-
-  test('thinking blocks not in message history', () async {
-    final agent = Agent(
-      'anthropic:claude-sonnet-4-5',
-      chatModelOptions: const AnthropicChatOptions(
-        thinkingEnabled: true,
-      ),
-    );
-
-    final result = await agent.send('Simple math: 2+2');
-
-    // Check all parts in all messages
-    for (final message in result.messages) {
-      for (final part in message.parts) {
-        // No part should reference thinking content
-        expect(part.runtimeType.toString(), isNot(contains('Thinking')));
-      }
-    }
-  });
-
-  test('thinking with tool calls', () async {
-    final agent = Agent(
-      'anthropic:claude-sonnet-4-5',
-      tools: [weatherTool],
-      chatModelOptions: const AnthropicChatOptions(
-        thinkingEnabled: true,
-      ),
-    );
-
-    var hadThinking = false;
-    var hadToolCall = false;
-
-    await for (final chunk in agent.sendStream(
-      'What is the weather in Seattle?',
-    )) {
-      if (chunk.thinking != null) hadThinking = true;
-      if (chunk.output.toolCalls.isNotEmpty) hadToolCall = true;
-    }
-
-    expect(hadThinking, true);
-    expect(hadToolCall, true);
-  });
-});
-```
-
-#### Provider Capability Tests
-
-```dart
-// test/provider_caps_test.dart
-test('Anthropic provider declares thinking capability', () {
-  final provider = AnthropicProvider();
-  expect(provider.caps, contains(ProviderCaps.thinking));
-});
-
-test('OpenAI Responses provider declares thinking capability', () {
-  final provider = OpenAIResponsesProvider();
-  expect(provider.caps, contains(ProviderCaps.thinking));
-});
-```
-
 ### Test Coverage Requirements
 
-Tests should cover the following areas:
+Tests should cover the following functional areas across all thinking-enabled providers:
 
-- Options serialization and defaults
-- Message mapper passes thinking config
-- Streaming transformer extracts thinking deltas
-- Thinking accumulation in buffer
-- Thinking blocks filtered from message parts
-- Thinking appears in metadata only
-- End-to-end streaming with thinking
+**Unit Tests:**
+- Provider `createChatModel()` accepts `enableThinking` parameter
+- Provider passes `enableThinking` flag to ChatModel constructor (Anthropic, Google)
+- Provider merges thinking config into options (OpenAI Responses)
+- Options classes properly handle `thinkingBudgetTokens` parameter
+- Message mappers build provider-specific thinking config from `enableThinking` + options
+- Streaming transformers extract thinking deltas from provider-specific events
+- Thinking accumulation in buffers during streaming
+- Thinking blocks filtered from `ChatMessage.parts`
+- Final `ChatResult.thinking` contains complete accumulated thinking text
+
+**Integration Tests:**
+- End-to-end streaming with thinking enabled
 - Non-streaming thinking in result metadata
+- Thinking NOT included in conversation history (except Anthropic with tools)
 - Thinking with tool calls
-- Provider capability declarations
+- Provider capability declarations (`ProviderCaps.thinking`)
+- Unsupported providers throw `UnsupportedError` when `enableThinking=true`
+
+**Test Organization:**
+- Use capability-based test filtering to run tests only against supporting providers
+- Test both simple configuration (default budgets) and advanced configuration (custom budgets/options)
+- Verify provider-specific behavior (e.g., Anthropic's thinking block preservation with tools)
 
 ## Implementation Guidelines
 
 ### For Provider Implementers
 
-If implementing thinking support for a new provider:
+When implementing thinking support for a new provider:
 
 1. **Declare Capability**
-   ```dart
-   class MyProvider extends Provider {
-     MyProvider() : super(
-       caps: {
-         ProviderCaps.chat,
-         ProviderCaps.thinking,  // Declare support
-       },
-     );
-   }
-   ```
+   - Add `ProviderCaps.thinking` to the provider's capability set
+   - This enables capability-based test filtering
 
-2. **Add Configuration to Options**
-   ```dart
-   class MyChatOptions extends ChatModelOptions {
-     final ThinkingConfig? thinking;  // Or provider-specific type
-   }
-   ```
+2. **Accept `enableThinking` Parameter**
+   - Add `bool enableThinking = false` parameter to `Provider.createChatModel()`
+   - This is the standard interface all providers must implement
 
-3. **Extract Thinking from Streaming Events**
-   ```dart
-   // In your streaming transformer
-   if (event.isThinkingDelta) {
-     thinkingBuffer.write(event.thinkingText);
+3. **Choose Implementation Pattern**
 
-     yield ChatResult(
-       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-       messages: const [],
-       metadata: {'thinking': event.thinkingText},
-       usage: null,
-     );
-   }
-   ```
+   **Option A: Store in ChatModel (Anthropic/Google pattern)**
+   - Pass `enableThinking` to ChatModel constructor
+   - Store as private field (e.g., `_enableThinking`)
+   - Use when building provider-specific API requests
 
-4. **Filter Thinking from Message Parts**
-   ```dart
-   // When building final message
-   final parts = allParts.where((p) => p is! ThinkingPart).toList();
-   final message = ChatMessage(role: ChatMessageRole.model, parts: parts);
-   ```
+   **Option B: Merge into Options (OpenAI Responses pattern)**
+   - Transform `enableThinking` into provider-specific options at Provider level
+   - Pass merged options to ChatModel
+   - Use when provider has complex thinking configuration
 
-5. **Include Accumulated Thinking in Final Metadata**
-   ```dart
-   final result = ChatResult(
-     output: message,
-     messages: [message],
-     metadata: {
-       'thinking': thinkingBuffer.toString(),
-     },
-   );
-   ```
+4. **Add Provider-Specific Options**
+   - Add optional fine-tuning parameters to ChatOptions class
+   - Examples: `thinkingBudgetTokens`, `reasoningEffort`, `reasoningSummary`
+   - Document that these only apply when `enableThinking=true`
+
+5. **Extract Thinking from Streaming Events**
+   - Map provider-specific thinking events to `ChatResult.thinking` field
+   - Emit each delta immediately during streaming
+   - Accumulate deltas in a buffer for final result
+
+6. **Filter Thinking from Message Parts**
+   - Thinking must NOT appear in `ChatMessage.parts`
+   - Exception: Provider-specific requirements (e.g., Anthropic with tools)
+   - Store any required replay data in message metadata
+
+7. **Handle Tool Call Integration**
+   - Verify thinking works correctly with tool calls
+   - Preserve thinking context if required by provider API
+   - Document any special behavior
 
 ### Architectural Constraints
 
-- **Never send thinking back to model**: Filter thinking from conversation history
-- **Always emit thinking via the field**: Use `ChatResult.thinking`
-- **Always accumulate thinking**: Provide full thinking in final result
+- **Agent-Level Configuration**: Thinking is enabled via `Agent(enableThinking: true)`, not in provider-specific options
+- **Never send thinking back to model**: Filter thinking from conversation history (unless provider requires it)
+- **Always emit thinking via the field**: Use `ChatResult.thinking`, not custom metadata keys
+- **Always accumulate thinking**: Provide full thinking text in final result
 - **Single-item events during streaming**: Each thinking delta is a separate chunk
-- **Consistent key naming**: Always use `'thinking'` as the metadata key
+- **Provider-agnostic surface**: Same `ChatResult.thinking` field across all providers
 
 ### Error Handling
 
-Provider implementations should validate thinking configuration and reject invalid requests:
+Provider implementations should validate thinking configuration:
 
-- **Budget too small**: Providers should reject requests with `budgetTokens < 1024` (Anthropic minimum)
-- **Budget exceeds max tokens**: Providers should reject requests where `budgetTokens >= maxTokens`
-- **Unsupported provider**: Agent should check `ProviderCaps.thinking` capability before enabling thinking
-- **Invalid parameter combinations**: Some providers restrict temperature, top-K, or top-P when thinking is enabled
-
-Error handling is implemented in the provider-specific code, not in the design document.
+- **Unsupported provider**: Throw `UnsupportedError` in `createChatModel()` when `enableThinking=true` for providers without `ProviderCaps.thinking`
+- **Budget constraints**: Validate token budgets against provider-specific minimums and maximums
+- **Invalid parameter combinations**: Enforce provider-specific restrictions (e.g., Anthropic's temperature constraints)
+- **Clear error messages**: Include which providers DO support thinking in error messages
 
 ### Performance Considerations
 
