@@ -69,6 +69,7 @@ class OpenAIResponsesProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIResponsesChatModelOptions? options,
   }) {
     validateApiKeyPresence();
@@ -76,7 +77,8 @@ class OpenAIResponsesProvider
 
     _logger.info(
       'Creating OpenAI Responses chat model: $modelName '
-      'with ${(tools ?? const []).length} tools, temp: $temperature',
+      'with ${(tools ?? const []).length} tools, temp: $temperature, '
+      'thinking: $enableThinking',
     );
 
     return OpenAIResponsesChatModel(
@@ -85,35 +87,43 @@ class OpenAIResponsesProvider
       temperature: temperature,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultResponsesBaseUrl,
-      defaultOptions: _mergeOptions(temperature, options),
+      defaultOptions: _mergeOptions(temperature, enableThinking, options),
     );
   }
 
   /// Merges temperature and options into a single options object.
   OpenAIResponsesChatModelOptions _mergeOptions(
     double? temperature,
+    bool enableThinking,
     OpenAIResponsesChatModelOptions? options,
-  ) => OpenAIResponsesChatModelOptions(
-    temperature: temperature ?? options?.temperature,
-    topP: options?.topP,
-    maxOutputTokens: options?.maxOutputTokens,
-    store: options?.store ?? true,
-    metadata: options?.metadata,
-    include: options?.include,
-    parallelToolCalls: options?.parallelToolCalls,
-    toolChoice: options?.toolChoice,
-    reasoning: options?.reasoning,
-    reasoningEffort: options?.reasoningEffort,
-    reasoningSummary: options?.reasoningSummary,
-    responseFormat: options?.responseFormat,
-    truncationStrategy: options?.truncationStrategy,
-    user: options?.user,
-    imageDetail: options?.imageDetail,
-    serverSideTools: options?.serverSideTools,
-    fileSearchConfig: options?.fileSearchConfig,
-    webSearchConfig: options?.webSearchConfig,
-    codeInterpreterConfig: options?.codeInterpreterConfig,
-  );
+  ) {
+    // If thinking is enabled and no explicit reasoningSummary, use detailed
+    final reasoningSummary = enableThinking && options?.reasoningSummary == null
+        ? OpenAIReasoningSummary.detailed
+        : options?.reasoningSummary;
+
+    return OpenAIResponsesChatModelOptions(
+      temperature: temperature ?? options?.temperature,
+      topP: options?.topP,
+      maxOutputTokens: options?.maxOutputTokens,
+      store: options?.store ?? true,
+      metadata: options?.metadata,
+      include: options?.include,
+      parallelToolCalls: options?.parallelToolCalls,
+      toolChoice: options?.toolChoice,
+      reasoning: options?.reasoning,
+      reasoningEffort: options?.reasoningEffort,
+      reasoningSummary: reasoningSummary,
+      responseFormat: options?.responseFormat,
+      truncationStrategy: options?.truncationStrategy,
+      user: options?.user,
+      imageDetail: options?.imageDetail,
+      serverSideTools: options?.serverSideTools,
+      fileSearchConfig: options?.fileSearchConfig,
+      webSearchConfig: options?.webSearchConfig,
+      codeInterpreterConfig: options?.codeInterpreterConfig,
+    );
+  }
 
   @override
   Uri get embeddingsApiBaseUrl => _defaultApiBaseUrl;

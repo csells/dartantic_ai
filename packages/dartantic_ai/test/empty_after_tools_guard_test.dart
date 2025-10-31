@@ -21,6 +21,7 @@ class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) {
     lastModel = DummyChatModel(
@@ -115,6 +116,7 @@ class WrapperProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => lastModel = DummyModel(name: name ?? 'model');
 

@@ -70,21 +70,21 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
       defaultOptions: defaultOptions,
     );
 
-    return _client
-        .createChatCompletionStream(request: request)
-        .map((completion) {
-          chunkCount++;
-          _logger.fine('Received Mistral stream chunk $chunkCount');
-          final result = completion.toChatResult();
-          return ChatResult<ChatMessage>(
-            id: result.id,
-            output: result.output,
-            messages: result.messages,
-            finishReason: result.finishReason,
-            metadata: result.metadata,
-            usage: result.usage,
-          );
-        });
+    return _client.createChatCompletionStream(request: request).map((
+      completion,
+    ) {
+      chunkCount++;
+      _logger.fine('Received Mistral stream chunk $chunkCount');
+      final result = completion.toChatResult();
+      return ChatResult<ChatMessage>(
+        id: result.id,
+        output: result.output,
+        messages: result.messages,
+        finishReason: result.finishReason,
+        metadata: result.metadata,
+        usage: result.usage,
+      );
+    });
   }
 
   /// Creates a GenerateCompletionRequest from the given input.

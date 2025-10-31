@@ -567,6 +567,7 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     TestChatOptions? options,
   }) {
     // Provider resolves API key if it has an apiKeyName

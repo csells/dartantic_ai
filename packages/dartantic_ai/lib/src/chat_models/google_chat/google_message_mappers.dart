@@ -210,6 +210,7 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
     final parts = <Part>[];
     final executableCodeParts = <gl.ExecutableCode>[];
     final executionResults = <gl.CodeExecutionResult>[];
+    final thinkingBuffer = StringBuffer();
 
     final contentParts = candidate.content?.parts ?? const <gl.Part>[];
     _logger.fine(
@@ -217,9 +218,18 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
     );
 
     for (final part in contentParts) {
+      // Check if this is a thinking part (thought=true)
+      final isThought = part.thought ?? false;
+
       final text = part.text;
       if (text != null && text.isNotEmpty) {
-        parts.add(TextPart(text));
+        if (isThought) {
+          // Accumulate thinking content, don't add to regular parts
+          thinkingBuffer.write(text);
+          _logger.fine('Accumulated thinking text: ${text.length} chars');
+        } else {
+          parts.add(TextPart(text));
+        }
       }
 
       final blob = part.inlineData;
@@ -345,9 +355,18 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
       (_, value) => value == null || (value is List && value.isEmpty),
     );
 
+    // Add thinking as first-class field
+    final thinking = thinkingBuffer.isNotEmpty
+        ? thinkingBuffer.toString()
+        : null;
+    if (thinking != null) {
+      _logger.fine('Added thinking: ${thinking.length} chars');
+    }
+
     return ChatResult<ChatMessage>(
       output: message,
       messages: [message],
+      thinking: thinking,
       finishReason: _mapFinishReason(candidate.finishReason),
       metadata: metadata,
       usage: usageMetadata != null

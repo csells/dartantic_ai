@@ -1,3 +1,55 @@
+## 2.0.0
+
+### Breaking Changes: Simplified Thinking API
+
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in Dartantic with a simplified, unified API across all providers:
+
+**New API:**
+```dart
+// Enable thinking at Agent level (simple!)
+final agent = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
+);
+
+// Access thinking as a first-class field
+final result = await agent.send('Complex question...');
+print(result.thinking); // String? - the thinking content
+```
+
+**What Changed:**
+- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent constructor (like `temperature` and `tools`)
+- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']` to `ChatResult.thinking` (String?)
+- **Removed provider-specific flags**: No more `thinkingEnabled` in `GoogleChatModelOptions` or `AnthropicChatOptions`
+- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses `OpenAIReasoningSummary.detailed`
+
+**Still Available:**
+- Provider-specific fine-tuning options remain for advanced use cases:
+  - `GoogleChatModelOptions.thinkingBudgetTokens`
+  - `AnthropicChatOptions.thinkingBudgetTokens`
+  - `OpenAIResponsesChatModelOptions.reasoningSummary`
+
+**Migration Guide:**
+```dart
+// Before:
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(thinkingEnabled: true),
+);
+final thinking = result.metadata['thinking'] as String?;
+
+// After:
+final agent = Agent(
+  'google',
+  enableThinking: true,
+);
+final thinking = result.thinking;
+```
+
+### Other Changes
+
+- **Google Extended Thinking Support**: All Gemini 2.5 models support thinking with configurable token budgets and dynamic thinking modes.
+
 ## 1.3.0
 
 - **Anthropic Extended Thinking Support**: Added support for Anthropic's

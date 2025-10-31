@@ -12,7 +12,6 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topK,
     this.topP,
     this.userId,
-    this.thinkingEnabled = false,
     this.thinkingBudgetTokens,
   });
 
@@ -70,36 +69,10 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// information such as name, email address, or phone number.
   final String? userId;
 
-  /// Enable Claude's extended thinking (chain-of-thought reasoning).
-  ///
-  /// When enabled, Claude shows its internal reasoning process before
-  /// providing the final answer. Thinking content is exposed via:
-  /// - During streaming: `ChatResult.metadata['thinking']` (incremental deltas)
-  /// - In final result: Accumulated thinking in result metadata
-  /// - In message history: Preserved in metadata when tool calls present
-  ///
-  /// **Anthropic-specific behavior**: When a response includes both thinking
-  /// and tool calls, the thinking block is preserved in the message structure
-  /// and sent back in subsequent turns. This is required by Anthropic's API
-  /// to maintain proper context for multi-turn tool usage.
-  ///
-  /// Example:
-  /// ```dart
-  /// AnthropicChatOptions(
-  ///   maxTokens: 16000,
-  ///   thinkingEnabled: true,
-  /// )
-  /// ```
-  ///
-  /// Token costs:
-  /// - Thinking tokens count toward your `max_tokens` limit
-  /// - You are charged for all thinking tokens generated
-  /// - Thinking blocks in conversation history also consume tokens
-  ///
-  /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-  final bool thinkingEnabled;
-
   /// Optional token budget for thinking (defaults to 4096).
+  ///
+  /// Only applies when thinking is enabled at the Agent level via
+  /// `Agent(model, enableThinking: true)`.
   ///
   /// Controls how many tokens Claude can use for its internal reasoning.
   /// Larger budgets enable more comprehensive reasoning.
@@ -109,5 +82,16 @@ class AnthropicChatOptions extends ChatModelOptions {
   ///
   /// The Anthropic SDK validates minimum and maximum constraints based on
   /// their current API requirements.
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent(
+  ///   'anthropic:claude-sonnet-4-5',
+  ///   enableThinking: true,
+  ///   chatModelOptions: AnthropicChatOptions(
+  ///     thinkingBudgetTokens: 10000,  // Override default 4096
+  ///   ),
+  /// )
+  /// ```
   final int? thinkingBudgetTokens;
 }

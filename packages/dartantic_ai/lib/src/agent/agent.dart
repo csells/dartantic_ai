@@ -34,10 +34,12 @@ class Agent {
   /// Optional parameters:
   /// - [tools]: List of tools the agent can use
   /// - [temperature]: Model temperature (0.0 to 1.0)
+  /// - [enableThinking]: Enable extended thinking/reasoning (default: false)
   Agent(
     String model, {
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
@@ -69,10 +71,11 @@ class Agent {
 
     _tools = tools;
     _temperature = temperature;
+    _enableThinking = enableThinking;
 
     _logger.fine(
       'Agent created successfully with ${tools?.length ?? 0} tools, '
-      'temperature: $temperature',
+      'temperature: $temperature, enableThinking: $enableThinking',
     );
   }
 
@@ -83,6 +86,7 @@ class Agent {
     String? embeddingsModelName,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
@@ -106,10 +110,11 @@ class Agent {
 
     _tools = tools;
     _temperature = temperature;
+    _enableThinking = enableThinking;
 
     _logger.fine(
       'Agent created from provider with ${tools?.length ?? 0} tools, '
-      'temperature: $temperature',
+      'temperature: $temperature, enableThinking: $enableThinking',
     );
   }
 
@@ -148,6 +153,7 @@ class Agent {
   late final String? _embeddingsModelName;
   late final List<Tool>? _tools;
   late final double? _temperature;
+  late final bool _enableThinking;
   late final String? _displayName;
 
   static final Logger _logger = Logger('dartantic.chat_agent');
@@ -252,6 +258,7 @@ class Agent {
       name: _chatModelName,
       tools: toolsToUse,
       temperature: _temperature,
+      enableThinking: _enableThinking,
       options: chatModelOptions,
     );
 
@@ -292,13 +299,16 @@ class Agent {
             outputSchema: outputSchema,
           )) {
             // Yield streaming text or metadata
-            if (result.output.isNotEmpty || result.metadata.isNotEmpty) {
+            if (result.output.isNotEmpty ||
+                result.metadata.isNotEmpty ||
+                result.thinking != null) {
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: result.output,
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: result.metadata,
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }
@@ -314,6 +324,7 @@ class Agent {
                 messages: result.messages,
                 finishReason: result.finishReason,
                 metadata: result.metadata,
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }
@@ -329,6 +340,7 @@ class Agent {
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: const {},
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }

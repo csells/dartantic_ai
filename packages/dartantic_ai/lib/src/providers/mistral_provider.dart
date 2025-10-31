@@ -43,6 +43,7 @@ class MistralProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     MistralChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;

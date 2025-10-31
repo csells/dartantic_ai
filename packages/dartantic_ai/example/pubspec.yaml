@@ -10,7 +10,8 @@ dependencies:
   cross_file: ^0.3.4+2
   dartantic_ai:
     path: ..
-  dartantic_interface: ^1.1.0
+  dartantic_interface:
+    path: ../../dartantic_interface
   dotprompt_dart: ^0.5.0
   freezed_annotation: ^3.1.0
   http: ^1.4.0

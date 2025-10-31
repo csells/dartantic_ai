@@ -5,11 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
 void main() async {
-  final agent = Agent(
-    'anthropic:claude-sonnet-4-5',
-    chatModelOptions: const AnthropicChatOptions(thinkingEnabled: true),
-  );
-
+  final agent = Agent('claude', enableThinking: true);
   stdout.writeln('[[model thinking appears in brackets]]\n');
   await thinking(agent);
   await thinkingStream(agent);
@@ -17,19 +13,19 @@ void main() async {
 }
 
 Future<void> thinking(Agent agent) async {
-  stdout.writeln('\nthinking:');
+  stdout.writeln('\n${agent.displayName} thinking:');
   final result = await agent.send('In one sentence: how does quicksort work?');
 
-  // Thinking metadata is in result.metadata (not in message metadata)
-  final thinking = result.metadata['thinking'];
-  assert(thinking is String && thinking.isNotEmpty);
+  // Thinking is in result.thinking
+  final thinking = result.thinking;
+  assert(thinking != null && thinking.isNotEmpty);
   stdout.writeln('[[$thinking]]\n');
   stdout.writeln(result.output);
   dumpMessages(result.messages);
 }
 
 Future<void> thinkingStream(Agent agent) async {
-  stdout.writeln('\nthinkingStream:');
+  stdout.writeln('\n${agent.displayName} thinkingStream:');
 
   final history = <ChatMessage>[];
   var stillThinking = true;
@@ -39,8 +35,8 @@ Future<void> thinkingStream(Agent agent) async {
   await for (final chunk in agent.sendStream(
     'In one sentence: how does quicksort work?',
   )) {
-    // Check for thinking in the ChatResult metadata (not message metadata)
-    final thinking = chunk.metadata['thinking'] as String?;
+    // Check for thinking in the ChatResult
+    final thinking = chunk.thinking;
     final hasThinking = thinking != null && thinking.isNotEmpty;
     final hasText = chunk.output.isNotEmpty;
 

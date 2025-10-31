@@ -10,29 +10,42 @@ void runProviderTest(
   bool edgeCase = false,
   Timeout? timeout,
   Set<String>? skipProviders,
+  String Function(Provider provider, String defaultLabel)? labelBuilder,
 }) {
   final normalizedSkips =
       skipProviders?.map((name) => name.toLowerCase()).toSet() ?? const {};
 
-  final providers = edgeCase
-      ? ['google:gemini-2.5-flash'] // Edge cases on Google only
+  final providerEntries = edgeCase
+      ? <({Provider provider, String defaultLabel})>[
+          (
+            provider: Providers.get('google'),
+            defaultLabel: 'google:gemini-2.5-flash',
+          ),
+        ]
       : Providers.all
             .where(
               (p) =>
                   requiredCaps == null ||
                   requiredCaps.every((cap) => p.caps.contains(cap)),
             )
-            .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
+            .map(
+              (p) => (
+                provider: p,
+                defaultLabel:
+                    '${p.name}:${p.defaultModelNames[ModelKind.chat]}',
+              ),
+            );
 
-  for (final providerModel in providers) {
-    final parts = providerModel.split(':');
-    final providerName = parts[0];
-    final isSkipped = normalizedSkips.contains(providerName.toLowerCase());
+  for (final entry in providerEntries) {
+    final provider = entry.provider;
+    final providerName = provider.name.toLowerCase();
+    final isSkipped = normalizedSkips.contains(providerName);
+    final label =
+        labelBuilder?.call(provider, entry.defaultLabel) ?? entry.defaultLabel;
 
     test(
-      '$providerModel: $description',
+      '$label: $description',
       () async {
-        final provider = Providers.get(providerName);
         await testFunction(provider);
       },
       timeout: timeout ?? const Timeout(Duration(seconds: 30)),

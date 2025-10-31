@@ -56,6 +56,7 @@ class AnthropicProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     AnthropicChatOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
@@ -73,6 +74,7 @@ class AnthropicProvider
       name: modelName,
       tools: tools,
       temperature: temperature,
+      enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl,
       defaultOptions: AnthropicChatOptions(
@@ -82,7 +84,6 @@ class AnthropicProvider
         maxTokens: options?.maxTokens,
         stopSequences: options?.stopSequences,
         userId: options?.userId,
-        thinkingEnabled: options?.thinkingEnabled ?? false,
         thinkingBudgetTokens: options?.thinkingBudgetTokens,
       ),
     );

@@ -104,6 +104,7 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     List<Tool<Object>>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => EchoChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,

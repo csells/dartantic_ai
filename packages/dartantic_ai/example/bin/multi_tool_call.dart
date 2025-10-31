@@ -5,7 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  const model = 'gemini';
+  const model = 'claude';
   await multipleTools(model);
   await multipleToolsStream(model);
   await multipleDependentTools(model);
@@ -19,6 +19,7 @@ Future<void> multipleTools(String model) async {
   final agent = Agent(
     model,
     tools: [currentDateTimeTool, weatherTool, stockPriceTool],
+    enableThinking: true,
   );
 
   const prompt =
@@ -37,6 +38,7 @@ Future<void> multipleToolsStream(String model) async {
   final agent = Agent(
     model,
     tools: [currentDateTimeTool, weatherTool, stockPriceTool],
+    enableThinking: true,
   );
 
   const prompt =
@@ -56,7 +58,11 @@ Future<void> multipleToolsStream(String model) async {
 Future<void> multipleDependentTools(String model) async {
   stdout.writeln('\n## Multiple Dependent Tools');
 
-  final agent = Agent(model, tools: [weatherTool, temperatureConverterTool]);
+  final agent = Agent(
+    model,
+    tools: [weatherTool, temperatureConverterTool],
+    enableThinking: true,
+  );
 
   const prompt = 'What is the temperature in Miami in Fahrenheit?';
   stdout.writeln('User: $prompt');
@@ -68,7 +74,11 @@ Future<void> multipleDependentTools(String model) async {
 Future<void> multipleDependentToolsStream(String model) async {
   stdout.writeln('\n## Multiple Dependent Tools Streaming');
 
-  final agent = Agent(model, tools: [weatherTool, temperatureConverterTool]);
+  final agent = Agent(
+    model,
+    tools: [weatherTool, temperatureConverterTool],
+    enableThinking: true,
+  );
 
   const prompt = 'What is the temperature in Miami in Fahrenheit?';
   stdout.writeln('User: $prompt');

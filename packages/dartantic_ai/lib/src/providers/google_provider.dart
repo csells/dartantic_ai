@@ -42,6 +42,7 @@ class GoogleProvider
           ProviderCaps.typedOutput,
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.chatVision,
+          ProviderCaps.thinking,
         },
         aliases: const ['gemini'],
       );
@@ -75,6 +76,7 @@ class GoogleProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
@@ -93,6 +95,7 @@ class GoogleProvider
       name: modelName,
       tools: tools,
       temperature: temperature,
+      enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
       defaultOptions: GoogleChatModelOptions(
@@ -106,6 +109,7 @@ class GoogleProvider
         responseSchema: options?.responseSchema,
         safetySettings: options?.safetySettings,
         enableCodeExecution: options?.enableCodeExecution,
+        thinkingBudgetTokens: options?.thinkingBudgetTokens,
       ),
     );
   }

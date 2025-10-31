@@ -21,7 +21,7 @@ void main() {
     timeout: const Timeout(Duration(seconds: 180)),
     () {
       group('streaming with thinking (80% cases)', () {
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking appears in metadata during streaming',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -33,9 +33,8 @@ void main() {
               'What is 23 multiplied by 47? Show your reasoning.',
             )) {
               // Collect thinking deltas
-              final thinking = chunk.metadata['thinking'] as String?;
-              if (thinking != null) {
-                thinkingChunks.add(thinking);
+              if (chunk.thinking != null) {
+                thinkingChunks.add(chunk.thinking!);
               }
 
               // Collect response text
@@ -77,7 +76,7 @@ void main() {
           requiredCaps: {ProviderCaps.thinking},
         );
 
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking accumulates through streaming',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -87,9 +86,8 @@ void main() {
             await for (final chunk in agent.sendStream(
               'Calculate 156 divided by 12',
             )) {
-              final thinking = chunk.metadata['thinking'] as String?;
-              if (thinking != null) {
-                thinkingChunks.add(thinking);
+              if (chunk.thinking != null) {
+                thinkingChunks.add(chunk.thinking!);
               }
             }
 
@@ -111,7 +109,7 @@ void main() {
           requiredCaps: {ProviderCaps.thinking},
         );
 
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking does not appear in message parts',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -141,13 +139,9 @@ void main() {
           requiredCaps: {ProviderCaps.thinking},
         );
 
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking works with tool calls',
           (provider) async {
-            // Skip Anthropic: Thinking block metadata not preserved through
-            // message consolidation. Needs investigation of metadata flow.
-            if (provider.name == 'anthropic') return;
-
             final agent = _createAgentWithThinking(
               provider,
               tools: [currentDateTimeTool],
@@ -160,7 +154,7 @@ void main() {
             await for (final chunk in agent.sendStream(
               'What time is it right now?',
             )) {
-              if (chunk.metadata['thinking'] != null) hadThinking = true;
+              if (chunk.thinking != null) hadThinking = true;
 
               // Check for tool calls in messages
               for (final message in chunk.messages) {
@@ -180,27 +174,22 @@ void main() {
       });
 
       group('non-streaming with thinking (80% cases)', () {
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking appears in result metadata for non-streaming',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
 
             final result = await agent.send('What is 15 plus 27?');
 
-            // Thinking should be in result metadata
-            final thinking = result.metadata['thinking'] as String?;
+            // Thinking should be in result
+            expect(result.thinking, isNotNull, reason: 'Should have thinking');
             expect(
-              thinking,
-              isNotNull,
-              reason: 'Should have thinking in metadata',
-            );
-            expect(
-              thinking,
+              result.thinking,
               isNotEmpty,
               reason: 'Thinking should not be empty',
             );
             expect(
-              thinking!.length,
+              result.thinking!.length,
               greaterThan(10),
               reason: 'Thinking should be substantial',
             );
@@ -215,7 +204,7 @@ void main() {
           requiredCaps: {ProviderCaps.thinking},
         );
 
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking not included in conversation history',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -235,15 +224,15 @@ void main() {
               }
             }
 
-            // But thinking should be in metadata
-            expect(result.metadata['thinking'], isNotNull);
+            // But thinking should be in result
+            expect(result.thinking, isNotNull);
           },
           requiredCaps: {ProviderCaps.thinking},
         );
       });
 
       group('thinking with different question types (80% cases)', () {
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking for mathematical reasoning',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -253,9 +242,8 @@ void main() {
               'how far does it travel?',
             );
 
-            final thinking = result.metadata['thinking'] as String?;
-            expect(thinking, isNotNull);
-            expect(thinking, isNotEmpty);
+            expect(result.thinking, isNotNull);
+            expect(result.thinking, isNotEmpty);
 
             // Should contain the answer
             expect(result.output, contains('150'));
@@ -263,7 +251,9 @@ void main() {
           requiredCaps: {ProviderCaps.thinking},
         );
 
-        runProviderTest('thinking for logical reasoning', (provider) async {
+        _runThinkingProviderTest('thinking for logical reasoning', (
+          provider,
+        ) async {
           final agent = _createAgentWithThinking(provider);
 
           final result = await agent.send(
@@ -271,16 +261,15 @@ void main() {
             'what can we conclude about Fluffy?',
           );
 
-          final thinking = result.metadata['thinking'] as String?;
-          expect(thinking, isNotNull);
-          expect(thinking, isNotEmpty);
+          expect(result.thinking, isNotNull);
+          expect(result.thinking, isNotEmpty);
 
           // Should conclude Fluffy is a mammal
           final output = result.output.toLowerCase();
           expect(output, contains('mammal'));
         }, requiredCaps: {ProviderCaps.thinking});
 
-        runProviderTest(
+        _runThinkingProviderTest(
           'thinking for problem decomposition',
           (provider) async {
             final agent = _createAgentWithThinking(provider);
@@ -289,9 +278,8 @@ void main() {
               'How many quarters are in 5 dollars?',
             );
 
-            final thinking = result.metadata['thinking'] as String?;
-            expect(thinking, isNotNull);
-            expect(thinking, isNotEmpty);
+            expect(result.thinking, isNotNull);
+            expect(result.thinking, isNotEmpty);
 
             // Should contain the answer
             expect(result.output, contains('20'));
@@ -311,45 +299,48 @@ void main() {
 const _thinkingModelsByProvider = {
   'openai-responses': 'gpt-5',
   'anthropic': 'claude-sonnet-4-5',
+  'google': 'gemini-2.5-flash',
 };
+
+void _runThinkingProviderTest(
+  String description,
+  Future<void> Function(Provider provider) testFunction, {
+  Set<ProviderCaps>? requiredCaps,
+  bool edgeCase = false,
+  Timeout? timeout,
+  Set<String>? skipProviders,
+}) {
+  runProviderTest(
+    description,
+    testFunction,
+    requiredCaps: requiredCaps,
+    edgeCase: edgeCase,
+    timeout: timeout,
+    skipProviders: skipProviders,
+    labelBuilder: _thinkingTestLabelBuilder,
+  );
+}
 
 /// Creates an agent with thinking enabled for the given provider.
 ///
 /// This function handles provider-specific configuration for thinking:
 /// - Selects the appropriate thinking-capable model from the map
-/// - Configures provider-specific thinking options
+/// - Enables thinking at the Agent level
 Agent _createAgentWithThinking(Provider provider, {List<Tool>? tools}) {
+  final fullModelString = _thinkingModelString(provider);
+  return Agent(fullModelString, tools: tools, enableThinking: true);
+}
+
+String _thinkingTestLabelBuilder(Provider provider, String defaultLabel) =>
+    _thinkingModelString(provider, fallback: defaultLabel);
+
+String _thinkingModelString(Provider provider, {String? fallback}) {
   final modelName = _thinkingModelsByProvider[provider.name];
   if (modelName == null) {
+    if (fallback != null) return fallback;
     throw ArgumentError(
       'Provider ${provider.name} not configured for thinking tests',
     );
   }
-
-  // Build full model string
-  final fullModelString = '${provider.name}:$modelName';
-
-  // Provider-specific thinking configuration
-  switch (provider.name) {
-    case 'openai-responses':
-      return Agent(
-        fullModelString,
-        tools: tools,
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          reasoningSummary: OpenAIReasoningSummary.detailed,
-        ),
-      );
-    case 'anthropic':
-      return Agent(
-        fullModelString,
-        tools: tools,
-        chatModelOptions: const AnthropicChatOptions(
-          thinkingEnabled: true,
-        ),
-      );
-    default:
-      throw ArgumentError(
-        'Provider ${provider.name} thinking configuration not implemented',
-      );
-  }
+  return '${provider.name}:$modelName';
 }

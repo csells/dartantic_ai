@@ -730,6 +730,7 @@ class _EchoProvider extends Provider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
 

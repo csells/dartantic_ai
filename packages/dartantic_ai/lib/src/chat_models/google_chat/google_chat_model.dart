@@ -24,8 +24,10 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     http.Client? client,
     super.tools,
     super.temperature,
+    bool enableThinking = false,
     super.defaultOptions = const GoogleChatModelOptions(),
-  }) : _httpClient = CustomHttpClient(
+  }) : _enableThinking = enableThinking,
+       _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
          baseUrl: baseUrl,
          headers: {'x-goog-api-key': apiKey},
@@ -33,7 +35,8 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
        ) {
     _logger.info(
       'Creating Google model: $name '
-      'with ${super.tools?.length ?? 0} tools, temp: $temperature',
+      'with ${super.tools?.length ?? 0} tools, temp: $temperature, '
+      'thinking: $enableThinking',
     );
     _service = gl.GenerativeService(client: _httpClient);
   }
@@ -43,6 +46,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
 
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
+  final bool _enableThinking;
 
   /// The resolved base URL.
   @visibleForTesting
@@ -137,6 +141,8 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       responseSchema: options?.responseSchema ?? defaultOptions.responseSchema,
     );
 
+    final thinkingConfig = _buildThinkingConfig(options);
+
     return gl.GenerationConfig(
       candidateCount: options?.candidateCount ?? defaultOptions.candidateCount,
       stopSequences: stopSequences.isEmpty ? null : stopSequences,
@@ -148,6 +154,22 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       topK: options?.topK ?? defaultOptions.topK,
       responseMimeType: responseMimeType,
       responseSchema: responseSchema,
+      thinkingConfig: thinkingConfig,
+    );
+  }
+
+  gl.ThinkingConfig? _buildThinkingConfig(GoogleChatModelOptions? options) {
+    if (!_enableThinking) return null;
+
+    // Default to dynamic thinking (-1) if no budget specified
+    final thinkingBudget =
+        options?.thinkingBudgetTokens ??
+        defaultOptions.thinkingBudgetTokens ??
+        -1;
+
+    return gl.ThinkingConfig(
+      includeThoughts: true,
+      thinkingBudget: thinkingBudget,
     );
   }
 

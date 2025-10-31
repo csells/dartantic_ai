@@ -29,6 +29,7 @@ Thinking (also called "extended reasoning" or "chain-of-thought") is a capabilit
 |----------|-----------|--------|---------------|
 | OpenAI Responses | Reasoning Summary | ✅ Implemented | `reasoningSummary` parameter |
 | Anthropic | Extended Thinking | ✅ Implemented | `thinking` parameter |
+| Google | Extended Thinking | ✅ Implemented | `thinkingEnabled` + `thinkingBudgetTokens` |
 | Others | N/A | ❌ Not supported | - |
 
 ## Generic Architecture
@@ -396,23 +397,163 @@ a.ThinkingConfig? _buildThinkingConfig(
 }
 ```
 
+### Google
+
+Google's Gemini API supports extended thinking through the `thinkingConfig` parameter with explicit token budget control and dynamic thinking modes.
+
+#### Configuration
+
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent(
+  'google:gemini-2.5-flash',
+  chatModelOptions: const GoogleChatModelOptions(
+    thinkingEnabled: true,
+  ),
+);
+```
+
+#### Thinking Configuration
+
+```dart
+// Enable thinking with dynamic budget (model decides)
+GoogleChatModelOptions(
+  thinkingEnabled: true,
+)
+
+// Enable with custom budget
+GoogleChatModelOptions(
+  thinkingEnabled: true,
+  thinkingBudgetTokens: 8192,
+)
+
+// Use dynamic thinking (model decides optimal budget)
+GoogleChatModelOptions(
+  thinkingEnabled: true,
+  thinkingBudgetTokens: -1,  // Explicit dynamic mode
+)
+
+// Disable thinking (default)
+GoogleChatModelOptions()  // thinkingEnabled defaults to false
+```
+
+#### Implementation Details
+
+**SDK Support**: `google_cloud_ai_generativelanguage_v1beta` v0.1.2+ includes full thinking support
+
+**Content Parts**: Google includes thinking as regular text parts with a `thought` boolean flag:
+
+```dart
+// Google's native format marks thinking with flag
+Part(
+  text: "Let me think through this step by step...",
+  thought: true,
+)
+```
+
+**Dartantic Mapping Strategy**:
+
+Despite Google including thinking in content parts, Dartantic follows the established pattern:
+
+1. **During streaming**: Extract thinking text from parts where `thought=true` and emit as `ChatResult.metadata['thinking']`
+2. **After completion**: Accumulate full thinking in result metadata
+3. **In message history**: Thinking is NOT included in message parts (filtered during mapping)
+
+**Implementation Flow**:
+
+The Google message mapper handles thinking through the following flow:
+
+1. **Response Processing**:
+   - Check each part's `thought` flag
+   - If `thought=true`, accumulate text in thinking buffer
+   - If `thought=false`, add text as normal TextPart
+
+2. **Metadata Addition**:
+   - Store accumulated thinking in `ChatResult.metadata['thinking']`
+   - Thinking never appears in `ChatMessage.parts`
+
+See `google_message_mappers.dart` for the complete implementation.
+
+**Token Accounting**:
+- Thinking tokens count toward `maxOutputTokens` limit
+- User charged for full thinking tokens generated
+- Explicit budget control via `thinkingBudgetTokens` parameter
+- Budget ranges vary by model (see configuration section)
+
+**Token Budget Options**:
+- **Gemini 2.5 Pro**: 128-32768 tokens (default: dynamic)
+- **Gemini 2.5 Flash**: 0-24576 tokens (default: dynamic)
+- **Gemini 2.5 Flash-Lite**: 512-24576 tokens (no default)
+- **Dynamic Mode (-1)**: Model determines optimal budget based on task complexity
+
+**Thought Signatures**: Google provides optional encrypted signatures for thinking blocks to maintain context across multi-turn conversations with function calling.
+
+#### Options Integration
+
+```dart
+class GoogleChatModelOptions extends ChatModelOptions {
+  const GoogleChatModelOptions({
+    // ... existing fields ...
+    this.thinkingEnabled = false,
+    this.thinkingBudgetTokens,
+  });
+
+  // ... existing fields ...
+
+  /// Enable extended thinking (chain-of-thought reasoning).
+  ///
+  /// When enabled, Gemini shows its internal reasoning process before
+  /// providing the final answer. Thinking content is exposed via:
+  /// - During streaming: `ChatResult.metadata['thinking']` (incremental
+  ///   deltas)
+  /// - In final result: Accumulated thinking in result metadata
+  /// - In message history: Thinking is NOT included in message parts
+  ///   (metadata only)
+  ///
+  /// Token costs:
+  /// - Thinking tokens count toward your `maxOutputTokens` limit
+  /// - You are charged for all thinking tokens generated
+  ///
+  /// See: https://ai.google.dev/gemini-api/docs/thinking
+  final bool thinkingEnabled;
+
+  /// Optional token budget for thinking.
+  ///
+  /// Controls how many tokens Gemini can use for its internal reasoning.
+  /// The range varies by model:
+  /// - Gemini 2.5 Pro: 128-32768 (default: dynamic)
+  /// - Gemini 2.5 Flash: 0-24576 (default: dynamic)
+  /// - Gemini 2.5 Flash-Lite: 512-24576 (no default)
+  ///
+  /// Set to -1 for dynamic thinking (model decides budget based on
+  /// complexity). Set to 0 to disable thinking (same as thinkingEnabled:
+  /// false).
+  ///
+  /// If not specified and thinkingEnabled is true, uses dynamic thinking
+  /// (-1).
+  final int? thinkingBudgetTokens;
+}
+```
+
 ## Provider Comparison
 
-| Feature | OpenAI Responses | Anthropic |
-|---------|-----------------|-----------|
-| **Configuration Type** | Enum (`brief`, `detailed`, `auto`) | Boolean flag with optional budget |
-| **Minimum Budget** | Implicit (model-controlled) | SDK-enforced (defaults to 4096) |
-| **Maximum Budget** | Model-controlled | User-specified via `thinkingBudgetTokens` (< `max_tokens`) |
-| **Token Accounting** | Separate reasoning budget | Counts toward `max_tokens` |
-| **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` |
-| **Content Block** | No (metadata only) | Yes (`Block.thinking()`) |
-| **Signature** | No | Yes (optional cryptographic) |
-| **Dartantic Representation** | `metadata['thinking']` only | `metadata['thinking']` + stored for reconstruction |
-| **Message History** | Never included | Preserved when tool calls present |
-| **Tool Use Compatibility** | Full support | Full support (thinking auto-preserved) |
-| **Temperature Constraints** | None | Cannot use with modified temperature |
-| **Top-K Constraints** | None | Cannot use |
-| **Top-P Constraints** | None | Limited to 0.95-1.0 range |
+| Feature | OpenAI Responses | Anthropic | Google |
+|---------|-----------------|-----------|---------|
+| **Configuration Type** | Enum (`brief`, `detailed`, `auto`) | Boolean flag with optional budget | Boolean flag with optional budget |
+| **Minimum Budget** | Implicit (model-controlled) | SDK-enforced (defaults to 4096) | Model-specific (128-512 tokens) |
+| **Maximum Budget** | Model-controlled | User-specified via `thinkingBudgetTokens` (< `max_tokens`) | Model-specific (24576-32768 tokens) |
+| **Dynamic Budget** | No | No | Yes (-1 for model-determined) |
+| **Token Accounting** | Separate reasoning budget | Counts toward `max_tokens` | Counts toward `maxOutputTokens` |
+| **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` | Text parts with `thought=true` |
+| **Content Block** | No (metadata only) | Yes (`Block.thinking()`) | Yes (Part with `thought` flag) |
+| **Signature** | No | Yes (optional cryptographic) | Yes (optional encrypted) |
+| **Dartantic Representation** | `metadata['thinking']` only | `metadata['thinking']` + stored for reconstruction | `metadata['thinking']` only |
+| **Message History** | Never included | Preserved when tool calls present | Never included |
+| **Tool Use Compatibility** | Full support | Full support (thinking auto-preserved) | Full support |
+| **Temperature Constraints** | None | Cannot use with modified temperature | None |
+| **Top-K Constraints** | None | Cannot use | None |
+| **Top-P Constraints** | None | Limited to 0.95-1.0 range | None |
 
 ## Usage Patterns
 
@@ -540,6 +681,41 @@ void main() async {
 }
 ```
 
+#### Google
+
+```dart
+void main() async {
+  final agent = Agent(
+    'google:gemini-2.5-flash',
+    chatModelOptions: const GoogleChatModelOptions(
+      thinkingEnabled: true,
+      thinkingBudgetTokens: -1,  // Dynamic thinking (model decides)
+    ),
+  );
+
+  stdout.write('Question: Solve a complex math problem\n\n');
+
+  final thinkingBuffer = StringBuffer();
+  await for (final chunk in agent.sendStream(
+    'What is the derivative of x^3 + 2x^2 - 5x + 7?',
+  )) {
+    final thinking = chunk.metadata['thinking'] as String?;
+    if (thinking != null) {
+      thinkingBuffer.write(thinking);
+      stdout.write('[Thinking] $thinking\n');
+    }
+
+    if (chunk.output.isNotEmpty) {
+      stdout.write(chunk.output);
+    }
+  }
+
+  print('\n\nTotal thinking length: ${thinkingBuffer.length} characters');
+
+  exit(0);
+}
+```
+
 ### Multi-Provider Example
 
 ```dart
@@ -567,6 +743,17 @@ Future<void> compareThinkingAcrossProviders() async {
 
   print('\n=== Anthropic Extended Thinking ===');
   await demonstrateThinking(anthropicAgent, question);
+
+  // Google
+  final googleAgent = Agent(
+    'google:gemini-2.5-flash',
+    chatModelOptions: const GoogleChatModelOptions(
+      thinkingEnabled: true,
+    ),
+  );
+
+  print('\n=== Google Extended Thinking ===');
+  await demonstrateThinking(googleAgent, question);
 }
 
 Future<void> demonstrateThinking(Agent agent, String question) async {

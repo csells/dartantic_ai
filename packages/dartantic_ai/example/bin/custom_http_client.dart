@@ -113,6 +113,7 @@ class LoggingProvider extends GoogleProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
@@ -121,6 +122,7 @@ class LoggingProvider extends GoogleProvider {
       name: modelName,
       tools: tools,
       temperature: temperature,
+      enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
       client: LoggingHttpClient(),

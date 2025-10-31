@@ -30,11 +30,10 @@ class AnthropicThinkingMetadata {
   static Map<String, Object?> buildThinkingBlock({
     required String thinking,
     String? signature,
-  }) =>
-      {
-        thinkingTextKey: thinking,
-        if (signature != null) signatureKey: signature,
-      };
+  }) => {
+    thinkingTextKey: thinking,
+    if (signature != null) signatureKey: signature,
+  };
 
   /// Reads the thinking text from stored block data.
   static String? thinkingText(Map<String, Object?>? blockData) =>

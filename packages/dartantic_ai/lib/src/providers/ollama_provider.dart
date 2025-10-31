@@ -38,6 +38,7 @@ class OllamaProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OllamaChatOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;

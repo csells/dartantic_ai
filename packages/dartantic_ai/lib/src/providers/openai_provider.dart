@@ -54,6 +54,7 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
     validateApiKeyPresence();

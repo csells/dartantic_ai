@@ -110,6 +110,7 @@ class CustomOpenAIProvider extends OpenAIProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) => OpenAIChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -131,6 +132,7 @@ class CustomGoogleProvider extends GoogleProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) => GoogleChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -139,6 +141,7 @@ class CustomGoogleProvider extends GoogleProvider {
     client: client,
     tools: tools,
     temperature: temperature,
+    enableThinking: enableThinking,
     defaultOptions: options ?? const GoogleChatModelOptions(),
   );
 }
@@ -153,6 +156,7 @@ class CustomAnthropicProvider extends AnthropicProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     AnthropicChatOptions? options,
   }) => AnthropicChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -160,6 +164,7 @@ class CustomAnthropicProvider extends AnthropicProvider {
     client: client,
     tools: tools,
     temperature: temperature,
+    enableThinking: enableThinking,
     defaultOptions: options ?? const AnthropicChatOptions(),
   );
 }
@@ -174,6 +179,7 @@ class CustomMistralProvider extends MistralProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     MistralChatModelOptions? options,
   }) => MistralChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -195,6 +201,7 @@ class CustomOllamaProvider extends OllamaProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OllamaChatOptions? options,
   }) => OllamaChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,

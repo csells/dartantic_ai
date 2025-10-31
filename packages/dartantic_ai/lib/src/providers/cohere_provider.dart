@@ -53,6 +53,7 @@ class CohereProvider extends OpenAIProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     CohereChatOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;

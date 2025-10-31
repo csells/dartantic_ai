@@ -19,6 +19,7 @@ class GoogleChatModelOptions extends ChatModelOptions {
     this.responseSchema,
     this.safetySettings,
     this.enableCodeExecution,
+    this.thinkingBudgetTokens,
   });
 
   /// The maximum cumulative probability of tokens to consider when sampling.
@@ -116,6 +117,32 @@ class GoogleChatModelOptions extends ChatModelOptions {
   /// metadata as `metadata['executable_code']` and
   /// `metadata['code_execution_result']`.
   final bool? enableCodeExecution;
+
+  /// Optional token budget for thinking.
+  ///
+  /// Only applies when thinking is enabled at the Agent level via
+  /// `Agent(model, enableThinking: true)`.
+  ///
+  /// Controls how many tokens Gemini can use for its internal reasoning.
+  /// The range varies by model:
+  /// - Gemini 2.5 Pro: 128-32768 (default: dynamic)
+  /// - Gemini 2.5 Flash: 0-24576 (default: dynamic)
+  /// - Gemini 2.5 Flash-Lite: 512-24576 (no default)
+  ///
+  /// Set to -1 for dynamic thinking (model decides budget based on complexity).
+  /// If not specified when thinking is enabled, uses dynamic thinking (-1).
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent(
+  ///   'google:gemini-2.5-flash',
+  ///   enableThinking: true,
+  ///   chatModelOptions: GoogleChatModelOptions(
+  ///     thinkingBudgetTokens: 8192,  // Override default dynamic budget
+  ///   ),
+  /// )
+  /// ```
+  final int? thinkingBudgetTokens;
 }
 
 /// {@template chat_google_generative_ai_safety_setting}

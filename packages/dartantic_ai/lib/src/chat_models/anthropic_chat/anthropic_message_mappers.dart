@@ -46,17 +46,16 @@ int _calculateMaxTokens({
 /// If thinkingBudgetTokens is not specified, uses a reasonable default.
 /// The Anthropic SDK will validate constraints (minimum, maximum, etc.).
 a.ThinkingConfig? _buildThinkingConfig(
+  bool enableThinking,
   AnthropicChatOptions? options,
   AnthropicChatOptions defaultOptions,
 ) {
-  // Check if thinking is enabled in either options or defaults
-  final thinkingEnabled =
-      options?.thinkingEnabled ?? defaultOptions.thinkingEnabled;
-  if (!thinkingEnabled) return null;
+  if (!enableThinking) return null;
 
   // Get explicit budget if provided, otherwise use our default
   // Let Anthropic SDK validate the actual constraints
-  final budgetTokens = options?.thinkingBudgetTokens ??
+  final budgetTokens =
+      options?.thinkingBudgetTokens ??
       defaultOptions.thinkingBudgetTokens ??
       _defaultThinkingBudgetTokens;
 
@@ -71,6 +70,7 @@ a.ThinkingConfig? _buildThinkingConfig(
 a.CreateMessageRequest createMessageRequest(
   List<ChatMessage> messages, {
   required String modelName,
+  required bool enableThinking,
   required AnthropicChatOptions? options,
   required AnthropicChatOptions defaultOptions,
   List<Tool>? tools,
@@ -96,7 +96,11 @@ a.CreateMessageRequest createMessageRequest(
   );
 
   // Build thinking config first to check if thinking is enabled
-  final thinkingConfig = _buildThinkingConfig(options, defaultOptions);
+  final thinkingConfig = _buildThinkingConfig(
+    enableThinking,
+    options,
+    defaultOptions,
+  );
 
   // Calculate appropriate maxTokens based on whether thinking is enabled
   final maxTokens = _calculateMaxTokens(
@@ -275,20 +279,27 @@ extension MessageListMapper on List<ChatMessage> {
 
       // Anthropic requires thinking block before tool_use blocks when present
       // Retrieve thinking block data (includes signature) from metadata
-      final thinkingBlockData =
-          AnthropicThinkingMetadata.getThinkingBlock(message.metadata);
+      final thinkingBlockData = AnthropicThinkingMetadata.getThinkingBlock(
+        message.metadata,
+      );
+      _logger.fine(
+        'Model message metadata keys: ${message.metadata.keys}; '
+        'thinking block present: ${thinkingBlockData != null}',
+      );
       if (thinkingBlockData != null) {
-        final thinking =
-            AnthropicThinkingMetadata.thinkingText(thinkingBlockData);
-        final signature =
-            AnthropicThinkingMetadata.signature(thinkingBlockData);
+        final thinking = AnthropicThinkingMetadata.thinkingText(
+          thinkingBlockData,
+        );
+        final signature = AnthropicThinkingMetadata.signature(
+          thinkingBlockData,
+        );
 
         if (thinking != null && thinking.isNotEmpty) {
           blocks.add(
             a.Block.thinking(
               type: a.ThinkingBlockType.thinking,
               thinking: thinking,
-              signature: signature,  // Include original signature
+              signature: signature, // Include original signature
             ),
           );
         }
@@ -392,6 +403,17 @@ class MessageStreamEventTransformer
   /// Signature from the thinking block (if present).
   String? _thinkingSignature;
 
+  /// Whether the current message included any tool calls.
+  bool _messageHasToolCalls = false;
+
+  /// Records a signature delta emitted when thinking is enabled with tools.
+  void recordSignatureDelta(String signature) {
+    if (signature.isEmpty) {
+      return;
+    }
+    _thinkingSignature = signature;
+  }
+
   /// Binds this transformer to a stream of [a.MessageStreamEvent]s, producing a
   /// stream of [ChatResult]s.
   @override
@@ -462,6 +484,7 @@ class MessageStreamEventTransformer
     if (cb is a.ToolUseBlock) {
       _toolCallIdByIndex[e.index] = cb.id;
       _toolNameByIndex[e.index] = cb.name;
+      _messageHasToolCalls = true;
 
       // Capture any initial args if present (small payloads may arrive fully
       // in the start block without deltas)
@@ -472,8 +495,11 @@ class MessageStreamEventTransformer
     }
 
     // Capture thinking block signature for later reconstruction
-    if (cb is a.ThinkingBlock && cb.signature != null) {
-      _thinkingSignature = cb.signature;
+    if (cb is a.ThinkingBlock) {
+      final signature = cb.signature;
+      _thinkingSignature = (signature != null && signature.isNotEmpty)
+          ? signature
+          : null;
     }
 
     return ChatResult<ChatMessage>(
@@ -501,6 +527,7 @@ class MessageStreamEventTransformer
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
         messages: const [],
+        thinking: thinkingMetadata.thinking,
         finishReason: FinishReason.unspecified,
         metadata: thinkingMetadata.metadata,
         usage: null,
@@ -584,8 +611,14 @@ class MessageStreamEventTransformer
   }
 
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
+    // Check if this message includes tool calls
+    final hasToolCalls = _messageHasToolCalls;
+
     final thinkingMetadata = _thinkingBuffer.isNotEmpty
-        ? _buildThinkingMetadata(_thinkingBuffer.toString())
+        ? _buildThinkingMetadata(
+            _thinkingBuffer.toString(),
+            storeFullBlock: hasToolCalls,
+          )
         : null;
 
     // Clear any tracking state for safety
@@ -596,6 +629,7 @@ class MessageStreamEventTransformer
     _toolSeedArgsByIndex.clear();
     _thinkingBuffer.clear();
     _thinkingSignature = null;
+    _messageHasToolCalls = false;
 
     // Return final metadata if any
     if (thinkingMetadata != null) {
@@ -609,6 +643,7 @@ class MessageStreamEventTransformer
             metadata: thinkingMetadata.messageMetadata,
           ),
         ],
+        thinking: thinkingMetadata.thinking,
         finishReason: FinishReason.unspecified,
         metadata: thinkingMetadata.metadata,
         usage: null,
@@ -618,20 +653,28 @@ class MessageStreamEventTransformer
     return null;
   }
 
-  ({Map<String, dynamic> metadata, Map<String, Object?> messageMetadata})
-      _buildThinkingMetadata(String thinkingForMetadata) {
-    final thinkingBlockData = AnthropicThinkingMetadata.buildThinkingBlock(
-      thinking: _thinkingBuffer.toString(),
+  ({
+    String thinking,
+    Map<String, dynamic> metadata,
+    Map<String, Object?> messageMetadata,
+  })
+  _buildThinkingMetadata(String thinkingText, {bool storeFullBlock = false}) {
+    // Only need to persist the full thinking block (with signature) when a
+    // subsequent request must replay it before tool_use blocks. For regular
+    // responses, thinking stays in result metadata only.
+    if (!storeFullBlock) {
+      return (thinking: thinkingText, metadata: {}, messageMetadata: {});
+    }
+
+    final blockData = AnthropicThinkingMetadata.buildThinkingBlock(
+      thinking: thinkingText,
       signature: _thinkingSignature,
     );
+
     return (
-      metadata: {
-        'thinking': thinkingForMetadata,
-        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
-      },
-      messageMetadata: {
-        AnthropicThinkingMetadata.thinkingBlockKey: thinkingBlockData,
-      },
+      thinking: thinkingText,
+      metadata: {AnthropicThinkingMetadata.thinkingBlockKey: blockData},
+      messageMetadata: {AnthropicThinkingMetadata.thinkingBlockKey: blockData},
     );
   }
 }

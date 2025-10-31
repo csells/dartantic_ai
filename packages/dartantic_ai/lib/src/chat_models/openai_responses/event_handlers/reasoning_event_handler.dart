@@ -42,7 +42,7 @@ class ReasoningEventHandler implements OpenAIResponsesEventHandler {
     yield ChatResult<ChatMessage>(
       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       messages: const [],
-      metadata: {'thinking': event.delta},
+      thinking: event.delta,
       usage: null,
     );
   }
