@@ -17,6 +17,7 @@ class ReasoningEventHandler implements OpenAIResponsesEventHandler {
   @override
   bool canHandle(openai.ResponseEvent event) =>
       event is openai.ResponseReasoningSummaryTextDelta ||
+      event is openai.ResponseReasoningSummaryTextDone ||
       event is openai.ResponseReasoningSummaryPartAdded ||
       event is openai.ResponseReasoningSummaryPartDone ||
       event is openai.ResponseReasoningDelta ||
@@ -29,6 +30,8 @@ class ReasoningEventHandler implements OpenAIResponsesEventHandler {
   ) async* {
     if (event is openai.ResponseReasoningSummaryTextDelta) {
       yield* _handleReasoningSummaryDelta(event, state);
+    } else if (event is openai.ResponseReasoningSummaryTextDone) {
+      yield* _handleReasoningSummaryDone(event, state);
     }
     // Other reasoning events require no action
   }
@@ -37,13 +40,50 @@ class ReasoningEventHandler implements OpenAIResponsesEventHandler {
     openai.ResponseReasoningSummaryTextDelta event,
     EventMappingState state,
   ) async* {
-    state.thinkingBuffer.write(event.delta);
-    _logger.info('ResponseReasoningSummaryTextDelta: "${event.delta}"');
-    yield ChatResult<ChatMessage>(
-      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-      messages: const [],
-      thinking: event.delta,
-      usage: null,
-    );
+    final newThinking = _appendThinking(state, event.delta);
+    if (newThinking.isEmpty) {
+      return;
+    }
+    _logger.info('ResponseReasoningSummaryTextDelta: "$newThinking"');
+    yield _thinkingChunk(newThinking);
   }
+
+  Stream<ChatResult<ChatMessage>> _handleReasoningSummaryDone(
+    openai.ResponseReasoningSummaryTextDone event,
+    EventMappingState state,
+  ) async* {
+    final newThinking = _appendThinking(state, event.text);
+    if (newThinking.isEmpty) {
+      return;
+    }
+    _logger.info('ResponseReasoningSummaryTextDone: "$newThinking"');
+    yield _thinkingChunk(newThinking);
+  }
+
+  String _appendThinking(EventMappingState state, String text) {
+    if (text.isEmpty) return '';
+    final existing = state.thinkingBuffer.toString();
+
+    // If the incoming text already contains the accumulated prefix,
+    // only append the new suffix to avoid duplication.
+    var toAppend = text;
+    if (existing.isNotEmpty && text.startsWith(existing)) {
+      toAppend = text.substring(existing.length);
+    } else if (existing.startsWith(text)) {
+      // Incoming text is a prefix we've already captured.
+      return '';
+    }
+    if (toAppend.isEmpty) return '';
+
+    state.thinkingBuffer.write(toAppend);
+    return toAppend;
+  }
+
+  ChatResult<ChatMessage> _thinkingChunk(String thinking) =>
+      ChatResult<ChatMessage>(
+        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+        messages: const [],
+        thinking: thinking,
+        usage: null,
+      );
 }
