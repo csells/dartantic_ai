@@ -302,10 +302,17 @@ Clean message semantics and transformations. See [[Message-Handling-Architecture
 
 ### 🧠 **Thinking (Extended Reasoning)**
 LLM reasoning transparency across providers. See [[Thinking]].
-- Streaming thinking deltas via metadata
-- Provider-specific configuration (OpenAI Responses, Anthropic)
-- Metadata-first design (thinking not sent to model)
-- Token budget controls
+- Streaming thinking deltas via `ChatResult.thinking` field
+- Provider-specific configuration (OpenAI Responses, Anthropic, Google)
+- Agent-level enablement with provider-specific fine-tuning options
+- Token budget controls and dynamic thinking support
+
+### 🎨 **Media Generation**
+Provider-agnostic media synthesis capabilities. See [[Media-Generation]].
+- Unified `MediaGenerationModel` contract for images, PDFs, audio, and more
+- Streaming delivery of binary assets and metadata
+- MIME type negotiation and output schema support
+- Integrates with server-side tooling when available
 
 ### 🛠️ **Server-Side Tools**
 Provider-hosted capabilities with progress streaming. See [[Server-Side-Tools-Tech-Design]].
@@ -392,11 +399,13 @@ final embeddingsProviders = Providers.allWith({ProviderCaps.embeddings});
 - **[[Orchestration-Layer-Architecture]]** - Coordinates streaming workflows, tool execution, and business logic across providers
 - **[[Message-Handling-Architecture]]** - Message structure and transformation semantics across Agent and Mapper layers
 - **[[State-Management-Architecture]]** - StreamingState system for managing mutable state during streaming operations
-- **[[Architecture-Best-Practices]]** - Core architectural principles (DRY, SRP, KISS, YAGNI, separation of concerns)
+- **[[Architecture-Best-Practices]]** - Core architectural principles (DRY, SRP, KISS, YAGNI, separation of concerns, error transparency)
 
 ### Features & Capabilities
 - **[[Streaming-Tool-Call-Architecture]]** - Provider-specific streaming patterns, tool ID coordination, and message accumulation
 - **[[Typed-Output-Architecture]]** - Structured JSON output with native schema support and tool-based fallback
+- **[[Thinking]]** - Extended reasoning support across OpenAI Responses, Anthropic, and Google with streaming deltas and token budget controls
+- **[[Media-Generation]]** - Provider-agnostic media synthesis capabilities (images, PDFs, audio) with streaming delivery and MIME type negotiation
 - **[[Logging-Architecture]]** - Hierarchical, configurable logging with domain-based organization
 - **[[Server-Side-Tools-Tech-Design]]** - Architecture for provider-executed tools (web search, code interpreter, image generation)
 
