@@ -159,7 +159,7 @@ class OpenAIResponsesChatModel
       maxOutputTokens: invocation.parameters.maxOutputTokens,
       reasoning: invocation.parameters.reasoning,
       text: invocation.parameters.textFormat,
-      toolChoice: invocation.parameters.toolChoice,
+      toolChoice: null,
       tools: allTools.isEmpty ? null : allTools,
       parallelToolCalls: invocation.parameters.parallelToolCalls,
       metadata: invocation.parameters.metadata,

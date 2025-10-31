@@ -521,15 +521,13 @@ class MessageStreamEventTransformer
       _thinkingBuffer.write(delta.thinking);
       _logger.fine('ThinkingBlockDelta: "${delta.thinking}"');
 
-      final thinkingMetadata = _buildThinkingMetadata(delta.thinking);
-
       return ChatResult<ChatMessage>(
         id: lastMessageId,
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
         messages: const [],
-        thinking: thinkingMetadata.thinking,
+        thinking: delta.thinking,
         finishReason: FinishReason.unspecified,
-        metadata: thinkingMetadata.metadata,
+        metadata: const {},
         usage: null,
       );
     }
@@ -611,15 +609,34 @@ class MessageStreamEventTransformer
   }
 
   ChatResult<ChatMessage>? _mapMessageStopEvent(a.MessageStopEvent e) {
-    // Check if this message includes tool calls
+    if (_thinkingBuffer.isEmpty) {
+      // Clear tracking state and return nothing if no thinking
+      lastMessageId = null;
+      _toolCallIdByIndex.clear();
+      _toolNameByIndex.clear();
+      _toolArgumentsByIndex.clear();
+      _toolSeedArgsByIndex.clear();
+      _thinkingSignature = null;
+      _messageHasToolCalls = false;
+      return null;
+    }
+
+    // Build thinking metadata based on whether tool calls are present
+    final thinkingText = _thinkingBuffer.toString();
     final hasToolCalls = _messageHasToolCalls;
 
-    final thinkingMetadata = _thinkingBuffer.isNotEmpty
-        ? _buildThinkingMetadata(
-            _thinkingBuffer.toString(),
-            storeFullBlock: hasToolCalls,
-          )
-        : null;
+    // Only need to persist the full thinking block (with signature) when a
+    // subsequent request must replay it before tool_use blocks. For regular
+    // responses, thinking stays in result metadata only.
+    final messageMetadata = hasToolCalls
+        ? {
+            AnthropicThinkingMetadata.thinkingBlockKey:
+                AnthropicThinkingMetadata.buildThinkingBlock(
+              thinking: thinkingText,
+              signature: _thinkingSignature,
+            ),
+          }
+        : <String, Object?>{};
 
     // Clear any tracking state for safety
     lastMessageId = null;
@@ -631,52 +648,23 @@ class MessageStreamEventTransformer
     _thinkingSignature = null;
     _messageHasToolCalls = false;
 
-    // Return final metadata if any
-    if (thinkingMetadata != null) {
-      return ChatResult<ChatMessage>(
-        id: lastMessageId,
-        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: [
-          ChatMessage(
-            role: ChatMessageRole.model,
-            parts: const [],
-            metadata: thinkingMetadata.messageMetadata,
-          ),
-        ],
-        thinking: thinkingMetadata.thinking,
-        finishReason: FinishReason.unspecified,
-        metadata: thinkingMetadata.metadata,
-        usage: null,
-      );
-    }
-
-    return null;
-  }
-
-  ({
-    String thinking,
-    Map<String, dynamic> metadata,
-    Map<String, Object?> messageMetadata,
-  })
-  _buildThinkingMetadata(String thinkingText, {bool storeFullBlock = false}) {
-    // Only need to persist the full thinking block (with signature) when a
-    // subsequent request must replay it before tool_use blocks. For regular
-    // responses, thinking stays in result metadata only.
-    if (!storeFullBlock) {
-      return (thinking: thinkingText, metadata: {}, messageMetadata: {});
-    }
-
-    final blockData = AnthropicThinkingMetadata.buildThinkingBlock(
+    return ChatResult<ChatMessage>(
+      id: lastMessageId,
+      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+      messages: [
+        ChatMessage(
+          role: ChatMessageRole.model,
+          parts: const [],
+          metadata: messageMetadata,
+        ),
+      ],
       thinking: thinkingText,
-      signature: _thinkingSignature,
-    );
-
-    return (
-      thinking: thinkingText,
-      metadata: {AnthropicThinkingMetadata.thinkingBlockKey: blockData},
-      messageMetadata: {AnthropicThinkingMetadata.thinkingBlockKey: blockData},
+      finishReason: FinishReason.unspecified,
+      metadata: const {},
+      usage: null,
     );
   }
+
 }
 
 /// Maps an Anthropic [a.MessageContent] to message parts.

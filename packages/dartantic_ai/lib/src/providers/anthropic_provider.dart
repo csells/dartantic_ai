@@ -11,6 +11,7 @@ import '../chat_models/anthropic_chat/anthropic_chat.dart';
 import '../chat_models/anthropic_chat/anthropic_typed_output_orchestrator.dart';
 import '../chat_models/chat_utils.dart';
 import '../platform/platform.dart';
+import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
 
 /// Provider for Anthropic Claude native API.
@@ -99,38 +100,45 @@ class AnthropicProvider
   Stream<ModelInfo> listModels() async* {
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'models');
-    final response = await http.get(
-      url,
-      headers: {'x-api-key': apiKey!, 'anthropic-version': '2023-06-01'},
-    );
+    final client = RetryHttpClient(inner: http.Client());
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch Anthropic models: ${response.body}');
-    }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final modelsList = data['data'] as List?;
-    if (modelsList == null) {
-      throw Exception('Anthropic API response missing "data" field.');
-    }
-
-    for (final m in modelsList.cast<Map<String, dynamic>>()) {
-      final id = m['id'] as String? ?? '';
-      final displayName = m['display_name'] as String?;
-      final kind = id.startsWith('claude') ? ModelKind.chat : ModelKind.other;
-      // Only include extra fields not mapped to ModelInfo
-      final extra = <String, dynamic>{
-        if (m.containsKey('created_at')) 'createdAt': m['created_at'],
-        if (m.containsKey('type')) 'type': m['type'],
-      };
-      yield ModelInfo(
-        name: id,
-        providerName: name,
-        kinds: {kind},
-        displayName: displayName,
-        description: null,
-        extra: extra,
+    try {
+      final response = await client.get(
+        url,
+        headers: {'x-api-key': apiKey!, 'anthropic-version': '2023-06-01'},
       );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to fetch Anthropic models: ${response.body}');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final modelsList = data['data'] as List?;
+      if (modelsList == null) {
+        throw Exception('Anthropic API response missing "data" field.');
+      }
+
+      for (final m in modelsList.cast<Map<String, dynamic>>()) {
+        final id = m['id'] as String? ?? '';
+        final displayName = m['display_name'] as String?;
+        final kind =
+            id.startsWith('claude') ? ModelKind.chat : ModelKind.other;
+        // Only include extra fields not mapped to ModelInfo
+        final extra = <String, dynamic>{
+          if (m.containsKey('created_at')) 'createdAt': m['created_at'],
+          if (m.containsKey('type')) 'type': m['type'],
+        };
+        yield ModelInfo(
+          name: id,
+          providerName: name,
+          kinds: {kind},
+          displayName: displayName,
+          description: null,
+          extra: extra,
+        );
+      }
+    } finally {
+      client.close();
     }
   }
 

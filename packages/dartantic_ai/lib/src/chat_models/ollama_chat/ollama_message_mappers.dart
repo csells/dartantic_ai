@@ -40,8 +40,6 @@ o.GenerateChatCompletionRequest generateChatCompletionRequest(
     format: format,
     keepAlive: options?.keepAlive ?? defaultOptions.keepAlive,
     tools: tools?.toOllamaTools(),
-    // Ollama does not currently support toolChoice on the wire, but we pass it
-    // for future compatibility.
     stream: true,
     options: o.RequestOptions(
       numKeep: options?.numKeep ?? defaultOptions.numKeep,

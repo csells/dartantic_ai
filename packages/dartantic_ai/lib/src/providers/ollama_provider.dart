@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/chat_utils.dart';
 import '../chat_models/ollama_chat/ollama_chat_model.dart';
+import '../retry_http_client.dart';
 
 /// Provider for native Ollama API (local, not OpenAI-compatible).
 class OllamaProvider
@@ -41,6 +42,15 @@ class OllamaProvider
     bool enableThinking = false,
     OllamaChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError(
+        'Extended thinking is not supported by the $displayName provider. '
+        'Only OpenAI Responses, Anthropic, and Google providers support '
+        'thinking. Set enableThinking=false or use a provider that supports '
+        'this feature.',
+      );
+    }
+
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
     _logger.info(
       'Creating Ollama model: $modelName with ${tools?.length ?? 0} tools, '
@@ -99,33 +109,39 @@ class OllamaProvider
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'tags');
     _logger.info('Fetching models from Ollama API: $url');
-    final response = await http.get(url);
-    if (response.statusCode != 200) {
-      _logger.warning(
-        'Failed to fetch models: HTTP ${response.statusCode}, '
-        'body: ${response.body}',
-      );
-      throw Exception('Failed to fetch Ollama models: ${response.body}');
-    }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final modelCount = (data['models'] as List).length;
-    _logger.info('Successfully fetched $modelCount models from Ollama API');
+    final client = RetryHttpClient(inner: http.Client());
+    try {
+      final response = await client.get(url);
+      if (response.statusCode != 200) {
+        _logger.warning(
+          'Failed to fetch models: HTTP ${response.statusCode}, '
+          'body: ${response.body}',
+        );
+        throw Exception('Failed to fetch Ollama models: ${response.body}');
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final modelCount = (data['models'] as List).length;
+      _logger.info('Successfully fetched $modelCount models from Ollama API');
 
-    // Defensive: ensure 'name' is a String, fallback to '' if not.
-    for (final m in (data['models'] as List).cast<Map<String, dynamic>>()) {
-      final nameField = m['name'];
-      final id = nameField is String ? nameField : '';
-      final name = nameField is String ? nameField : null;
-      final detailsField = m['details'];
-      final description = detailsField is String ? detailsField : null;
-      yield ModelInfo(
-        name: id,
-        providerName: this.name,
-        kinds: {ModelKind.chat},
-        displayName: name,
-        description: description,
-        extra: {...m}..removeWhere((k, _) => ['name', 'details'].contains(k)),
-      );
+      // Defensive: ensure 'name' is a String, fallback to '' if not.
+      for (final m in (data['models'] as List).cast<Map<String, dynamic>>()) {
+        final nameField = m['name'];
+        final id = nameField is String ? nameField : '';
+        final name = nameField is String ? nameField : null;
+        final detailsField = m['details'];
+        final description = detailsField is String ? detailsField : null;
+        yield ModelInfo(
+          name: id,
+          providerName: this.name,
+          kinds: {ModelKind.chat},
+          displayName: name,
+          description: description,
+          extra: {...m}
+            ..removeWhere((k, _) => ['name', 'details'].contains(k)),
+        );
+      }
+    } finally {
+      client.close();
     }
   }
 }

@@ -5,7 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
 void main() async {
-  final agent = Agent('claude', enableThinking: true);
+  final agent = Agent('gemini', enableThinking: true);
   stdout.writeln('[[model thinking appears in brackets]]\n');
   await thinking(agent);
   await thinkingStream(agent);

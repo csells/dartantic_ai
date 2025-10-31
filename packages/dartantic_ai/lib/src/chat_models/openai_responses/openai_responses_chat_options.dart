@@ -16,7 +16,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
     this.metadata,
     this.include,
     this.parallelToolCalls,
-    this.toolChoice,
     this.reasoning,
     this.reasoningEffort,
     this.reasoningSummary,
@@ -51,9 +50,6 @@ class OpenAIResponsesChatModelOptions extends ChatModelOptions {
 
   /// Whether the model may call multiple tools in parallel.
   final bool? parallelToolCalls;
-
-  /// Controls which tool (if any) is chosen by the model.
-  final dynamic toolChoice;
 
   /// Reasoning configuration block for the Responses API.
   final Map<String, dynamic>? reasoning;

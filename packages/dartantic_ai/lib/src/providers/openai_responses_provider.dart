@@ -110,7 +110,6 @@ class OpenAIResponsesProvider
       metadata: options?.metadata,
       include: options?.include,
       parallelToolCalls: options?.parallelToolCalls,
-      toolChoice: options?.toolChoice,
       reasoning: options?.reasoning,
       reasoningEffort: options?.reasoningEffort,
       reasoningSummary: reasoningSummary,

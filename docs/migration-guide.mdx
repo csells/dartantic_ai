@@ -2,6 +2,63 @@
 title: Migration Guide
 ---
 
+## Migrating from 1.x to 2.0.0
+
+### Breaking Changes: Simplified Thinking API
+
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers.
+
+#### What Changed
+
+- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent
+  constructor (like `temperature` and `tools`)
+- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']`
+  to `ChatResult.thinking` (String?)
+- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses
+  `OpenAIReasoningSummary.detailed`
+
+#### New API
+
+```dart
+// Enable thinking at Agent level (simple!)
+final agent = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
+);
+
+// Access thinking as a first-class field
+final result = await agent.send('Complex question...');
+print(result.thinking); // String? - the thinking content
+```
+
+#### Migration Guide
+
+```dart
+// Before (1.x) - OpenAI Responses:
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
+);
+final thinking = result.metadata['thinking'] as String?;
+
+// After (2.0) - All providers use the same simple API:
+final agent = Agent(
+  'openai-responses',
+  enableThinking: true,
+);
+final thinking = result.thinking;
+```
+
+#### Still Available
+
+Provider-specific fine-tuning options remain for advanced use cases:
+- `GoogleChatModelOptions.thinkingBudgetTokens`
+- `AnthropicChatOptions.thinkingBudgetTokens`
+- `OpenAIResponsesChatModelOptions.reasoningSummary`
+
 ## Migrating from 0.9.7 to 1.0.0
 
 This release went through a major refactoring to support many more providers for

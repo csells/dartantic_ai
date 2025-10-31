@@ -155,17 +155,25 @@ class Providers {
     if (_providerMap.isEmpty) {
       for (final provider in _intrinsicProviders) {
         final providerName = provider.name.toLowerCase();
-        assert(
-          !_providerMap.containsKey(providerName),
-          'Provider $providerName is already in use',
-        );
+        final existingProvider = _providerMap[providerName];
+        if (existingProvider != null &&
+            !identical(existingProvider, provider)) {
+          throw StateError(
+            'Provider name "$providerName" is already registered by '
+            '"${existingProvider.name}".',
+          );
+        }
         _providerMap[providerName] = provider;
         for (final alias in provider.aliases) {
           final providerAlias = alias.toLowerCase();
-          assert(
-            !_providerMap.containsKey(providerAlias),
-            'Provider alias $providerAlias is already in use',
-          );
+          final existingAliasProvider = _providerMap[providerAlias];
+          if (existingAliasProvider != null &&
+              !identical(existingAliasProvider, provider)) {
+            throw StateError(
+              'Provider alias "$providerAlias" is already registered by '
+              '"${existingAliasProvider.name}".',
+            );
+          }
           _providerMap[providerAlias] = provider;
         }
       }

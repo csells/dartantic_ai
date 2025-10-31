@@ -265,9 +265,7 @@ void main() {
         );
 
         // Thinking is accumulated from streaming chunks by Agent.send()
-        final result = await agent.send(
-          'Explain merge sort in detail, including how subarrays are divided, merged, and why the algorithm is stable. Use multiple sentences.',
-        );
+        final result = await agent.send('Explain merge sort');
 
         // Thinking should be surfaced via ChatResult.thinking
         expect(

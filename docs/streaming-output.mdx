@@ -49,27 +49,24 @@ await for (final chunk in agent.sendStream(
 }
 ```
 
-## Thinking Metadata
+## Extended Thinking
 
 ```dart
 final agent = Agent(
-  'openai-responses:gpt-5',
-  chatModelOptions: const OpenAIResponsesChatModelOptions(
-    reasoningSummary: OpenAIReasoningSummary.concise,
-  ),
+  'anthropic:claude-sonnet-4-5',
+  enableThinking: true,
 );
 
 final result = await agent.send('Explain quicksort.');
-final thinking = result.metadata['thinking'] as String?;
-if (thinking != null && thinking.isNotEmpty) {
-  stdout.write('[[${thinking.trim()}]]');
+if (result.thinking != null && result.thinking!.isNotEmpty) {
+  stdout.write('[[${result.thinking!.trim()}]]');
 }
 stdout.write(result.output);
 ```
 
-Thinking stays in `ChatResult.metadata` so you can show a live "thought bubble"
-without polluting the message stream. See [Thinking Metadata](/thinking) for
-more options.
+Thinking is available in `ChatResult.thinking` so you can show a live "thought
+bubble" without polluting the message stream. See [Extended Thinking](/thinking)
+for more options.
 
 ## With Typed Output
 
@@ -106,9 +103,12 @@ print('\nTokens used: ${usage.totalTokens}');
 
 ## Examples
 
-- [Chat with streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
-- [Multi-turn streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)
-- [Agent with streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/agent.dart)
+- [Chat with
+  streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/chat.dart)
+- [Multi-turn
+  streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multi_turn_chat.dart)
+- [Agent with
+  streaming](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/agent.dart)
 
 ## Next Steps
 

@@ -2,7 +2,8 @@
 
 ### Breaking Changes: Simplified Thinking API
 
-Extended thinking (chain-of-thought reasoning) is now a first-class feature in Dartantic with a simplified, unified API across all providers:
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers:
 
 **New API:**
 ```dart
@@ -18,10 +19,12 @@ print(result.thinking); // String? - the thinking content
 ```
 
 **What Changed:**
-- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent constructor (like `temperature` and `tools`)
-- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']` to `ChatResult.thinking` (String?)
-- **Removed provider-specific flags**: No more `thinkingEnabled` in `GoogleChatModelOptions` or `AnthropicChatOptions`
-- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses `OpenAIReasoningSummary.detailed`
+- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent
+  constructor (like `temperature` and `tools`)
+- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']`
+  to `ChatResult.thinking` (`String?`)
+- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses
+  `OpenAIReasoningSummary.detailed`
 
 **Still Available:**
 - Provider-specific fine-tuning options remain for advanced use cases:
@@ -31,16 +34,18 @@ print(result.thinking); // String? - the thinking content
 
 **Migration Guide:**
 ```dart
-// Before:
+// Before (1.x) - OpenAI Responses:
 final agent = Agent(
-  'google',
-  chatModelOptions: GoogleChatModelOptions(thinkingEnabled: true),
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
 );
 final thinking = result.metadata['thinking'] as String?;
 
-// After:
+// After (2.0) - All providers use the same simple API:
 final agent = Agent(
-  'google',
+  'openai-responses',
   enableThinking: true,
 );
 final thinking = result.thinking;
@@ -48,7 +53,8 @@ final thinking = result.thinking;
 
 ### Other Changes
 
-- **Google Extended Thinking Support**: All Gemini 2.5 models support thinking with configurable token budgets and dynamic thinking modes.
+- **Google Extended Thinking Support**: All Gemini 2.5 models support thinking
+  with configurable token budgets and dynamic thinking modes.
 
 ## 1.3.0
 

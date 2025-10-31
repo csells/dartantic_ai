@@ -47,7 +47,6 @@ class OpenAIRequestParameters {
     required this.include,
     required this.metadata,
     required this.reasoning,
-    required this.toolChoice,
     required this.truncation,
     required this.textFormat,
     required this.user,
@@ -73,9 +72,6 @@ class OpenAIRequestParameters {
 
   /// Reasoning configuration for thinking models.
   final openai.ReasoningOptions? reasoning;
-
-  /// Tool selection strategy.
-  final openai.ToolChoice? toolChoice;
 
   /// Truncation configuration.
   final openai.Truncation? truncation;
@@ -178,9 +174,6 @@ class OpenAIResponsesInvocationBuilder {
         raw: options?.reasoning ?? defaultOptions.reasoning,
         effort: options?.reasoningEffort ?? defaultOptions.reasoningEffort,
         summary: options?.reasoningSummary ?? defaultOptions.reasoningSummary,
-      ),
-      toolChoice: OpenAIResponsesOptionsMapper.toToolChoice(
-        options?.toolChoice ?? defaultOptions.toolChoice,
       ),
       truncation: OpenAIResponsesOptionsMapper.toTruncation(
         options?.truncationStrategy ?? defaultOptions.truncationStrategy,

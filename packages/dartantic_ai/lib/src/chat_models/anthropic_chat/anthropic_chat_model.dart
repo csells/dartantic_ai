@@ -139,7 +139,7 @@ class _AnthropicStreamingClient extends a.AnthropicClient {
 
   Stream<String> rawMessageStream(a.CreateMessageRequest request) async* {
     final response = await makeRequestStream(
-      baseUrl: 'https://api.anthropic.com/v1',
+      baseUrl: baseUrl ?? 'https://api.anthropic.com/v1',
       path: '/messages',
       method: ag.HttpMethod.post,
       requestType: 'application/json',

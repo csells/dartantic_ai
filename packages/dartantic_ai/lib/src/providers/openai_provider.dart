@@ -57,6 +57,15 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError(
+        'Extended thinking is not supported by the $displayName provider. '
+        'Only OpenAI Responses, Anthropic, and Google providers support '
+        'thinking. Set enableThinking=false or use a provider that supports '
+        'this feature.',
+      );
+    }
+
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 

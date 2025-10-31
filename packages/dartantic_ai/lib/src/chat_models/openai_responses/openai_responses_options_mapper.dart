@@ -68,15 +68,6 @@ class OpenAIResponsesOptionsMapper {
     );
   }
 
-  /// Converts dynamic toolChoice configuration to OpenAI ToolChoice.
-  ///
-  /// Returns null if raw is null, otherwise delegates to openai_core's
-  /// fromJson parser.
-  static openai.ToolChoice? toToolChoice(dynamic raw) {
-    if (raw == null) return null;
-    return openai.ToolChoice.fromJson(raw);
-  }
-
   /// Converts truncation strategy map to OpenAI Truncation enum.
   ///
   /// Returns null if raw is null or empty. Recognizes 'auto' and 'disabled'

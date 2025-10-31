@@ -1,5 +1,5 @@
 ---
-title: Thinking Metadata
+title: Extended Thinking
 description: "Surface model reasoning without forcing it into the conversation transcript."
 ---
 
@@ -8,73 +8,96 @@ reasoning metadata alongside the normal message output. This lets you display or
 inspect the model's inner monologue without sending it back to the model or to
 end users who just want the final answer.
 
-Both **OpenAI Responses** and **Anthropic** support thinking metadata. The
-generated metadata is provider-agnostic, so additional providers can adopt it
-later without requiring any changes to your code.
+**OpenAI Responses**, **Anthropic**, and **Google** all support extended
+thinking. The generated output is provider-agnostic, so additional providers can
+adopt it later without requiring any changes to your code.
 
 ## Enable Thinking
 
-### OpenAI Responses
+Enable thinking at the Agent level using the `enableThinking` parameter:
 
-Enable thinking by setting the `reasoningSummary` parameter to
-`OpenAIReasoningSummary.detailed`:
+```dart
+// Simple configuration - uses provider defaults
+final agent = Agent(
+  'anthropic:claude-sonnet-4-5',
+  enableThinking: true,
+);
+
+final result = await agent.send('In one sentence, how does quicksort work?');
+
+// Access thinking as a first-class field
+if (result.thinking != null && result.thinking!.isNotEmpty) {
+  print('[[${result.thinking!.trim()}]]');
+}
+print(result.output);
+```
+
+### Provider-Specific Defaults
+
+Each provider has sensible defaults when `enableThinking: true`:
+
+- **OpenAI Responses**: Uses `reasoningSummary: detailed` automatically
+- **Anthropic**: Uses 4096 token budget for extended thinking
+- **Google**: Uses dynamic token budget (model decides based on task complexity)
+
+### Advanced Configuration
+
+For fine-tuning provider-specific behavior, use the options classes:
+
+#### OpenAI Responses
 
 ```dart
 final agent = Agent(
   'openai-responses:gpt-5',
+  enableThinking: true,
   chatModelOptions: const OpenAIResponsesChatModelOptions(
-    reasoningSummary: OpenAIReasoningSummary.detailed,
+    reasoningSummary: OpenAIReasoningSummary.brief,  // Override default
+    reasoningEffort: OpenAIReasoningEffort.high,
   ),
 );
-
-final result = await agent.send('In one sentence, how does quicksort work?');
-final thinking = result.metadata['thinking'] as String?;
-
-if (thinking != null && thinking.isNotEmpty) {
-  print('[[${thinking.trim()}]]');
-}
-print(result.output);
 ```
 
-### Anthropic
-
-Enable thinking with a simple boolean flag:
+#### Anthropic
 
 ```dart
 final agent = Agent(
   'anthropic:claude-sonnet-4-5',
+  enableThinking: true,
   chatModelOptions: const AnthropicChatOptions(
-    thinkingEnabled: true,  // Defaults to false
+    thinkingBudgetTokens: 8192,  // Override default 4096
   ),
 );
-
-final result = await agent.send('In one sentence, how does quicksort work?');
-final thinking = result.metadata['thinking'] as String?;
-
-if (thinking != null && thinking.isNotEmpty) {
-  print('[[${thinking.trim()}]]');
-}
-print(result.output);
-```
-
-You can optionally control the token budget:
-
-```dart
-AnthropicChatOptions(
-  thinkingEnabled: true,
-  thinkingBudgetTokens: 8192,  // Defaults to 4096
-)
 ```
 
 Anthropic recommends starting with smaller budgets (4k-10k) and scaling up based
-on task complexity. The Anthropic SDK validates minimum/maximum constraints.
+on task complexity.
+
+#### Google
+
+```dart
+final agent = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
+  chatModelOptions: const GoogleChatModelOptions(
+    thinkingBudgetTokens: 8192,  // Override dynamic default
+  ),
+);
+
+// Or use explicit dynamic mode
+final agentDynamic = Agent(
+  'google:gemini-2.5-flash',
+  enableThinking: true,
+  chatModelOptions: const GoogleChatModelOptions(
+    thinkingBudgetTokens: -1,  // Model decides optimal budget
+  ),
+);
+```
 
 ### Key Points
 
-- The reasoning stream is emitted through `ChatResult.metadata['thinking']`
-- Thinking metadata doesn't appear in `ChatMessage.metadata`
-- Metadata is typically not fed back to the model, so you control where (or if)
-  it is displayed
+- The reasoning stream is emitted through `ChatResult.thinking` (a String?)
+- Thinking doesn't appear in `ChatMessage.parts` (not sent back to model)
+- You control where (or if) thinking is displayed
 - **Important**: When using Anthropic with tool calls, thinking blocks are
   automatically preserved in conversation history as required by their API. This
   increases token costs on subsequent turns.
@@ -90,7 +113,8 @@ final thinkingBuffer = StringBuffer();
 await for (final chunk in agent.sendStream(
   'In one sentence: how does quicksort work?',
 )) {
-  final thinking = chunk.metadata['thinking'] as String?;
+  // Access thinking from ChatResult.thinking
+  final thinking = chunk.thinking;
   final hasThinking = thinking != null && thinking.isNotEmpty;
   final hasText = chunk.output.isNotEmpty;
 
@@ -113,13 +137,14 @@ await for (final chunk in agent.sendStream(
 stdout.writeln('\n');
 ```
 
-The stream delivers reasoning deltas incrementally, so you can render a live
-"thought bubble" while the model is working. Each chunk may include text output,
-thinking metadata, or both.
+The stream delivers reasoning deltas incrementally through
+`ChatResult.thinking`, so you can render a live "thought bubble" while the model
+is working. Each chunk may include text output, thinking, or both.
 
 ## Examples
 
-- [Thinking demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/thinking.dart)
+- [Thinking
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/thinking.dart)
 
 ## Related Topics
 

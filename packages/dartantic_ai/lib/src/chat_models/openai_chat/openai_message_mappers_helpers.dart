@@ -71,7 +71,7 @@ CreateChatCompletionRequest createChatCompletionRequest(
         ),
       )
       .toList(),
-  toolChoice: options?.toolChoice ?? defaultOptions.toolChoice,
+  toolChoice: null,
   responseFormat:
       _createResponseFormat(outputSchema) ??
       options?.responseFormat ??
