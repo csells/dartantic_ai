@@ -57,12 +57,12 @@ graph TD
 
 ### Core Principles
 
-1. **Metadata-First Design**: Thinking appears in `ChatResult.metadata['thinking']`, not as a primary message part
-2. **Streaming Transparency**: During streaming, thinking deltas are emitted as they arrive
-3. **Accumulation**: Full thinking text is accumulated and available in final result
+1. **Dedicated Surface**: Thinking appears in `ChatResult.thinking`, not as a primary message part
+2. **Streaming Transparency**: During streaming, thinking deltas are emitted through the `thinking` field as they arrive
+3. **Accumulation**: The agent accumulator concatenates all streamed deltas and exposes the full thinking text in the final result
 4. **History Isolation**: Thinking is typically NOT sent back to the model in conversation history
-   - **Exception**: Anthropic requires thinking blocks to be preserved when tool calls are present
-   - This is handled transparently by the provider implementation
+   - **Exception**: Anthropic requires thinking blocks (with signatures) to be preserved when tool calls are present
+   - This is handled transparently by the provider implementation via `_anthropic_thinking_block` metadata
    - Users pay for thinking tokens on every turn when using tools with Anthropic
 5. **Provider Agnostic**: Same consumption pattern works across all providers
 
@@ -78,21 +78,21 @@ sequenceDiagram
 
     M->>S: Thinking delta
     S->>O: Map to ChatResult
-    O->>A: Yield ChatResult(metadata: {'thinking': delta})
+    O->>A: Yield ChatResult(thinking: delta)
     A->>U: Stream chunk
     Note over S,O: Accumulate in buffer
     M->>S: Final thinking
     S->>O: Complete thinking
-    O->>A: Final ChatResult(metadata: {'thinking': full})
+    O->>A: Final ChatResult(thinking: full)
     A->>U: Complete result
     Note over O,A: Thinking NOT in message.parts
 ```
 
 ### Key Differences from Message Content
 
-| Aspect | Message Content | Thinking Metadata |
-|--------|----------------|-------------------|
-| Location | `ChatMessage.parts` | `ChatResult.metadata['thinking']` |
+| Aspect | Message Content | Thinking Field |
+|--------|----------------|----------------|
+| Location | `ChatMessage.parts` | `ChatResult.thinking` |
 | Sent to Model | ✅ Yes | ❌ No (by default) |
 | Purpose | Conversation content | Transparency/debugging |
 | Streaming | Text deltas | Thinking deltas |
@@ -147,17 +147,17 @@ Stream<ChatResult<ChatMessage>> _handleReasoningSummaryDelta(
   // Accumulate in buffer
   state.thinkingBuffer.write(event.delta);
 
-  // Emit as metadata chunk
+  // Emit as thinking chunk
   yield ChatResult<ChatMessage>(
     output: const ChatMessage(role: ChatMessageRole.model, parts: []),
     messages: const [],
-    metadata: {'thinking': event.delta},
+    thinking: event.delta,
     usage: null,
   );
 }
 ```
 
-**Final Result**: Thinking accumulated in `ChatResult.metadata['thinking']` but NOT in message parts.
+**Final Result**: Thinking accumulated in `ChatResult.thinking` but NOT in message parts.
 
 **Token Accounting**:
 - OpenAI charges for full reasoning tokens generated
@@ -252,7 +252,7 @@ BlockDelta.thinking(
 
 Despite Anthropic including thinking in message content, Dartantic follows the established pattern with one important exception:
 
-1. **During streaming**: Extract thinking deltas and emit as `ChatResult.metadata['thinking']`
+1. **During streaming**: Extract thinking deltas and emit via `ChatResult.thinking`
 2. **After completion**: Accumulate full thinking in result metadata
 3. **In message history**: Thinking blocks are preserved in metadata when tool calls are present
 
@@ -264,7 +264,7 @@ The Anthropic message mapper handles thinking through the following high-level f
 
 1. **Streaming Phase**:
    - Accumulate thinking deltas in a buffer as `ThinkingBlockDelta` events arrive
-   - Emit each delta as `ChatResult.metadata['thinking']` for real-time display
+   - Emit each delta through `ChatResult.thinking` for real-time display
    - Capture the cryptographic signature from the `ThinkingBlock.start` event
 
 2. **Completion Phase**:
@@ -308,7 +308,7 @@ class AnthropicChatOptions extends ChatModelOptions {
   ///
   /// When enabled, Claude shows its internal reasoning process before
   /// providing the final answer. Thinking content is exposed via:
-  /// - During streaming: `ChatResult.metadata['thinking']` (incremental deltas)
+  /// - During streaming: `ChatResult.thinking` (incremental deltas)
   /// - In final result: Accumulated thinking in result metadata
   /// - In message history: Preserved in metadata when tool calls present
   ///
@@ -456,7 +456,7 @@ Part(
 
 Despite Google including thinking in content parts, Dartantic follows the established pattern:
 
-1. **During streaming**: Extract thinking text from parts where `thought=true` and emit as `ChatResult.metadata['thinking']`
+1. **During streaming**: Extract thinking text from parts where `thought=true` and emit via `ChatResult.thinking`
 2. **After completion**: Accumulate full thinking in result metadata
 3. **In message history**: Thinking is NOT included in message parts (filtered during mapping)
 
@@ -470,7 +470,7 @@ The Google message mapper handles thinking through the following flow:
    - If `thought=false`, add text as normal TextPart
 
 2. **Metadata Addition**:
-   - Store accumulated thinking in `ChatResult.metadata['thinking']`
+   - Store accumulated thinking in `ChatResult.thinking`
    - Thinking never appears in `ChatMessage.parts`
 
 See `google_message_mappers.dart` for the complete implementation.
@@ -505,7 +505,7 @@ class GoogleChatModelOptions extends ChatModelOptions {
   ///
   /// When enabled, Gemini shows its internal reasoning process before
   /// providing the final answer. Thinking content is exposed via:
-  /// - During streaming: `ChatResult.metadata['thinking']` (incremental
+  /// - During streaming: `ChatResult.thinking` (incremental
   ///   deltas)
   /// - In final result: Accumulated thinking in result metadata
   /// - In message history: Thinking is NOT included in message parts
@@ -548,7 +548,7 @@ class GoogleChatModelOptions extends ChatModelOptions {
 | **Streaming Event** | `ResponseReasoningSummaryTextDelta` | `BlockDelta.thinking()` | Text parts with `thought=true` |
 | **Content Block** | No (metadata only) | Yes (`Block.thinking()`) | Yes (Part with `thought` flag) |
 | **Signature** | No | Yes (optional cryptographic) | Yes (optional encrypted) |
-| **Dartantic Representation** | `metadata['thinking']` only | `metadata['thinking']` + stored for reconstruction | `metadata['thinking']` only |
+| **Dartantic Representation** | `ChatResult.thinking` | `ChatResult.thinking` + `_anthropic_thinking_block` metadata for tool replay | `ChatResult.thinking` |
 | **Message History** | Never included | Preserved when tool calls present | Never included |
 | **Tool Use Compatibility** | Full support | Full support (thinking auto-preserved) | Full support |
 | **Temperature Constraints** | None | Cannot use with modified temperature | None |
@@ -569,7 +569,7 @@ Future<void> demonstrateStreamingThinking(Agent agent) async {
 
   await for (final chunk in agent.sendStream('Solve: What is 15% of 847?')) {
     // Collect thinking deltas
-    final thinking = chunk.metadata['thinking'] as String?;
+    final thinking = chunk.thinking as String?;
     if (thinking != null) {
       thinkingChunks.add(thinking);
       stdout.write('[THINKING] $thinking');
@@ -598,7 +598,7 @@ Future<void> demonstrateNonStreamingThinking(Agent agent) async {
   final result = await agent.send('What is the capital of France?');
 
   // Access accumulated thinking
-  final thinking = result.metadata['thinking'] as String?;
+  final thinking = result.thinking as String?;
   if (thinking != null) {
     print('=== Thinking ===');
     print(thinking);
@@ -632,7 +632,7 @@ void main() async {
   stdout.write('Question: What are the first 10 prime numbers?\n\n');
 
   await for (final chunk in agent.sendStream('What are the first 10 prime numbers?')) {
-    final thinking = chunk.metadata['thinking'] as String?;
+    final thinking = chunk.thinking as String?;
     if (thinking != null) {
       stdout.write('[Reasoning] $thinking\n');
     }
@@ -664,7 +664,7 @@ void main() async {
   await for (final chunk in agent.sendStream(
     'Explain quantum entanglement in simple terms.',
   )) {
-    final thinking = chunk.metadata['thinking'] as String?;
+    final thinking = chunk.thinking as String?;
     if (thinking != null) {
       thinkingBuffer.write(thinking);
       stdout.write('[Extended Thinking] $thinking\n');
@@ -699,7 +699,7 @@ void main() async {
   await for (final chunk in agent.sendStream(
     'What is the derivative of x^3 + 2x^2 - 5x + 7?',
   )) {
-    final thinking = chunk.metadata['thinking'] as String?;
+    final thinking = chunk.thinking as String?;
     if (thinking != null) {
       thinkingBuffer.write(thinking);
       stdout.write('[Thinking] $thinking\n');
@@ -760,7 +760,7 @@ Future<void> demonstrateThinking(Agent agent, String question) async {
   var thinkingLength = 0;
 
   await for (final chunk in agent.sendStream(question)) {
-    final thinking = chunk.metadata['thinking'] as String?;
+    final thinking = chunk.thinking as String?;
     if (thinking != null) {
       thinkingLength += thinking.length;
       stdout.write('[T]');
@@ -842,7 +842,7 @@ test('thinking blocks filtered from final message parts', () {
   expect(hasThinkingPart, false);
 
   // Verify thinking in metadata
-  expect(results.last.metadata['thinking'], isNotEmpty);
+  expect(results.last.thinking, isNotEmpty);
 });
 ```
 
@@ -876,7 +876,7 @@ test('thinking deltas emit metadata chunks', () async {
   expect(results.length, thinkingDeltas.length);
 
   for (var i = 0; i < results.length; i++) {
-    expect(results[i].metadata['thinking'], thinkingDeltas[i]);
+    expect(results[i].thinking, thinkingDeltas[i]);
   }
 });
 
@@ -891,7 +891,7 @@ test('thinking accumulates in buffer', () async {
   final results = await transformer.bind(Stream.fromIterable(events)).toList();
 
   final finalResult = results.last;
-  final fullThinking = finalResult.metadata['thinking'] as String;
+  final fullThinking = finalResult.thinking as String;
 
   expect(fullThinking, contains('Step 1:'));
   expect(fullThinking, contains('Step 2:'));
@@ -918,7 +918,7 @@ group('Anthropic Extended Thinking Integration', () {
     await for (final chunk in agent.sendStream(
       'What is 23 * 47? Show your work.',
     )) {
-      final thinking = chunk.metadata['thinking'] as String?;
+      final thinking = chunk.thinking as String?;
       if (thinking != null) {
         thinkingChunks.add(thinking);
       }
@@ -939,7 +939,7 @@ group('Anthropic Extended Thinking Integration', () {
 
     final result = await agent.send('Calculate 156 ÷ 12');
 
-    final thinking = result.metadata['thinking'] as String?;
+    final thinking = result.thinking as String?;
     expect(thinking, isNotNull);
     expect(thinking, isNotEmpty);
   });
@@ -978,7 +978,7 @@ group('Anthropic Extended Thinking Integration', () {
     await for (final chunk in agent.sendStream(
       'What is the weather in Seattle?',
     )) {
-      if (chunk.metadata['thinking'] != null) hadThinking = true;
+      if (chunk.thinking != null) hadThinking = true;
       if (chunk.output.toolCalls.isNotEmpty) hadToolCall = true;
     }
 
@@ -1079,7 +1079,7 @@ If implementing thinking support for a new provider:
 ### Architectural Constraints
 
 - **Never send thinking back to model**: Filter thinking from conversation history
-- **Always emit thinking as metadata**: Use `ChatResult.metadata['thinking']`
+- **Always emit thinking via the field**: Use `ChatResult.thinking`
 - **Always accumulate thinking**: Provide full thinking in final result
 - **Single-item events during streaming**: Each thinking delta is a separate chunk
 - **Consistent key naming**: Always use `'thinking'` as the metadata key
