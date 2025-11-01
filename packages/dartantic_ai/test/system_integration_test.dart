@@ -716,7 +716,13 @@ class _EchoChatModel extends ChatModel<ChatModelOptions> {
   void dispose() {}
 }
 
-class _EchoProvider extends Provider {
+class _EchoProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   _EchoProvider()
     : super(
         name: 'echo-test',
@@ -739,6 +745,13 @@ class _EchoProvider extends Provider {
     String? name,
     EmbeddingsModelOptions? options,
   }) => throw UnimplementedError('Echo provider does not support embeddings');
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Echo provider does not support media');
 
   @override
   Stream<ModelInfo> listModels() async* {

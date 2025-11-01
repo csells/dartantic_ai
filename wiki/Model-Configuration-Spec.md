@@ -6,12 +6,14 @@ The `ModelStringParser` supports flexible URI-based parsing with multiple format
 
 ### Supported Formats
 
-| Format             | Example                                          | Parsed Result                                                      |
-| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------ |
-| **Provider only**  | `openai`                                         | provider: `openai`, chat: `null`, embeddings: `null`               |
-| **Provider:model** | `openai:gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
-| **Provider/model** | `openai/gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
-| **Query params**   | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3` |
+| Format             | Example                                          | Parsed Result                                                                     |
+| ------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **Provider only**  | `openai`                                         | provider: `openai`, chat: `null`, embeddings: `null`, media: `null`               |
+| **Provider:model** | `openai:gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`, media: `null`             |
+| **Provider/model** | `openai/gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`, media: `null`             |
+| **Query params**   | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3`, media: `null` |
+| **Media query**    | `openai?media=gpt-image-1`                       | provider: `openai`, chat: `null`, embeddings: `null`, media: `gpt-image-1`        |
+| **All selectors**  | `openai?chat=gpt-4o&embeddings=text-embedding-3&media=gpt-image-1` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3`, media: `gpt-image-1` |
 
 ### Parsing Flow
 
@@ -53,11 +55,11 @@ factory ModelStringParser.parse(String model) {
 The parser can also build model strings using `toString()`:
 - Provider only → `"openai"`
 - Chat model only → `"openai:gpt-4"` (uses colon format)
-- Multiple models → `"openai?chat=gpt-4&embeddings=ada"` (uses query format)
+- Multiple models → `"openai?chat=gpt-4&embeddings=ada&media=gpt-image-1"` (uses query format)
 
 ## Provider Model Defaults
 
-Each provider defines default models for both chat and embeddings operations:
+Each provider defines default models for chat, embeddings, and optionally media operations:
 
 ### Default Resolution Flow
 
@@ -84,18 +86,23 @@ flowchart TD
     style J fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
+Media selectors follow the same precedence rules—if `ModelKind.media` has a
+default configured by the provider, the agent will use it whenever the model
+string omits an explicit `media=` query parameter.
+
 ### Provider Defaults Table
 
-| Provider   | Chat Default                             | Embeddings Default          |
-| ---------- | ---------------------------------------- | --------------------------- |
-| OpenAI     | `gpt-4o`                                 | `text-embedding-3-small`    |
-| Anthropic  | `claude-sonnet-4-0`                      | N/A (no embeddings)         |
-| Google     | `gemini-2.0-flash`                       | `models/text-embedding-004` |
-| Mistral    | `mistral-7b-instruct`                    | `mistral-embed`             |
-| Cohere     | `command-r-plus`                         | `embed-v4.0`                |
-| Ollama     | `llama3.2`                               | N/A (no embeddings)         |
-| OpenRouter | `google/gemini-2.0-flash`                | N/A (chat only)             |
-| Together   | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only)             |
+| Provider         | Chat Default                             | Embeddings Default          | Media Default |
+| ---------------- | ---------------------------------------- | --------------------------- | ------------- |
+| OpenAI           | `gpt-4o`                                 | `text-embedding-3-small`    | N/A           |
+| OpenAI Responses | `gpt-4o`                                 | `text-embedding-3-small`    | `gpt-4o`      |
+| Anthropic        | `claude-sonnet-4-0`                      | N/A (no embeddings)         | N/A           |
+| Google           | `gemini-2.0-flash`                       | `models/text-embedding-004` | N/A           |
+| Mistral          | `mistral-7b-instruct`                    | `mistral-embed`             | N/A           |
+| Cohere           | `command-r-plus`                         | `embed-v4.0`                | N/A           |
+| Ollama           | `llama3.2`                               | N/A (no embeddings)         | N/A           |
+| OpenRouter       | `google/gemini-2.0-flash`                | N/A (chat only)             | N/A           |
+| Together         | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only)             | N/A           |
 
 ### Provider Configuration
 
@@ -110,6 +117,7 @@ abstract class Provider {
     defaultModelNames: {
       ModelKind.chat: 'gpt-4o',
       ModelKind.embeddings: 'text-embedding-3-small',
+      // Optional: ModelKind.media: 'gpt-image-1',
     },
     apiKeyName: 'OPENAI_API_KEY',
     caps: {ProviderCaps.chat, ProviderCaps.embeddings, ...},

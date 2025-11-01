@@ -13,7 +13,12 @@ import '../retry_http_client.dart';
 
 /// Provider for Mistral AI (OpenAI-compatible).
 class MistralProvider
-    extends Provider<MistralChatModelOptions, MistralEmbeddingsModelOptions> {
+    extends
+        Provider<
+          MistralChatModelOptions,
+          MistralEmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   /// Creates a new Mistral provider instance.
   ///
   /// [apiKey]: The API key for the Mistral provider.
@@ -177,5 +182,16 @@ class MistralProvider
     } finally {
       client.close();
     }
+  }
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) {
+    throw UnsupportedError(
+      'Mistral provider does not support media generation',
+    );
   }
 }

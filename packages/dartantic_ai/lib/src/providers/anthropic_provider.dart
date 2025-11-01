@@ -10,13 +10,20 @@ import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/anthropic_chat/anthropic_chat.dart';
 import '../chat_models/anthropic_chat/anthropic_typed_output_orchestrator.dart';
 import '../chat_models/chat_utils.dart';
+import '../media_models/anthropic/anthropic_media_model.dart';
+import '../media_models/anthropic/anthropic_media_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
 
 /// Provider for Anthropic Claude native API.
 class AnthropicProvider
-    extends Provider<AnthropicChatOptions, EmbeddingsModelOptions>
+    extends
+        Provider<
+          AnthropicChatOptions,
+          EmbeddingsModelOptions,
+          AnthropicMediaModelOptions
+        >
     implements ChatOrchestratorProvider {
   /// Creates a new Anthropic provider instance.
   ///
@@ -30,7 +37,10 @@ class AnthropicProvider
         apiKeyName: defaultApiKeyName,
         name: 'anthropic',
         displayName: 'Anthropic',
-        defaultModelNames: {ModelKind.chat: 'claude-sonnet-4-0'},
+        defaultModelNames: {
+          ModelKind.chat: 'claude-sonnet-4-0',
+          ModelKind.media: 'claude-sonnet-4-5',
+        },
         caps: {
           ProviderCaps.chat,
           ProviderCaps.multiToolCalls,
@@ -38,6 +48,7 @@ class AnthropicProvider
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.chatVision,
           ProviderCaps.thinking,
+          ProviderCaps.mediaGeneration,
         },
         aliases: ['claude'],
         baseUrl: null,
@@ -121,8 +132,7 @@ class AnthropicProvider
       for (final m in modelsList.cast<Map<String, dynamic>>()) {
         final id = m['id'] as String? ?? '';
         final displayName = m['display_name'] as String?;
-        final kind =
-            id.startsWith('claude') ? ModelKind.chat : ModelKind.other;
+        final kind = id.startsWith('claude') ? ModelKind.chat : ModelKind.other;
         // Only include extra fields not mapped to ModelInfo
         final extra = <String, dynamic>{
           if (m.containsKey('created_at')) 'createdAt': m['created_at'],
@@ -188,5 +198,48 @@ class AnthropicProvider
         onCall: (input) async => input,
       ),
     ];
+  }
+
+  @override
+  MediaGenerationModel<AnthropicMediaModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    AnthropicMediaModelOptions? options,
+  }) {
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
+    final modelName =
+        name ??
+        defaultModelNames[ModelKind.media] ??
+        defaultModelNames[ModelKind.chat]!;
+    final resolvedOptions = options ?? const AnthropicMediaModelOptions();
+
+    _logger.info(
+      'Creating Anthropic media model: $modelName with '
+      '${tools?.length ?? 0} tools',
+    );
+
+    final chatOptions = AnthropicMediaModel.buildChatOptions(resolvedOptions);
+    const betaFeatures = ['code-execution-2025-08-25', 'files-api-2025-04-14'];
+
+    final chatModel = AnthropicChatModel(
+      name: modelName,
+      tools: tools,
+      apiKey: apiKey!,
+      baseUrl: baseUrl,
+      defaultOptions: chatOptions,
+      betaFeatures: betaFeatures,
+    );
+
+    return AnthropicMediaModel(
+      name: modelName,
+      defaultOptions: resolvedOptions,
+      chatModel: chatModel,
+      apiKey: apiKey!,
+      baseUrl: baseUrl,
+      betaFeatures: betaFeatures,
+    );
   }
 }

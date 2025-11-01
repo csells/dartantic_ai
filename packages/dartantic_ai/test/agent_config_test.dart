@@ -551,7 +551,13 @@ class TestChatOptions extends ChatModelOptions {
 class TestEmbeddingsOptions extends EmbeddingsModelOptions {}
 
 // Test provider that requires a fake API key
-class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
+class TestProvider
+    extends
+        Provider<
+          TestChatOptions,
+          TestEmbeddingsOptions,
+          MediaGenerationModelOptions
+        > {
   TestProvider()
     : super(
         name: 'test-provider',
@@ -590,6 +596,15 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
     TestEmbeddingsOptions? options,
   }) {
     throw UnsupportedError('Test provider does not support embeddings');
+  }
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) {
+    throw UnsupportedError('Test provider does not support media generation');
   }
 }
 

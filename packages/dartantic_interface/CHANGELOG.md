@@ -1,3 +1,12 @@
+## 1.3.0
+
+- introduced media generation primitives (`MediaGenerationModel`,
+  `MediaGenerationResult`, `MediaGenerationModelResult`, and
+  `MediaGenerationModelOptions`)
+- extended `Provider` with media factory support and added
+  `ProviderCaps.mediaGeneration`
+- added `ModelKind.media` for provider defaults and discovery
+
 ## 1.2.0
 
 - added optional 'thinking' field to ChatResult for enhanced reasoning output

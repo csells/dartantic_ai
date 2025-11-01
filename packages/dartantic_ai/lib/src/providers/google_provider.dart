@@ -13,6 +13,8 @@ import '../chat_models/google_chat/google_double_agent_orchestrator.dart';
 import '../custom_http_client.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
+import '../media_models/google/google_media_model.dart';
+import '../media_models/google/google_media_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
@@ -20,7 +22,12 @@ import 'google_api_utils.dart';
 
 /// Provider for Google Gemini native API.
 class GoogleProvider
-    extends Provider<GoogleChatModelOptions, GoogleEmbeddingsModelOptions>
+    extends
+        Provider<
+          GoogleChatModelOptions,
+          GoogleEmbeddingsModelOptions,
+          GoogleMediaModelOptions
+        >
     implements ChatOrchestratorProvider {
   /// Creates a new Google AI provider instance.
   ///
@@ -34,6 +41,7 @@ class GoogleProvider
         defaultModelNames: {
           ModelKind.chat: 'gemini-2.5-flash',
           ModelKind.embeddings: 'models/text-embedding-004',
+          ModelKind.media: 'models/gemini-2.0-flash-exp-image-generation',
         },
         caps: {
           ProviderCaps.chat,
@@ -43,6 +51,7 @@ class GoogleProvider
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.chatVision,
           ProviderCaps.thinking,
+          ProviderCaps.mediaGeneration,
         },
         aliases: const ['gemini'],
       );
@@ -173,6 +182,32 @@ class GoogleProvider
     } finally {
       service.close();
     }
+  }
+
+  @override
+  MediaGenerationModel<GoogleMediaModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    GoogleMediaModelOptions? options,
+  }) {
+    const fallbackModel = 'models/gemini-2.0-flash-exp-image-generation';
+    final modelName = name ?? fallbackModel;
+
+    _logger.info(
+      'Creating Google media model: $modelName '
+      'with ${(tools ?? const []).length} tools',
+    );
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
+    return GoogleMediaModel(
+      name: modelName,
+      apiKey: apiKey!,
+      baseUrl: baseUrl ?? defaultBaseUrl,
+      defaultOptions: options ?? const GoogleMediaModelOptions(),
+    );
   }
 
   ModelInfo? _mapModel(gl.Model model) {

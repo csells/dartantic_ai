@@ -316,21 +316,23 @@ While Agent is the primary interface, direct model creation is supported for adv
 
 ### Provider Capability Matrix
 
-| Provider   | Chat  | Embeddings | Tools | Typed Output | Tools+Typed | Vision |
-| ---------- | :---: | :--------: | :---: | :----------: | :---------: | :----: |
-| OpenAI     |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |
-| Google     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ✅    |
-| Anthropic  |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
-| Mistral    |   ✅   |     ✅      |   ❌   |      ❌       |      ❌      |   ✅    |
-| Cohere     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ❌    |
-| Ollama     |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
-| OpenRouter |   ✅   |     ❌      |   ✅   |      ✅       |      ❌      |   ✅    |
-| Together   |   ✅   |     ❌      |   ❌   |      ✅       |      ❌      |   ✅    |
+| Provider         | Chat  | Embeddings | Tools | Typed Output | Tools+Typed | Vision | Media |
+| ---------------- | :---: | :--------: | :---: | :----------: | :---------: | :----: | :----: |
+| OpenAI           |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| OpenAI Responses |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |   ✅   |
+| Google           |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ✅    |   ❌   |
+| Anthropic        |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| Mistral          |   ✅   |     ✅      |   ❌   |      ❌       |      ❌      |   ✅    |   ❌   |
+| Cohere           |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ❌    |   ❌   |
+| Ollama           |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| OpenRouter       |   ✅   |     ❌      |   ✅   |      ✅       |      ❌      |   ✅    |   ❌   |
+| Together         |   ✅   |     ❌      |   ❌   |      ✅       |      ❌      |   ✅    |   ❌   |
 
 **Legend:**
 - **Tools** = `multiToolCalls` capability
 - **Typed Output** = `typedOutput` capability  
 - **Tools+Typed** = `typedOutputWithTools` capability
+- **Media** = `mediaGeneration` capability
 
 ### Chat-Only Providers
 - **Anthropic**: No embeddings support
@@ -342,8 +344,10 @@ While Agent is the primary interface, direct model creation is supported for adv
 - **Cohere**: Cannot use typed output with tools simultaneously
 
 ### Full-Featured Providers
-- **OpenAI**: Supports all capabilities
-- **Google**: Supports all capabilities except `typedOutputWithTools`
+- **OpenAI Responses**: Supports all capabilities including media generation.
+- **OpenAI**: Supports all capabilities except `mediaGeneration`.
+- **Google**: Supports all capabilities except `typedOutputWithTools` and
+  `mediaGeneration`.
 
 ## Summary
 

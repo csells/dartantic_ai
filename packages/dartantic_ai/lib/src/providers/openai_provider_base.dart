@@ -7,8 +7,12 @@ import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.d
 import '../shared/openai_utils.dart';
 
 /// Shared OpenAI provider functionality for canonical and Responses variants.
-abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
-    extends Provider<TChatOptions, OpenAIEmbeddingsModelOptions> {
+abstract class OpenAIProviderBase<
+  TChatOptions extends ChatModelOptions,
+  TMediaOptions extends MediaGenerationModelOptions
+>
+    extends
+        Provider<TChatOptions, OpenAIEmbeddingsModelOptions, TMediaOptions> {
   /// Common constructor for OpenAI providers.
   OpenAIProviderBase({
     required super.name,
@@ -61,6 +65,15 @@ abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
       batchSize: options?.batchSize,
       options: resolvedOptions,
     );
+  }
+
+  @override
+  MediaGenerationModel<TMediaOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    TMediaOptions? options,
+  }) {
+    throw UnsupportedError('$displayName does not support media generation.');
   }
 
   @override

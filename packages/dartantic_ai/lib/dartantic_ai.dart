@@ -10,4 +10,5 @@ export 'src/chat_models/chat_models.dart';
 export 'src/embeddings_models/embeddings_models.dart';
 export 'src/logging_options.dart';
 export 'src/mcp_client.dart';
+export 'src/media_models/media_models.dart';
 export 'src/providers/providers.dart';

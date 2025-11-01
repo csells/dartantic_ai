@@ -3,12 +3,18 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
+import '../media_models/openai_responses/openai_responses_media_model.dart';
+import '../media_models/openai_responses/openai_responses_media_model_options.dart';
 import '../platform/platform.dart';
 import 'openai_provider_base.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
-    extends OpenAIProviderBase<OpenAIResponsesChatModelOptions> {
+    extends
+        OpenAIProviderBase<
+          OpenAIResponsesChatModelOptions,
+          OpenAIResponsesMediaModelOptions
+        > {
   /// Creates a new OpenAI Responses provider instance.
   OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
     : super(
@@ -17,6 +23,7 @@ class OpenAIResponsesProvider
         defaultModelNames: const {
           ModelKind.chat: defaultChatModel,
           ModelKind.embeddings: defaultEmbeddingsModel,
+          ModelKind.media: defaultMediaModel,
         },
         caps: const {
           ProviderCaps.chat,
@@ -26,6 +33,7 @@ class OpenAIResponsesProvider
           ProviderCaps.typedOutputWithTools,
           ProviderCaps.thinking,
           ProviderCaps.chatVision,
+          ProviderCaps.mediaGeneration,
         },
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
@@ -49,6 +57,9 @@ class OpenAIResponsesProvider
 
   /// Default embeddings model identifier.
   static const defaultEmbeddingsModel = 'text-embedding-3-small';
+
+  /// Default media generation model identifier.
+  static const defaultMediaModel = defaultChatModel;
 
   /// Environment variable used to read the API key.
   static const defaultApiKeyName = 'OPENAI_API_KEY';
@@ -129,4 +140,39 @@ class OpenAIResponsesProvider
 
   @override
   Uri get modelsApiBaseUrl => _defaultApiBaseUrl;
+
+  @override
+  MediaGenerationModel<OpenAIResponsesMediaModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    OpenAIResponsesMediaModelOptions? options,
+  }) {
+    validateApiKeyPresence();
+    final modelName = name ?? defaultModelNames[ModelKind.media]!;
+    final defaultOptions = options ?? const OpenAIResponsesMediaModelOptions();
+
+    _logger.info(
+      'Creating OpenAI Responses media model: $modelName with '
+      '${(tools ?? const []).length} tools',
+    );
+
+    final chatDefaultOptions = OpenAIResponsesMediaModel.buildChatOptions(
+      defaultOptions,
+    );
+
+    final chatModel = OpenAIResponsesChatModel(
+      name: modelName,
+      tools: tools,
+      apiKey: apiKey,
+      baseUrl: baseUrl ?? defaultResponsesBaseUrl,
+      defaultOptions: chatDefaultOptions,
+    );
+
+    return OpenAIResponsesMediaModel(
+      name: modelName,
+      tools: tools,
+      defaultOptions: defaultOptions,
+      chatModel: chatModel,
+    );
+  }
 }

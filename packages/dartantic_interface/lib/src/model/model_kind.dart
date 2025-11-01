@@ -12,6 +12,9 @@ enum ModelKind {
   /// Chat completion models for conversational AI
   chat,
 
+  /// Unified media generation models (images, documents, audio, etc.)
+  media,
+
   /// Image generation or vision models
   image,
 

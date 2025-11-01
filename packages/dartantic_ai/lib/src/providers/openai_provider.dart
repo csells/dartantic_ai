@@ -8,7 +8,8 @@ import 'openai_provider_base.dart';
 
 /// Provider for OpenAI-compatible APIs (OpenAI, Cohere, Together, etc.).
 /// Handles API key, base URL, and model configuration.
-class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class OpenAIProvider
+    extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new OpenAI provider instance.
   ///
   /// - [name]: The canonical provider name (e.g., 'openai', 'cohere').

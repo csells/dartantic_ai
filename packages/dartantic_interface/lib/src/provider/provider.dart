@@ -2,6 +2,8 @@ import '../chat/chat_model.dart';
 import '../chat/chat_model_options.dart';
 import '../embeddings/embeddings_model.dart';
 import '../embeddings/embeddings_model_options.dart';
+import '../media/media_generation_model.dart';
+import '../media/media_generation_model_options.dart';
 import '../model/model.dart';
 import '../tool.dart';
 import 'provider_caps.dart';
@@ -22,7 +24,8 @@ export 'provider_caps.dart';
 /// used to create a chat model or an embeddings model.
 abstract class Provider<
   TChatOptions extends ChatModelOptions,
-  TEmbeddingsOptions extends EmbeddingsModelOptions
+  TEmbeddingsOptions extends EmbeddingsModelOptions,
+  TMediaOptions extends MediaGenerationModelOptions
 > {
   /// Creates a new provider instance.
   ///
@@ -88,5 +91,12 @@ abstract class Provider<
   EmbeddingsModel<TEmbeddingsOptions> createEmbeddingsModel({
     String? name,
     TEmbeddingsOptions? options,
+  });
+
+  /// Creates a media generation model instance for this provider.
+  MediaGenerationModel<TMediaOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    TMediaOptions? options,
   });
 }

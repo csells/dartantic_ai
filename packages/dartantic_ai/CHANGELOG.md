@@ -1,5 +1,20 @@
 ## 2.0.0
 
+### New Model Type: Media Generation
+
+- Added media generation APIs to `Agent` (`generateMedia` and
+  `generateMediaStream`) with streaming aggregation helpers.
+- Introduced `OpenAIResponsesMediaModel` with automatic server-side image
+  generation support and MIME negotiation.
+- Added `AnthropicMediaModel` powered by Claude code execution, with automatic
+  file downloads (PDF, ZIP, text artifacts) via the Files beta API.
+- Expanded Google Gemini media streaming to normalize inline data and hosted
+  file responses from Nana Banana.
+- Updated provider contracts to support media models and added the
+  `ProviderCaps.mediaGeneration` capability flag.
+- Extended `ModelStringParser` with `media=` selectors and added media-specific
+  defaults in the provider registry.
+
 ### Breaking Changes: Simplified Thinking API
 
 Extended thinking (chain-of-thought reasoning) is now a first-class feature in
@@ -55,6 +70,8 @@ final thinking = result.thinking;
 
 - **Google Extended Thinking Support**: All Gemini 2.5 models support thinking
   with configurable token budgets and dynamic thinking modes.
+- Added `example/bin/media_generation.dart` showcasing streaming previews,
+  PDF generation, and asset persistence with the new media APIs.
 
 ## 1.3.0
 

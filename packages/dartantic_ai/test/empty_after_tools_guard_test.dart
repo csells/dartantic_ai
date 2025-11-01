@@ -5,7 +5,13 @@ import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 
-class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class DummyProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   DummyProvider()
     : super(
         name: 'dummy',
@@ -40,6 +46,14 @@ class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
 
   @override
   Stream<ModelInfo> listModels() async* {}
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) =>
+      throw UnsupportedError('Media generation not supported in DummyProvider');
 }
 
 class DummyChatModel extends ChatModel<ChatModelOptions> {
@@ -97,7 +111,12 @@ class DummyChatModel extends ChatModel<ChatModelOptions> {
 
 // Wrapper around real providers to avoid network; returns in-memory model
 class WrapperProvider
-    extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   WrapperProvider(Provider base)
     : super(
         name: 'wrap-${base.name}',
@@ -128,6 +147,13 @@ class WrapperProvider
 
   @override
   Stream<ModelInfo> listModels() async* {}
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Media not supported in WrapperProvider');
 }
 
 class DummyModel extends ChatModel<ChatModelOptions> {

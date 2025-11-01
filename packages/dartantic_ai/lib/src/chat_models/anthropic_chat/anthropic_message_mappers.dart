@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' as a;
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -85,6 +83,19 @@ a.CreateMessageRequest createMessageRequest(
       : null;
 
   final structuredTools = hasTools ? tools.toTool() : null;
+  final serverToolConfigs = options?.serverTools ?? defaultOptions.serverTools;
+  final serverTools = serverToolConfigs == null
+      ? const <a.Tool>[]
+      : serverToolConfigs
+            .map(
+              (tool) => a.Tool.custom(
+                type: tool.type,
+                name: tool.name,
+                description: tool.description,
+                inputSchema: Map<String, dynamic>.from(tool.inputSchema),
+              ),
+            )
+            .toList(growable: false);
 
   _logger.fine(
     'Creating Anthropic message request for ${messages.length} messages',
@@ -109,6 +120,11 @@ a.CreateMessageRequest createMessageRequest(
     thinkingConfig: thinkingConfig,
   );
 
+  final allTools = <a.Tool>[
+    ...serverTools,
+    if (structuredTools != null) ...structuredTools,
+  ];
+
   return a.CreateMessageRequest(
     model: a.Model.modelId(modelName),
     messages: messagesDtos,
@@ -124,7 +140,7 @@ a.CreateMessageRequest createMessageRequest(
     metadata: a.CreateMessageRequestMetadata(
       userId: options?.userId ?? defaultOptions.userId,
     ),
-    tools: structuredTools,
+    tools: allTools.isEmpty ? null : allTools,
     toolChoice: hasTools
         ? const a.ToolChoice(type: a.ToolChoiceType.auto)
         : null,
@@ -397,6 +413,22 @@ class MessageStreamEventTransformer
   /// Seed arguments captured from ToolUseBlock.start when provided fully.
   final Map<int, Map<String, dynamic>> _toolSeedArgsByIndex = {};
 
+  /// Tracks content block indices associated with Anthropic server-side tools.
+  final Set<int> _serverToolIndices = <int>{};
+
+  /// Tracks server-side tool use IDs (e.g., code execution invocations).
+  final Set<String> _serverToolUseIds = <String>{};
+
+  /// Maps content block indices to server-side tool use IDs.
+  final Map<int, String> _serverToolIdByIndex = <int, String>{};
+
+  /// Records server-side tool names keyed by tool use ID.
+  final Map<String, String> _serverToolNamesById = <String, String>{};
+
+  /// Stores raw tool payloads before normalization.
+  final Map<String, Map<String, Object?>> _rawToolContentById =
+      <String, Map<String, Object?>>{};
+
   /// Accumulator for thinking content during streaming.
   final StringBuffer _thinkingBuffer = StringBuffer();
 
@@ -412,6 +444,11 @@ class MessageStreamEventTransformer
       return;
     }
     _thinkingSignature = signature;
+  }
+
+  /// Registers the raw payload emitted for a server-side tool call.
+  void registerRawToolContent(String toolUseId, Map<String, Object?> raw) {
+    _rawToolContentById[toolUseId] = Map<String, Object?>.from(raw);
   }
 
   /// Binds this transformer to a stream of [a.MessageStreamEvent]s, producing a
@@ -457,49 +494,103 @@ class MessageStreamEventTransformer
     );
   }
 
-  ChatResult<ChatMessage> _mapMessageDeltaEvent(a.MessageDeltaEvent e) =>
-      ChatResult<ChatMessage>(
-        id: lastMessageId,
-        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-        messages: const [],
-        finishReason: _mapFinishReason(e.delta.stopReason),
-        metadata: {
-          if (e.delta.stopSequence != null)
-            'stop_sequence': e.delta.stopSequence,
-        },
-        usage: _mapMessageDeltaUsage(e.usage),
-      );
+  ChatResult<ChatMessage> _mapMessageDeltaEvent(a.MessageDeltaEvent e) {
+    final metadata = <String, dynamic>{
+      if (e.delta.stopSequence != null) 'stop_sequence': e.delta.stopSequence,
+    };
+    final containerId = _extractContainerId(e.delta);
+    if (containerId != null) metadata['container_id'] = containerId;
+
+    return ChatResult<ChatMessage>(
+      id: lastMessageId,
+      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+      messages: const [],
+      finishReason: _mapFinishReason(e.delta.stopReason),
+      metadata: metadata,
+      usage: _mapMessageDeltaUsage(e.usage),
+    );
+  }
 
   ChatResult<ChatMessage> _mapContentBlockStartEvent(
     a.ContentBlockStartEvent e,
   ) {
-    final parts = _mapContentBlock(e.contentBlock);
-    _logger.fine(
-      'Processing content block start event: index=${e.index}, '
-      'parts=${parts.length}, contentBlock=$e.contentBlock',
-    );
-
-    // Track tool call IDs and names by content block index
     final cb = e.contentBlock;
+
     if (cb is a.ToolUseBlock) {
+      if (_isServerToolName(cb.name)) {
+        _serverToolIndices.add(e.index);
+        _serverToolUseIds.add(cb.id);
+        _serverToolIdByIndex[e.index] = cb.id;
+        _serverToolNamesById[cb.id] = cb.name;
+
+        return _buildServerToolMetadataChunk({
+          'type': 'server_tool_use',
+          'tool_use_id': cb.id,
+          'tool_name': cb.name,
+          'input': cb.input,
+        });
+      }
+
       _toolCallIdByIndex[e.index] = cb.id;
       _toolNameByIndex[e.index] = cb.name;
       _messageHasToolCalls = true;
 
-      // Capture any initial args if present (small payloads may arrive fully
-      // in the start block without deltas)
       final input = cb.input;
       if (input.isNotEmpty) {
         _toolSeedArgsByIndex[e.index] = Map<String, dynamic>.from(input);
       }
+
+      return ChatResult<ChatMessage>(
+        id: lastMessageId,
+        output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+        messages: const [],
+        finishReason: FinishReason.unspecified,
+        metadata: const {},
+        usage: null,
+      );
     }
 
-    // Capture thinking block signature for later reconstruction
+    if (cb is a.ToolResultBlock && _serverToolUseIds.contains(cb.toolUseId)) {
+      final parts = _mapContentBlock(cb);
+      final rawPayload = _rawToolContentById.remove(cb.toolUseId);
+      final event = <String, Object?>{
+        'type': 'tool_result',
+        'tool_use_id': cb.toolUseId,
+        'tool_name': _serverToolNamesById[cb.toolUseId] ?? cb.toolUseId,
+        'content': _toolResultContentToJson(cb.content),
+        if (rawPayload != null) 'raw_content': rawPayload,
+      };
+      if (cb.isError != null) event['is_error'] = cb.isError;
+
+      return ChatResult<ChatMessage>(
+        id: lastMessageId,
+        output: parts.isEmpty
+            ? const ChatMessage(role: ChatMessageRole.model, parts: [])
+            : ChatMessage(role: ChatMessageRole.model, parts: parts),
+        messages: parts.isEmpty
+            ? const []
+            : [ChatMessage(role: ChatMessageRole.model, parts: parts)],
+        finishReason: FinishReason.unspecified,
+        metadata: {
+          'code_execution': [event],
+        },
+        usage: null,
+      );
+    }
+
+    final parts = _mapContentBlock(cb);
+    _logger.fine(
+      'Processing content block start event: index=${e.index}, '
+      'parts=${parts.length}, contentBlock=$cb',
+    );
+
     if (cb is a.ThinkingBlock) {
       final signature = cb.signature;
       _thinkingSignature = (signature != null && signature.isNotEmpty)
           ? signature
           : null;
+    } else {
+      _thinkingSignature = null;
     }
 
     return ChatResult<ChatMessage>(
@@ -512,9 +603,47 @@ class MessageStreamEventTransformer
     );
   }
 
+  String? _extractContainerId(a.MessageDelta delta) {
+    try {
+      final dynamic json = delta.toJson();
+      if (json is Map<String, Object?>) {
+        final container = json['container'];
+        if (container is Map<String, Object?>) {
+          final id = container['id'];
+          if (id is String && id.isNotEmpty) {
+            return id;
+          }
+        }
+        final containerId = json['container_id'];
+        if (containerId is String && containerId.isNotEmpty) {
+          return containerId;
+        }
+      }
+    } on Object catch (_) {
+      // Ignore JSON conversion issues; container ID is optional metadata.
+    }
+    return null;
+  }
+
   ChatResult<ChatMessage> _mapContentBlockDeltaEvent(
     a.ContentBlockDeltaEvent e,
   ) {
+    if (_serverToolIndices.contains(e.index) &&
+        e.delta is a.InputJsonBlockDelta) {
+      final delta = e.delta as a.InputJsonBlockDelta;
+      final toolUseId = _serverToolIdByIndex[e.index];
+      final event = <String, Object?>{
+        'type': 'server_tool_input_delta',
+        'tool_use_id': toolUseId,
+        'partial_json': delta.partialJson,
+      };
+      if (toolUseId != null) {
+        final toolName = _serverToolNamesById[toolUseId];
+        if (toolName != null) event['tool_name'] = toolName;
+      }
+      return _buildServerToolMetadataChunk(event);
+    }
+
     // Handle ThinkingBlockDelta to accumulate thinking and emit as metadata
     if (e.delta is a.ThinkingBlockDelta) {
       final delta = e.delta as a.ThinkingBlockDelta;
@@ -573,6 +702,19 @@ class MessageStreamEventTransformer
   ChatResult<ChatMessage>? _mapContentBlockStopEvent(
     a.ContentBlockStopEvent e,
   ) {
+    if (_serverToolIndices.remove(e.index)) {
+      final toolUseId = _serverToolIdByIndex.remove(e.index);
+      final event = <String, Object?>{
+        'type': 'server_tool_use_completed',
+        'tool_use_id': toolUseId,
+      };
+      if (toolUseId != null) {
+        final toolName = _serverToolNamesById[toolUseId];
+        if (toolName != null) event['tool_name'] = toolName;
+      }
+      return _buildServerToolMetadataChunk(event);
+    }
+
     // If we have accumulated arguments for this tool, create a complete tool
     // part
     final toolId = _toolCallIdByIndex.remove(e.index);
@@ -616,6 +758,10 @@ class MessageStreamEventTransformer
       _toolNameByIndex.clear();
       _toolArgumentsByIndex.clear();
       _toolSeedArgsByIndex.clear();
+      _serverToolIndices.clear();
+      _serverToolUseIds.clear();
+      _serverToolIdByIndex.clear();
+      _serverToolNamesById.clear();
       _thinkingSignature = null;
       _messageHasToolCalls = false;
       return null;
@@ -632,9 +778,9 @@ class MessageStreamEventTransformer
         ? {
             AnthropicThinkingMetadata.thinkingBlockKey:
                 AnthropicThinkingMetadata.buildThinkingBlock(
-              thinking: thinkingText,
-              signature: _thinkingSignature,
-            ),
+                  thinking: thinkingText,
+                  signature: _thinkingSignature,
+                ),
           }
         : <String, Object?>{};
 
@@ -644,6 +790,10 @@ class MessageStreamEventTransformer
     _toolNameByIndex.clear();
     _toolArgumentsByIndex.clear();
     _toolSeedArgsByIndex.clear();
+    _serverToolIndices.clear();
+    _serverToolUseIds.clear();
+    _serverToolIdByIndex.clear();
+    _serverToolNamesById.clear();
     _thinkingBuffer.clear();
     _thinkingSignature = null;
     _messageHasToolCalls = false;
@@ -665,7 +815,44 @@ class MessageStreamEventTransformer
     );
   }
 
+  ChatResult<ChatMessage> _buildServerToolMetadataChunk(
+    Map<String, Object?> event,
+  ) {
+    final sanitized = Map<String, Object?>.from(event)
+      ..removeWhere((_, value) => value == null);
+
+    return ChatResult<ChatMessage>(
+      id: lastMessageId,
+      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
+      messages: const [],
+      finishReason: FinishReason.unspecified,
+      metadata: {
+        'code_execution': [sanitized],
+      },
+      usage: null,
+    );
+  }
+
+  bool _isServerToolName(String name) =>
+      name == 'code_execution' ||
+      name == 'bash_code_execution' ||
+      name == 'text_editor_code_execution';
+
+  Object? _toolResultContentToJson(a.ToolResultBlockContent content) =>
+      content.map(
+        blocks: (value) =>
+            value.value.map((block) => block.toJson()).toList(growable: false),
+        text: (value) => value.value,
+      );
 }
+
+String _imageMediaTypeToString(a.ImageBlockSourceMediaType mediaType) =>
+    switch (mediaType) {
+      a.ImageBlockSourceMediaType.imageJpeg => 'image/jpeg',
+      a.ImageBlockSourceMediaType.imagePng => 'image/png',
+      a.ImageBlockSourceMediaType.imageGif => 'image/gif',
+      a.ImageBlockSourceMediaType.imageWebp => 'image/webp',
+    };
 
 /// Maps an Anthropic [a.MessageContent] to message parts.
 List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
@@ -682,13 +869,17 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   final a.TextBlock t => [TextPart(t.text)],
   final a.ImageBlock i => [
     DataPart(
-      Uint8List.fromList(i.source.data.codeUnits),
-      mimeType: 'image/png',
+      base64Decode(i.source.data),
+      mimeType: _imageMediaTypeToString(i.source.mediaType),
     ),
   ],
   // Do not emit tool use blocks at start; emit at stop with full args.
   final a.ToolUseBlock _ => const [],
-  final a.ToolResultBlock tr => [TextPart(tr.content.text)],
+  final a.ToolResultBlock tr => tr.content.map<List<Part>>(
+    blocks: (value) =>
+        value.value.expand(_mapContentBlock).toList(growable: false),
+    text: (value) => [TextPart(value.value)],
+  ),
   // Thinking blocks are filtered from message parts (metadata only).
   a.ThinkingBlock() => const [],
 };

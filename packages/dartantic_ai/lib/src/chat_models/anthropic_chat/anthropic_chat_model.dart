@@ -25,11 +25,13 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
     bool enableThinking = false,
     http.Client? client,
     AnthropicChatOptions? defaultOptions,
+    List<String> betaFeatures = const [],
   }) : _enableThinking = enableThinking,
        _client = _AnthropicStreamingClient(
          apiKey: apiKey,
          baseUrl: baseUrl?.toString(),
          client: client,
+         betaFeatures: betaFeatures,
        ),
        super(defaultOptions: defaultOptions ?? const AnthropicChatOptions()) {
     _logger.info(
@@ -98,7 +100,11 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
     a.CreateMessageRequest request,
     MessageStreamEventTransformer transformer,
   ) async* {
-    final lines = _client.rawMessageStream(request.copyWith(stream: true));
+    final requestMap = request.toJson();
+    requestMap['stream'] = true;
+    _stripServerToolInputSchemas(requestMap);
+
+    final lines = _client.rawMessageStream(requestMap);
 
     await for (final line in lines) {
       if (!line.startsWith('data:')) continue;
@@ -106,6 +112,8 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       if (payload.isEmpty || payload == '[DONE]') continue;
 
       final map = json.decode(payload) as Map<String, dynamic>;
+      _registerRawToolPayload(map, transformer);
+      _normalizeServerToolEvent(map);
       final type = map['type'];
 
       if (type == 'signature_delta' ||
@@ -128,6 +136,77 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       yield a.MessageStreamEvent.fromJson(map);
     }
   }
+
+  void _stripServerToolInputSchemas(Map<String, dynamic> request) {
+    final tools = request['tools'];
+    if (tools is! List) return;
+
+    for (final entry in tools) {
+      if (entry is! Map<String, dynamic>) continue;
+      final type = entry['type'];
+      final name = entry['name'];
+      if (type == 'code_execution_20250825' || name == 'code_execution') {
+        entry.remove('input_schema');
+      }
+    }
+  }
+
+  void _registerRawToolPayload(
+    Map<String, dynamic> event,
+    MessageStreamEventTransformer transformer,
+  ) {
+    if (event['type'] != 'content_block_start') return;
+
+    final contentBlock = event['content_block'];
+    if (contentBlock is! Map<String, dynamic>) return;
+
+    final toolUseId = contentBlock['tool_use_id'];
+    if (toolUseId is! String || toolUseId.isEmpty) return;
+
+    final blockType = contentBlock['type'];
+    if (blockType == 'server_tool_use') {
+      final input = contentBlock['input'];
+      if (input is Map<String, Object?>) {
+        transformer.registerRawToolContent(toolUseId, input);
+      }
+      return;
+    }
+
+    if (blockType is String && blockType.endsWith('_tool_result')) {
+      final content = contentBlock['content'];
+      if (content is Map<String, Object?>) {
+        transformer.registerRawToolContent(toolUseId, content);
+      }
+      // Replace content with empty string to satisfy JSON decoder expectations.
+      contentBlock['content'] = '';
+    }
+  }
+
+  void _normalizeServerToolEvent(Map<String, dynamic> event) {
+    if (event['type'] == 'content_block_start') {
+      final contentBlock = event['content_block'];
+      if (contentBlock is Map<String, dynamic>) {
+        final blockType = contentBlock['type'];
+        if (blockType == 'server_tool_use') {
+          contentBlock['type'] = 'tool_use';
+        } else if (blockType is String && blockType.endsWith('_tool_result')) {
+          contentBlock['type'] = 'tool_result';
+        }
+      }
+    }
+
+    if (event['type'] == 'content_block_stop') {
+      final contentBlock = event['content_block'];
+      if (contentBlock is Map<String, dynamic>) {
+        final blockType = contentBlock['type'];
+        if (blockType == 'server_tool_use') {
+          contentBlock['type'] = 'tool_use';
+        } else if (blockType is String && blockType.endsWith('_tool_result')) {
+          contentBlock['type'] = 'tool_result';
+        }
+      }
+    }
+  }
 }
 
 class _AnthropicStreamingClient extends a.AnthropicClient {
@@ -135,9 +214,21 @@ class _AnthropicStreamingClient extends a.AnthropicClient {
     required super.apiKey,
     super.baseUrl,
     super.client,
-  });
+    List<String> betaFeatures = const [],
+  }) : super(headers: {'anthropic-beta': _buildBetaHeader(betaFeatures)});
 
-  Stream<String> rawMessageStream(a.CreateMessageRequest request) async* {
+  static const List<String> _defaultBetaFeatures = <String>[
+    'message-batches-2024-09-24',
+    'prompt-caching-2024-07-31',
+    'computer-use-2024-10-22',
+  ];
+
+  static String _buildBetaHeader(List<String> extras) {
+    final features = <String>{..._defaultBetaFeatures, ...extras};
+    return features.join(',');
+  }
+
+  Stream<String> rawMessageStream(Object request) async* {
     final response = await makeRequestStream(
       baseUrl: baseUrl ?? 'https://api.anthropic.com/v1',
       path: '/messages',

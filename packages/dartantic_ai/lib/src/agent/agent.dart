@@ -10,6 +10,7 @@ import '../platform/platform.dart';
 import '../providers/chat_orchestrator_provider.dart';
 import '../providers/providers.dart';
 import 'agent_response_accumulator.dart';
+import 'media_response_accumulator.dart';
 import 'model_string_parser.dart';
 import 'orchestrators/default_streaming_orchestrator.dart';
 import 'streaming_state.dart';
@@ -35,6 +36,9 @@ class Agent {
   /// - [tools]: List of tools the agent can use
   /// - [temperature]: Model temperature (0.0 to 1.0)
   /// - [enableThinking]: Enable extended thinking/reasoning (default: false)
+  /// - [chatModelOptions]: Provider-specific chat model configuration
+  /// - [embeddingsModelOptions]: Provider-specific embeddings configuration
+  /// - [mediaModelOptions]: Provider-specific media generation configuration
   Agent(
     String model, {
     List<Tool>? tools,
@@ -43,6 +47,7 @@ class Agent {
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
+    this.mediaModelOptions,
   }) {
     _checkLoggingEnvironment();
 
@@ -52,11 +57,13 @@ class Agent {
     final providerName = parser.providerName;
     final chatModelName = parser.chatModelName;
     final embeddingsModelName = parser.embeddingsModelName;
+    final mediaModelName = parser.mediaModelName;
 
     _logger.info(
       'Creating agent with model: $model (provider: $providerName, '
       'chat model: $chatModelName, '
-      'embeddings model: $embeddingsModelName)',
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName)',
     );
 
     // cache the provider name from the input; it could be an alias
@@ -68,6 +75,7 @@ class Agent {
 
     _chatModelName = chatModelName;
     _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
 
     _tools = tools;
     _temperature = temperature;
@@ -84,19 +92,22 @@ class Agent {
     Provider provider, {
     String? chatModelName,
     String? embeddingsModelName,
+    String? mediaModelName,
     List<Tool>? tools,
     double? temperature,
     bool enableThinking = false,
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
+    this.mediaModelOptions,
   }) {
     _checkLoggingEnvironment();
 
     _logger.info(
       'Creating agent from provider: ${provider.name}, '
       'chat model: $chatModelName, '
-      'embeddings model: $embeddingsModelName',
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName',
     );
 
     _providerName = provider.name;
@@ -107,6 +118,7 @@ class Agent {
 
     _chatModelName = chatModelName;
     _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
 
     _tools = tools;
     _temperature = temperature;
@@ -127,6 +139,9 @@ class Agent {
   /// Gets the embeddings model name.
   String? get embeddingsModelName => _embeddingsModelName;
 
+  /// Gets the media model name.
+  String? get mediaModelName => _mediaModelName;
+
   /// Gets the fully qualified model name.
   String get model => ModelStringParser(
     providerName,
@@ -136,6 +151,11 @@ class Agent {
             ? _provider.defaultModelNames[ModelKind.chat]
             : null),
     embeddingsModelName: embeddingsModelName,
+    mediaModelName:
+        mediaModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.media)
+            ? _provider.defaultModelNames[ModelKind.media]
+            : null),
   ).toString();
 
   /// Gets the display name.
@@ -147,10 +167,14 @@ class Agent {
   /// Gets the embeddings model options.
   final EmbeddingsModelOptions? embeddingsModelOptions;
 
+  /// Gets the media model options.
+  final MediaGenerationModelOptions? mediaModelOptions;
+
   late final String _providerName;
   late final Provider _provider;
   late final String? _chatModelName;
   late final String? _embeddingsModelName;
+  late final String? _mediaModelName;
   late final List<Tool>? _tools;
   late final double? _temperature;
   late final bool _enableThinking;
@@ -356,6 +380,94 @@ class Agent {
       }
     } finally {
       model.dispose();
+    }
+  }
+
+  /// Generates media content and returns the final aggregated result.
+  Future<MediaGenerationResult> generateMedia(
+    String prompt, {
+    required List<String> mimeTypes,
+    List<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    JsonSchema? outputSchema,
+  }) async {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _logger.info(
+      'Running media generation with ${history.length} history messages '
+      'and ${mimeTypes.length} requested MIME types',
+    );
+
+    final accumulator = MediaResponseAccumulator();
+
+    await generateMediaStream(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      attachments: attachments,
+      options: options,
+      outputSchema: outputSchema,
+    ).forEach(accumulator.add);
+
+    final finalResult = accumulator.buildFinal();
+
+    _logger.info(
+      'Media generation completed with ${finalResult.assets.length} assets '
+      'and ${finalResult.links.length} links',
+    );
+
+    return finalResult;
+  }
+
+  /// Generates media content and returns a stream of incremental results.
+  Stream<MediaGenerationResult> generateMediaStream(
+    String prompt, {
+    required List<String> mimeTypes,
+    List<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    JsonSchema? outputSchema,
+  }) async* {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _assertNoMultipleTextParts(history);
+
+    final model = _provider.createMediaModel(
+      name: _mediaModelName,
+      tools: _tools,
+      options: mediaModelOptions,
+    );
+
+    final newUserMessage = ChatMessage.user(prompt, parts: attachments);
+    _assertNoMultipleTextParts([newUserMessage]);
+
+    yield MediaGenerationResult(messages: [newUserMessage], id: '');
+
+    await for (final chunk in model.generateMediaStream(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      attachments: attachments,
+      options: options ?? mediaModelOptions,
+      outputSchema: outputSchema,
+    )) {
+      if (chunk.messages.isNotEmpty) {
+        _assertNoMultipleTextParts(chunk.messages);
+      }
+      yield chunk;
     }
   }
 

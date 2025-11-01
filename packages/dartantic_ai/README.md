@@ -14,9 +14,11 @@ with generative AI easier and more fun!
 - **Streaming Output** - Real-time response generation
 - **Typed Outputs and Tool Calling** - Uses Dart types and JSON serialization
 - **Multimedia Input** - Process text, images, and files
+- **Media Generation** - Stream images, PDFs, and other artifacts from OpenAI
+  Responses, Google Gemini (Nana Banana), and Anthropic code execution
 - **Embeddings** - Vector generation and semantic search
-- **Model Reasoning ("Thinking")** - Surface provider reasoning metadata when
-  supported (OpenAI Responses today)
+- **Model Reasoning ("Thinking")** - Extended reasoning support across OpenAI
+  Responses, Anthropic, and Google
 - **Provider-Hosted Server-Side Tools** - Web search, file search, image
   generation, and code interpreter via OpenAI Responses
 - **MCP Support** - Model Context Protocol server integration
@@ -75,7 +77,9 @@ The documentation includes:
   provider tools (OpenAI Responses)
 - **Integration** - Logging, MCP servers, and custom providers
 - **Provider Reference** - Detailed info on all supported providers
-- **Examples** - Complete working examples for every feature
+- **Examples** - Complete working examples for every feature, including:
+  - `dart run example/bin/media_generation.dart` to stream image previews and
+    generate downloadable media assets
 
 ## Installation
 

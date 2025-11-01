@@ -20,6 +20,9 @@ enum ProviderCaps {
   /// The provider's chat models support vision/multi-modal input.
   chatVision,
 
+  /// The provider can generate media assets (images, audio, documents, etc.).
+  mediaGeneration,
+
   /// The provider can stream or return model reasoning ("thinking").
   ///
   /// When supported, thinking text is exposed via ChatResult.metadata under

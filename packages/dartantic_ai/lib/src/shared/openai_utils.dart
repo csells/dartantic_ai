@@ -160,6 +160,7 @@ class OpenAIUtils {
     // Check for vision/image models
     if (id.contains('vision') || id.contains('image')) {
       kinds.add(ModelKind.image);
+      kinds.add(ModelKind.media);
     }
 
     // Check for audio models

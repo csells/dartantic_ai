@@ -10,7 +10,12 @@ import '../retry_http_client.dart';
 
 /// Provider for native Ollama API (local, not OpenAI-compatible).
 class OllamaProvider
-    extends Provider<OllamaChatOptions, EmbeddingsModelOptions> {
+    extends
+        Provider<
+          OllamaChatOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   /// Creates a new Ollama provider instance.
   OllamaProvider({
     super.name = 'ollama',
@@ -136,12 +141,20 @@ class OllamaProvider
           kinds: {ModelKind.chat},
           displayName: name,
           description: description,
-          extra: {...m}
-            ..removeWhere((k, _) => ['name', 'details'].contains(k)),
+          extra: {...m}..removeWhere((k, _) => ['name', 'details'].contains(k)),
         );
       }
     } finally {
       client.close();
     }
+  }
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) {
+    throw UnsupportedError('Ollama provider does not support media generation');
   }
 }

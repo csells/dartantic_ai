@@ -12,7 +12,7 @@ environment:
 dependencies:
   anthropic_sdk_dart: ^0.3.0+1
   collection: ^1.19.1
-  dartantic_interface: 1.2.0
+  dartantic_interface: ^1.3.0
   google_cloud_ai_generativelanguage_v1beta: ^0.1.2
   google_cloud_protobuf: ^0.1.0
   html: ^0.15.6
@@ -23,12 +23,17 @@ dependencies:
   meta: ^1.16.0
   mime: ^2.0.0
   mistralai_dart: ^0.1.0+1
-  ollama_dart: ^0.3.0+1 
+  ollama_dart: ^0.3.0+1
   openai_core: ^0.10.2
   openai_dart: ^0.6.0+1
+  pdf: ^3.10.7
   rxdart: ^0.28.0
   uuid: ^4.2.2
 
 dev_dependencies:
   all_lint_rules_community: ^0.0.43
   test: ^1.24.0
+
+dependency_overrides:
+  dartantic_interface:
+    path: ../dartantic_interface

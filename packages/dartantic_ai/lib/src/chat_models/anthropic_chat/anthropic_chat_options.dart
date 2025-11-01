@@ -13,6 +13,7 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topP,
     this.userId,
     this.thinkingBudgetTokens,
+    this.serverTools,
   });
 
   /// The maximum number of tokens to generate before stopping.
@@ -94,4 +95,37 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// )
   /// ```
   final int? thinkingBudgetTokens;
+
+  /// Server-side tools that should be enabled for the Anthropic request.
+  ///
+  /// These map to Anthropic's built-in tool capabilities such as the
+  /// `code_execution` sandbox. They are passed directly to the API and do not
+  /// require local tool implementations.
+  final List<AnthropicServerToolConfig>? serverTools;
+}
+
+/// Configuration for enabling Anthropic server-side tools.
+@immutable
+class AnthropicServerToolConfig {
+  /// Creates a new server-side tool configuration.
+  const AnthropicServerToolConfig({
+    required this.type,
+    required this.name,
+    this.description,
+    Map<String, dynamic>? inputSchema,
+  }) : inputSchema =
+           inputSchema ??
+           const {'type': 'object', 'additionalProperties': false};
+
+  /// Tool type identifier (for example, `code_execution_20250825`).
+  final String type;
+
+  /// Tool name (for example, `code_execution`).
+  final String name;
+
+  /// Optional human-readable description of the tool.
+  final String? description;
+
+  /// JSON schema describing the tool input shape.
+  final Map<String, dynamic> inputSchema;
 }

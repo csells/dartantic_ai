@@ -8,11 +8,17 @@ This guide shows the correct patterns for implementing providers and models in d
 3. Use `super.baseUrl` in constructor (not `baseUrl: baseUrl`)
 4. Pass `baseUrl ?? defaultBaseUrl` to models in create methods
 5. Models should accept required `Uri baseUrl` from provider
+6. Implement `createMediaModel` (or throw `UnsupportedError`) when
+   advertising `ProviderCaps.mediaGeneration`
 
 ## Provider Implementation Pattern
 
 ```dart
-class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOptions> {
+class ExampleProvider extends Provider<
+  ExampleChatOptions,
+  ExampleEmbeddingsOptions,
+  ExampleMediaOptions
+> {
   // IMPORTANT: Logger must be private (_logger not log) and static final
   static final Logger _logger = Logger('dartantic.chat.providers.example');
 
@@ -136,6 +142,24 @@ class ExampleProvider extends Provider<ExampleChatOptions, ExampleEmbeddingsOpti
       kinds: {ModelKind.embeddings},
       displayName: 'Example Embeddings Model v1',
       description: 'A model for text embeddings',
+    );
+  }
+
+  @override
+  MediaGenerationModel<ExampleMediaOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    ExampleMediaOptions? options,
+  }) {
+    if (!caps.contains(ProviderCaps.mediaGeneration)) {
+      throw UnsupportedError('Media generation is not supported');
+    }
+
+    final modelName = name ?? defaultModelNames[ModelKind.media]!;
+    return ExampleMediaModel(
+      name: modelName,
+      tools: tools,
+      defaultOptions: options ?? const ExampleMediaOptions(),
     );
   }
 }

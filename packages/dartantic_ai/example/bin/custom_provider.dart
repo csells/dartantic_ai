@@ -75,7 +75,13 @@ class EchoChatModel extends ChatModel<ChatModelOptions> {
 }
 
 /// A chat provider that provides an [EchoChatModel].
-class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class EchoProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   EchoProvider()
     : super(
         name: 'echo',
@@ -116,4 +122,13 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     EmbeddingsModelOptions? options,
   }) => throw Exception('no support for embeddings models in this provider');
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError(
+    'no support for media generation in this provider',
+  );
 }
