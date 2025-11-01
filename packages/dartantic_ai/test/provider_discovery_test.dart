@@ -208,8 +208,13 @@ void main() {
 
         final agent = Agent('${provider.name}:gemini-2.5-flash');
         expect(agent, isNotNull);
-        // Agent.model returns "provider:model" format
-        expect(agent.model, equals('google:gemini-2.5-flash'));
+        final parsed = ModelStringParser.parse(agent.model);
+        expect(parsed.providerName, equals('google'));
+        expect(parsed.chatModelName, equals('gemini-2.5-flash'));
+        expect(
+          parsed.mediaModelName,
+          equals(provider.defaultModelNames[ModelKind.media]),
+        );
       });
     });
 

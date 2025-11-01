@@ -68,8 +68,13 @@ void main() {
         expect(agents[1].providerName, equals('google'));
 
         // All agents should be properly configured
-        expect(agents[0].model, contains('openai:'));
-        expect(agents[1].model, contains('google:'));
+        final openaiParser = ModelStringParser.parse(agents[0].model);
+        expect(openaiParser.providerName, equals('openai'));
+        expect(openaiParser.chatModelName, isNotEmpty);
+
+        final googleParser = ModelStringParser.parse(agents[1].model);
+        expect(googleParser.providerName, equals('google'));
+        expect(googleParser.chatModelName, isNotEmpty);
       });
 
       // Concurrent usage moved to edge cases

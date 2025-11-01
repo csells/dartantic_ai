@@ -5,7 +5,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  const model = 'anthropic';
+  const model = 'openai-responses';
   final outputDir = Directory('tmp');
   if (!outputDir.existsSync()) outputDir.createSync(recursive: true);
 

@@ -20,6 +20,10 @@ import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
 import 'google_api_utils.dart';
 
+const String _defaultChatModelName = 'gemini-2.5-flash';
+const String _defaultEmbeddingsModelName = 'text-embedding-004';
+const String _defaultMediaModelName = 'gemini-2.5-flash-image';
+
 /// Provider for Google Gemini native API.
 class GoogleProvider
     extends
@@ -39,9 +43,9 @@ class GoogleProvider
         name: 'google',
         displayName: 'Google',
         defaultModelNames: {
-          ModelKind.chat: 'gemini-2.5-flash',
-          ModelKind.embeddings: 'models/text-embedding-004',
-          ModelKind.media: 'models/gemini-2.0-flash-exp-image-generation',
+          ModelKind.chat: _defaultChatModelName,
+          ModelKind.embeddings: _defaultEmbeddingsModelName,
+          ModelKind.media: _defaultMediaModelName,
         },
         caps: {
           ProviderCaps.chat,
@@ -190,8 +194,7 @@ class GoogleProvider
     List<Tool>? tools,
     GoogleMediaModelOptions? options,
   }) {
-    const fallbackModel = 'models/gemini-2.0-flash-exp-image-generation';
-    final modelName = name ?? fallbackModel;
+    final modelName = name ?? _defaultMediaModelName;
 
     _logger.info(
       'Creating Google media model: $modelName '

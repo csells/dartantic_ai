@@ -28,6 +28,7 @@ dependencies:
   openai_dart: ^0.6.0+1
   pdf: ^3.10.7
   rxdart: ^0.28.0
+  sse_channel: ^0.2.2
   uuid: ^4.2.2
 
 dev_dependencies:

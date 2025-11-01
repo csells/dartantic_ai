@@ -9,7 +9,8 @@
 - Added `AnthropicMediaModel` powered by Claude code execution, with automatic
   file downloads (PDF, ZIP, text artifacts) via the Files beta API.
 - Expanded Google Gemini media streaming to normalize inline data and hosted
-  file responses from Nana Banana.
+  file responses from Nana Banana using the Gemini `streamGenerateContent`
+  endpoint (default model `gemini-2.5-flash-image`).
 - Updated provider contracts to support media models and added the
   `ProviderCaps.mediaGeneration` capability flag.
 - Extended `ModelStringParser` with `media=` selectors and added media-specific
