@@ -3,9 +3,9 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import '../../chat_models/google_chat/google_chat_options.dart';
 
 /// Options for configuring Google Gemini media generation.
-class GoogleMediaModelOptions extends MediaGenerationModelOptions {
+class GoogleMediaGenerationModelOptions extends MediaGenerationModelOptions {
   /// Creates a new set of media options for Google Gemini.
-  const GoogleMediaModelOptions({
+  const GoogleMediaGenerationModelOptions({
     this.temperature,
     this.topP,
     this.topK,

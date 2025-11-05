@@ -10,13 +10,13 @@ import '../../chat_models/openai_responses/openai_responses_chat_options.dart';
 import '../../chat_models/openai_responses/openai_responses_options_mapper.dart';
 import '../../chat_models/openai_responses/openai_responses_server_side_tools.dart';
 import '../../chat_models/openai_responses/openai_responses_tool_types.dart';
-import 'openai_responses_media_model_options.dart';
+import 'openai_responses_media_gen_model_options.dart';
 
 /// Media generation model built on top of the OpenAI Responses API.
-class OpenAIResponsesMediaModel
-    extends MediaGenerationModel<OpenAIResponsesMediaModelOptions> {
+class OpenAIResponsesMediaGenerationModel
+    extends MediaGenerationModel<OpenAIResponsesMediaGenerationModelOptions> {
   /// Creates a new OpenAI Responses media model instance.
-  OpenAIResponsesMediaModel({
+  OpenAIResponsesMediaGenerationModel({
     required super.name,
     required super.defaultOptions,
     required OpenAIResponsesChatModel chatModel,
@@ -33,7 +33,7 @@ class OpenAIResponsesMediaModel
 
   /// Builds chat model options for the provided media defaults.
   static OpenAIResponsesChatModelOptions buildChatOptions(
-    OpenAIResponsesMediaModelOptions base,
+    OpenAIResponsesMediaGenerationModelOptions base,
   ) {
     final resolved = _resolve(base, null);
     return _toChatOptions(
@@ -52,7 +52,7 @@ class OpenAIResponsesMediaModel
     required List<String> mimeTypes,
     List<ChatMessage> history = const [],
     List<Part> attachments = const [],
-    OpenAIResponsesMediaModelOptions? options,
+    OpenAIResponsesMediaGenerationModelOptions? options,
     JsonSchema? outputSchema,
   }) async* {
     if (outputSchema != null) {
@@ -144,8 +144,8 @@ class OpenAIResponsesMediaModel
   }
 
   static _ResolvedMediaSettings _resolve(
-    OpenAIResponsesMediaModelOptions base,
-    OpenAIResponsesMediaModelOptions? override,
+    OpenAIResponsesMediaGenerationModelOptions base,
+    OpenAIResponsesMediaGenerationModelOptions? override,
   ) {
     final partialImages =
         override?.partialImages ?? base.partialImages ?? _defaultPartialImages;

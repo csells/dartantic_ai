@@ -10,8 +10,8 @@ import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/anthropic_chat/anthropic_chat.dart';
 import '../chat_models/anthropic_chat/anthropic_typed_output_orchestrator.dart';
 import '../chat_models/chat_utils.dart';
-import '../media_models/anthropic/anthropic_media_model.dart';
-import '../media_models/anthropic/anthropic_media_model_options.dart';
+import '../media_gen_models/anthropic/anthropic_media_gen_model.dart';
+import '../media_gen_models/anthropic/anthropic_media_gen_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
@@ -22,7 +22,7 @@ class AnthropicProvider
         Provider<
           AnthropicChatOptions,
           EmbeddingsModelOptions,
-          AnthropicMediaModelOptions
+          AnthropicMediaGenerationModelOptions
         >
     implements ChatOrchestratorProvider {
   /// Creates a new Anthropic provider instance.
@@ -89,14 +89,24 @@ class AnthropicProvider
       enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl,
-      defaultOptions: AnthropicChatOptions(
-        temperature: temperature ?? options?.temperature,
-        topP: options?.topP,
-        topK: options?.topK,
-        maxTokens: options?.maxTokens,
-        stopSequences: options?.stopSequences,
-        userId: options?.userId,
-        thinkingBudgetTokens: options?.thinkingBudgetTokens,
+      defaultOptions: () {
+        final defaultOptions = AnthropicChatOptions(
+          temperature: temperature ?? options?.temperature,
+          topP: options?.topP,
+          topK: options?.topK,
+          maxTokens: options?.maxTokens,
+          stopSequences: options?.stopSequences,
+          userId: options?.userId,
+          thinkingBudgetTokens: options?.thinkingBudgetTokens,
+          serverTools: options?.serverTools,
+          serverSideTools: options?.serverSideTools,
+          toolChoice: options?.toolChoice,
+        );
+        return defaultOptions;
+      }(),
+      betaFeatures: betaFeaturesForAnthropicTools(
+        manualConfigs: options?.serverTools,
+        serverSideTools: options?.serverSideTools,
       ),
     );
   }
@@ -201,10 +211,10 @@ class AnthropicProvider
   }
 
   @override
-  MediaGenerationModel<AnthropicMediaModelOptions> createMediaModel({
+  MediaGenerationModel<AnthropicMediaGenerationModelOptions> createMediaModel({
     String? name,
     List<Tool>? tools,
-    AnthropicMediaModelOptions? options,
+    AnthropicMediaGenerationModelOptions? options,
   }) {
     if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
       throw ArgumentError('$apiKeyName is required for $displayName provider');
@@ -214,15 +224,21 @@ class AnthropicProvider
         name ??
         defaultModelNames[ModelKind.media] ??
         defaultModelNames[ModelKind.chat]!;
-    final resolvedOptions = options ?? const AnthropicMediaModelOptions();
+    final resolvedOptions =
+        options ?? const AnthropicMediaGenerationModelOptions();
 
     _logger.info(
       'Creating Anthropic media model: $modelName with '
       '${tools?.length ?? 0} tools',
     );
 
-    final chatOptions = AnthropicMediaModel.buildChatOptions(resolvedOptions);
-    const betaFeatures = ['code-execution-2025-08-25', 'files-api-2025-04-14'];
+    final chatOptions = AnthropicMediaGenerationModel.buildChatOptions(
+      resolvedOptions,
+    );
+    final betaFeatures = betaFeaturesForAnthropicTools(
+      manualConfigs: chatOptions.serverTools,
+      serverSideTools: chatOptions.serverSideTools,
+    );
 
     final chatModel = AnthropicChatModel(
       name: modelName,
@@ -233,7 +249,7 @@ class AnthropicProvider
       betaFeatures: betaFeatures,
     );
 
-    return AnthropicMediaModel(
+    return AnthropicMediaGenerationModel(
       name: modelName,
       defaultOptions: resolvedOptions,
       chatModel: chatModel,

@@ -7,24 +7,26 @@ import 'package:logging/logging.dart';
 
 import '../../chat_models/google_chat/google_chat_options.dart';
 import '../../retry_http_client.dart';
-import 'google_media_generation_client.dart';
-import 'google_media_model_options.dart';
+import 'google_image_generation_client.dart';
+import 'google_media_gen_model_options.dart';
 
 /// Media generation model for Google Gemini.
-class GoogleMediaModel extends MediaGenerationModel<GoogleMediaModelOptions> {
+class GoogleMediaGenerationModel
+    extends MediaGenerationModel<GoogleMediaGenerationModelOptions> {
   /// Creates a new Google media model instance.
-  GoogleMediaModel({
+  GoogleMediaGenerationModel({
     required super.name,
     required String apiKey,
     required Uri baseUrl,
-    GoogleMediaModelOptions? defaultOptions,
+    GoogleMediaGenerationModelOptions? defaultOptions,
     http.Client? client,
   }) : super(
-         defaultOptions: defaultOptions ?? const GoogleMediaModelOptions(),
+         defaultOptions:
+             defaultOptions ?? const GoogleMediaGenerationModelOptions(),
        ) {
     final resolvedClient = client ?? RetryHttpClient(inner: http.Client());
     _httpClient = resolvedClient;
-    _generationClient = GoogleMediaGenerationClient(
+    _generationClient = GoogleImageGenerationClient(
       apiKey: apiKey,
       baseUrl: baseUrl,
       httpClient: resolvedClient,
@@ -33,7 +35,7 @@ class GoogleMediaModel extends MediaGenerationModel<GoogleMediaModelOptions> {
 
   static final Logger _logger = Logger('dartantic.media.google');
 
-  late final GoogleMediaGenerationClient _generationClient;
+  late final GoogleImageGenerationClient _generationClient;
   http.Client? _httpClient;
 
   @override
@@ -42,7 +44,7 @@ class GoogleMediaModel extends MediaGenerationModel<GoogleMediaModelOptions> {
     required List<String> mimeTypes,
     List<ChatMessage> history = const [],
     List<Part> attachments = const [],
-    GoogleMediaModelOptions? options,
+    GoogleMediaGenerationModelOptions? options,
     JsonSchema? outputSchema,
   }) async* {
     if (outputSchema != null) {
@@ -86,7 +88,7 @@ class GoogleMediaModel extends MediaGenerationModel<GoogleMediaModelOptions> {
     required String prompt,
     required List<ChatMessage> history,
     required String mimeType,
-    required GoogleMediaModelOptions options,
+    required GoogleMediaGenerationModelOptions options,
   }) {
     final contents = _convertMessagesToContents(history)
       ..add({
@@ -178,7 +180,9 @@ class GoogleMediaModel extends MediaGenerationModel<GoogleMediaModelOptions> {
     return contents;
   }
 
-  Map<String, Object?>? _buildImageConfig(GoogleMediaModelOptions options) {
+  Map<String, Object?>? _buildImageConfig(
+    GoogleMediaGenerationModelOptions options,
+  ) {
     final config = <String, Object?>{
       if (options.imageSampleCount != null) 'number': options.imageSampleCount,
       if (options.aspectRatio != null && options.aspectRatio!.isNotEmpty)

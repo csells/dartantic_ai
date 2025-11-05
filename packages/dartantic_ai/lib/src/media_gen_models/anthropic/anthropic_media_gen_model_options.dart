@@ -3,9 +3,9 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import '../../chat_models/anthropic_chat/anthropic_chat_options.dart';
 
 /// Options for configuring Anthropic media generation runs.
-class AnthropicMediaModelOptions extends MediaGenerationModelOptions {
+class AnthropicMediaGenerationModelOptions extends MediaGenerationModelOptions {
   /// Creates a new set of media options.
-  const AnthropicMediaModelOptions({
+  const AnthropicMediaGenerationModelOptions({
     this.maxTokens,
     this.stopSequences,
     this.temperature,

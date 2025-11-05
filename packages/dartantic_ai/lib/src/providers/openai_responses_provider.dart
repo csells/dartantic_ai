@@ -3,8 +3,8 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
-import '../media_models/openai_responses/openai_responses_media_model.dart';
-import '../media_models/openai_responses/openai_responses_media_model_options.dart';
+import '../media_gen_models/openai_responses/openai_responses_media_gen_model.dart';
+import '../media_gen_models/openai_responses/openai_responses_media_gen_model_options.dart';
 import '../platform/platform.dart';
 import 'openai_provider_base.dart';
 
@@ -13,7 +13,7 @@ class OpenAIResponsesProvider
     extends
         OpenAIProviderBase<
           OpenAIResponsesChatModelOptions,
-          OpenAIResponsesMediaModelOptions
+          OpenAIResponsesMediaGenerationModelOptions
         > {
   /// Creates a new OpenAI Responses provider instance.
   OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
@@ -142,23 +142,24 @@ class OpenAIResponsesProvider
   Uri get modelsApiBaseUrl => _defaultApiBaseUrl;
 
   @override
-  MediaGenerationModel<OpenAIResponsesMediaModelOptions> createMediaModel({
+  MediaGenerationModel<OpenAIResponsesMediaGenerationModelOptions>
+  createMediaModel({
     String? name,
     List<Tool>? tools,
-    OpenAIResponsesMediaModelOptions? options,
+    OpenAIResponsesMediaGenerationModelOptions? options,
   }) {
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.media]!;
-    final defaultOptions = options ?? const OpenAIResponsesMediaModelOptions();
+    final defaultOptions =
+        options ?? const OpenAIResponsesMediaGenerationModelOptions();
 
     _logger.info(
       'Creating OpenAI Responses media model: $modelName with '
       '${(tools ?? const []).length} tools',
     );
 
-    final chatDefaultOptions = OpenAIResponsesMediaModel.buildChatOptions(
-      defaultOptions,
-    );
+    final chatDefaultOptions =
+        OpenAIResponsesMediaGenerationModel.buildChatOptions(defaultOptions);
 
     final chatModel = OpenAIResponsesChatModel(
       name: modelName,
@@ -168,7 +169,7 @@ class OpenAIResponsesProvider
       defaultOptions: chatDefaultOptions,
     );
 
-    return OpenAIResponsesMediaModel(
+    return OpenAIResponsesMediaGenerationModel(
       name: modelName,
       tools: tools,
       defaultOptions: defaultOptions,

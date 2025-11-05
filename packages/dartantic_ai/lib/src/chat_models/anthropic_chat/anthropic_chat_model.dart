@@ -116,6 +116,14 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       _normalizeServerToolEvent(map);
       final type = map['type'];
 
+      if (type == 'content_block_delta') {
+        final delta = map['delta'];
+        if (delta is Map && delta['type'] == 'citations_delta') {
+          _logger.fine('Skipping unsupported citations_delta event');
+          continue;
+        }
+      }
+
       if (type == 'signature_delta' ||
           (map['delta'] is Map &&
               (map['delta'] as Map)['type'] == 'signature_delta')) {
@@ -143,12 +151,23 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
 
     for (final entry in tools) {
       if (entry is! Map<String, dynamic>) continue;
-      final type = entry['type'];
-      final name = entry['name'];
-      if (type == 'code_execution_20250825' || name == 'code_execution') {
+      final type = entry['type'] as String?;
+      final name = entry['name'] as String?;
+      if (_shouldStripInputSchema(type, name)) {
         entry.remove('input_schema');
       }
     }
+  }
+
+  bool _shouldStripInputSchema(String? type, String? name) {
+    const typesNeedingRemoval = {
+      'code_execution_20250825',
+      'web_search_20250305',
+      'web_fetch_20250910',
+    };
+    const namesNeedingRemoval = {'code_execution', 'web_search', 'web_fetch'};
+    return (type != null && typesNeedingRemoval.contains(type)) ||
+        (name != null && namesNeedingRemoval.contains(name));
   }
 
   void _registerRawToolPayload(

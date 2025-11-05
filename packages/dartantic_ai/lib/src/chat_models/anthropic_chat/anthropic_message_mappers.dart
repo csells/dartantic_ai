@@ -10,6 +10,8 @@ import 'package:rxdart/rxdart.dart' show WhereNotNullExtension;
 import '../../shared/anthropic_thinking_metadata.dart';
 import '../helpers/message_part_helpers.dart';
 import 'anthropic_chat.dart';
+import 'anthropic_server_side_tool_types.dart';
+import 'anthropic_tool_event_state.dart';
 
 final Logger _logger = Logger('dartantic.chat.mappers.anthropic');
 
@@ -83,19 +85,28 @@ a.CreateMessageRequest createMessageRequest(
       : null;
 
   final structuredTools = hasTools ? tools.toTool() : null;
-  final serverToolConfigs = options?.serverTools ?? defaultOptions.serverTools;
-  final serverTools = serverToolConfigs == null
-      ? const <a.Tool>[]
-      : serverToolConfigs
-            .map(
-              (tool) => a.Tool.custom(
-                type: tool.type,
-                name: tool.name,
-                description: tool.description,
-                inputSchema: Map<String, dynamic>.from(tool.inputSchema),
-              ),
-            )
-            .toList(growable: false);
+  final manualServerToolConfigs =
+      options?.serverTools ?? defaultOptions.serverTools;
+  final serverSideToolSet =
+      options?.serverSideTools ?? defaultOptions.serverSideTools;
+  final resolvedServerSideTools = <AnthropicServerSideTool>{
+    if (serverSideToolSet != null) ...serverSideToolSet,
+  };
+  final mergedServerToolConfigs = mergeAnthropicServerToolConfigs(
+    manualConfigs: manualServerToolConfigs,
+    serverSideTools: serverSideToolSet,
+  );
+  final serverTools = mergedServerToolConfigs
+      .map(
+        (tool) => a.Tool.custom(
+          type: tool.type,
+          name: tool.name,
+          description: tool.description,
+          inputSchema: Map<String, dynamic>.from(tool.inputSchema),
+        ),
+      )
+      .toList(growable: false);
+  final hasServerTools = serverTools.isNotEmpty;
 
   _logger.fine(
     'Creating Anthropic message request for ${messages.length} messages',
@@ -124,6 +135,13 @@ a.CreateMessageRequest createMessageRequest(
     ...serverTools,
     if (structuredTools != null) ...structuredTools,
   ];
+  final resolvedToolChoice = _resolveToolChoice(
+    options: options,
+    defaultOptions: defaultOptions,
+    hasStructuredTools: structuredTools != null,
+    hasServerTools: hasServerTools,
+    serverSideTools: resolvedServerSideTools,
+  );
 
   return a.CreateMessageRequest(
     model: a.Model.modelId(modelName),
@@ -141,12 +159,44 @@ a.CreateMessageRequest createMessageRequest(
       userId: options?.userId ?? defaultOptions.userId,
     ),
     tools: allTools.isEmpty ? null : allTools,
-    toolChoice: hasTools
-        ? const a.ToolChoice(type: a.ToolChoiceType.auto)
-        : null,
+    toolChoice: resolvedToolChoice,
     thinking: thinkingConfig,
     stream: true,
   );
+}
+
+a.ToolChoice? _resolveToolChoice({
+  required AnthropicChatOptions? options,
+  required AnthropicChatOptions defaultOptions,
+  required bool hasStructuredTools,
+  required bool hasServerTools,
+  required Set<AnthropicServerSideTool> serverSideTools,
+}) {
+  final requestedChoice = options?.toolChoice ?? defaultOptions.toolChoice;
+  final inferredChoice = inferAnthropicToolChoice(
+    requestedChoice,
+    serverSideTools,
+  );
+
+  if (inferredChoice == null) {
+    if (!hasStructuredTools && !hasServerTools) return null;
+    return const a.ToolChoice(type: a.ToolChoiceType.auto);
+  }
+
+  switch (inferredChoice.type) {
+    case AnthropicToolChoiceType.auto:
+      return const a.ToolChoice(type: a.ToolChoiceType.auto);
+    case AnthropicToolChoiceType.any:
+      return const a.ToolChoice(type: a.ToolChoiceType.any);
+    case AnthropicToolChoiceType.required:
+      final name = inferredChoice.name;
+      if (name == null || name.isEmpty) {
+        throw ArgumentError(
+          'AnthropicToolChoice.required requires a non-empty tool name.',
+        );
+      }
+      return a.ToolChoice(type: a.ToolChoiceType.tool, name: name);
+  }
 }
 
 /// Extension on [List<msg.Message>] to convert messages to Anthropic SDK
@@ -398,6 +448,9 @@ class MessageStreamEventTransformer
   /// Creates a [MessageStreamEventTransformer].
   MessageStreamEventTransformer();
 
+  /// Aggregated server-side tool event state for the current message.
+  final AnthropicEventMappingState _toolState = AnthropicEventMappingState();
+
   /// The last message ID.
   String? lastMessageId;
 
@@ -562,19 +615,22 @@ class MessageStreamEventTransformer
       };
       if (cb.isError != null) event['is_error'] = cb.isError;
 
-      return ChatResult<ChatMessage>(
-        id: lastMessageId,
-        output: parts.isEmpty
-            ? const ChatMessage(role: ChatMessageRole.model, parts: [])
-            : ChatMessage(role: ChatMessageRole.model, parts: parts),
-        messages: parts.isEmpty
-            ? const []
-            : [ChatMessage(role: ChatMessageRole.model, parts: parts)],
-        finishReason: FinishReason.unspecified,
-        metadata: {
-          'code_execution': [event],
-        },
-        usage: null,
+      final toolKey =
+          (event['tool_name'] as String?) ??
+          AnthropicServerToolTypes.codeExecution;
+
+      final outputMessage = parts.isEmpty
+          ? const ChatMessage(role: ChatMessageRole.model, parts: [])
+          : ChatMessage(role: ChatMessageRole.model, parts: parts);
+      final messageList = parts.isEmpty
+          ? const <ChatMessage>[]
+          : [outputMessage];
+
+      return _buildToolMetadataChunk(
+        toolKey: toolKey,
+        event: event,
+        output: outputMessage,
+        messages: messageList,
       );
     }
 
@@ -641,7 +697,10 @@ class MessageStreamEventTransformer
         final toolName = _serverToolNamesById[toolUseId];
         if (toolName != null) event['tool_name'] = toolName;
       }
-      return _buildServerToolMetadataChunk(event);
+      final toolKey =
+          (event['tool_name'] as String?) ??
+          AnthropicServerToolTypes.codeExecution;
+      return _buildToolMetadataChunk(toolKey: toolKey, event: event);
     }
 
     // Handle ThinkingBlockDelta to accumulate thinking and emit as metadata
@@ -704,15 +763,16 @@ class MessageStreamEventTransformer
   ) {
     if (_serverToolIndices.remove(e.index)) {
       final toolUseId = _serverToolIdByIndex.remove(e.index);
+      final toolName = toolUseId != null
+          ? _serverToolNamesById[toolUseId]
+          : null;
       final event = <String, Object?>{
         'type': 'server_tool_use_completed',
         'tool_use_id': toolUseId,
       };
-      if (toolUseId != null) {
-        final toolName = _serverToolNamesById[toolUseId];
-        if (toolName != null) event['tool_name'] = toolName;
-      }
-      return _buildServerToolMetadataChunk(event);
+      if (toolName != null) event['tool_name'] = toolName;
+      final toolKey = toolName ?? AnthropicServerToolTypes.codeExecution;
+      return _buildToolMetadataChunk(toolKey: toolKey, event: event);
     }
 
     // If we have accumulated arguments for this tool, create a complete tool
@@ -798,7 +858,9 @@ class MessageStreamEventTransformer
     _thinkingSignature = null;
     _messageHasToolCalls = false;
 
-    return ChatResult<ChatMessage>(
+    final toolMetadata = _toolState.toMetadata();
+
+    final result = ChatResult<ChatMessage>(
       id: lastMessageId,
       output: const ChatMessage(role: ChatMessageRole.model, parts: []),
       messages: [
@@ -810,7 +872,31 @@ class MessageStreamEventTransformer
       ],
       thinking: thinkingText,
       finishReason: FinishReason.unspecified,
-      metadata: const {},
+      metadata: toolMetadata,
+      usage: null,
+    );
+
+    _toolState.reset();
+
+    return result;
+  }
+
+  ChatResult<ChatMessage> _buildToolMetadataChunk({
+    required String toolKey,
+    required Map<String, Object?> event,
+    ChatMessage? output,
+    List<ChatMessage>? messages,
+  }) {
+    _toolState.recordToolEvent(toolKey, event);
+    return ChatResult<ChatMessage>(
+      id: lastMessageId,
+      output:
+          output ?? const ChatMessage(role: ChatMessageRole.model, parts: []),
+      messages: messages ?? const [],
+      finishReason: FinishReason.unspecified,
+      metadata: {
+        toolKey: [Map<String, Object?>.from(event)],
+      },
       usage: null,
     );
   }
@@ -821,16 +907,11 @@ class MessageStreamEventTransformer
     final sanitized = Map<String, Object?>.from(event)
       ..removeWhere((_, value) => value == null);
 
-    return ChatResult<ChatMessage>(
-      id: lastMessageId,
-      output: const ChatMessage(role: ChatMessageRole.model, parts: []),
-      messages: const [],
-      finishReason: FinishReason.unspecified,
-      metadata: {
-        'code_execution': [sanitized],
-      },
-      usage: null,
-    );
+    final toolKey =
+        sanitized['tool_name'] as String? ??
+        AnthropicServerToolTypes.codeExecution;
+
+    return _buildToolMetadataChunk(toolKey: toolKey, event: sanitized);
   }
 
   bool _isServerToolName(String name) =>

@@ -16,7 +16,11 @@ This document describes the architecture and implementation patterns for server-
    - [Configuration](#configuration)
    - [Supported Tools](#supported-tools)
    - [Provider-Specific Details](#provider-specific-details)
-5. [Testing Strategy](#testing-strategy)
+5. [Anthropic Claude Provider](#anthropic-claude-provider)
+   - [Configuration](#anthropic-configuration)
+   - [Supported Tools](#anthropic-supported-tools)
+   - [Provider-Specific Details](#anthropic-provider-specific-details)
+6. [Testing Strategy](#testing-strategy)
 
 ## Overview
 
@@ -595,6 +599,64 @@ for (final part in agent.messages.last.parts) {
 1. Referenced via `container_file_citation` events in streaming metadata
 2. Automatically downloaded and attached as `DataPart`s in the model's response
 3. Citations with zero-length text ranges (start_index == end_index) are filtered out
+
+- Metadata keys follow the constants defined in
+  `OpenAIResponsesToolTypes` (for example `image_generation`, `code_interpreter`).
+- Tool events are recorded in `EventMappingState.toolEventLog` and surfaced in
+  both streaming chunks and the aggregated final metadata.
+
+## Anthropic Claude Provider
+
+Anthropic tooling mirrors the generic patterns with a lighter-weight event
+recorder tailored to Claude's SSE payloads.
+
+### Configuration
+
+- Server-side tools can be enabled with the `AnthropicServerSideTool` enum set
+  (`serverSideTools`) or via explicit `AnthropicServerToolConfig` entries.
+  Dartantic injects the required code execution sandbox automatically for media
+  runs.
+- Requests remove Anthropic's tool input schemas to avoid `input_schema`
+  validation issues when streaming (`_stripServerToolInputSchemas`).
+- **IMPORTANT**: Server-side tools require sufficient `maxTokens` to complete
+  execution cycles. Use at least 4096 tokens when using code execution, web
+  search, or web fetch tools. Insufficient tokens will cause the stream to
+  terminate prematurely before tool completion events arrive.
+
+### Supported Tools
+
+| Tool | Metadata Key | Notes |
+|------|--------------|-------|
+| Code execution sandbox | `code_execution` | Emits execution events, file IDs, stdout/stderr. |
+| Text editor helper | `text_editor_code_execution` | Provides intermediate file edits for the sandbox. |
+| Bash execution helper | `bash_code_execution` | Shell commands executed within the code sandbox. |
+| Web search | `web_search` | Returns search queries/results and produces external link metadata. |
+| Web fetch | `web_fetch` | Streams fetched document metadata/content; delivers document bytes when available. |
+
+Other Anthropic tools (for example computer-use) are wired to fall through the
+same event recording pipeline when they become generally available.
+
+### Provider-Specific Details
+
+- **Event Recording**: `MessageStreamEventTransformer` now uses
+  `AnthropicEventMappingState` and `_buildToolMetadataChunk` to record every
+  tool event. Streaming chunks emit metadata under the relevant tool key, and
+  the final `ChatResult.metadata` contains the full aggregated history.
+- **Deliverables**: `AnthropicToolDeliverableTracker` handles inline image
+  previews, downloads sandbox files via `AnthropicFilesClient`, surfaces web
+  search results as `LinkPart`s, and materializes fetched documents as
+  `DataPart`s when content is provided. The tracker deduplicates base64
+  previews, file downloads, links, and fetched documents, matching the patterns
+  used for OpenAI Responses.
+- **Fallback Content**: When no explicit document asset is returned, the media
+  model synthesizes a PDF summary from accumulated stdout/stderr snippets using
+  the shared tracker text buffer.
+- **File Downloads**: `AnthropicFilesClient` centralises the Files API access,
+  normalising beta headers and error handling so both chat and media layers can
+  reuse the client without duplicating HTTP logic.
+- **Metadata Output**: Final media results merge the tracker log into
+  `MediaGenerationResult.metadata`, ensuring non-streaming consumers see the
+  complete tool history without replaying the stream.
 
 ## Testing Strategy
 

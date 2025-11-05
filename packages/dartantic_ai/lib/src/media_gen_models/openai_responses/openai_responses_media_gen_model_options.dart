@@ -3,9 +3,10 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import '../../chat_models/openai_responses/openai_responses_chat_options.dart';
 
 /// Options for configuring OpenAI Responses media generation runs.
-class OpenAIResponsesMediaModelOptions extends MediaGenerationModelOptions {
+class OpenAIResponsesMediaGenerationModelOptions
+    extends MediaGenerationModelOptions {
   /// Creates a new set of media generation options.
-  const OpenAIResponsesMediaModelOptions({
+  const OpenAIResponsesMediaGenerationModelOptions({
     this.partialImages,
     this.quality,
     this.size,

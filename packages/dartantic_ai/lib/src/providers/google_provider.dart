@@ -13,8 +13,8 @@ import '../chat_models/google_chat/google_double_agent_orchestrator.dart';
 import '../custom_http_client.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
-import '../media_models/google/google_media_model.dart';
-import '../media_models/google/google_media_model_options.dart';
+import '../media_gen_models/google/google_media_gen_model.dart';
+import '../media_gen_models/google/google_media_gen_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
@@ -30,7 +30,7 @@ class GoogleProvider
         Provider<
           GoogleChatModelOptions,
           GoogleEmbeddingsModelOptions,
-          GoogleMediaModelOptions
+          GoogleMediaGenerationModelOptions
         >
     implements ChatOrchestratorProvider {
   /// Creates a new Google AI provider instance.
@@ -189,10 +189,10 @@ class GoogleProvider
   }
 
   @override
-  MediaGenerationModel<GoogleMediaModelOptions> createMediaModel({
+  MediaGenerationModel<GoogleMediaGenerationModelOptions> createMediaModel({
     String? name,
     List<Tool>? tools,
-    GoogleMediaModelOptions? options,
+    GoogleMediaGenerationModelOptions? options,
   }) {
     final modelName = name ?? _defaultMediaModelName;
 
@@ -205,11 +205,11 @@ class GoogleProvider
       throw ArgumentError('$apiKeyName is required for $displayName provider');
     }
 
-    return GoogleMediaModel(
+    return GoogleMediaGenerationModel(
       name: modelName,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
-      defaultOptions: options ?? const GoogleMediaModelOptions(),
+      defaultOptions: options ?? const GoogleMediaGenerationModelOptions(),
     );
   }
 
