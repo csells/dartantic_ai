@@ -618,10 +618,10 @@ recorder tailored to Claude's SSE payloads.
   runs.
 - Requests remove Anthropic's tool input schemas to avoid `input_schema`
   validation issues when streaming (`_stripServerToolInputSchemas`).
-- **IMPORTANT**: Server-side tools require sufficient `maxTokens` to complete
-  execution cycles. Use at least 4096 tokens when using code execution, web
-  search, or web fetch tools. Insufficient tokens will cause the stream to
-  terminate prematurely before tool completion events arrive.
+- **Default maxTokens**: Dartantic uses 4096 tokens by default for Anthropic
+  requests (matching Anthropic's default for modern Claude models). This is
+  sufficient for server-side tool execution. If you override this with a lower
+  value, server-side tools may fail to complete their execution cycles.
 
 ### Supported Tools
 

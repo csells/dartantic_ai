@@ -15,14 +15,16 @@ import 'anthropic_tool_event_state.dart';
 
 final Logger _logger = Logger('dartantic.chat.mappers.anthropic');
 
-const _defaultMaxTokens = 1024;
-const _defaultThinkingBudgetTokens = 4096; // Reasonable default
+// Anthropic's default for Claude 3.5 Sonnet and similar models
+const _defaultMaxTokens = 4096;
+const _defaultThinkingBudgetTokens = 4096;
 const _defaultMaxTokensWithThinking = 8192; // Room for thinking + response
 
 /// Calculates the appropriate maxTokens value.
 ///
 /// When thinking is enabled, ensures maxTokens is large enough to accommodate
 /// both the thinking budget and the response.
+/// Defaults to 4096 tokens (Anthropic's default for modern Claude models).
 int _calculateMaxTokens({
   required AnthropicChatOptions? options,
   required AnthropicChatOptions defaultOptions,
@@ -37,7 +39,7 @@ int _calculateMaxTokens({
     return _defaultMaxTokensWithThinking;
   }
 
-  // Otherwise use standard default
+  // Otherwise use Anthropic's default for modern Claude models
   return _defaultMaxTokens;
 }
 
@@ -738,7 +740,7 @@ class MessageStreamEventTransformer
         output: const ChatMessage(role: ChatMessageRole.model, parts: []),
         messages: const [],
         finishReason: FinishReason.unspecified,
-        metadata: {'index': e.index},
+        metadata: const {},
         usage: null,
       );
     }
@@ -753,7 +755,7 @@ class MessageStreamEventTransformer
       output: ChatMessage(role: ChatMessageRole.model, parts: parts),
       messages: [ChatMessage(role: ChatMessageRole.model, parts: parts)],
       finishReason: FinishReason.unspecified,
-      metadata: {'index': e.index},
+      metadata: const {},
       usage: null,
     );
   }
