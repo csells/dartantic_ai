@@ -17,11 +17,12 @@ import '../../agent/streaming_state.dart';
 /// **Phase 1 - Tool Execution:**
 /// - Sends messages with tools (no outputSchema)
 /// - Suppresses text output (we only care about tool calls)
-/// - Executes all tool calls
-/// - Accumulates tool results
+/// - Executes all tool calls and accumulates tool results
+/// - Loops back to allow model to make additional tool calls if needed
+/// - Continues until model returns with no tool calls
 ///
 /// **Phase 2 - Structured Output:**
-/// - Sends tool results with outputSchema (no tools)
+/// - Sends full conversation history with outputSchema (no tools)
 /// - Returns the structured JSON output
 ///
 /// This allows Google to support the same capability as Anthropic, just with
@@ -176,11 +177,11 @@ class GoogleDoubleAgentOrchestrator extends DefaultStreamingOrchestrator {
         );
       }
 
-      // Transition to phase 2
-      _isPhase1 = false;
-      _logger.fine('Transitioning to phase 2');
+      // Stay in phase 1 to allow model to make more tool calls
+      // The transition to phase 2 happens when model returns with no tool calls
+      _logger.fine('Continuing in phase 1 for potential additional tool calls');
 
-      // Continue iteration (will call processIteration again)
+      // Continue iteration (will call processIteration again in phase 1)
       yield StreamingIterationResult(
         output: '',
         messages: const [],
