@@ -88,11 +88,16 @@ class OpenAIResponsesMediaGenerationModel
 
     final tracker = _OpenAIResponsesMediaTracker();
 
+    // Accumulate all messages across chunks - DataParts only appear in the
+    // accumulated collection, not in individual chunk.messages
+    final accumulatedMessages = <ChatMessage>[];
+
     await for (final chunk in _chatModel.sendStream(
       messages,
       options: chatOptions,
     )) {
-      yield _mapChunk(chunk, tracker);
+      accumulatedMessages.addAll(chunk.messages);
+      yield _mapChunk(chunk, tracker, accumulatedMessages);
     }
   }
 
@@ -102,6 +107,7 @@ class OpenAIResponsesMediaGenerationModel
   MediaGenerationResult _mapChunk(
     ChatResult<ChatMessage> result,
     _OpenAIResponsesMediaTracker tracker,
+    List<ChatMessage> accumulatedMessages,
   ) {
     final assets = <Part>[];
     final links = <LinkPart>[];
@@ -112,7 +118,9 @@ class OpenAIResponsesMediaGenerationModel
     assets.addAll(metadataAssets);
     links.addAll(metadataLinks);
 
-    for (final message in result.messages) {
+    // Search accumulated messages for DataParts - they only appear in the
+    // accumulated collection, not in individual chunk.messages
+    for (final message in accumulatedMessages) {
       for (final part in message.parts) {
         if (part is DataPart) {
           assets.add(part);

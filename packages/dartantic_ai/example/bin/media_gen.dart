@@ -8,6 +8,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 /// - Anthropic (code execution for all file types)
 ///
 /// Each provider generates: image (PNG), document (PDF), and data file (CSV).
+///
+/// Uses specific prompts with explicit filenames for reliable file generation.
 void main() async {
   final outputDir = Directory('tmp');
   if (!outputDir.existsSync()) outputDir.createSync(recursive: true);
@@ -46,8 +48,8 @@ Future<void> generateWithGoogle(Directory dir) async {
   // PDF generation (auto-fallback to code execution)
   stdout.writeln('\n## Google: PDF via generateMedia()');
   final pdfResult = await agent.generateMedia(
-    'Create a simple one-page PDF report titled "Project Status" with three '
-    'bullet points summarizing a fictional software project.',
+    'Create a one-page PDF file called "status_report.pdf" with the title '
+    '"Project Status" and three bullet points summarizing a software project.',
     mimeTypes: const ['application/pdf'],
   );
   _saveAssets(pdfResult.assets, dir, 'google_report');
@@ -55,8 +57,8 @@ Future<void> generateWithGoogle(Directory dir) async {
   // CSV generation (auto-fallback to code execution)
   stdout.writeln('\n## Google: CSV via generateMedia()');
   final csvResult = await agent.generateMedia(
-    'Create a CSV file with columns: date, users, revenue. '
-    'Add 5 rows of sample data.',
+    'Create a CSV file called "metrics.csv" with columns: date, users, '
+    'revenue. Add 5 rows of sample data for the past week.',
     mimeTypes: const ['text/csv'],
   );
   _saveAssets(csvResult.assets, dir, 'google_data');
@@ -81,8 +83,8 @@ Future<void> generateWithOpenAI(Directory dir) async {
   // PDF generation (uses code interpreter)
   stdout.writeln('\n## OpenAI: PDF via generateMedia()');
   final pdfResult = await agent.generateMedia(
-    'Create a simple one-page PDF report titled "Project Status" with three '
-    'bullet points summarizing a fictional software project.',
+    'Create a one-page PDF file called "status_report.pdf" with the title '
+    '"Project Status" and three bullet points summarizing a software project.',
     mimeTypes: const ['application/pdf'],
   );
   _saveAssets(pdfResult.assets, dir, 'openai_report');
@@ -90,8 +92,8 @@ Future<void> generateWithOpenAI(Directory dir) async {
   // CSV generation (uses code interpreter)
   stdout.writeln('\n## OpenAI: CSV via generateMedia()');
   final csvResult = await agent.generateMedia(
-    'Create a CSV file with columns: date, users, revenue. '
-    'Add 5 rows of sample data.',
+    'Create a CSV file called "metrics.csv" with columns: date, users, '
+    'revenue. Add 5 rows of sample data for the past week.',
     mimeTypes: const ['text/csv'],
   );
   _saveAssets(csvResult.assets, dir, 'openai_data');
@@ -116,8 +118,8 @@ Future<void> generateWithAnthropic(Directory dir) async {
   // PDF generation (uses reportlab via code execution)
   stdout.writeln('\n## Anthropic: PDF via generateMedia()');
   final pdfResult = await agent.generateMedia(
-    'Create a simple one-page PDF report titled "Project Status" with three '
-    'bullet points summarizing a fictional software project.',
+    'Create a one-page PDF file called "status_report.pdf" with the title '
+    '"Project Status" and three bullet points summarizing a software project.',
     mimeTypes: const ['application/pdf'],
   );
   _saveAssets(pdfResult.assets, dir, 'anthropic_report');
@@ -125,8 +127,8 @@ Future<void> generateWithAnthropic(Directory dir) async {
   // CSV generation (uses file writes via code execution)
   stdout.writeln('\n## Anthropic: CSV via generateMedia()');
   final csvResult = await agent.generateMedia(
-    'Create a CSV file with columns: date, users, revenue. '
-    'Add 5 rows of sample data.',
+    'Create a CSV file called "metrics.csv" with columns: date, users, '
+    'revenue. Add 5 rows of sample data for the past week.',
     mimeTypes: const ['text/csv'],
   );
   _saveAssets(csvResult.assets, dir, 'anthropic_data');
