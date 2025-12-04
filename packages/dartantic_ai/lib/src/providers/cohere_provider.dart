@@ -96,7 +96,6 @@ class CohereProvider extends OpenAIProvider {
         parallelToolCalls: options?.parallelToolCalls,
         serviceTier: options?.serviceTier,
         user: options?.user,
-        streamOptions: null, // Cohere requires streamOptions to be null
       ),
     );
   }

@@ -13,12 +13,13 @@ class OpenAIUtils {
   /// Prepares a JsonSchema for OpenAI's structured output mode.
   ///
   /// OpenAI requires:
-  /// - additionalProperties: false at every object level
+  /// - additionalProperties: false at every object level (if strict)
   /// - format field removed from all properties
   /// - required array with ALL property keys for objects (strict mode)
   static Map<String, dynamic> prepareSchemaForOpenAI(
-    Map<String, dynamic> schema,
-  ) {
+    Map<String, dynamic> schema, {
+    bool strict = true,
+  }) {
     final result = Map<String, dynamic>.from(schema);
 
     // Handle type arrays (e.g., ['string', 'null'])
@@ -37,7 +38,9 @@ class OpenAIUtils {
     // If this is an object, ensure additionalProperties: false and
     // required array
     if (result['type'] == 'object') {
-      result['additionalProperties'] = false;
+      if (strict) {
+        result['additionalProperties'] = false;
+      }
 
       // Recursively process properties
       final properties = result['properties'] as Map<String, dynamic>?;
@@ -46,13 +49,16 @@ class OpenAIUtils {
         for (final entry in properties.entries) {
           processedProperties[entry.key] = prepareSchemaForOpenAI(
             entry.value as Map<String, dynamic>,
+            strict: strict,
           );
         }
         result['properties'] = processedProperties;
 
         // OpenAI's strict mode requires ALL properties to be in the required
         // array. This is a limitation of their API, not a bug in our code
-        result['required'] = properties.keys.toList();
+        if (strict) {
+          result['required'] = properties.keys.toList();
+        }
       } else {
         // For empty objects, ensure we have an empty properties map
         result['properties'] = <String, dynamic>{};
@@ -64,7 +70,7 @@ class OpenAIUtils {
     if (result['type'] == 'array') {
       final items = result['items'] as Map<String, dynamic>?;
       if (items != null) {
-        result['items'] = prepareSchemaForOpenAI(items);
+        result['items'] = prepareSchemaForOpenAI(items, strict: strict);
       }
     }
 
@@ -75,6 +81,7 @@ class OpenAIUtils {
       for (final entry in definitions.entries) {
         processedDefinitions[entry.key] = prepareSchemaForOpenAI(
           entry.value as Map<String, dynamic>,
+          strict: strict,
         );
       }
       result['definitions'] = processedDefinitions;

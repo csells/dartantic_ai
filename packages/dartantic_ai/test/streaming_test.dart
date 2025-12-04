@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -24,70 +23,82 @@ void main() {
   // - Rounded up for safety: 180s (3 minutes)
   group('Streaming', timeout: const Timeout(Duration(seconds: 180)), () {
     group('basic streaming responses (80% cases)', () {
-      runProviderTest('simple streaming works', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
+      runProviderTest(
+        'simple streaming works',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final chunks = <String>[];
 
-        await for (final chunk in agent.sendStream('Say "hello world"')) {
-          chunks.add(chunk.output);
-        }
+          await for (final chunk in agent.sendStream('Say "hello world"')) {
+            chunks.add(chunk.output);
+          }
 
-        expect(chunks, isNotEmpty);
-        final fullText = chunks.join();
-        expect(fullText.toLowerCase(), contains('hello'));
-        expect(fullText.toLowerCase(), contains('world'));
-      });
+          expect(chunks, isNotEmpty);
+          final fullText = chunks.join();
+          expect(fullText.toLowerCase(), contains('hello'));
+          expect(fullText.toLowerCase(), contains('world'));
+        },
+      );
 
-      runProviderTest('streaming preserves message order', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
+      runProviderTest(
+        'streaming preserves message order',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final chunks = <String>[];
 
-        await for (final chunk in agent.sendStream('Count from 1 to 3')) {
-          chunks.add(chunk.output);
-        }
+          await for (final chunk in agent.sendStream('Count from 1 to 3')) {
+            chunks.add(chunk.output);
+          }
 
-        final fullText = chunks.join();
-        expect(fullText, contains('1'));
-        expect(fullText, contains('2'));
-        expect(fullText, contains('3'));
+          final fullText = chunks.join();
+          expect(fullText, contains('1'));
+          expect(fullText, contains('2'));
+          expect(fullText, contains('3'));
 
-        // Check that numbers appear in sequential order Use a regex to find the
-        // actual counting sequence, ignoring conversational preamble that might
-        // contain numbers
-        final sequencePattern = RegExp(r'1[^\d]*2[^\d]*3');
-        expect(
-          fullText,
-          matches(sequencePattern),
-          reason: 'Should contain numbers 1, 2, 3 in sequence',
-        );
-      });
+          // Check that numbers appear in sequential order Use a regex to find
+          // the actual counting sequence, ignoring conversational preamble that
+          // might contain numbers
+          final sequencePattern = RegExp(r'1[^\d]*2[^\d]*3');
+          expect(
+            fullText,
+            matches(sequencePattern),
+            reason: 'Should contain numbers 1, 2, 3 in sequence',
+          );
+        },
+      );
 
-      runProviderTest('streaming accumulates correctly', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
-        final accumulated = StringBuffer();
+      runProviderTest(
+        'streaming accumulates correctly',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final chunks = <String>[];
+          final accumulated = StringBuffer();
 
-        await for (final chunk in agent.sendStream(
-          'Write a short sentence about cats.',
-        )) {
-          chunks.add(chunk.output);
-          accumulated.write(chunk.output);
-        }
+          await for (final chunk in agent.sendStream(
+            'Write a short sentence about cats.',
+          )) {
+            chunks.add(chunk.output);
+            accumulated.write(chunk.output);
+          }
 
-        // We should have received some chunks
-        expect(chunks, isNotEmpty);
+          // We should have received some chunks
+          expect(chunks, isNotEmpty);
 
-        // At least some chunks should have content
-        expect(chunks.any((c) => c.isNotEmpty), isTrue);
+          // At least some chunks should have content
+          expect(chunks.any((c) => c.isNotEmpty), isTrue);
 
-        // Accumulated should contain expected content
-        final accumulatedText = accumulated.toString();
-        expect(
-          accumulatedText.toLowerCase(),
-          anyOf(contains('cat'), contains('feline')),
-        );
-        expect(accumulatedText.length, greaterThan(10));
-      });
+          // Accumulated should contain expected content
+          final accumulatedText = accumulated.toString();
+          expect(
+            accumulatedText.toLowerCase(),
+            anyOf(contains('cat'), contains('feline')),
+          );
+          expect(accumulatedText.length, greaterThan(10));
+        },
+      );
     });
 
     group('tool call streaming (80% cases)', () {
@@ -186,85 +197,90 @@ void main() {
     });
 
     group('multi-turn streaming (80% cases)', () {
-      runProviderTest('streaming with conversation history', (provider) async {
-        final agent = Agent(provider.name);
-        final history = <ChatMessage>[];
+      runProviderTest(
+        'streaming with conversation history',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final history = <ChatMessage>[];
 
-        // First turn - establish context
-        final result = await agent.send(
-          'My favorite color is blue.',
-          history: history,
-        );
-        history.addAll(result.messages);
+          // First turn - establish context
+          final result = await agent.send(
+            'The magic number is 42.',
+            history: history,
+          );
+          history.addAll(result.messages);
 
-        // Second turn - stream with history
-        final buffer = StringBuffer();
-        await for (final chunk in agent.sendStream(
-          'What is my favorite color?',
-          history: history,
-        )) {
-          buffer.write(chunk.output);
-        }
+          // Second turn - stream with history
+          final buffer = StringBuffer();
+          await for (final chunk in agent.sendStream(
+            'What is the magic number?',
+            history: history,
+          )) {
+            buffer.write(chunk.output);
+          }
 
-        expect(buffer.toString().toLowerCase(), contains('blue'));
-      });
+          expect(buffer.toString().toLowerCase(), contains('42'));
+        },
+      );
 
-      runProviderTest('multi-turn streaming maintains context', (
-        provider, {
-        timeout = const Timeout(Duration(seconds: 60)),
-      }) async {
-        // Skip for Cohere - same conversation history issue as above
-        final agent = Agent(provider.name);
-        final history = <ChatMessage>[];
+      runProviderTest(
+        'multi-turn streaming maintains context',
+        requiredCaps: {ProviderCaps.chat},
+        (provider, {timeout = const Timeout(Duration(seconds: 60))}) async {
+          // Skip for Cohere - same conversation history issue as above
+          final agent = Agent(provider.name);
+          final history = <ChatMessage>[];
 
-        // Turn 1: Establish topic
-        final result = await agent.send(
-          'I want to learn about penguins.',
-          history: history,
-        );
-        history.addAll(result.messages);
+          // Turn 1: Establish topic
+          final result = await agent.send(
+            'I want to learn about penguins.',
+            history: history,
+          );
+          history.addAll(result.messages);
 
-        // Turn 2: Stream follow-up
-        final chunks1 = <String>[];
-        await for (final chunk in agent.sendStream(
-          "Tell me one interesting fact about the topic we're discussing.",
-          history: history,
-        )) {
-          chunks1.add(chunk.output);
-          history.addAll(chunk.messages);
-        }
+          // Turn 2: Stream follow-up
+          final chunks1 = <String>[];
+          await for (final chunk in agent.sendStream(
+            "Tell me one interesting fact about the topic we're discussing.",
+            history: history,
+          )) {
+            chunks1.add(chunk.output);
+            history.addAll(chunk.messages);
+          }
 
-        // Turn 3: Stream another follow-up
-        final chunks2 = <String>[];
-        await for (final chunk in agent.sendStream(
-          'What do they eat?',
-          history: history,
-        )) {
-          chunks2.add(chunk.output);
-          history.addAll(chunk.messages);
-        }
+          // Turn 3: Stream another follow-up
+          final chunks2 = <String>[];
+          await for (final chunk in agent.sendStream(
+            'What do they eat?',
+            history: history,
+          )) {
+            chunks2.add(chunk.output);
+            history.addAll(chunk.messages);
+          }
 
-        // Both streamed responses should be about penguins
-        expect(
-          chunks1.join().toLowerCase(),
-          anyOf(
-            contains('penguin'),
-            contains('bird'),
-            contains('antarctic'),
-            contains('swim'),
-          ),
-        );
-        expect(
-          chunks2.join().toLowerCase(),
-          anyOf(
-            contains('fish'),
-            contains('krill'),
-            contains('squid'),
-            contains('eat'),
-            contains('food'),
-          ),
-        );
-      });
+          // Both streamed responses should be about penguins
+          expect(
+            chunks1.join().toLowerCase(),
+            anyOf(
+              contains('penguin'),
+              contains('bird'),
+              contains('antarctic'),
+              contains('swim'),
+            ),
+          );
+          expect(
+            chunks2.join().toLowerCase(),
+            anyOf(
+              contains('fish'),
+              contains('krill'),
+              contains('squid'),
+              contains('eat'),
+              contains('food'),
+            ),
+          );
+        },
+      );
 
       runProviderTest('streaming with tool history', (provider) async {
         // Skip for Cohere - inconsistent tool history behavior (fails ~10% of
@@ -315,49 +331,57 @@ void main() {
     });
 
     group('edge cases', () {
-      runProviderTest('handles stream interruption gracefully', (
-        provider,
-      ) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
+      runProviderTest(
+        'handles stream interruption gracefully',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final chunks = <String>[];
 
-        // Start streaming but break early
-        await for (final chunk in agent.sendStream(
-          'Count from 1 to 100 slowly',
-        )) {
-          chunks.add(chunk.output);
-          if (chunks.length >= 5) {
-            break; // Interrupt the stream
+          // Start streaming but break early
+          await for (final chunk in agent.sendStream(
+            'Count from 1 to 100 slowly',
+          )) {
+            chunks.add(chunk.output);
+            if (chunks.length >= 5) {
+              break; // Interrupt the stream
+            }
           }
-        }
 
-        // Should have collected some chunks before interruption
-        expect(chunks, isNotEmpty);
-        expect(chunks.length, greaterThanOrEqualTo(5));
-      }, edgeCase: true);
+          // Should have collected some chunks before interruption
+          expect(chunks, isNotEmpty);
+          expect(chunks.length, greaterThanOrEqualTo(5));
+        },
+        edgeCase: true,
+      );
 
-      runProviderTest('accumulates very long streams', (provider) async {
-        final agent = Agent(provider.name);
-        final chunks = <String>[];
-        var totalLength = 0;
+      runProviderTest(
+        'accumulates very long streams',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
+          final chunks = <String>[];
+          var totalLength = 0;
 
-        await for (final chunk in agent.sendStream(
-          'Write a detailed 5-paragraph essay about the importance of '
-          'artificial intelligence in modern society.',
-        )) {
-          chunks.add(chunk.output);
-          totalLength += chunk.output.length;
-        }
+          await for (final chunk in agent.sendStream(
+            'Write a detailed 5-paragraph essay about the importance of '
+            'artificial intelligence in modern society.',
+          )) {
+            chunks.add(chunk.output);
+            totalLength += chunk.output.length;
+          }
 
-        // Should produce a substantial response
-        expect(chunks.length, greaterThan(10)); // Many chunks
-        expect(totalLength, greaterThan(500)); // Long total output
+          // Should produce a substantial response
+          expect(chunks.length, greaterThan(10)); // Many chunks
+          expect(totalLength, greaterThan(500)); // Long total output
 
-        // Content should be coherent when joined
-        final fullText = chunks.join();
-        expect(fullText.toLowerCase(), contains('artificial'));
-        expect(fullText.toLowerCase(), contains('intelligence'));
-      }, edgeCase: true);
+          // Content should be coherent when joined
+          final fullText = chunks.join();
+          expect(fullText.toLowerCase(), contains('artificial'));
+          expect(fullText.toLowerCase(), contains('intelligence'));
+        },
+        edgeCase: true,
+      );
     });
   });
 }

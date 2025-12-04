@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -30,7 +29,7 @@ void main() {
         // Test that agent has expected properties
         final agent = Agent(provider.name);
         expect(agent.providerName, equals(provider.name));
-        expect(agent.model, contains('${provider.name}:'));
+        expect(agent.model, startsWith(provider.name));
       });
 
       test('provider creation handles missing API keys', () {
@@ -53,7 +52,7 @@ void main() {
 
         // Agent should create and work correctly
         expect(agent.providerName, equals('openai'));
-        expect(agent.model, contains('openai:'));
+        expect(agent.model, startsWith('openai'));
       });
 
       test('multiple agents can coexist', () {

@@ -8,7 +8,7 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 

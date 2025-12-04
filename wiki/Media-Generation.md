@@ -137,14 +137,14 @@ run:
   advertises the `image` modality. The media model should configure these
   defaults automatically and stream binary payloads (either inline base64 or
   hosted URLs) alongside metadata updates.
-- **Google Gemini:** Gemini’s media models emit `DataPart` chunks that may carry
-  both binary and textual segments without extra tooling. The media model should
-  reuse the Gemini streaming session and map `mimeTypes` onto the
-  `responseMimeType` hints when supported.
-- **Anthropic Claude:** Claude currently offers vision analysis but no public
-  media generation endpoint. The provider must decline `createMediaModel` with a
-  clear error until an official API ships. Once available, the implementation
-  should follow this specification’s streaming contract.
+- **Google Gemini:** Gemini 2.5 supports native media generation via
+  `responseModalities`. The media model configures the session to output
+  image or audio modalities directly. For other formats (e.g., PDF), it falls
+  back to **Code Execution** to generate the file programmatically.
+- **Anthropic Claude:** Claude supports media generation via its **Code Interpreter**
+  (Analysis) tool. The provider automatically enables the tool and instructs the
+  model to generate files (e.g., PDFs, images) by writing and executing code.
+  The resulting files are streamed as `Part`s in the `MediaGenerationResult`.
 
 Providers integrating additional ecosystems (e.g., Stability AI, local diffusion
 servers) should adopt the same behaviours: negotiate MIME types, surface

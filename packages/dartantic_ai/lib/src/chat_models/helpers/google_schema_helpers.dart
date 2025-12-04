@@ -52,29 +52,29 @@ class GoogleSchemaHelpers {
       case 'string':
         return gl.Schema(
           type: gl.Type.string,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
-          enum$: enumValues,
-          format: format,
+          enum$: enumValues ?? const [],
+          format: format ?? '',
         );
       case 'number':
         return gl.Schema(
           type: gl.Type.number,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
-          format: format,
+          format: format ?? '',
         );
       case 'integer':
         return gl.Schema(
           type: gl.Type.integer,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
-          format: format,
+          format: format ?? '',
         );
       case 'boolean':
         return gl.Schema(
           type: gl.Type.boolean,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
         );
       case 'array':
@@ -84,11 +84,11 @@ class GoogleSchemaHelpers {
         }
         return gl.Schema(
           type: gl.Type.array,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
           items: schemaFromJson(items),
-          maxItems: schema['maxItems'] as int?,
-          minItems: schema['minItems'] as int?,
+          maxItems: (schema['maxItems'] as int?) ?? 0,
+          minItems: (schema['minItems'] as int?) ?? 0,
         );
       case 'object':
         final rawProperties = schema['properties'];
@@ -106,15 +106,15 @@ class GoogleSchemaHelpers {
             .toList(growable: false);
         return gl.Schema(
           type: gl.Type.object,
-          description: description,
+          description: description ?? '',
           nullable: nullable,
           properties: mappedProperties,
-          required: requiredProps,
+          required: requiredProps ?? const [],
         );
       case 'null':
         return gl.Schema(
           type: gl.Type.string,
-          description: description,
+          description: description ?? '',
           nullable: true,
         );
       default:

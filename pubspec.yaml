@@ -1,0 +1,11 @@
+name: dartantic
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+dev_dependencies:
+  melos: ^7.3.0
+workspace:
+  - packages/dartantic_ai
+  - packages/dartantic_interface
+  - packages/dartantic_ai/example
+  - samples/chatarang
+melos: 

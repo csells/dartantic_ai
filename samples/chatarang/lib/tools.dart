@@ -53,7 +53,7 @@ final tools = [
       'required': ['location'],
     }),
     onCall: (input) async {
-      final location = (input as Map<String, dynamic>)['location'] as String;
+      final location = (input! as Map<String, dynamic>)['location'] as String;
       try {
         final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
           'q': location,
@@ -89,7 +89,7 @@ final tools = [
       'required': ['link'],
     }),
     onCall: (args) async {
-      final link = (args as Map<String, dynamic>)['link'] as String?;
+      final link = (args! as Map<String, dynamic>)['link'] as String?;
       if (link == null) {
         return {'error': 'link is required'};
       }

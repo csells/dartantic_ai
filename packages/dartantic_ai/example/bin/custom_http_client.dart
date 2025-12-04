@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
@@ -136,7 +135,7 @@ class LoggingProvider extends GoogleProvider {
         responseMimeType: options?.responseMimeType,
         responseSchema: options?.responseSchema,
         safetySettings: options?.safetySettings,
-        enableCodeExecution: options?.enableCodeExecution,
+        serverSideTools: options?.serverSideTools,
       ),
     );
   }

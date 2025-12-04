@@ -10,7 +10,7 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 

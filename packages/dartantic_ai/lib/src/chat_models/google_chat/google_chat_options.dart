@@ -1,6 +1,8 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
+import 'google_server_side_tools.dart' show GoogleServerSideTool;
+
 /// Options to pass into the Google Generative AI Chat Model.
 ///
 /// You can find a list of available models
@@ -9,36 +11,30 @@ import 'package:meta/meta.dart';
 class GoogleChatModelOptions extends ChatModelOptions {
   /// Creates a new chat google generative ai options instance.
   const GoogleChatModelOptions({
+    this.model,
+    this.temperature,
     this.topP,
     this.topK,
     this.candidateCount,
     this.maxOutputTokens,
-    this.temperature,
     this.stopSequences,
     this.responseMimeType,
     this.responseSchema,
     this.safetySettings,
-    this.enableCodeExecution,
     this.thinkingBudgetTokens,
+    this.serverSideTools,
   });
 
-  /// The maximum cumulative probability of tokens to consider when sampling.
-  /// The model uses combined Top-k and nucleus sampling. Tokens are sorted
-  /// based on their assigned probabilities so that only the most likely
-  /// tokens are considered. Top-k sampling directly limits the maximum
-  /// number of tokens to consider, while Nucleus sampling limits number of
-  /// tokens based on the cumulative probability.
-  ///
-  /// Note: The default value varies by model, see the `Model.top_p`
-  /// attribute of the `Model` returned the `getModel` function.
+  /// The model to use (e.g. 'gemini-1.5-pro').
+  final String? model;
+
+  /// The temperature to use.
+  final double? temperature;
+
+  /// The top P value to use.
   final double? topP;
 
-  /// The maximum number of tokens to consider when sampling. The model
-  /// uses combined Top-k and nucleus sampling. Top-k sampling considers
-  /// the set of `top_k` most probable tokens. Defaults to 40. Note:
-  ///
-  /// The default value varies by model, see the `Model.top_k` attribute
-  /// of the `Model` returned the `getModel` function.
+  /// The top K value to use.
   final int? topK;
 
   /// Number of generated responses to return. This value must be between
@@ -49,17 +45,6 @@ class GoogleChatModelOptions extends ChatModelOptions {
   /// this will default to `output_token_limit` specified in the `Model`
   /// specification.
   final int? maxOutputTokens;
-
-  /// Controls the randomness of the output.
-  ///
-  /// Note: The default value varies by model, see the `Model.temperature`
-  /// attribute of the `Model` returned the `getModel` function.
-  ///
-  /// Values can range from [0.0,1.0], inclusive. A value closer to 1.0 will
-  /// produce responses that are more varied and creative, while a value
-  /// closer to 0.0 will typically result in more straightforward responses
-  /// from the model.
-  final double? temperature;
 
   /// The set of character sequences (up to 5) that will stop output generation.
   /// If specified, the API will stop at the first appearance of a stop
@@ -111,13 +96,6 @@ class GoogleChatModelOptions extends ChatModelOptions {
   /// API will use the default safety setting for that category.
   final List<ChatGoogleGenerativeAISafetySetting>? safetySettings;
 
-  /// When code execution is enabled the model may generate code and run it in
-  /// the process of generating a response to the prompt. When this happens the
-  /// code that was executed and it's output will be included in the response
-  /// metadata as `metadata['executable_code']` and
-  /// `metadata['code_execution_result']`.
-  final bool? enableCodeExecution;
-
   /// Optional token budget for thinking.
   ///
   /// Only applies when thinking is enabled at the Agent level via
@@ -143,6 +121,9 @@ class GoogleChatModelOptions extends ChatModelOptions {
   /// )
   /// ```
   final int? thinkingBudgetTokens;
+
+  /// The server-side tools to enable.
+  final Set<GoogleServerSideTool>? serverSideTools;
 }
 
 /// {@template chat_google_generative_ai_safety_setting}

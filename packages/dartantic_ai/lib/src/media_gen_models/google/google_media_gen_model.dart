@@ -1,13 +1,18 @@
-import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
+    as gl;
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
+import '../../chat_models/google_chat/google_chat_model.dart';
 import '../../chat_models/google_chat/google_chat_options.dart';
+import '../../chat_models/google_chat/google_server_side_tools.dart';
+import '../../custom_http_client.dart';
+import '../../providers/google_api_utils.dart';
 import '../../retry_http_client.dart';
-import 'google_image_generation_client.dart';
 import 'google_media_gen_model_options.dart';
 
 /// Media generation model for Google Gemini.
@@ -24,19 +29,20 @@ class GoogleMediaGenerationModel
          defaultOptions:
              defaultOptions ?? const GoogleMediaGenerationModelOptions(),
        ) {
-    final resolvedClient = client ?? RetryHttpClient(inner: http.Client());
-    _httpClient = resolvedClient;
-    _generationClient = GoogleImageGenerationClient(
-      apiKey: apiKey,
+    final httpClient = client ?? RetryHttpClient(inner: http.Client());
+    _httpClient = CustomHttpClient(
+      baseHttpClient: httpClient,
       baseUrl: baseUrl,
-      httpClient: resolvedClient,
+      headers: {'x-goog-api-key': apiKey},
+      queryParams: const {},
     );
+    _service = gl.GenerativeService(client: _httpClient);
   }
 
   static final Logger _logger = Logger('dartantic.media.google');
 
-  late final GoogleImageGenerationClient _generationClient;
-  http.Client? _httpClient;
+  late final gl.GenerativeService _service;
+  late final CustomHttpClient _httpClient;
 
   @override
   Stream<MediaGenerationResult> generateMediaStream(
@@ -60,6 +66,20 @@ class GoogleMediaGenerationModel
     }
 
     final resolvedOptions = options ?? defaultOptions;
+
+    // Check if any requested MIME type is NOT an image
+    final hasNonImageMimeType = mimeTypes.any((m) => !m.startsWith('image/'));
+
+    if (hasNonImageMimeType) {
+      yield* _generateWithCodeExecution(
+        prompt,
+        mimeTypes: mimeTypes,
+        history: history,
+        options: resolvedOptions,
+      );
+      return;
+    }
+
     final resolvedMimeType = _resolveMimeType(
       mimeTypes,
       resolvedOptions.responseMimeType ?? defaultOptions.responseMimeType,
@@ -73,96 +93,201 @@ class GoogleMediaGenerationModel
     );
 
     var chunkIndex = 0;
-    await for (final chunk in _generationClient.streamGenerateContent(
-      request,
-    )) {
+    // Use streamGenerateContent but expect image data in response
+    await for (final response in _service.streamGenerateContent(request)) {
       chunkIndex++;
       _logger.fine(
         'Received Google media chunk $chunkIndex for model: ${request.model}',
       );
-      yield _mapChunk(chunk, resolvedMimeType);
+      yield _mapResponse(response, resolvedMimeType);
     }
   }
 
-  GoogleMediaGenerationRequest _buildRequest({
+  Stream<MediaGenerationResult> _generateWithCodeExecution(
+    String prompt, {
+    required List<String> mimeTypes,
+    required List<ChatMessage> history,
+    required GoogleMediaGenerationModelOptions options,
+  }) async* {
+    _logger.info(
+      'Delegating media generation to ChatModel with code execution for '
+      'MIME types: $mimeTypes',
+    );
+
+    // Create a chat model with code execution enabled
+    // We must use a model that supports code execution (e.g. gemini-2.5-flash),
+    // as the image model (gemini-2.5-flash-image) likely does not.
+    final chatModel = GoogleChatModel(
+      name: 'gemini-2.5-flash',
+      apiKey: _httpClient.headers['x-goog-api-key']!,
+      baseUrl: _httpClient.baseUrl,
+      client: _httpClient.baseHttpClient,
+      defaultOptions: GoogleChatModelOptions(
+        serverSideTools: const {GoogleServerSideTool.codeExecution},
+        safetySettings: options.safetySettings,
+      ),
+    );
+
+    try {
+      final systemPrompt = '''
+You are a helpful assistant that generates files using code execution.
+The user wants a file of type: ${mimeTypes.join(', ')}.
+
+IMPORTANT INSTRUCTIONS:
+1. Write and execute Python code to generate the requested file.
+2. After creating the file, you MUST read it back and return it as binary data.
+3. For binary files (PDF, images, etc.), use: print(open('filename', 'rb').read())
+4. For text files (CSV, TXT, etc.), use: print(open('filename', 'r').read())
+5. The file content MUST appear in your response so it can be captured.
+6. Do not just describe how to create the file - actually create it AND output its contents.
+''';
+
+      final messages = [
+        ChatMessage.system(systemPrompt),
+        ...history,
+        ChatMessage.user(prompt),
+      ];
+
+      await for (final result in chatModel.sendStream(messages)) {
+        // Map ChatResult to MediaGenerationResult
+        // Extract DataParts (inlineData) or LinkParts (fileData) from all
+        // messages, not just the direct output (code execution may return
+        // files in message history)
+        final assets = <DataPart>[];
+        final links = <LinkPart>[];
+
+        for (final message in result.messages) {
+          for (final part in message.parts) {
+            if (part is DataPart) {
+              assets.add(part);
+            } else if (part is LinkPart) {
+              links.add(part);
+            }
+          }
+        }
+
+        yield MediaGenerationResult(
+          assets: assets,
+          links: links,
+          messages: result.messages,
+          metadata: result.metadata,
+          usage: result.usage,
+          finishReason: result.finishReason,
+          isComplete: result.finishReason != FinishReason.unspecified,
+        );
+      }
+    } finally {
+      chatModel.dispose();
+    }
+  }
+
+  gl.GenerateContentRequest _buildRequest({
     required String prompt,
     required List<ChatMessage> history,
     required String mimeType,
     required GoogleMediaGenerationModelOptions options,
   }) {
     final contents = _convertMessagesToContents(history)
-      ..add({
-        'role': 'user',
-        'parts': [
-          {'text': prompt},
-        ],
-      });
+      ..add(
+        gl.Content(
+          role: 'user',
+          parts: [gl.Part(text: prompt)],
+        ),
+      );
 
-    final generationConfig = <String, Object?>{
-      'temperature': options.temperature,
-      'topP': options.topP,
-      'topK': options.topK,
-      'maxOutputTokens': options.maxOutputTokens,
-      if (!mimeType.startsWith('image/')) 'responseMimeType': mimeType,
-      'responseModalities': [_responseModalityForMime(mimeType)],
-      'imageConfig': _buildImageConfig(options),
-    }..removeWhere((key, value) => value == null);
+    final imageConfig = gl.ImageConfig(aspectRatio: options.aspectRatio);
 
-    return GoogleMediaGenerationRequest(
-      model: name,
+    final generationConfig = gl.GenerationConfig(
+      temperature: options.temperature,
+      topP: options.topP,
+      topK: options.topK,
+      maxOutputTokens: options.maxOutputTokens,
+      responseMimeType: options.responseMimeType ?? '',
+      candidateCount: options.imageSampleCount,
+      imageConfig: imageConfig,
+      responseModalities:
+          options.responseModalities
+              ?.map(
+                (m) => switch (m.toUpperCase()) {
+                  'TEXT' => gl.GenerationConfig_Modality.text,
+                  'IMAGE' => gl.GenerationConfig_Modality.image,
+                  'AUDIO' => gl.GenerationConfig_Modality.audio,
+                  _ => gl.GenerationConfig_Modality.modalityUnspecified,
+                },
+              )
+              .toList() ??
+          const [],
+    );
+
+    return gl.GenerateContentRequest(
+      model: normalizeGoogleModelName(name),
       contents: contents,
-      generationConfig: generationConfig.isEmpty ? null : generationConfig,
-      safetySettings: _mapSafetySettings(
-        options.safetySettings ?? defaultOptions.safetySettings,
-      ),
+      generationConfig: generationConfig,
+      safetySettings: _mapSafetySettings(options.safetySettings) ?? const [],
     );
   }
 
-  MediaGenerationResult _mapChunk(GoogleMediaChunk chunk, String mimeType) {
-    final assets = chunk.assets
-        .map(
-          (asset) => DataPart(
-            base64Decode(asset.data),
-            mimeType: asset.mimeType,
-            name:
-                asset.name ??
-                _suggestName(asset.mimeType, chunk.assets.indexOf(asset)),
-          ),
-        )
-        .toList(growable: false);
+  MediaGenerationResult _mapResponse(
+    gl.GenerateContentResponse response,
+    String mimeType,
+  ) {
+    final assets = <DataPart>[];
+    final messages = <ChatMessage>[];
 
-    final messages = chunk.messages
-        .map(
-          (message) => ChatMessage(
-            role: message.role == 'user'
-                ? ChatMessageRole.user
-                : ChatMessageRole.model,
-            parts: [TextPart(message.text)],
-          ),
-        )
-        .toList(growable: false);
+    for (final candidate in response.candidates) {
+      if (candidate.content != null) {
+        for (final part in candidate.content!.parts) {
+          if (part.inlineData != null) {
+            _logger.info('Received inlineData: ${part.inlineData!.mimeType}');
+            assets.add(
+              DataPart(
+                Uint8List.fromList(part.inlineData!.data!),
+                mimeType: part.inlineData!.mimeType,
+                name: _suggestName(part.inlineData!.mimeType, assets.length),
+              ),
+            );
+          } else if (part.text != null) {
+            _logger.info('Received text: ${part.text}');
+            messages.add(
+              ChatMessage(
+                role: ChatMessageRole.model,
+                parts: [TextPart(part.text!)],
+              ),
+            );
+          } else if (part.fileData != null) {
+            _logger.info('Received fileData: ${part.fileData!.fileUri}');
+          } else if (part.functionCall != null) {
+            _logger.info('Received functionCall: ${part.functionCall!.name}');
+          } else if (part.executableCode != null) {
+            _logger.info('Received executableCode');
+          } else if (part.codeExecutionResult != null) {
+            _logger.info('Received codeExecutionResult');
+          } else {
+            _logger.info('Received unknown part type');
+          }
+        }
+      }
+    }
 
     return MediaGenerationResult(
-      id: chunk.id,
       assets: assets,
       messages: messages,
-      metadata: Map<String, dynamic>.from(chunk.metadata),
-      usage: chunk.usage == null
+      metadata:
+          const <String, dynamic>{}, // Metadata not easily accessible in stream
+      usage: response.usageMetadata == null
           ? null
           : LanguageModelUsage(
-              promptTokens: chunk.usage!.promptTokens,
-              responseTokens: chunk.usage!.candidatesTokens,
-              totalTokens: chunk.usage!.totalTokens,
+              promptTokens: response.usageMetadata!.promptTokenCount,
+              responseTokens: response.usageMetadata!.candidatesTokenCount,
+              totalTokens: response.usageMetadata!.totalTokenCount,
             ),
-      finishReason: _mapFinishReason(chunk.finishReason),
-      isComplete: chunk.isComplete,
+      finishReason: FinishReason.unspecified, // Map if needed
+      isComplete: true, // Stream chunks are usually complete parts?
     );
   }
 
-  List<Map<String, Object?>> _convertMessagesToContents(
-    List<ChatMessage> messages,
-  ) {
-    final contents = <Map<String, Object?>>[];
+  List<gl.Content> _convertMessagesToContents(List<ChatMessage> messages) {
+    final contents = <gl.Content>[];
     for (final message in messages) {
       final textParts = message.parts.whereType<TextPart>().toList();
       if (textParts.isEmpty) continue;
@@ -172,56 +297,50 @@ class GoogleMediaGenerationModel
         _ => 'user',
       };
 
-      contents.add({
-        'role': role,
-        'parts': textParts.map((part) => {'text': part.text}).toList(),
-      });
+      contents.add(
+        gl.Content(
+          role: role,
+          parts: textParts.map((p) => gl.Part(text: p.text)).toList(),
+        ),
+      );
     }
     return contents;
   }
 
-  Map<String, Object?>? _buildImageConfig(
-    GoogleMediaGenerationModelOptions options,
-  ) {
-    final config = <String, Object?>{
-      if (options.imageSampleCount != null) 'number': options.imageSampleCount,
-      if (options.aspectRatio != null && options.aspectRatio!.isNotEmpty)
-        'aspectRatio': options.aspectRatio,
-      if (options.negativePrompt != null && options.negativePrompt!.isNotEmpty)
-        'negativePrompt': options.negativePrompt,
-      if (options.addWatermark != null)
-        'includeWatermark': options.addWatermark,
-    };
-    return config.isEmpty ? null : config;
-  }
-
-  List<Map<String, Object?>>? _mapSafetySettings(
+  List<gl.SafetySetting>? _mapSafetySettings(
     List<ChatGoogleGenerativeAISafetySetting>? safetySettings,
   ) {
     if (safetySettings == null || safetySettings.isEmpty) return null;
-    return safetySettings
-        .map(
-          (setting) => {
-            'category': setting.category.apiName,
-            'threshold': setting.threshold.apiName,
-          },
-        )
-        .toList(growable: false);
+    return safetySettings.map((setting) {
+      final category = switch (setting.category) {
+        ChatGoogleGenerativeAISafetySettingCategory.unspecified =>
+          gl.HarmCategory.harmCategoryUnspecified,
+        ChatGoogleGenerativeAISafetySettingCategory.harassment =>
+          gl.HarmCategory.harmCategoryHarassment,
+        ChatGoogleGenerativeAISafetySettingCategory.hateSpeech =>
+          gl.HarmCategory.harmCategoryHateSpeech,
+        ChatGoogleGenerativeAISafetySettingCategory.sexuallyExplicit =>
+          gl.HarmCategory.harmCategorySexuallyExplicit,
+        ChatGoogleGenerativeAISafetySettingCategory.dangerousContent =>
+          gl.HarmCategory.harmCategoryDangerousContent,
+      };
+
+      final threshold = switch (setting.threshold) {
+        ChatGoogleGenerativeAISafetySettingThreshold.unspecified =>
+          gl.SafetySetting_HarmBlockThreshold.harmBlockThresholdUnspecified,
+        ChatGoogleGenerativeAISafetySettingThreshold.blockLowAndAbove =>
+          gl.SafetySetting_HarmBlockThreshold.blockLowAndAbove,
+        ChatGoogleGenerativeAISafetySettingThreshold.blockMediumAndAbove =>
+          gl.SafetySetting_HarmBlockThreshold.blockMediumAndAbove,
+        ChatGoogleGenerativeAISafetySettingThreshold.blockOnlyHigh =>
+          gl.SafetySetting_HarmBlockThreshold.blockOnlyHigh,
+        ChatGoogleGenerativeAISafetySettingThreshold.blockNone =>
+          gl.SafetySetting_HarmBlockThreshold.blockNone,
+      };
+
+      return gl.SafetySetting(category: category, threshold: threshold);
+    }).toList();
   }
-
-  String _responseModalityForMime(String mimeType) =>
-      mimeType.startsWith('image/') ? 'IMAGE' : 'TEXT';
-
-  FinishReason _mapFinishReason(String? finishReason) => switch (finishReason) {
-    'FINISH_REASON_STOP' => FinishReason.stop,
-    'FINISH_REASON_MAX_TOKENS' => FinishReason.length,
-    'FINISH_REASON_SAFETY' => FinishReason.contentFilter,
-    'FINISH_REASON_RECITATION' => FinishReason.recitation,
-    'FINISH_REASON_BLOCKLIST' => FinishReason.contentFilter,
-    'FINISH_REASON_PROHIBITED_CONTENT' => FinishReason.contentFilter,
-    'FINISH_REASON_SPII' => FinishReason.contentFilter,
-    _ => FinishReason.unspecified,
-  };
 
   String _suggestName(String mimeType, int index) {
     final extension = Part.extensionFromMimeType(mimeType);
@@ -256,35 +375,6 @@ class GoogleMediaGenerationModel
 
   @override
   void dispose() {
-    _httpClient?.close();
+    _service.close();
   }
-}
-
-extension on ChatGoogleGenerativeAISafetySettingCategory {
-  String get apiName => switch (this) {
-    ChatGoogleGenerativeAISafetySettingCategory.unspecified =>
-      'HARM_CATEGORY_UNSPECIFIED',
-    ChatGoogleGenerativeAISafetySettingCategory.harassment =>
-      'HARM_CATEGORY_HARASSMENT',
-    ChatGoogleGenerativeAISafetySettingCategory.hateSpeech =>
-      'HARM_CATEGORY_HATE_SPEECH',
-    ChatGoogleGenerativeAISafetySettingCategory.sexuallyExplicit =>
-      'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-    ChatGoogleGenerativeAISafetySettingCategory.dangerousContent =>
-      'HARM_CATEGORY_DANGEROUS_CONTENT',
-  };
-}
-
-extension on ChatGoogleGenerativeAISafetySettingThreshold {
-  String get apiName => switch (this) {
-    ChatGoogleGenerativeAISafetySettingThreshold.unspecified =>
-      'BLOCK_THRESHOLD_UNSPECIFIED',
-    ChatGoogleGenerativeAISafetySettingThreshold.blockLowAndAbove =>
-      'BLOCK_LOW_AND_ABOVE',
-    ChatGoogleGenerativeAISafetySettingThreshold.blockMediumAndAbove =>
-      'BLOCK_MEDIUM_AND_ABOVE',
-    ChatGoogleGenerativeAISafetySettingThreshold.blockOnlyHigh =>
-      'BLOCK_ONLY_HIGH',
-    ChatGoogleGenerativeAISafetySettingThreshold.blockNone => 'BLOCK_NONE',
-  };
 }

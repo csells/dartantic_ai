@@ -1,5 +1,4 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 /// Runs a parameterized test across every provider selected by the filters.
@@ -48,7 +47,7 @@ void runProviderTest(
       () async {
         await testFunction(provider);
       },
-      timeout: timeout ?? const Timeout(Duration(seconds: 30)),
+      timeout: timeout,
       skip: isSkipped,
     );
   }

@@ -53,7 +53,7 @@ class OpenAIResponsesProvider
   static const providerDisplayName = 'OpenAI Responses';
 
   /// Default chat model identifier.
-  static const defaultChatModel = 'gpt-4o';
+  static const defaultChatModel = 'gpt-5';
 
   /// Default embeddings model identifier.
   static const defaultEmbeddingsModel = 'text-embedding-3-small';

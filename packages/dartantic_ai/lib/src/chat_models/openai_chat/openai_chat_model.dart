@@ -34,16 +34,15 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
              ? RetryHttpClient(inner: client)
              : RetryHttpClient(inner: http.Client()),
        ),
+       _isTogetherAI =
+           baseUrl?.toString().toLowerCase().contains('together.xyz') ?? false,
        super(
          defaultOptions: defaultOptions ?? const OpenAIChatOptions(),
          tools: tools,
        ) {
     // Validate that providers with known tool limitations don't use tools
     if (tools != null && tools.isNotEmpty) {
-      final normalizedBaseUrl = baseUrl?.toString().toLowerCase() ?? '';
-
-      // Together AI doesn't support OpenAI-style tool calls
-      if (normalizedBaseUrl.contains('together.xyz')) {
+      if (_isTogetherAI) {
         throw ArgumentError(
           'Together AI does not support OpenAI-compatible tool calls. '
           'Their streaming API returns tools in a custom format with '
@@ -57,6 +56,7 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
   static final Logger _logger = Logger('dartantic.chat.models.openai');
 
   final OpenAIClient _client;
+  final bool _isTogetherAI;
 
   @override
   Stream<ChatResult<ChatMessage>> sendStream(
@@ -77,6 +77,8 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
       options: options,
       defaultOptions: defaultOptions,
       outputSchema: outputSchema,
+      // Together AI has issues with strict grammar compilation for some schemas
+      strictSchema: !_isTogetherAI,
     );
 
     final accumulatedToolCalls = <StreamingToolCall>[];

@@ -4,60 +4,105 @@ title: Migration Guide
 
 ## Migrating from 1.x to 2.0.0
 
-### Breaking Changes: Simplified Thinking API
+### Google Chat Options: Server-Side Tools
 
-Extended thinking (chain-of-thought reasoning) is now a first-class feature in
-Dartantic with a simplified, unified API across all providers.
+The `enableCodeExecution` option has been replaced by a unified
+`serverSideTools` configuration to align with other providers.
 
-#### What Changed
-
-- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent
-  constructor (like `temperature` and `tools`)
-- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']`
-  to `ChatResult.thinking` (String?)
-- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses
-  `OpenAIReasoningSummary.detailed`
-
-#### New API
-
+#### Old Code
 ```dart
-// Enable thinking at Agent level (simple!)
 final agent = Agent(
-  'google:gemini-2.5-flash',
-  enableThinking: true,
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    enableCodeExecution: true,
+  ),
 );
-
-// Access thinking as a first-class field
-final result = await agent.send('Complex question...');
-print(result.thinking); // String? - the thinking content
 ```
 
-#### Migration Guide
-
+#### New Code
 ```dart
-// Before (1.x) - OpenAI Responses:
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.codeExecution},
+  ),
+);
+```
+
+### Google Media Generation Options
+
+The Google media generation implementation has been migrated to the official
+SDK. Several unsupported options have been removed to match the official API
+surface.
+
+#### Old Code
+```dart
+final options = GoogleMediaGenerationModelOptions(
+  imagenModel: 'imagen-3.0-generate-001',
+  negativePrompt: 'blurry',
+  addWatermark: true,
+  aspectRatio: '1:1',
+);
+```
+
+#### New Code
+```dart
+final options = GoogleMediaGenerationModelOptions(
+  // imagenModel is now handled internally
+  // negativePrompt and addWatermark are no longer supported
+  aspectRatio: '1:1',
+);
+```
+
+### Thinking API
+
+Thinking content is now a first-class field on `ChatResult` and configuration is
+simplified across all providers.
+
+#### Old Code
+```dart
+// OpenAI Responses specific configuration
 final agent = Agent(
   'openai-responses',
   chatModelOptions: OpenAIResponsesChatModelOptions(
     reasoningSummary: OpenAIReasoningSummary.detailed,
   ),
 );
-final thinking = result.metadata['thinking'] as String?;
 
-// After (2.0) - All providers use the same simple API:
+final result = await agent.send('...');
+// Accessing thinking via metadata
+final thinking = result.metadata['thinking'];
+```
+
+#### New Code
+```dart
+// Unified configuration for all providers
 final agent = Agent(
-  'openai-responses',
+  'openai-responses', // or 'google', 'anthropic'
   enableThinking: true,
 );
+
+final result = await agent.send('...');
+// Accessing thinking via first-class field
 final thinking = result.thinking;
 ```
 
-#### Still Available
+### Default Google Model
 
-Provider-specific fine-tuning options remain for advanced use cases:
-- `GoogleChatModelOptions.thinkingBudgetTokens`
-- `AnthropicChatOptions.thinkingBudgetTokens`
-- `OpenAIResponsesChatModelOptions.reasoningSummary`
+The default model for the `google` provider has been updated to
+`gemini-2.5-flash`.
+
+#### Old Code
+```dart
+// Used gemini-1.5-flash
+final agent = Agent('google');
+```
+
+#### New Code
+```dart
+// Now uses gemini-2.5-flash
+final agent = Agent('google');
+```
 
 ## Migrating from 0.9.7 to 1.0.0
 

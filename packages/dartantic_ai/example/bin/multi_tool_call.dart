@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:example/example.dart';
 
 void main() async {
-  const model = 'claude';
+  const model = 'gemini';
   await multipleTools(model);
   await multipleToolsStream(model);
   await multipleDependentTools(model);

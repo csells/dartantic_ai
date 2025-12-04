@@ -1,11 +1,10 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/src/dump_stuff.dart';
 
 void main() async {
-  final agent = Agent('gemini', enableThinking: true);
+  final agent = Agent('openai-responses:gpt-5', enableThinking: true);
   stdout.writeln('[[model thinking appears in brackets]]\n');
   await thinking(agent);
   await thinkingStream(agent);

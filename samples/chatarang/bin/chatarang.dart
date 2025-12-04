@@ -6,7 +6,6 @@ import 'package:chatarang/commands.dart';
 import 'package:chatarang/history.dart';
 import 'package:cli_repl/cli_repl.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 const defaultModel = 'google';
 

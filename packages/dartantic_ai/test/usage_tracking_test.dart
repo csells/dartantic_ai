@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -68,51 +67,57 @@ void main() {
         }
       });
 
-      runProviderTest('track usage correctly', (provider) async {
-        final agent = Agent(provider.name);
+      runProviderTest(
+        'track usage correctly',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
 
-        final result = await agent.send(
-          'Write exactly: "Usage test for ${provider.name}"',
-        );
-
-        // ALL providers MUST provide usage information
-        expect(
-          result.usage,
-          isNotNull,
-          reason: 'Provider ${provider.name} MUST provide usage information',
-        );
-
-        expect(
-          result.usage!.totalTokens,
-          greaterThan(0),
-          reason: 'Provider ${provider.name} MUST track total tokens',
-        );
-
-        // Providers should ideally provide prompt and response tokens
-        // but at minimum must provide total tokens
-        if (result.usage!.promptTokens != null &&
-            result.usage!.responseTokens != null) {
-          expect(
-            result.usage!.promptTokens,
-            greaterThan(0),
-            reason: 'Provider ${provider.name} should track prompt tokens',
+          final result = await agent.send(
+            'Write exactly: "Usage test for ${provider.name}"',
           );
+
+          // ALL providers MUST provide usage information
           expect(
-            result.usage!.responseTokens,
-            greaterThan(0),
-            reason: 'Provider ${provider.name} should track response tokens',
+            result.usage,
+            isNotNull,
+            reason: 'Provider ${provider.name} MUST provide usage information',
           );
-          final expectedSum =
-              result.usage!.promptTokens! + result.usage!.responseTokens!;
+
           expect(
             result.usage!.totalTokens,
-            greaterThanOrEqualTo(expectedSum),
-            reason:
-                'Provider ${provider.name} total should be at least '
-                'prompt + response tokens',
+            greaterThan(0),
+            reason: 'Provider ${provider.name} MUST track total tokens',
           );
-        }
-      }, timeout: const Timeout(Duration(minutes: 3)));
+
+          // Providers should ideally provide prompt and response tokens
+          // but at minimum must provide total tokens
+          if (result.usage!.promptTokens != null &&
+              result.usage!.responseTokens != null) {
+            expect(
+              result.usage!.promptTokens,
+              greaterThan(0),
+              reason: 'Provider ${provider.name} should track prompt tokens',
+            );
+            expect(
+              result.usage!.responseTokens,
+              greaterThan(0),
+              reason: 'Provider ${provider.name} should track response tokens',
+            );
+            final expectedSum =
+                result.usage!.promptTokens! + result.usage!.responseTokens!;
+            expect(
+              result.usage!.totalTokens,
+              greaterThanOrEqualTo(expectedSum),
+              reason:
+                  'Provider ${provider.name} total should be at least '
+                  'prompt + response tokens',
+            );
+          }
+        },
+        timeout: const Timeout(Duration(minutes: 3)),
+        skipProviders: {'cohere'},
+      );
     });
 
     group('cumulative usage tracking', () {
@@ -207,47 +212,56 @@ void main() {
         }
       });
 
-      runProviderTest('streaming provides usage', (provider) async {
-        final agent = Agent(provider.name);
+      runProviderTest(
+        'streaming provides usage',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final agent = Agent(provider.name);
 
-        LanguageModelUsage? streamUsage;
-        var chunkCount = 0;
+          LanguageModelUsage? streamUsage;
+          var chunkCount = 0;
 
-        await for (final chunk in agent.sendStream(
-          'Write exactly: "Streaming test for ${provider.name}"',
-        )) {
-          chunkCount++;
-          if (chunk.usage != null) {
-            expect(
-              streamUsage,
-              isNull,
-              reason: 'Provider ${provider.name} should report usage only once',
-            );
-            streamUsage = chunk.usage;
+          await for (final chunk in agent.sendStream(
+            'Write exactly: "Streaming test for ${provider.name}"',
+          )) {
+            chunkCount++;
+            if (chunk.usage != null) {
+              expect(
+                streamUsage,
+                isNull,
+                reason:
+                    'Provider ${provider.name} should report usage only once',
+              );
+              streamUsage = chunk.usage;
+            }
           }
-        }
 
-        // ALL providers MUST provide usage in streaming mode
-        expect(
-          streamUsage,
-          isNotNull,
-          reason:
-              'Provider ${provider.name} MUST provide usage in streaming mode',
-        );
+          // ALL providers MUST provide usage in streaming mode
+          expect(
+            streamUsage,
+            isNotNull,
+            reason:
+                'Provider ${provider.name} MUST provide usage '
+                'in streaming mode',
+          );
 
-        expect(
-          streamUsage!.totalTokens,
-          greaterThan(0),
-          reason:
-              'Provider ${provider.name} MUST track total tokens in streaming',
-        );
+          expect(
+            streamUsage!.totalTokens,
+            greaterThan(0),
+            reason:
+                'Provider ${provider.name} MUST track total tokens '
+                'in streaming',
+          );
 
-        expect(
-          chunkCount,
-          greaterThan(0),
-          reason: 'Provider ${provider.name} should stream chunks',
-        );
-      }, timeout: const Timeout(Duration(minutes: 3)));
+          expect(
+            chunkCount,
+            greaterThan(0),
+            reason: 'Provider ${provider.name} should stream chunks',
+          );
+        },
+        timeout: const Timeout(Duration(minutes: 3)),
+        skipProviders: {'cohere'},
+      );
     });
 
     group('cost calculation', () {

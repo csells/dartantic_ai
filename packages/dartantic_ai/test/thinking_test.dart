@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -291,17 +290,6 @@ void main() {
   );
 }
 
-/// Map of provider names to thinking-capable model names.
-///
-/// Providers that support thinking may require specific models that have
-/// the thinking capability. This map specifies which model to use for each
-/// provider when testing thinking functionality.
-const _thinkingModelsByProvider = {
-  'openai-responses': 'gpt-5',
-  'anthropic': 'claude-sonnet-4-5',
-  'google': 'gemini-2.5-flash',
-};
-
 void _runThinkingProviderTest(
   String description,
   Future<void> Function(Provider provider) testFunction, {
@@ -312,35 +300,20 @@ void _runThinkingProviderTest(
 }) {
   runProviderTest(
     description,
-    testFunction,
+    (provider) async {
+      await testFunction(provider);
+    },
     requiredCaps: requiredCaps,
     edgeCase: edgeCase,
     timeout: timeout,
     skipProviders: skipProviders,
-    labelBuilder: _thinkingTestLabelBuilder,
   );
 }
 
 /// Creates an agent with thinking enabled for the given provider.
 ///
 /// This function handles provider-specific configuration for thinking:
-/// - Selects the appropriate thinking-capable model from the map
+/// - Uses the provider's default model (which must support thinking)
 /// - Enables thinking at the Agent level
-Agent _createAgentWithThinking(Provider provider, {List<Tool>? tools}) {
-  final fullModelString = _thinkingModelString(provider);
-  return Agent(fullModelString, tools: tools, enableThinking: true);
-}
-
-String _thinkingTestLabelBuilder(Provider provider, String defaultLabel) =>
-    _thinkingModelString(provider, fallback: defaultLabel);
-
-String _thinkingModelString(Provider provider, {String? fallback}) {
-  final modelName = _thinkingModelsByProvider[provider.name];
-  if (modelName == null) {
-    if (fallback != null) return fallback;
-    throw ArgumentError(
-      'Provider ${provider.name} not configured for thinking tests',
-    );
-  }
-  return '${provider.name}:$modelName';
-}
+Agent _createAgentWithThinking(Provider provider, {List<Tool>? tools}) =>
+    Agent(provider.name, tools: tools, enableThinking: true);

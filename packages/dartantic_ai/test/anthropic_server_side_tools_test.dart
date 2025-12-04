@@ -7,7 +7,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/chat_models/anthropic_chat/anthropic_server_side_tool_types.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_files_client.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_tool_deliverable_tracker.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
@@ -68,16 +68,14 @@ void main() {
 
     test('inferAnthropicToolChoice preserves explicit selections', () {
       const explicit = AnthropicToolChoice.required('code_execution');
-      final preserved = inferAnthropicToolChoice(
-        explicit,
-        const {AnthropicServerSideTool.codeInterpreter},
-      );
+      final preserved = inferAnthropicToolChoice(explicit, const {
+        AnthropicServerSideTool.codeInterpreter,
+      });
       expect(preserved, same(explicit));
 
-      final none = inferAnthropicToolChoice(
-        null,
-        const {AnthropicServerSideTool.codeInterpreter},
-      );
+      final none = inferAnthropicToolChoice(null, const {
+        AnthropicServerSideTool.codeInterpreter,
+      });
       expect(none, isNull);
     });
   });

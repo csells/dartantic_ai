@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() async {
   // you can define your own OpenAI-compatible provider

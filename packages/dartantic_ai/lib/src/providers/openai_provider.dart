@@ -1,5 +1,6 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
+import 'package:openai_dart/openai_dart.dart';
 
 import '../chat_models/openai_chat/openai_chat_model.dart';
 import '../chat_models/openai_chat/openai_chat_options.dart';
@@ -95,7 +96,9 @@ class OpenAIProvider
         responseFormat: options?.responseFormat,
         seed: options?.seed,
         parallelToolCalls: options?.parallelToolCalls,
-        streamOptions: options?.streamOptions,
+        streamOptions:
+            options?.streamOptions ??
+            const ChatCompletionStreamOptions(includeUsage: true),
         serviceTier: options?.serviceTier,
       ),
     );

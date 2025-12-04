@@ -121,8 +121,8 @@ class GoogleProvider
         responseMimeType: options?.responseMimeType,
         responseSchema: options?.responseSchema,
         safetySettings: options?.safetySettings,
-        enableCodeExecution: options?.enableCodeExecution,
         thinkingBudgetTokens: options?.thinkingBudgetTokens,
+        serverSideTools: options?.serverSideTools,
       ),
     );
   }
@@ -163,9 +163,9 @@ class GoogleProvider
       String? pageToken;
       do {
         final response = await service.listModels(
-          gl.ListModelsRequest(pageSize: 1000, pageToken: pageToken),
+          gl.ListModelsRequest(pageSize: 1000, pageToken: pageToken ?? ''),
         );
-        final models = response.models ?? const <gl.Model>[];
+        final models = response.models;
         _logger.info(
           'Fetched ${models.length} models from Google API '
           '(pageToken: ${pageToken ?? 'start'})',
@@ -175,7 +175,7 @@ class GoogleProvider
           if (info != null) yield info;
         }
         pageToken = response.nextPageToken;
-      } while (pageToken?.isNotEmpty ?? false);
+      } while (pageToken.isNotEmpty);
     } catch (error, stackTrace) {
       _logger.warning(
         'Failed to fetch models from Google API',
@@ -215,13 +215,13 @@ class GoogleProvider
 
   ModelInfo? _mapModel(gl.Model model) {
     final id = model.name;
-    if (id == null || id.isEmpty) {
+    if (id.isEmpty) {
       _logger.warning('Skipping model with missing name: $model');
       return null;
     }
 
-    final description = model.description ?? '';
-    final methods = (model.supportedGenerationMethods ?? const [])
+    final description = model.description;
+    final methods = model.supportedGenerationMethods
         .map((method) => method.toLowerCase())
         .toList(growable: false);
 
@@ -250,7 +250,7 @@ class GoogleProvider
     }
 
     final lowerId = id.toLowerCase();
-    final lowerBase = (model.baseModelId ?? '').toLowerCase();
+    final lowerBase = model.baseModelId.toLowerCase();
     final lowerDescription = description.toLowerCase();
 
     bool contains(String value) =>
@@ -272,13 +272,11 @@ class GoogleProvider
     if (kinds.isEmpty) kinds.add(ModelKind.other);
 
     final extra = <String, dynamic>{
-      if (model.baseModelId != null) 'baseModelId': model.baseModelId,
-      if (model.version != null) 'version': model.version,
-      if (model.inputTokenLimit != null) 'contextWindow': model.inputTokenLimit,
-      if (model.outputTokenLimit != null)
-        'outputTokenLimit': model.outputTokenLimit,
-      if (model.supportedGenerationMethods != null)
-        'supportedGenerationMethods': model.supportedGenerationMethods,
+      'baseModelId': model.baseModelId,
+      'version': model.version,
+      'contextWindow': model.inputTokenLimit,
+      'outputTokenLimit': model.outputTokenLimit,
+      'supportedGenerationMethods': model.supportedGenerationMethods,
       if (model.temperature != null) 'temperature': model.temperature,
       if (model.maxTemperature != null) 'maxTemperature': model.maxTemperature,
       if (model.topP != null) 'topP': model.topP,

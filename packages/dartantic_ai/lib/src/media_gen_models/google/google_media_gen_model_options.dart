@@ -14,9 +14,7 @@ class GoogleMediaGenerationModelOptions extends MediaGenerationModelOptions {
     this.responseMimeType,
     this.imageSampleCount,
     this.aspectRatio,
-    this.negativePrompt,
-    this.addWatermark,
-    this.imagenModel,
+    this.responseModalities,
   });
 
   /// Sampling temperature for generated content.
@@ -45,12 +43,6 @@ class GoogleMediaGenerationModelOptions extends MediaGenerationModelOptions {
   /// Target aspect ratio for generated images (for example, `16:9`).
   final String? aspectRatio;
 
-  /// Negative prompt used to discourage specific content.
-  final String? negativePrompt;
-
-  /// Whether to embed a Google watermark in generated images.
-  final bool? addWatermark;
-
-  /// Optional override for the Imagen model identifier.
-  final String? imagenModel;
+  /// The modalities to include in the response (e.g. `['TEXT', 'IMAGE']`).
+  final List<String>? responseModalities;
 }

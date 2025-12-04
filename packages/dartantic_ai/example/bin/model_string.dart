@@ -1,7 +1,6 @@
 // ignore_for_file: avoid_print
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() {
   assert(

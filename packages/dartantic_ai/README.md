@@ -18,9 +18,9 @@ with generative AI easier and more fun!
   Responses, Google Gemini (Nana Banana), and Anthropic code execution
 - **Embeddings** - Vector generation and semantic search
 - **Model Reasoning ("Thinking")** - Extended reasoning support across OpenAI
-  Responses, Anthropic, and Google
+  Responses, Anthropic, and Google (Gemini 2.5)
 - **Provider-Hosted Server-Side Tools** - Web search, file search, image
-  generation, and code interpreter via OpenAI Responses
+  generation, and code interpreter via OpenAI Responses, Anthropic, and Google
 - **MCP Support** - Model Context Protocol server integration
 - **Provider Switching** - Switch between AI providers mid-conversation
 - **Production Ready**: Built-in logging, error handling, and retry handling

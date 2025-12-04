@@ -169,11 +169,9 @@ class GoogleEmbeddingsModel
       );
 
       final response = await _service.batchEmbedContents(request);
-      final batchEmbeddings =
-          response.embeddings
-              ?.map((embedding) => embedding.values ?? const <double>[])
-              .toList(growable: false) ??
-          const <List<double>>[];
+      final batchEmbeddings = response.embeddings
+          .map((embedding) => embedding.values)
+          .toList(growable: false);
       allEmbeddings.addAll(batchEmbeddings);
 
       _logger.fine(

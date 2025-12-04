@@ -1,11 +1,14 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
-  const model = 'gemini';
+  // dude. no. "google:gemini-3-pro" and "openai-responses:gpt5.1-codex"
+  // and "anthropic:claude-opus-4.5"
+  // await Providers.anthropic.listModels().forEach((m) => print(m.name));
+  // return;
+  const model = 'anthropic:claude-opus-4-5';
   await singleTurnChat(model);
   await singleTurnChatStream(model);
   exit(0);

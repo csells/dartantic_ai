@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 Future<void> main() async {
   var totalProviders = 0;
@@ -15,7 +14,13 @@ Future<void> main() async {
   for (final provider in Providers.all) {
     totalProviders++;
     print('\n# ${provider.displayName} (${provider.name})');
-    final models = await provider.listModels().toList();
+    List<ModelInfo> models;
+    try {
+      models = await provider.listModels().toList();
+    } on Object catch (e) {
+      print('  Error listing models: $e');
+      continue;
+    }
     final modelList = models.toList();
 
     // Categorize models by type
@@ -50,7 +55,9 @@ Future<void> main() async {
           provider.name,
           chatModelName: chatModel.name,
         ).toString();
-        final kinds = chatModel.kinds.map((k) => k.name).join(', ');
+        final kinds = chatModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = chatModel.displayName != null
             ? '"${chatModel.displayName}"'
             : '';
@@ -66,7 +73,9 @@ Future<void> main() async {
           provider.name,
           embeddingsModelName: embeddingsModel.name,
         ).toString();
-        final kinds = embeddingsModel.kinds.map((k) => k.name).join(', ');
+        final kinds = embeddingsModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = embeddingsModel.displayName != null
             ? '"${embeddingsModel.displayName}"'
             : '';
@@ -82,7 +91,9 @@ Future<void> main() async {
           provider.name,
           mediaModelName: mediaModel.name,
         ).toString();
-        final kinds = mediaModel.kinds.map((k) => k.name).join(', ');
+        final kinds = mediaModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = mediaModel.displayName != null
             ? '"${mediaModel.displayName}"'
             : '';
@@ -95,7 +106,9 @@ Future<void> main() async {
       print('\n## Other Models (${otherModels.length})');
       for (final otherModel in otherModels) {
         final model = '${provider.name}?model=${otherModel.name}';
-        final kinds = otherModel.kinds.map((k) => k.name).join(', ');
+        final kinds = otherModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = otherModel.displayName != null
             ? '"${otherModel.displayName}"'
             : '';

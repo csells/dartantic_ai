@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_files_client.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_tool_deliverable_tracker.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
@@ -32,20 +32,23 @@ void main(List<String> args) async {
     ),
   );
 
-  const prompt = '''
-Create a markdown file named analytics_report.md that explains how to run a
-Dart CLI app, including setup steps and troubleshooting guidance.
-''';
-
   final savedAssetKeys = <String>{};
   final seenLinks = <String>{};
   final history = <ChatMessage>[];
 
   try {
-    stdout.writeln('User: $prompt');
+    // First prompt: Calculate Fibonacci numbers and create CSV
+    stdout.writeln('\n=== Step 1: Calculate Fibonacci Numbers ===');
+
+    const prompt1 =
+        'Calculate the first 10 Fibonacci numbers and store them in a variable '
+        'called "fib_sequence". Then create a CSV file called "fibonacci.csv" '
+        'with two columns: index and value. Show me the CSV content.';
+
+    stdout.writeln('User: $prompt1');
     stdout.writeln('Claude:');
 
-    await for (final chunk in agent.sendStream(prompt)) {
+    await for (final chunk in agent.sendStream(prompt1)) {
       stdout.write(chunk.output);
       history.addAll(chunk.messages);
       await _saveDeliverablesFromMetadata(
@@ -56,22 +59,47 @@ Dart CLI app, including setup steps and troubleshooting guidance.
       );
       dumpMetadata(chunk.metadata, prefix: '\n');
     }
+    stdout.writeln();
+
+    // Second prompt: Calculate golden ratio and create plot
+    stdout.writeln('\n=== Step 2: Calculate Golden Ratio ===');
+
+    const prompt2 =
+        'Using the fib_sequence variable we created earlier, calculate the '
+        'golden ratio by dividing consecutive terms (skipping the first term, '
+        'since it is 0). Create a plot showing how the ratio converges to the '
+        'golden ratio (approximately 1.618). Save the plot as a PNG file '
+        'called "golden_ratio.png" and show me the plot.';
+
+    stdout.writeln('User: $prompt2');
+    stdout.writeln('Claude:');
+
+    await for (final chunk in agent.sendStream(prompt2, history: history)) {
+      stdout.write(chunk.output);
+      history.addAll(chunk.messages);
+      await _saveDeliverablesFromMetadata(
+        tracker,
+        chunk.metadata,
+        savedAssetKeys,
+        seenLinks,
+      );
+      dumpMetadata(chunk.metadata, prefix: '\n');
+    }
+    stdout.writeln();
 
     await _finishDeliverableCollection(tracker, savedAssetKeys);
   } finally {
     filesClient.close();
   }
 
-  final conversation = history;
-
-  _saveMessageDataParts(conversation, savedAssetKeys);
+  _saveMessageDataParts(history, savedAssetKeys);
   if (savedAssetKeys.isEmpty) {
     stdout.writeln(
       '⚠️  No downloadable files were detected. Ensure Claude '
       r'copies files into $OUTPUT_DIR before finishing.',
     );
   }
-  dumpMessages(conversation);
+  dumpMessages(history);
 
   stdout.writeln('✅ Completed code execution demo.');
 }

@@ -16,7 +16,7 @@
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';

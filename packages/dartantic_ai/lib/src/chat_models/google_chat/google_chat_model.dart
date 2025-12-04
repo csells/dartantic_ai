@@ -12,6 +12,7 @@ import '../../retry_http_client.dart';
 import '../helpers/google_schema_helpers.dart';
 import 'google_chat_options.dart';
 import 'google_message_mappers.dart';
+import 'google_server_side_tools.dart';
 
 /// Wrapper around [Google AI for Developers](https://ai.google.dev/) API
 /// (aka Gemini API).
@@ -87,10 +88,12 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
         (options?.safetySettings ?? defaultOptions.safetySettings)
             ?.toSafetySettings();
 
-    final enableCodeExecution =
-        options?.enableCodeExecution ??
-        defaultOptions.enableCodeExecution ??
-        false;
+    final serverSideTools =
+        options?.serverSideTools ?? defaultOptions.serverSideTools ?? const {};
+
+    final enableCodeExecution = serverSideTools.contains(
+      GoogleServerSideTool.codeExecution,
+    );
 
     final generationConfig = _buildGenerationConfig(
       options: options,
@@ -100,7 +103,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     final contents = messages.toContentList();
 
     // Gemini API requires at least one non-empty content item
-    if (contents.isEmpty || contents.every((c) => c.parts?.isEmpty ?? true)) {
+    if (contents.isEmpty || contents.every((c) => c.parts.isEmpty)) {
       throw ArgumentError(
         'Cannot generate content with empty input. '
         'At least one message with non-empty content is required.',
@@ -117,9 +120,16 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
       model: normalizedModel,
       systemInstruction: _extractSystemInstruction(messages),
       contents: contents,
-      safetySettings: safetySettings,
+      safetySettings: safetySettings ?? const [],
       generationConfig: generationConfig,
-      tools: toolsToSend.toToolList(enableCodeExecution: enableCodeExecution),
+      tools:
+          toolsToSend.toToolList(
+            enableCodeExecution: enableCodeExecution,
+            enableGoogleSearch: serverSideTools.contains(
+              GoogleServerSideTool.googleSearch,
+            ),
+          ) ??
+          const [],
     );
   }
 
@@ -145,14 +155,14 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
 
     return gl.GenerationConfig(
       candidateCount: options?.candidateCount ?? defaultOptions.candidateCount,
-      stopSequences: stopSequences.isEmpty ? null : stopSequences,
+      stopSequences: stopSequences,
       maxOutputTokens:
           options?.maxOutputTokens ?? defaultOptions.maxOutputTokens,
       temperature:
           temperature ?? options?.temperature ?? defaultOptions.temperature,
       topP: options?.topP ?? defaultOptions.topP,
       topK: options?.topK ?? defaultOptions.topK,
-      responseMimeType: responseMimeType,
+      responseMimeType: responseMimeType ?? '',
       responseSchema: responseSchema,
       thinkingConfig: thinkingConfig,
     );

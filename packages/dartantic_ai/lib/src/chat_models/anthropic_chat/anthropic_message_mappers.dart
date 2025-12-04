@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' as a;
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:dartantic_interface/dartantic_interface.dart';
@@ -647,8 +648,6 @@ class MessageStreamEventTransformer
       _thinkingSignature = (signature != null && signature.isNotEmpty)
           ? signature
           : null;
-    } else {
-      _thinkingSignature = null;
     }
 
     return ChatResult<ChatMessage>(
@@ -919,7 +918,9 @@ class MessageStreamEventTransformer
   bool _isServerToolName(String name) =>
       name == 'code_execution' ||
       name == 'bash_code_execution' ||
-      name == 'text_editor_code_execution';
+      name == 'text_editor_code_execution' ||
+      name == 'web_search' ||
+      name == 'web_fetch';
 
   Object? _toolResultContentToJson(a.ToolResultBlockContent content) =>
       content.map(

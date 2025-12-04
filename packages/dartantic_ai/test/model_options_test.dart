@@ -10,7 +10,6 @@
 import 'dart:convert';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -45,12 +44,19 @@ void main() {
         expect(result2.output, isNotEmpty);
       });
 
-      runProviderTest('temperature parameter is respected', (provider) async {
-        final agent = Agent(provider.name, temperature: 0.5);
+      runProviderTest(
+        'temperature parameter is respected',
+        requiredCaps: {ProviderCaps.chat},
+        (provider) async {
+          final modelName = provider.name == 'openai-responses'
+              ? 'openai-responses:gpt-4o'
+              : provider.name;
+          final agent = Agent(modelName, temperature: 0.5);
 
-        final result = await agent.send('Say exactly: "Temperature test"');
-        expect(result.output, isNotEmpty);
-      });
+          final result = await agent.send('Say exactly: "Temperature test"');
+          expect(result.output, isNotEmpty);
+        },
+      );
     });
 
     group('model-specific behaviors (80% cases)', () {
