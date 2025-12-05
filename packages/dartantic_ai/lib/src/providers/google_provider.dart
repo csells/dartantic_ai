@@ -205,10 +205,29 @@ class GoogleProvider
       throw ArgumentError('$apiKeyName is required for $displayName provider');
     }
 
+    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+
+    // Create a dedicated chat model for code execution fallback
+    final chatModel = GoogleChatModel(
+      name: _defaultChatModelName,
+      apiKey: apiKey!,
+      baseUrl: resolvedBaseUrl,
+      defaultOptions: const GoogleChatModelOptions(),
+    );
+
+    // Create the GenerativeService for direct image generation
+    final httpClient = CustomHttpClient(
+      baseHttpClient: RetryHttpClient(inner: http.Client()),
+      baseUrl: resolvedBaseUrl,
+      headers: {'x-goog-api-key': apiKey!},
+      queryParams: const {},
+    );
+    final service = gl.GenerativeService(client: httpClient);
+
     return GoogleMediaGenerationModel(
       name: modelName,
-      apiKey: apiKey!,
-      baseUrl: baseUrl ?? defaultBaseUrl,
+      chatModel: chatModel,
+      service: service,
       defaultOptions: options ?? const GoogleMediaGenerationModelOptions(),
     );
   }

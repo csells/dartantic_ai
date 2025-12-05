@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -200,6 +199,7 @@ void main() {
             contains('arr'),
             contains('hearty'),
             contains('shiver'),
+            contains('landlubber'),
           ),
         );
 

@@ -3,46 +3,38 @@ import 'dart:typed_data';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
-import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
 import '../../chat_models/google_chat/google_chat_model.dart';
 import '../../chat_models/google_chat/google_chat_options.dart';
 import '../../chat_models/google_chat/google_server_side_tools.dart';
-import '../../custom_http_client.dart';
 import '../../providers/google_api_utils.dart';
-import '../../retry_http_client.dart';
 import 'google_media_gen_model_options.dart';
 
 /// Media generation model for Google Gemini.
 class GoogleMediaGenerationModel
     extends MediaGenerationModel<GoogleMediaGenerationModelOptions> {
   /// Creates a new Google media model instance.
+  ///
+  /// [chatModel] is used for code execution fallback when generating non-image
+  /// media types (e.g., PDF, CSV). The provider injects this model.
   GoogleMediaGenerationModel({
     required super.name,
-    required String apiKey,
-    required Uri baseUrl,
+    required GoogleChatModel chatModel,
+    required gl.GenerativeService service,
     GoogleMediaGenerationModelOptions? defaultOptions,
-    http.Client? client,
-  }) : super(
+  }) : _chatModel = chatModel,
+       _service = service,
+       super(
          defaultOptions:
              defaultOptions ?? const GoogleMediaGenerationModelOptions(),
-       ) {
-    final httpClient = client ?? RetryHttpClient(inner: http.Client());
-    _httpClient = CustomHttpClient(
-      baseHttpClient: httpClient,
-      baseUrl: baseUrl,
-      headers: {'x-goog-api-key': apiKey},
-      queryParams: const {},
-    );
-    _service = gl.GenerativeService(client: _httpClient);
-  }
+       );
 
   static final Logger _logger = Logger('dartantic.media.google');
 
-  late final gl.GenerativeService _service;
-  late final CustomHttpClient _httpClient;
+  final GoogleChatModel _chatModel;
+  final gl.GenerativeService _service;
 
   @override
   Stream<MediaGenerationResult> generateMediaStream(
@@ -114,22 +106,7 @@ class GoogleMediaGenerationModel
       'MIME types: $mimeTypes',
     );
 
-    // Create a chat model with code execution enabled
-    // We must use a model that supports code execution (e.g. gemini-2.5-flash),
-    // as the image model (gemini-2.5-flash-image) likely does not.
-    final chatModel = GoogleChatModel(
-      name: 'gemini-2.5-flash',
-      apiKey: _httpClient.headers['x-goog-api-key']!,
-      baseUrl: _httpClient.baseUrl,
-      client: _httpClient.baseHttpClient,
-      defaultOptions: GoogleChatModelOptions(
-        serverSideTools: const {GoogleServerSideTool.codeExecution},
-        safetySettings: options.safetySettings,
-      ),
-    );
-
-    try {
-      final systemPrompt = '''
+    final systemPrompt = '''
 You are a helpful assistant that generates files using code execution.
 The user wants a file of type: ${mimeTypes.join(', ')}.
 
@@ -142,42 +119,48 @@ IMPORTANT INSTRUCTIONS:
 6. Do not just describe how to create the file - actually create it AND output its contents.
 ''';
 
-      final messages = [
-        ChatMessage.system(systemPrompt),
-        ...history,
-        ChatMessage.user(prompt),
-      ];
+    final messages = [
+      ChatMessage.system(systemPrompt),
+      ...history,
+      ChatMessage.user(prompt),
+    ];
 
-      await for (final result in chatModel.sendStream(messages)) {
-        // Map ChatResult to MediaGenerationResult
-        // Extract DataParts (inlineData) or LinkParts (fileData) from all
-        // messages, not just the direct output (code execution may return
-        // files in message history)
-        final assets = <DataPart>[];
-        final links = <LinkPart>[];
+    // Use the injected chat model with code execution options
+    final chatOptions = GoogleChatModelOptions(
+      serverSideTools: const {GoogleServerSideTool.codeExecution},
+      safetySettings: options.safetySettings,
+    );
 
-        for (final message in result.messages) {
-          for (final part in message.parts) {
-            if (part is DataPart) {
-              assets.add(part);
-            } else if (part is LinkPart) {
-              links.add(part);
-            }
+    await for (final result in _chatModel.sendStream(
+      messages,
+      options: chatOptions,
+    )) {
+      // Map ChatResult to MediaGenerationResult
+      // Extract DataParts (inlineData) or LinkParts (fileData) from all
+      // messages, not just the direct output (code execution may return
+      // files in message history)
+      final assets = <DataPart>[];
+      final links = <LinkPart>[];
+
+      for (final message in result.messages) {
+        for (final part in message.parts) {
+          if (part is DataPart) {
+            assets.add(part);
+          } else if (part is LinkPart) {
+            links.add(part);
           }
         }
-
-        yield MediaGenerationResult(
-          assets: assets,
-          links: links,
-          messages: result.messages,
-          metadata: result.metadata,
-          usage: result.usage,
-          finishReason: result.finishReason,
-          isComplete: result.finishReason != FinishReason.unspecified,
-        );
       }
-    } finally {
-      chatModel.dispose();
+
+      yield MediaGenerationResult(
+        assets: assets,
+        links: links,
+        messages: result.messages,
+        metadata: result.metadata,
+        usage: result.usage,
+        finishReason: result.finishReason,
+        isComplete: result.finishReason != FinishReason.unspecified,
+      );
     }
   }
 
@@ -375,6 +358,7 @@ IMPORTANT INSTRUCTIONS:
 
   @override
   void dispose() {
+    _chatModel.dispose();
     _service.close();
   }
 }

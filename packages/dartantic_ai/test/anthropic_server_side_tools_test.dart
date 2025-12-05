@@ -65,19 +65,6 @@ void main() {
       );
       expect(features.toSet().length, features.length);
     });
-
-    test('inferAnthropicToolChoice preserves explicit selections', () {
-      const explicit = AnthropicToolChoice.required('code_execution');
-      final preserved = inferAnthropicToolChoice(explicit, const {
-        AnthropicServerSideTool.codeInterpreter,
-      });
-      expect(preserved, same(explicit));
-
-      final none = inferAnthropicToolChoice(null, const {
-        AnthropicServerSideTool.codeInterpreter,
-      });
-      expect(none, isNull);
-    });
   });
 
   final anthropicApiKey = Platform.environment['ANTHROPIC_API_KEY'];

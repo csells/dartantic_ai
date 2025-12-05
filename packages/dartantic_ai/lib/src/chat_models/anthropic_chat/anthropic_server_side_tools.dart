@@ -98,9 +98,3 @@ List<String> _betaFeaturesForConfig(AnthropicServerToolConfig config) {
       return const [];
   }
 }
-
-/// Infers a reasonable Anthropic tool choice when omitted.
-AnthropicToolChoice? inferAnthropicToolChoice(
-  AnthropicToolChoice? existing,
-  Set<AnthropicServerSideTool> serverSideTools,
-) => existing;

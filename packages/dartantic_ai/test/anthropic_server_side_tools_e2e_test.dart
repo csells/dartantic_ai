@@ -62,13 +62,7 @@ void main() {
         );
 
         expect(result.output, isNotEmpty);
-        expect(
-          result.output,
-          contains('2011'),
-        ); // Dart 1.0 was 2013, but announced 2011. 2013 is safer.
-        // Actually, let's just check for "Dart" and some year to be safe.
-        // search result variance.
-        expect(result.output, contains('Dart'));
+        expect(result.output, anyOf(contains('2013'), contains('2011')));
       },
       timeout: const Timeout(Duration(minutes: 2)),
     );

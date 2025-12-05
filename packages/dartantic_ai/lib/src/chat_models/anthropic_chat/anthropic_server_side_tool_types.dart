@@ -16,4 +16,16 @@ class AnthropicServerToolTypes {
 
   /// Server-side web fetch tool.
   static const String webFetch = 'web_fetch';
+
+  /// Server-side tool use block type (before normalization).
+  static const String serverToolUse = 'server_tool_use';
+
+  /// Standard tool use block type.
+  static const String toolUse = 'tool_use';
+
+  /// Standard tool result block type.
+  static const String toolResult = 'tool_result';
+
+  /// Suffix indicating a tool result block type.
+  static const String toolResultSuffix = '_tool_result';
 }

@@ -92,9 +92,6 @@ a.CreateMessageRequest createMessageRequest(
       options?.serverTools ?? defaultOptions.serverTools;
   final serverSideToolSet =
       options?.serverSideTools ?? defaultOptions.serverSideTools;
-  final resolvedServerSideTools = <AnthropicServerSideTool>{
-    if (serverSideToolSet != null) ...serverSideToolSet,
-  };
   final mergedServerToolConfigs = mergeAnthropicServerToolConfigs(
     manualConfigs: manualServerToolConfigs,
     serverSideTools: serverSideToolSet,
@@ -143,7 +140,6 @@ a.CreateMessageRequest createMessageRequest(
     defaultOptions: defaultOptions,
     hasStructuredTools: structuredTools != null,
     hasServerTools: hasServerTools,
-    serverSideTools: resolvedServerSideTools,
   );
 
   return a.CreateMessageRequest(
@@ -173,26 +169,21 @@ a.ToolChoice? _resolveToolChoice({
   required AnthropicChatOptions defaultOptions,
   required bool hasStructuredTools,
   required bool hasServerTools,
-  required Set<AnthropicServerSideTool> serverSideTools,
 }) {
-  final requestedChoice = options?.toolChoice ?? defaultOptions.toolChoice;
-  final inferredChoice = inferAnthropicToolChoice(
-    requestedChoice,
-    serverSideTools,
-  );
+  final toolChoice = options?.toolChoice ?? defaultOptions.toolChoice;
 
-  if (inferredChoice == null) {
+  if (toolChoice == null) {
     if (!hasStructuredTools && !hasServerTools) return null;
     return const a.ToolChoice(type: a.ToolChoiceType.auto);
   }
 
-  switch (inferredChoice.type) {
+  switch (toolChoice.type) {
     case AnthropicToolChoiceType.auto:
       return const a.ToolChoice(type: a.ToolChoiceType.auto);
     case AnthropicToolChoiceType.any:
       return const a.ToolChoice(type: a.ToolChoiceType.any);
     case AnthropicToolChoiceType.required:
-      final name = inferredChoice.name;
+      final name = toolChoice.name;
       if (name == null || name.isEmpty) {
         throw ArgumentError(
           'AnthropicToolChoice.required requires a non-empty tool name.',

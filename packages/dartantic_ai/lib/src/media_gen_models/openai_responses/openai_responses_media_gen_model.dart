@@ -60,7 +60,6 @@ class OpenAIResponsesMediaGenerationModel
         'OpenAI Responses media generation does not support output schemas.',
       );
     }
-    _validateMimeTypes(mimeTypes);
     final wantsImages = mimeTypes.any(_isImageMimeType);
     final wantsOtherFiles = mimeTypes.any((m) => !_isImageMimeType(m));
 
@@ -200,31 +199,6 @@ class OpenAIResponsesMediaGenerationModel
         : null,
   );
 
-  void _validateMimeTypes(List<String> mimeTypes) {
-    const supportedNonImageTypes = <String>{
-      'application/pdf',
-      'application/zip',
-      'application/octet-stream',
-      'text/plain',
-      'text/markdown',
-      'text/csv',
-    };
-
-    final unsupported = mimeTypes.where(
-      (type) =>
-          !_isImageMimeType(type) && !supportedNonImageTypes.contains(type),
-    );
-
-    if (unsupported.isNotEmpty) {
-      throw UnsupportedError(
-        'OpenAI Responses media generation does not support MIME types: '
-        '${unsupported.join(', ')}. '
-        'Supported types include image/*, image/png, image/jpeg, '
-        'image/webp, and ${supportedNonImageTypes.join(', ')}.',
-      );
-    }
-  }
-
   bool _isImageMimeType(String value) =>
       value == 'image/*' ||
       value.startsWith('image/') ||
@@ -251,20 +225,12 @@ class OpenAIResponsesMediaGenerationModel
         final emission = tracker.registerPartialPreview(index, base64);
         if (emission == null) continue;
 
-        try {
-          final bytes = base64Decode(base64);
-          final inferredMime =
-              lookupMimeType('image.bin', headerBytes: bytes) ?? 'image/png';
-          final extension = Part.extensionFromMimeType(inferredMime);
-          final name = tracker.buildPartialName(index, emission, extension);
-          assets.add(DataPart(bytes, mimeType: inferredMime, name: name));
-        } on FormatException catch (error, stackTrace) {
-          _logger.warning(
-            'Failed to decode partial image payload',
-            error,
-            stackTrace,
-          );
-        }
+        final bytes = base64Decode(base64);
+        final inferredMime =
+            lookupMimeType('image.bin', headerBytes: bytes) ?? 'image/png';
+        final extension = Part.extensionFromMimeType(inferredMime);
+        final name = tracker.buildPartialName(index, emission, extension);
+        assets.add(DataPart(bytes, mimeType: inferredMime, name: name));
       }
     }
 

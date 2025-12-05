@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
@@ -73,8 +72,6 @@ class AnthropicMediaGenerationModel
       );
     }
 
-    _validateMimeTypes(mimeTypes);
-
     _logger.info(
       'Starting Anthropic media generation with ${history.length} history '
       'messages and MIME types: ${mimeTypes.join(', ')}',
@@ -127,15 +124,7 @@ file names in your final response.
   ) async {
     _logger.fine('Processing Anthropic chunk for result id ${result.id}');
     if (result.metadata.isNotEmpty) {
-      try {
-        _logger.finer(
-          'Anthropic chunk metadata: ${jsonEncode(result.metadata)}',
-        );
-      } on Object catch (_) {
-        _logger.finer(
-          'Anthropic chunk metadata contained non-serializable data',
-        );
-      }
+      _logger.finer('Anthropic chunk metadata: ${result.metadata}');
     }
     final assets = <Part>[];
     final links = <LinkPart>[];
@@ -225,33 +214,6 @@ file names in your final response.
       toolChoice: const AnthropicToolChoice.auto(),
     );
   }
-
-  void _validateMimeTypes(List<String> mimeTypes) {
-    const supportedText = <String>{
-      'application/pdf',
-      'application/zip',
-      'application/octet-stream',
-      'text/plain',
-      'text/markdown',
-      'text/csv',
-    };
-
-    final unsupported = mimeTypes.where(
-      (type) => !_isImageMimeType(type) && !supportedText.contains(type),
-    );
-
-    if (unsupported.isNotEmpty) {
-      throw UnsupportedError(
-        'Anthropic media generation does not support MIME types: '
-        '${unsupported.join(', ')}. '
-        'Supported values include image/*, image/png, image/jpeg, '
-        'image/webp, and ${supportedText.join(', ')}.',
-      );
-    }
-  }
-
-  bool _isImageMimeType(String value) =>
-      value == 'image/*' || value.startsWith('image/');
 
   String _augmentPrompt(String prompt, List<String> mimeTypes) {
     if (prompt.trim().isEmpty) return prompt;

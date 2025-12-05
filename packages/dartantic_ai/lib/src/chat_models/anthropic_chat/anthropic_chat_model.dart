@@ -11,6 +11,7 @@ import 'package:logging/logging.dart';
 
 import 'anthropic_chat_options.dart';
 import 'anthropic_message_mappers.dart';
+import 'anthropic_server_side_tool_types.dart';
 
 /// Wrapper around [Anthropic Messages
 /// API](https://docs.anthropic.com/en/api/messages) (aka Claude API).
@@ -183,7 +184,7 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
     if (toolUseId is! String || toolUseId.isEmpty) return;
 
     final blockType = contentBlock['type'];
-    if (blockType == 'server_tool_use') {
+    if (blockType == AnthropicServerToolTypes.serverToolUse) {
       final input = contentBlock['input'];
       if (input is Map<String, Object?>) {
         transformer.registerRawToolContent(toolUseId, input);
@@ -191,7 +192,8 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       return;
     }
 
-    if (blockType is String && blockType.endsWith('_tool_result')) {
+    if (blockType is String &&
+        blockType.endsWith(AnthropicServerToolTypes.toolResultSuffix)) {
       final content = contentBlock['content'];
       if (content is Map<String, Object?>) {
         transformer.registerRawToolContent(toolUseId, content);
@@ -206,10 +208,11 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       final contentBlock = event['content_block'];
       if (contentBlock is Map<String, dynamic>) {
         final blockType = contentBlock['type'];
-        if (blockType == 'server_tool_use') {
-          contentBlock['type'] = 'tool_use';
-        } else if (blockType is String && blockType.endsWith('_tool_result')) {
-          contentBlock['type'] = 'tool_result';
+        if (blockType == AnthropicServerToolTypes.serverToolUse) {
+          contentBlock['type'] = AnthropicServerToolTypes.toolUse;
+        } else if (blockType is String &&
+            blockType.endsWith(AnthropicServerToolTypes.toolResultSuffix)) {
+          contentBlock['type'] = AnthropicServerToolTypes.toolResult;
         }
       }
     }
@@ -218,10 +221,11 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
       final contentBlock = event['content_block'];
       if (contentBlock is Map<String, dynamic>) {
         final blockType = contentBlock['type'];
-        if (blockType == 'server_tool_use') {
-          contentBlock['type'] = 'tool_use';
-        } else if (blockType is String && blockType.endsWith('_tool_result')) {
-          contentBlock['type'] = 'tool_result';
+        if (blockType == AnthropicServerToolTypes.serverToolUse) {
+          contentBlock['type'] = AnthropicServerToolTypes.toolUse;
+        } else if (blockType is String &&
+            blockType.endsWith(AnthropicServerToolTypes.toolResultSuffix)) {
+          contentBlock['type'] = AnthropicServerToolTypes.toolResult;
         }
       }
     }

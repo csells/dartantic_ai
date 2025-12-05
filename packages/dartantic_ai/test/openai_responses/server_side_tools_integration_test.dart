@@ -165,7 +165,9 @@ void main() {
     test(
       'reuses container across sessions',
       () async {
-      // Session 1: Create variable
+      // Session 1: Create variable AND file (file creation forces code
+      // interpreter usage - reasoning models might answer simple math prompts
+      // directly from training data without executing code)
       final agent1 = Agent(
         'openai-responses',
         chatModelOptions: const OpenAIResponsesChatModelOptions(
@@ -178,22 +180,28 @@ void main() {
       final history = <ChatMessage>[];
       await for (final chunk in agent1.sendStream(
         'Calculate the first 10 Fibonacci numbers and store them in a variable '
-        'called "fib_sequence".',
+        'called "fib_sequence". Then create a text file called "fib.txt" '
+        'containing those numbers.',
       )) {
         results1.add(chunk);
         history.addAll(chunk.messages);
       }
 
-      // Extract container ID from metadata
+      // Extract container ID from the response.output_item.done event metadata.
+      // The container_id is nested in event['item']['container_id'] because
+      // OpenAI wraps the CodeInterpreterCall item inside the done event.
       String? containerId;
       for (final result in results1) {
         final codeInterpreterMeta =
             result.metadata['code_interpreter'] as List?;
         if (codeInterpreterMeta != null) {
           for (final event in codeInterpreterMeta) {
-            if (event is Map && event['item']?['container_id'] != null) {
-              containerId = event['item']['container_id'] as String;
-              break;
+            if (event is Map) {
+              final item = event['item'];
+              if (item is Map && item['container_id'] != null) {
+                containerId = item['container_id'] as String;
+                break;
+              }
             }
           }
         }

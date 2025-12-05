@@ -212,9 +212,7 @@ class AnthropicToolDeliverableTracker {
         final normalized = uri.toString();
         if (!_seenSearchUrls.add(normalized)) continue;
         final title = item['title'] as String?;
-        final mimeType =
-            item['mime_type'] as String? ?? item['mimeType'] as String?;
-        links.add(LinkPart(uri, name: title, mimeType: mimeType));
+        links.add(LinkPart(uri, name: title, mimeType: _extractMimeType(item)));
       }
     }
 
@@ -246,14 +244,13 @@ class AnthropicToolDeliverableTracker {
         if (uri != null) {
           final normalized = uri.toString();
           if (_seenFetchUrls.add(normalized)) {
-            final mimeType =
-                content['mime_type'] as String? ??
-                content['mimeType'] as String?;
             final innerContent = content['content'];
             final title = innerContent is Map<String, Object?>
                 ? innerContent['title'] as String?
                 : null;
-            links.add(LinkPart(uri, mimeType: mimeType, name: title));
+            links.add(
+              LinkPart(uri, mimeType: _extractMimeType(content), name: title),
+            );
           }
         }
       }
@@ -266,21 +263,14 @@ class AnthropicToolDeliverableTracker {
         if (source != null) {
           final sourceType = source['type'] as String?;
           final data = source['data'] as String?;
-          final mediaType =
-              source['media_type'] as String? ?? source['mediaType'] as String?;
+          final mediaType = _extractMediaType(source);
 
           if (data != null && data.isNotEmpty) {
             Uint8List? bytes;
             if (sourceType == 'text' || sourceType == null) {
               bytes = Uint8List.fromList(utf8.encode(data));
             } else if (sourceType == 'base64' || sourceType == 'bytes') {
-              try {
-                bytes = base64Decode(data);
-              } on FormatException catch (error) {
-                _logger.warning(
-                  'Failed to decode base64 web fetch payload: $error',
-                );
-              }
+              bytes = base64Decode(data);
             }
 
             if (bytes != null) {
@@ -314,7 +304,7 @@ class AnthropicToolDeliverableTracker {
         yield _FileRef(
           fileId: fileId,
           filename: node['filename'] as String?,
-          mimeType: node['mime_type'] as String? ?? node['mimeType'] as String?,
+          mimeType: _extractMimeType(node),
         );
       }
       for (final value in node.values) {
@@ -336,7 +326,7 @@ class AnthropicToolDeliverableTracker {
       if (base64 is String && base64.isNotEmpty) {
         yield _InlineImage(
           base64: base64,
-          mimeType: node['mime_type'] as String? ?? node['mimeType'] as String?,
+          mimeType: _extractMimeType(node),
           filename: node['filename'] as String?,
         );
       }
@@ -381,34 +371,26 @@ class AnthropicToolDeliverableTracker {
       if (!_downloadedFileIds.add(file.id)) {
         continue;
       }
-      try {
-        final downloaded = await _filesClient.download(file.id);
-        final inferredMime = downloaded.mimeType ?? file.mimeType;
-        final name =
-            downloaded.filename ??
-            file.filename ??
-            _composeFileName(
-              'anthropic_file_',
-              file.id,
-              _extensionFromMime(inferredMime),
-            );
-        _logger.fine(
-          'Downloading Anthropic file ${file.id} ($name, mime=$inferredMime)',
-        );
-        assets.add(
-          DataPart(
-            downloaded.bytes,
-            mimeType: inferredMime ?? 'application/octet-stream',
-            name: name,
-          ),
-        );
-      } on Object catch (error, stackTrace) {
-        _logger.warning(
-          'Failed to download Anthropic file ${file.id}: $error',
-          error,
-          stackTrace,
-        );
-      }
+      final downloaded = await _filesClient.download(file.id);
+      final inferredMime = downloaded.mimeType ?? file.mimeType;
+      final name =
+          downloaded.filename ??
+          file.filename ??
+          _composeFileName(
+            'anthropic_file_',
+            file.id,
+            _extensionFromMime(inferredMime),
+          );
+      _logger.fine(
+        'Downloading Anthropic file ${file.id} ($name, mime=$inferredMime)',
+      );
+      assets.add(
+        DataPart(
+          downloaded.bytes,
+          mimeType: inferredMime ?? 'application/octet-stream',
+          name: name,
+        ),
+      );
     }
 
     if (assets.isEmpty && attempt < 3) {
@@ -502,3 +484,13 @@ class _InlineImage {
 /// Creates a deep copy of a list of tool events.
 List<Map<String, Object?>> copyEventList(List<Map<String, Object?>> source) =>
     source.map(Map<String, Object?>.from).toList();
+
+/// Extracts a MIME type from a map, checking both snake_case and camelCase
+/// keys.
+String? _extractMimeType(Map<String, Object?> map) =>
+    map['mime_type'] as String? ?? map['mimeType'] as String?;
+
+/// Extracts a media type from a map, checking both snake_case and camelCase
+/// keys.
+String? _extractMediaType(Map<String, Object?> map) =>
+    map['media_type'] as String? ?? map['mediaType'] as String?;
