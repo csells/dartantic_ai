@@ -38,7 +38,12 @@ void main() {
       });
 
       runProviderTest('agent with temperature setting', (provider) async {
-        final agent = Agent(provider.name, temperature: 0.5);
+        // Note: gpt-5 (default for openai-responses) is a reasoning model that
+        // doesn't support the temperature parameter, so we use gpt-4o instead.
+        final modelString = provider.name == 'openai-responses'
+            ? 'openai-responses:gpt-4o'
+            : provider.name;
+        final agent = Agent(modelString, temperature: 0.5);
 
         // Test that temperature is applied correctly
         final result = await agent.send('Say exactly "test"');

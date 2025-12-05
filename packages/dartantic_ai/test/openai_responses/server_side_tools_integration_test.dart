@@ -26,38 +26,52 @@ import '../test_utils.dart';
 
 void main() {
   group('Code Interpreter Integration', () {
-    test('executes code and returns results', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        ),
-      );
+    test(
+      'executes code and returns results',
+      () async {
+        final agent = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+          ),
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent.sendStream('Calculate 2 + 2 in Python').forEach(results.add);
+        // Use a prompt that FORCES code execution by requiring file creation.
+        // Simple math prompts like "2+2" are answered directly by reasoning
+        // models without using the code interpreter.
+        // Pattern from: example/bin/server_side_tools_openai/
+        //               server_side_code_interpreter.dart
+        final results = <ChatResult>[];
+        await agent
+            .sendStream(
+              'Calculate the first 10 Fibonacci numbers and store them in a '
+              'variable called "fib_sequence". Then create a CSV file called '
+              '"fibonacci.csv" with two columns: index and value.',
+            )
+            .forEach(results.add);
 
-      final fullOutput = results.map((r) => r.output).join();
-      expect(fullOutput, contains('4'));
+        final fullOutput = results.map((r) => r.output).join();
+        expect(fullOutput.toLowerCase(), contains('fibonacci'));
 
-      // Verify code_interpreter metadata is streamed
-      var hadCodeInterpreterEvent = false;
-      for (final result in results) {
-        if (result.metadata['code_interpreter'] != null) {
-          hadCodeInterpreterEvent = true;
-          break;
+        // Verify code_interpreter metadata is streamed
+        var hadCodeInterpreterEvent = false;
+        for (final result in results) {
+          if (result.metadata['code_interpreter'] != null) {
+            hadCodeInterpreterEvent = true;
+            break;
+          }
         }
-      }
-      expect(
-        hadCodeInterpreterEvent,
-        isTrue,
-        reason: 'Should have code_interpreter events in metadata',
-      );
+        expect(
+          hadCodeInterpreterEvent,
+          isTrue,
+          reason: 'Should have code_interpreter events in metadata',
+        );
 
-      // Verify no duplicate metadata
-      validateNoMetadataDuplicates(results);
-    });
+        // Verify no duplicate metadata
+        validateNoMetadataDuplicates(results);
+      },
+      timeout: const Timeout(Duration(minutes: 1)),
+    );
 
     test('generates and downloads container files', () async {
       final agent = Agent(
@@ -148,7 +162,9 @@ void main() {
       timeout: const Timeout(Duration(minutes: 1)),
     );
 
-    test('reuses container across sessions', () async {
+    test(
+      'reuses container across sessions',
+      () async {
       // Session 1: Create variable
       final agent1 = Agent(
         'openai-responses',
@@ -218,7 +234,10 @@ void main() {
         isTrue,
         reason: 'Should reference fib_sequence or golden ratio',
       );
-    });
+    },
+      // Two code interpreter sessions need more than 30 seconds
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Image Generation Integration', () {
@@ -307,41 +326,49 @@ void main() {
   });
 
   group('Web Search Integration', () {
-    test('searches web and returns results', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.webSearch},
-        ),
-      );
+    test(
+      'searches web and returns results',
+      () async {
+        // Note: Use gpt-4o instead of gpt-5 (default) because reasoning models
+        // tend to answer directly from training data instead of using tools.
+        final agent = Agent(
+          'openai-responses:gpt-4o',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.webSearch},
+          ),
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent
-          .sendStream(
-            'What is the latest version of Dart programming language?',
-          )
-          .forEach(results.add);
+        // Use a prompt that FORCES web search by asking for recent/current info.
+        // Pattern from: example/bin/server_side_tools_openai/
+        //               server_side_web_search.dart
+        final results = <ChatResult>[];
+        await agent
+            .sendStream(
+              'What are the top 3 most recent news headlines about Dart?',
+            )
+            .forEach(results.add);
 
-      final fullOutput = results.map((r) => r.output).join();
+        final fullOutput = results.map((r) => r.output).join();
 
-      expect(fullOutput, isNotEmpty);
-      expect(fullOutput.toLowerCase(), contains('dart'));
+        expect(fullOutput, isNotEmpty);
+        expect(fullOutput.toLowerCase(), contains('dart'));
 
-      // Verify web_search metadata is streamed
-      var hadWebSearchEvent = false;
-      for (final result in results) {
-        if (result.metadata['web_search'] != null) {
-          hadWebSearchEvent = true;
-          break;
+        // Verify web_search metadata is streamed
+        var hadWebSearchEvent = false;
+        for (final result in results) {
+          if (result.metadata['web_search'] != null) {
+            hadWebSearchEvent = true;
+            break;
+          }
         }
-      }
-      expect(
-        hadWebSearchEvent,
-        isTrue,
-        reason: 'Should have web_search events in metadata',
-      );
-    });
+        expect(
+          hadWebSearchEvent,
+          isTrue,
+          reason: 'Should have web_search events in metadata',
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
 
     test('includes location hints in search', () async {
       final agent = Agent(
