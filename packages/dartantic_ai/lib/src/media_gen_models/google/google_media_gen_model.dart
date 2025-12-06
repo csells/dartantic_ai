@@ -112,12 +112,19 @@ class GoogleMediaGenerationModel
 
     final imageConfig = gl.ImageConfig(aspectRatio: options.aspectRatio);
 
+    // Google's responseMimeType only accepts text-based formats
+    // (text/plain, application/json, etc.), not image MIME types.
+    // For image generation, output format is controlled by responseModalities.
+    final textResponseMimeType = mimeType.startsWith('image/')
+        ? ''
+        : mimeType;
+
     final generationConfig = gl.GenerationConfig(
       temperature: options.temperature,
       topP: options.topP,
       topK: options.topK,
       maxOutputTokens: options.maxOutputTokens,
-      responseMimeType: mimeType,
+      responseMimeType: textResponseMimeType,
       candidateCount: options.imageSampleCount,
       imageConfig: imageConfig,
       responseModalities: mapGoogleModalities(options.responseModalities),

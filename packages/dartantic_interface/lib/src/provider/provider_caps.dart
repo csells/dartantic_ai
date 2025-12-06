@@ -25,7 +25,7 @@ enum ProviderCaps {
 
   /// The provider can stream or return model reasoning ("thinking").
   ///
-  /// When supported, thinking text is exposed via [ChatResult.thinking].
+  /// When supported, thinking text is exposed via ChatResult.thinking.
   /// It is never persisted into message history.
   thinking,
 }

@@ -67,9 +67,13 @@ void main() {
         final agent = Agent(provider.name);
 
         final result = await agent.generateMedia(
-          'Using your available tools, generate a concise PDF named '
-          '"summary.pdf" that outlines three key facts about the Dart '
-          'programming language.',
+          'Write Python code to create a PDF file called "dart_facts.pdf". '
+          'Use the reportlab library. The PDF should contain:\n'
+          '- Title: "Dart Programming Language" (18pt bold)\n'
+          '- Line 1: "Created by Google in 2011"\n'
+          '- Line 2: "Powers the Flutter framework"\n'
+          '- Line 3: "Supports AOT and JIT compilation"\n'
+          'Save the file and return it.',
           mimeTypes: const ['application/pdf'],
         );
 
