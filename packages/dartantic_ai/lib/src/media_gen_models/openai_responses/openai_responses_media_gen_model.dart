@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:mime/mime.dart';
 
 import '../../chat_models/openai_responses/openai_responses_chat_model.dart';
@@ -62,6 +63,11 @@ class OpenAIResponsesMediaGenerationModel
     }
     final wantsImages = mimeTypes.any(_isImageMimeType);
     final wantsOtherFiles = mimeTypes.any((m) => !_isImageMimeType(m));
+    final generationMode = wantsImages && wantsOtherFiles
+        ? 'mixed'
+        : wantsImages
+        ? 'image_generation'
+        : 'code_interpreter';
 
     final serverSideTools = <OpenAIServerSideTool>{
       if (wantsImages) OpenAIServerSideTool.imageGeneration,
@@ -91,27 +97,64 @@ class OpenAIResponsesMediaGenerationModel
     // accumulated collection, not in individual chunk.messages
     final accumulatedMessages = <ChatMessage>[];
 
+    var chunkIndex = 0;
     await for (final chunk in _chatModel.sendStream(
       messages,
       options: chatOptions,
     )) {
       accumulatedMessages.addAll(chunk.messages);
-      yield _mapChunk(chunk, tracker, accumulatedMessages);
+      chunkIndex++;
+      yield _mapChunk(
+        chunk,
+        tracker,
+        accumulatedMessages,
+        generationMode: generationMode,
+        requestedMimeTypes: mimeTypes,
+        chunkIndex: chunkIndex,
+      );
     }
   }
 
   @override
   void dispose() => _chatModel.dispose();
 
+  @visibleForTesting
+  /// Test-only hook to map a chunk without invoking the network.
+  MediaGenerationResult mapChunkForTest(
+    ChatResult<ChatMessage> result, {
+    required String generationMode,
+    required List<String> requestedMimeTypes,
+    int chunkIndex = 0,
+    List<ChatMessage> accumulatedMessages = const [],
+  }) => _mapChunk(
+    result,
+    _OpenAIResponsesMediaTracker(),
+    List<ChatMessage>.from(accumulatedMessages),
+    generationMode: generationMode,
+    requestedMimeTypes: requestedMimeTypes,
+    chunkIndex: chunkIndex,
+  );
+
   MediaGenerationResult _mapChunk(
     ChatResult<ChatMessage> result,
     _OpenAIResponsesMediaTracker tracker,
-    List<ChatMessage> accumulatedMessages,
-  ) {
+    List<ChatMessage> accumulatedMessages, {
+    required String generationMode,
+    required List<String> requestedMimeTypes,
+    required int chunkIndex,
+  }) {
     final assets = <Part>[];
     final links = <LinkPart>[];
+    final metadata = Map<String, dynamic>.from(result.metadata);
+
+    metadata.addAll({
+      'generation_mode': generationMode,
+      'requested_mime_types': requestedMimeTypes,
+      'chunk_index': chunkIndex,
+    });
+
     final (metadataAssets, metadataLinks) = _extractAssetsFromMetadata(
-      result.metadata,
+      metadata,
       tracker,
     );
     assets.addAll(metadataAssets);
@@ -143,7 +186,7 @@ class OpenAIResponsesMediaGenerationModel
       assets: assets,
       links: links,
       messages: result.messages,
-      metadata: result.metadata,
+      metadata: metadata,
       usage: result.usage,
       finishReason: result.finishReason,
       isComplete: isComplete,

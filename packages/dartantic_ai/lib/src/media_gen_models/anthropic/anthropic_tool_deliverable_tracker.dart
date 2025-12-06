@@ -343,7 +343,7 @@ class AnthropicToolDeliverableTracker {
     }
   }
 
-  Future<List<Part>> _collectNewRemoteFiles({int attempt = 0}) async {
+  Future<List<Part>> _collectNewRemoteFiles() async {
     final remoteFiles = await _filesClient.list(limit: 200);
     final newFiles =
         remoteFiles.where((file) {
@@ -391,11 +391,6 @@ class AnthropicToolDeliverableTracker {
           name: name,
         ),
       );
-    }
-
-    if (assets.isEmpty && attempt < 3) {
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      return _collectNewRemoteFiles(attempt: attempt + 1);
     }
 
     return assets;

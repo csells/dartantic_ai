@@ -207,15 +207,7 @@ class GoogleProvider
 
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
 
-    // Create a dedicated chat model for code execution fallback
-    final chatModel = GoogleChatModel(
-      name: _defaultChatModelName,
-      apiKey: apiKey!,
-      baseUrl: resolvedBaseUrl,
-      defaultOptions: const GoogleChatModelOptions(),
-    );
-
-    // Create the GenerativeService for direct image generation
+    // Create the GenerativeService for image generation
     final httpClient = CustomHttpClient(
       baseHttpClient: RetryHttpClient(inner: http.Client()),
       baseUrl: resolvedBaseUrl,
@@ -226,7 +218,6 @@ class GoogleProvider
 
     return GoogleMediaGenerationModel(
       name: modelName,
-      chatModel: chatModel,
       service: service,
       defaultOptions: options ?? const GoogleMediaGenerationModelOptions(),
     );

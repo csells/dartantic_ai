@@ -13,6 +13,7 @@ class MediaResponseAccumulator {
   LanguageModelUsage? _usage;
   FinishReason _finishReason = FinishReason.unspecified;
   String? _id;
+  bool _isComplete = false;
 
   /// Adds a media generation chunk to the accumulator.
   void add(MediaGenerationResult chunk) {
@@ -21,15 +22,23 @@ class MediaResponseAccumulator {
     _messages.addAll(chunk.messages);
 
     for (final entry in chunk.metadata.entries) {
-      _metadata[entry.key] = entry.value;
+      _mergeMetadata(entry.key, entry.value);
     }
 
     if (chunk.usage != null) {
       _usage = chunk.usage;
     }
 
-    _finishReason = chunk.finishReason;
-    _id = chunk.id;
+    if (chunk.finishReason != FinishReason.unspecified) {
+      _finishReason = chunk.finishReason;
+    }
+    if (chunk.id.isNotEmpty) {
+      _id = chunk.id;
+    }
+    _isComplete =
+        _isComplete ||
+        chunk.isComplete ||
+        chunk.finishReason != FinishReason.unspecified;
   }
 
   /// Builds the final aggregated media result.
@@ -41,5 +50,32 @@ class MediaResponseAccumulator {
     metadata: Map<String, dynamic>.unmodifiable(_metadata),
     usage: _usage,
     finishReason: _finishReason,
+    isComplete: _isComplete || _finishReason != FinishReason.unspecified,
   );
+
+  void _mergeMetadata(String key, dynamic value) {
+    final current = _metadata[key];
+
+    if (value is List) {
+      final existing = current is List ? current : const [];
+      _metadata[key] = <dynamic>[...existing, ...value];
+      return;
+    }
+
+    if (value is Map) {
+      final merged = <String, dynamic>{};
+      if (current is Map) {
+        for (final entry in current.entries) {
+          merged[entry.key.toString()] = entry.value;
+        }
+      }
+      for (final entry in value.entries) {
+        merged[entry.key.toString()] = entry.value;
+      }
+      _metadata[key] = merged;
+      return;
+    }
+
+    _metadata[key] = value;
+  }
 }

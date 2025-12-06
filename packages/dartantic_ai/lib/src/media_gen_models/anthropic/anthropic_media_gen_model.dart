@@ -4,6 +4,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 
 import '../../chat_models/anthropic_chat/anthropic_chat_model.dart';
 import '../../chat_models/anthropic_chat/anthropic_chat_options.dart';
@@ -107,7 +108,7 @@ file names in your final response.
     )) {
       chunkIndex++;
       _logger.fine('Anthropic media chunk $chunkIndex received');
-      final mapped = await _mapChunk(chunk, tracker);
+      final mapped = await _mapChunk(chunk, tracker, mimeTypes, chunkIndex);
       yield mapped;
     }
   }
@@ -118,9 +119,20 @@ file names in your final response.
     _filesClient.close();
   }
 
+  /// Test-only hook to expose chunk mapping without network calls.
+  @visibleForTesting
+  Future<MediaGenerationResult> mapChunkForTest(
+    ChatResult<ChatMessage> result,
+    AnthropicToolDeliverableTracker tracker, {
+    required List<String> requestedMimeTypes,
+    required int chunkIndex,
+  }) => _mapChunk(result, tracker, requestedMimeTypes, chunkIndex);
+
   Future<MediaGenerationResult> _mapChunk(
     ChatResult<ChatMessage> result,
     AnthropicToolDeliverableTracker tracker,
+    List<String> requestedMimeTypes,
+    int chunkIndex,
   ) async {
     _logger.fine('Processing Anthropic chunk for result id ${result.id}');
     if (result.metadata.isNotEmpty) {
@@ -159,6 +171,10 @@ file names in your final response.
         metadata[entry.key] = entry.value;
       }
     }
+
+    metadata['generation_mode'] = 'code_execution';
+    metadata['requested_mime_types'] = requestedMimeTypes;
+    metadata['chunk_index'] = chunkIndex;
 
     return MediaGenerationResult(
       id: result.id,

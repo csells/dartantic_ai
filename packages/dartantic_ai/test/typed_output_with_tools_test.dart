@@ -238,13 +238,16 @@ void main() {
           final firstChunks = <String>[];
           final firstMessages = <ChatMessage>[
             ChatMessage.system(
-              'You are an expert chef with years of experience '
-              'in French cuisine.',
+              'You are a chef assistant with access to a recipe database. '
+              'When users ask for recipes, you MUST use the lookup_recipe tool '
+              'to retrieve the exact recipe from the database. Never invent '
+              'recipes - always look them up first.',
             ),
           ];
 
           await for (final chunk in agent.sendStream(
-            "Can you show me grandma's mushroom omelette recipe?",
+            "Please look up grandma's mushroom omelette recipe "
+            'from the database.',
             history: firstMessages,
             outputSchema: recipeSchema,
           )) {
