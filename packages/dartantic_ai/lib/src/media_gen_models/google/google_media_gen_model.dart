@@ -13,8 +13,10 @@ import 'google_media_gen_model_options.dart';
 
 /// Media generation model for Google Gemini.
 ///
-/// Supports native image generation via the Gemini API. For non-image media
-/// types (PDF, CSV, etc.), use a provider with code execution capabilities.
+/// Supports native image generation via the Gemini API. Non-image media types
+/// (PDF, CSV, etc.) are not supported - Google's code execution can only
+/// output Matplotlib graphs as images, not arbitrary files.
+/// See: https://ai.google.dev/gemini-api/docs/code-execution
 class GoogleMediaGenerationModel
     extends MediaGenerationModel<GoogleMediaGenerationModelOptions> {
   /// Creates a new Google media model instance.
@@ -55,15 +57,17 @@ class GoogleMediaGenerationModel
 
     final resolvedOptions = options ?? defaultOptions;
 
-    // Google native API only supports image generation
+    // Google only supports native image generation - code execution cannot
+    // return arbitrary files like PDFs or CSVs (only Matplotlib graphs)
     final hasNonImageMimeType = mimeTypes.any((m) => !m.startsWith('image/'));
     if (hasNonImageMimeType) {
-      final nonImageTypes = mimeTypes.where((m) => !m.startsWith('image/'));
       throw UnsupportedError(
-        'Google media generation only supports image types. '
-        'Unsupported MIME types: ${nonImageTypes.join(', ')}. '
-        'For PDFs, CSVs, or other files, use a provider with code execution '
-        'capabilities (e.g., OpenAI Responses or Anthropic).',
+        'Google media generation only supports image types (image/png, '
+        'image/jpeg, image/webp). Non-image types like PDFs and text files '
+        'are not supported because Google code execution can only output '
+        'Matplotlib graphs as images. '
+        'Requested: ${mimeTypes.join(', ')}. '
+        'See: https://ai.google.dev/gemini-api/docs/code-execution',
       );
     }
 

@@ -139,8 +139,10 @@ run:
   hosted URLs) alongside metadata updates.
 - **Google Gemini:** Gemini 2.5 supports native media generation via
   `responseModalities`. The media model configures the session to output
-  image or audio modalities directly. For other formats (e.g., PDF), it falls
-  back to **Code Execution** to generate the file programmatically.
+  image modalities directly. **Non-image formats (PDF, CSV, text files) are
+  not supported** because Google's code execution can only output Matplotlib
+  graphs as images—it cannot return arbitrary files. See the
+  [official documentation](https://ai.google.dev/gemini-api/docs/code-execution).
 - **Anthropic Claude:** Claude supports media generation via its **Code Interpreter**
   (Analysis) tool. The provider automatically enables the tool and instructs the
   model to generate files (e.g., PDFs, images) by writing and executing code.

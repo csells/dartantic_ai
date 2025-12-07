@@ -135,16 +135,14 @@ void dumpMetadataSpecialDelta(
   dumpMetadata(metadata, prefix: prefix);
 }
 
+/// Extracts the container_id from code interpreter metadata.
+///
+/// The container_id is nested in `event['item']['container_id']` because
+/// OpenAI wraps the CodeInterpreterCall item inside the done event.
 String? containerIdFromMetadata(Map<String, dynamic> metadata) {
   final ciEvents = metadata['code_interpreter'] as List?;
   if (ciEvents != null) {
     for (final event in ciEvents) {
-      // Check for container_id at the top level (older synthetic events)
-      if (event['container_id'] != null) {
-        return event['container_id'] as String;
-      }
-      // Check for container_id nested in item (response.output_item.done
-      // events)
       final item = event['item'];
       if (item is Map && item['container_id'] != null) {
         return item['container_id'] as String;

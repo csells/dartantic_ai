@@ -236,17 +236,8 @@ void main() {
         },
         requiredCaps: {ProviderCaps.chatVision},
         // Google requires File API upload, not arbitrary URLs
-        // Ollama/Local doesn't support external URLs
-        // Together might support it but let's be safe
-        skipProviders: {
-          'google',
-          'google-openai',
-          'ollama',
-          'ollama-openai',
-          'together',
-          'mistral',
-          'cohere', // No vision anyway
-        },
+        // Other providers without chatVision are filtered by requiredCaps
+        skipProviders: {'google', 'google-openai'},
       );
 
       runProviderTest(
@@ -277,15 +268,9 @@ void main() {
           expect(userMessage.parts.whereType<LinkPart>().length, equals(2));
         },
         requiredCaps: {ProviderCaps.chatVision},
-        skipProviders: {
-          'google',
-          'google-openai',
-          'ollama',
-          'ollama-openai',
-          'together',
-          'mistral',
-          'cohere',
-        },
+        // Google requires File API upload, not arbitrary URLs
+        // Other providers without chatVision are filtered by requiredCaps
+        skipProviders: {'google', 'google-openai'},
       );
     });
 

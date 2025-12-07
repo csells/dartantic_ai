@@ -1,24 +1,11 @@
-import 'dart:io';
+// NEVER check for API keys in tests. Dartantic already validates API keys
+// and throws a clear exception if one is missing. Tests should fail loudly
+// when credentials are unavailable, not silently skip.
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final anthropicApiKey =
-      Platform.environment['ANTHROPIC_API_KEY'] ??
-      Platform.environment['ANTHROPIC_API_TEST_KEY'];
-  if (anthropicApiKey == null || anthropicApiKey.isEmpty) {
-    group('Anthropic server-side tooling E2E', () {
-      test(
-        'requires ANTHROPIC_API_KEY or ANTHROPIC_API_TEST_KEY',
-        () {},
-        skip:
-            'ANTHROPIC_API_KEY/ANTHROPIC_API_TEST_KEY environment variable not set.',
-      );
-    });
-    return;
-  }
-
   group('Anthropic server-side tooling E2E', () {
     test(
       'Code Interpreter: generates a PDF file',

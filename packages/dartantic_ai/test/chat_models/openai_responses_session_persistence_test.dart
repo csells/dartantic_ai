@@ -373,13 +373,13 @@ void main() {
 
       test(
         'code interpreter container reuse across turns',
-        skip: 'Flaky on gpt-5: Container ID missing',
         () async {
           final history = <ChatMessage>[];
           String? firstContainerId;
           String? secondContainerId;
 
-          // First turn: Create variable in container
+          // First turn: Create variable and file in container
+          // Note: container_id is only returned when files are created
           final agent = Agent(
             'openai-responses',
             chatModelOptions: const OpenAIResponsesChatModelOptions(
@@ -388,8 +388,8 @@ void main() {
           );
 
           await for (final chunk in agent.sendStream(
-            'Calculate the first 5 Fibonacci numbers and '
-            'store in variable "fib".',
+            'Calculate the first 5 Fibonacci numbers, store in variable "fib", '
+            'and write them to a file called "fib.txt".',
           )) {
             history.addAll(chunk.messages);
 
@@ -411,9 +411,22 @@ void main() {
             reason: 'Should have container ID',
           );
 
-          // Second turn: Reuse variable from first turn
-          await for (final chunk in agent.sendStream(
-            'What is the sum of the fib variable?',
+          // Second turn: Explicitly configure container reuse
+          // Container reuse requires passing the container_id via config
+          final agent2 = Agent(
+            'openai-responses',
+            chatModelOptions: OpenAIResponsesChatModelOptions(
+              serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+              codeInterpreterConfig: CodeInterpreterConfig(
+                containerId: firstContainerId,
+              ),
+            ),
+          );
+
+          // Note: container_id is only returned when files are created
+          await for (final chunk in agent2.sendStream(
+            'Calculate the sum of the fib variable and write the result '
+            'to a file called "fib_sum.txt".',
             history: history,
           )) {
             history.addAll(chunk.messages);

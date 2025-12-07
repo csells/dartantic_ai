@@ -160,6 +160,9 @@ void main() {
       model.dispose();
     });
 
+    // Google code execution can only output Matplotlib graphs as images,
+    // not arbitrary files like PDFs. Non-image types throw UnsupportedError.
+    // See: https://ai.google.dev/gemini-api/docs/code-execution
     test('throws UnsupportedError for non-image mime types', () async {
       final model = GoogleMediaGenerationModel(
         name: 'gemini-2.5-flash',
@@ -167,12 +170,15 @@ void main() {
         defaultOptions: const GoogleMediaGenerationModelOptions(),
       );
 
-      await expectLater(
-        model.generateMediaStream(
-          'Create a PDF',
-          mimeTypes: const ['application/pdf'],
-        ),
-        emitsError(isA<UnsupportedError>()),
+      // The error is thrown when the stream is iterated (async* generator)
+      expect(
+        () => model
+            .generateMediaStream(
+              'Create a PDF',
+              mimeTypes: const ['application/pdf'],
+            )
+            .toList(),
+        throwsUnsupportedError,
       );
 
       model.dispose();

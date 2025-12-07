@@ -1,4 +1,6 @@
-import 'dart:io';
+// NEVER check for API keys in tests. Dartantic already validates API keys
+// and throws a clear exception if one is missing. Tests should fail loudly
+// when credentials are unavailable, not silently skip.
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:test/test.dart';

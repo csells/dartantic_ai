@@ -93,6 +93,8 @@ void main() {
         }
       },
       requiredCaps: {ProviderCaps.mediaGeneration},
+      // Google code execution only outputs Matplotlib graphs as images, not
+      // arbitrary files like PDFs. See: ai.google.dev/gemini-api/docs/code-execution
       skipProviders: {'google'},
       timeout: const Timeout(Duration(minutes: 2)),
     );
@@ -125,6 +127,8 @@ void main() {
         }
       },
       requiredCaps: {ProviderCaps.mediaGeneration},
+      // Google code execution only outputs Matplotlib graphs as images, not
+      // arbitrary files like text. See: ai.google.dev/gemini-api/docs/code-execution
       skipProviders: {'google'},
       timeout: const Timeout(Duration(minutes: 2)),
     );

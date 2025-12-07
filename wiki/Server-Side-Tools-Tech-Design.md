@@ -455,9 +455,13 @@ final agent = Agent(
 - **scoreThreshold**: Minimum relevance score
 
 #### CodeInterpreterConfig
-- **shouldReuseContainer**: Whether to reuse previous container
-- **containerId**: Specific container ID to reuse
+- **containerId**: Specific container ID to reuse (enables container persistence)
 - **fileIds**: Files to make available in container
+
+**Important**: Container reuse requires explicit configuration:
+1. The `container_id` is only returned in metadata when files are created in the container
+2. To reuse a container across turns, pass the `containerId` from a previous response
+3. Create a new Agent instance with the `containerId` set in `CodeInterpreterConfig`
 
 ### Provider-Specific Details
 
@@ -564,25 +568,54 @@ await for (final chunk in agent.sendStream('Calculate fibonacci(100)')) {
   }
 }
 
-// Access complete code in result metadata (not message metadata)
-final result = await agent.send('Calculate fibonacci(100)');
-final codeEvents = result.metadata['code_interpreter'] as List?;
-if (codeEvents != null) {
-  // Find code deltas in the event stream
-  for (final event in codeEvents) {
-    if (event['type'] == 'response.code_interpreter_call_code.delta') {
-      print('Code chunk: ${event['delta']}');
-    }
-
-    // Find completion events with execution details
-    if (event['type'] == 'response.output_item.done') {
+// Extract container_id from metadata (only returned when files are created)
+String? extractContainerId(Map<String, dynamic> metadata) {
+  final ciEvents = metadata['code_interpreter'] as List?;
+  if (ciEvents != null) {
+    for (final event in ciEvents) {
+      // container_id is nested in event['item']['container_id']
       final item = event['item'];
-      if (item['container_id'] != null) {
-        print('Container: ${item['container_id']}');
-        print('Status: ${item['status']}');
+      if (item is Map && item['container_id'] != null) {
+        return item['container_id'] as String;
       }
     }
   }
+  return null;
+}
+
+// Container reuse across turns requires explicit configuration
+final history = <ChatMessage>[];
+String? containerId;
+
+// First turn: create a file to get a container_id
+final agent1 = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+  ),
+);
+
+await for (final chunk in agent1.sendStream(
+  'Calculate fibonacci(10) and write results to fib.txt',
+)) {
+  history.addAll(chunk.messages);
+  containerId ??= extractContainerId(chunk.metadata);
+}
+
+// Second turn: reuse container with explicit config
+final agent2 = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(containerId: containerId),
+  ),
+);
+
+await for (final chunk in agent2.sendStream(
+  'Read fib.txt and calculate the sum',
+  history: history,
+)) {
+  // Container is reused - can access files from previous turn
 }
 
 // Generated images are automatically attached as DataParts
