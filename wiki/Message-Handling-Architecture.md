@@ -63,7 +63,7 @@ sequenceDiagram
 
 ### Key Rules
 
-1. **Request/Response Pairs**: Messages always alternate between user and model
+1. **LLM-Enforced Structure**: The LLMs enforce their own message ordering requirements. Dartantic does not pre-validate message alternation or ordering - if the LLM accepts the messages, they're valid.
 2. **Tool Result Consolidation**: All tool results from a single round are consolidated into one user message
 3. **Multiple Parts**: A single message can contain multiple parts (text, tool calls, tool results)
 4. **No Provider Logic**: The Agent doesn't know or care about provider-specific requirements

@@ -13,7 +13,6 @@ import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Provider Mappers', () {
@@ -36,7 +35,6 @@ void main() {
           reason: '${provider.name} should have AI message',
         );
 
-        validateMessageHistory(result.messages);
       });
 
       test('message metadata is consistent', () async {
@@ -83,7 +81,6 @@ void main() {
             reason: '${provider.name} should have tool messages',
           );
 
-          validateMessageHistory(result.messages);
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
@@ -139,7 +136,6 @@ void main() {
         expect(toolResultPart.id, equals(toolCallPart.id));
 
         // Validate message history follows correct pattern
-        validateMessageHistory(result.messages);
       });
     });
 
@@ -170,7 +166,6 @@ void main() {
         expect(result.messages.length, greaterThanOrEqualTo(2));
 
         // Validate message history follows correct pattern
-        validateMessageHistory(result.messages);
       });
     });
 

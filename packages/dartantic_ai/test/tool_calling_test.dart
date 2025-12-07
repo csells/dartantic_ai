@@ -22,7 +22,6 @@ import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Tool Calling', () {
@@ -150,8 +149,6 @@ void main() {
         expect(toolResults[0].result, equals('Step 1 processed: hello'));
         expect(toolResults[1].result, contains('Step 2 processed:'));
 
-        // Validate message history follows correct pattern
-        validateMessageHistory(response.messages);
       });
 
       test('calls multiple independent tools', () async {
@@ -178,8 +175,6 @@ void main() {
         expect(results.any((r) => r == 100 || r == '100'), isTrue);
         expect(results.any((r) => r == true || r == 'true'), isTrue);
 
-        // Validate message history follows correct pattern
-        validateMessageHistory(response.messages);
       });
 
       test('calls same tool multiple times with different arguments', () async {
@@ -266,8 +261,6 @@ void main() {
                 'Provider ${provider.name} should execute int_tool correctly',
           );
 
-          // Validate message history follows correct pattern
-          validateMessageHistory(response.messages);
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
       );
@@ -610,8 +603,6 @@ void main() {
           anyOf(contains('99'), contains('int_tool')),
         );
 
-        // Validate message history follows correct pattern
-        validateMessageHistory(messages);
       });
     });
 

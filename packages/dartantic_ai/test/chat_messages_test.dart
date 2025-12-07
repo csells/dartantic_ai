@@ -20,7 +20,6 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Chat Messages', () {
@@ -79,8 +78,6 @@ void main() {
         );
         expect(response.output.toLowerCase(), contains('alice'));
 
-        // Validate the returned messages
-        validateMessageHistory(response.messages);
 
         // Add to history
         messages.add(
@@ -101,8 +98,6 @@ void main() {
         expect(response.output.toLowerCase(), contains('alice'));
 
         // Validate full conversation history
-        final fullHistory = [...messages, ...response.messages];
-        validateMessageHistory(fullHistory);
       });
 
       test('handles role transitions correctly', () async {
@@ -119,8 +114,6 @@ void main() {
         );
         expect(response.output.toLowerCase(), contains('indeed'));
 
-        // Validate that system prompt + messages follow correct pattern
-        validateMessageHistory(response.messages);
       });
 
       test('accumulates multiple exchanges', () async {
@@ -162,8 +155,6 @@ void main() {
         expect(messages[0].role, equals(ChatMessageRole.user));
         expect(messages[1].role, equals(ChatMessageRole.model));
 
-        // Validate full conversation history follows correct pattern
-        validateMessageHistory(messages);
         expect(messages[2].role, equals(ChatMessageRole.user));
         expect(messages[3].role, equals(ChatMessageRole.model));
       });

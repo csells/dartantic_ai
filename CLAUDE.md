@@ -136,7 +136,6 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 ## Testing Strategy
 
 - **ALWAYS check for existing tests before creating new ones** - Search the test directory for related tests using grep/glob before creating new test files. Update existing tests rather than duplicating functionality.
-- Tests use `validateMessageHistory()` helper (in `test/test_utils.dart`) to ensure proper message alternation (user/model/user/model)
 - Integration tests connect to actual providers when API keys are available (from environment variables or `~/global_env.sh`)
 - Mock tools and utilities in `test/test_tools.dart` and `test/test_utils.dart`
 - Capability-based provider filtering ensures tests only run against providers that support required features
