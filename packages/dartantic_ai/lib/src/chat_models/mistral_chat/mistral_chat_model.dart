@@ -18,10 +18,12 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
     MistralChatModelOptions? defaultOptions,
     Uri? baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
   }) : _client = MistralAIClient(
          apiKey: apiKey,
          baseUrl: baseUrl?.toString(),
          client: client,
+         headers: headers,
        ),
        super(
          name: name,

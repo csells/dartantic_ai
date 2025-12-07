@@ -96,18 +96,20 @@ class OpenAIUtils {
     required String providerName,
     required Logger logger,
     String? apiKey,
+    Map<String, String>? headers,
   }) async* {
     final url = appendPath(baseUrl, 'models');
-    final headers = <String, String>{
+    final requestHeaders = <String, String>{
       if (apiKey != null && apiKey.isNotEmpty)
         'Authorization': 'Bearer $apiKey',
       'Content-Type': 'application/json',
+      ...?headers,
     };
 
     logger.info('Fetching models from $url');
 
     try {
-      final response = await http.get(url, headers: headers);
+      final response = await http.get(url, headers: requestHeaders);
       if (response.statusCode != 200) {
         logger.warning(
           'Failed to fetch models: HTTP ${response.statusCode}, '

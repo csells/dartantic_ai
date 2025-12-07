@@ -14,9 +14,11 @@ class AnthropicFilesClient {
     required List<String> betaFeatures,
     Uri? baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
   }) : _betaHeader = _composeBetaHeader(betaFeatures),
        _baseUri = baseUrl ?? Uri.parse('https://api.anthropic.com/'),
-       _client = client ?? RetryHttpClient(inner: http.Client());
+       _client = client ?? RetryHttpClient(inner: http.Client()),
+       _customHeaders = headers ?? const {};
 
   static final Logger _logger = Logger('dartantic.media.anthropic.files');
 
@@ -25,6 +27,7 @@ class AnthropicFilesClient {
   final String _betaHeader;
   final Uri _baseUri;
   final http.Client _client;
+  final Map<String, String> _customHeaders;
 
   static String _composeBetaHeader(List<String> features) {
     final betaFlags = <String>{
@@ -130,6 +133,7 @@ class AnthropicFilesClient {
     'anthropic-version': '2023-06-01',
     'anthropic-beta': _betaHeader,
     'accept': accept,
+    ..._customHeaders,
   };
 
   /// Releases the underlying HTTP client.

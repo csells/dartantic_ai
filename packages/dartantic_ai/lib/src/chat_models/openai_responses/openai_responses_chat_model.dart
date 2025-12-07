@@ -24,12 +24,14 @@ class OpenAIResponsesChatModel
     this.baseUrl,
     this.apiKey,
     http.Client? httpClient,
+    Map<String, String>? headers,
   }) : _client = openai.OpenAIClient(
          apiKey: apiKey,
          // openai_core requires non-nullable baseUrl, use Responses endpoint
          // as default
          baseUrl: baseUrl?.toString() ?? 'https://api.openai.com/v1/responses',
          httpClient: RetryHttpClient(inner: httpClient ?? http.Client()),
+         headers: headers,
        );
 
   static final Logger _logger = Logger(

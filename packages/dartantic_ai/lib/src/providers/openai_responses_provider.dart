@@ -16,28 +16,32 @@ class OpenAIResponsesProvider
           OpenAIResponsesMediaGenerationModelOptions
         > {
   /// Creates a new OpenAI Responses provider instance.
-  OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
-    : super(
-        name: providerName,
-        displayName: providerDisplayName,
-        defaultModelNames: const {
-          ModelKind.chat: defaultChatModel,
-          ModelKind.embeddings: defaultEmbeddingsModel,
-          ModelKind.media: defaultMediaModel,
-        },
-        caps: const {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.typedOutputWithTools,
-          ProviderCaps.thinking,
-          ProviderCaps.chatVision,
-          ProviderCaps.mediaGeneration,
-        },
-        apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
-        apiKeyName: defaultApiKeyName,
-      );
+  OpenAIResponsesProvider({
+    String? apiKey,
+    super.baseUrl,
+    super.aliases,
+    super.headers,
+  }) : super(
+         name: providerName,
+         displayName: providerDisplayName,
+         defaultModelNames: const {
+           ModelKind.chat: defaultChatModel,
+           ModelKind.embeddings: defaultEmbeddingsModel,
+           ModelKind.media: defaultMediaModel,
+         },
+         caps: const {
+           ProviderCaps.chat,
+           ProviderCaps.embeddings,
+           ProviderCaps.multiToolCalls,
+           ProviderCaps.typedOutput,
+           ProviderCaps.typedOutputWithTools,
+           ProviderCaps.thinking,
+           ProviderCaps.chatVision,
+           ProviderCaps.mediaGeneration,
+         },
+         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
+         apiKeyName: defaultApiKeyName,
+       );
 
   static final Logger _logger = Logger(
     'dartantic.chat.providers.openai_responses',
@@ -98,6 +102,7 @@ class OpenAIResponsesProvider
       temperature: temperature,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultResponsesBaseUrl,
+      headers: headers,
       defaultOptions: _mergeOptions(temperature, enableThinking, options),
     );
   }
@@ -166,6 +171,7 @@ class OpenAIResponsesProvider
       tools: tools,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultResponsesBaseUrl,
+      headers: headers,
       defaultOptions: chatDefaultOptions,
     );
 

@@ -16,6 +16,7 @@ class OpenAIEmbeddingsModel
     String? apiKey,
     Uri? baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
     super.dimensions,
     super.batchSize = 512,
     String? user,
@@ -24,6 +25,7 @@ class OpenAIEmbeddingsModel
          apiKey: apiKey,
          organization: null,
          baseUrl: baseUrl?.toString(),
+         headers: headers,
          client: client != null
              ? RetryHttpClient(inner: client)
              : RetryHttpClient(inner: http.Client()),

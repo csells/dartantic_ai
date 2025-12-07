@@ -23,6 +23,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     required String apiKey,
     required Uri baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
     super.tools,
     super.temperature,
     bool enableThinking = false,
@@ -31,7 +32,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
        _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
          baseUrl: baseUrl,
-         headers: {'x-goog-api-key': apiKey},
+         headers: {'x-goog-api-key': apiKey, ...?headers},
          queryParams: const {},
        ) {
     _logger.info(

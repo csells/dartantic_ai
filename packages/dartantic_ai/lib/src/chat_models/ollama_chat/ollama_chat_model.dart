@@ -22,7 +22,12 @@ class OllamaChatModel extends ChatModel<OllamaChatOptions> {
     OllamaChatOptions? defaultOptions,
     Uri? baseUrl,
     http.Client? client,
-  }) : _client = OllamaClient(baseUrl: baseUrl?.toString(), client: client),
+    Map<String, String>? headers,
+  }) : _client = OllamaClient(
+         baseUrl: baseUrl?.toString(),
+         client: client,
+         headers: headers,
+       ),
        super(
          name: name,
          defaultOptions: defaultOptions ?? const OllamaChatOptions(),

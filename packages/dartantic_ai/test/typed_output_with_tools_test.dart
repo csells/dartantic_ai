@@ -264,15 +264,20 @@ void main() {
             contains('mushroom'),
           );
 
-          // Verify tool was called
+          // Verify lookup_recipe tool was called (return_result may also be
+          // present for typed output)
           final toolCalls = firstMessages
               .where((m) => m.role == ChatMessageRole.model)
               .expand((m) => m.parts)
               .whereType<ToolPart>()
               .where((p) => p.kind == ToolPartKind.call)
               .toList();
-          expect(toolCalls, hasLength(1));
-          expect(toolCalls.first.name, equals('lookup_recipe'));
+          expect(toolCalls, isNotEmpty);
+          expect(
+            toolCalls.any((t) => t.name == 'lookup_recipe'),
+            isTrue,
+            reason: 'Should have called lookup_recipe tool',
+          );
 
           // Second turn: Modify the recipe using streaming
           final secondChunks = <String>[];

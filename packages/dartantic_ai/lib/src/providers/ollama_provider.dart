@@ -23,6 +23,7 @@ class OllamaProvider
     super.apiKey,
     super.baseUrl,
     super.apiKeyName,
+    super.headers,
   }) : super(
          defaultModelNames: {
            /// Note: llama3.x models have a known issue with spurious content in
@@ -67,6 +68,7 @@ class OllamaProvider
       tools: tools,
       temperature: temperature,
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: OllamaChatOptions(
         format: options?.format,
         keepAlive: options?.keepAlive,
@@ -116,7 +118,7 @@ class OllamaProvider
     _logger.info('Fetching models from Ollama API: $url');
     final client = RetryHttpClient(inner: http.Client());
     try {
-      final response = await client.get(url);
+      final response = await client.get(url, headers: headers);
       if (response.statusCode != 200) {
         _logger.warning(
           'Failed to fetch models: HTTP ${response.statusCode}, '

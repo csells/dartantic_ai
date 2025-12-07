@@ -1,4 +1,5 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:mistralai_dart/mistralai_dart.dart';
 
@@ -12,10 +13,17 @@ class MistralEmbeddingsModel
     required super.name,
     required String apiKey,
     Uri? baseUrl,
+    http.Client? client,
+    Map<String, String>? headers,
     super.dimensions,
     super.batchSize = 100,
     MistralEmbeddingsModelOptions? options,
-  }) : _client = MistralAIClient(apiKey: apiKey, baseUrl: baseUrl?.toString()),
+  }) : _client = MistralAIClient(
+         apiKey: apiKey,
+         baseUrl: baseUrl?.toString(),
+         client: client,
+         headers: headers,
+       ),
        super(defaultOptions: options ?? const MistralEmbeddingsModelOptions()) {
     _logger.info(
       'Created Mistral embeddings model: $name '

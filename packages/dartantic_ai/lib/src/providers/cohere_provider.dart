@@ -15,7 +15,7 @@ class CohereProvider extends OpenAIProvider {
   /// Creates a new Cohere OpenAI provider instance.
   ///
   /// [apiKey]: The API key for the Cohere provider.
-  CohereProvider({String? apiKey})
+  CohereProvider({String? apiKey, super.headers})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
@@ -82,6 +82,7 @@ class CohereProvider extends OpenAIProvider {
       temperature: temperature,
       apiKey: apiKey ?? tryGetEnv(apiKeyName),
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: CohereChatOptions(
         frequencyPenalty: options?.frequencyPenalty,
         logitBias: options?.logitBias,

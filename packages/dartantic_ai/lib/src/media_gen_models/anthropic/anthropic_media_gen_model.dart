@@ -23,6 +23,7 @@ class AnthropicMediaGenerationModel
     required String apiKey,
     Uri? baseUrl,
     http.Client? httpClient,
+    Map<String, String>? headers,
     List<String> betaFeatures = const [],
   }) : _chatModel = chatModel,
        _filesClient = AnthropicFilesClient(
@@ -30,6 +31,7 @@ class AnthropicMediaGenerationModel
          betaFeatures: betaFeatures,
          baseUrl: baseUrl,
          client: httpClient,
+         headers: headers,
        );
 
   static final Logger _logger = Logger('dartantic.media.models.anthropic');

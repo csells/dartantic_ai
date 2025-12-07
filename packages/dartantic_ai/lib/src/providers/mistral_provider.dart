@@ -22,7 +22,7 @@ class MistralProvider
   /// Creates a new Mistral provider instance.
   ///
   /// [apiKey]: The API key for the Mistral provider.
-  MistralProvider({String? apiKey})
+  MistralProvider({String? apiKey, super.headers})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         name: 'mistral',
@@ -77,6 +77,7 @@ class MistralProvider
       temperature: temperature,
       apiKey: apiKey!,
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: MistralChatModelOptions(
         topP: options?.topP,
         maxTokens: options?.maxTokens,
@@ -102,6 +103,7 @@ class MistralProvider
       name: modelName,
       apiKey: apiKey!,
       baseUrl: baseUrl,
+      headers: headers,
       options: options,
     );
   }
@@ -115,7 +117,7 @@ class MistralProvider
     try {
       final response = await client.get(
         url,
-        headers: {'Authorization': 'Bearer $apiKey'},
+        headers: {'Authorization': 'Bearer $apiKey', ...headers},
       );
       if (response.statusCode != 200) {
         _logger.warning(

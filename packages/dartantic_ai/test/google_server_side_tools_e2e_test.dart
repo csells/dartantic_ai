@@ -4,18 +4,6 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final apiKey = Platform.environment['GEMINI_API_KEY'];
-  if (apiKey == null || apiKey.isEmpty) {
-    group('Google server-side tooling E2E', () {
-      test(
-        'requires GEMINI_API_KEY',
-        () {},
-        skip: 'GEMINI_API_KEY environment variable not set.',
-      );
-    });
-    return;
-  }
-
   group('Google server-side tooling E2E', () {
     test(
       'Code Execution: runs python code',

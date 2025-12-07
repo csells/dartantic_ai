@@ -28,7 +28,7 @@ class AnthropicProvider
   /// Creates a new Anthropic provider instance.
   ///
   /// [apiKey]: The API key to use for the Anthropic API.
-  AnthropicProvider({String? apiKey})
+  AnthropicProvider({String? apiKey, super.headers})
     : super(
         apiKey:
             apiKey ??
@@ -89,6 +89,7 @@ class AnthropicProvider
       enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: () {
         final defaultOptions = AnthropicChatOptions(
           temperature: temperature ?? options?.temperature,
@@ -126,7 +127,11 @@ class AnthropicProvider
     try {
       final response = await client.get(
         url,
-        headers: {'x-api-key': apiKey!, 'anthropic-version': '2023-06-01'},
+        headers: {
+          'x-api-key': apiKey!,
+          'anthropic-version': '2023-06-01',
+          ...headers,
+        },
       );
 
       if (response.statusCode != 200) {
@@ -200,10 +205,12 @@ class AnthropicProvider
       Tool<Map<String, dynamic>>(
         name: kAnthropicReturnResultTool,
         description:
-            'REQUIRED: You MUST call this tool to return the final result. '
-            'Use this tool to format and return your response according to '
-            'the specified JSON schema. Call this after gathering any '
-            'necessary information from other tools.',
+            'CRITICAL: You MUST ALWAYS call this tool to return ANY response. '
+            'Never respond with plain text - ONLY use this tool. '
+            'Every single response must go through return_result with data '
+            'matching the JSON schema. This applies to initial responses AND '
+            'follow-up requests. Call this tool whether or not you use other '
+            'tools first.',
         inputSchema: outputSchema,
         onCall: (input) async => input,
       ),
@@ -245,6 +252,7 @@ class AnthropicProvider
       tools: tools,
       apiKey: apiKey!,
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: chatOptions,
       betaFeatures: betaFeatures,
     );
@@ -255,6 +263,7 @@ class AnthropicProvider
       chatModel: chatModel,
       apiKey: apiKey!,
       baseUrl: baseUrl,
+      headers: headers,
       betaFeatures: betaFeatures,
     );
   }

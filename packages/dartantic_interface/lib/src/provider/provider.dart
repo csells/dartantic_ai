@@ -36,6 +36,7 @@ abstract class Provider<
   /// - [baseUrl]: The default API endpoint.
   /// - [apiKeyName]: The environment variable for the API key (if any).
   /// - [aliases]: Alternative names for lookup.
+  /// - [headers]: Custom HTTP headers to include with all API requests.
   const Provider({
     required this.name,
     required this.displayName,
@@ -45,6 +46,7 @@ abstract class Provider<
     this.baseUrl,
     this.apiKeyName,
     this.aliases = const [],
+    this.headers = const {},
   });
 
   /// The canonical provider name (e.g., 'openai', 'ollama').
@@ -67,6 +69,11 @@ abstract class Provider<
 
   /// The environment variable for the API key (if any).
   final String? apiKeyName;
+
+  /// Custom HTTP headers to include with all API requests.
+  ///
+  /// These headers will override internal headers if there's a conflict.
+  final Map<String, String> headers;
 
   /// The capabilities of this provider.
   final Set<ProviderCaps> caps;

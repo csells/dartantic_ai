@@ -23,6 +23,7 @@ abstract class OpenAIProviderBase<
     super.apiKeyName,
     super.apiKey,
     super.aliases,
+    super.headers,
   });
 
   /// Logger used by subclasses for shared operations.
@@ -61,6 +62,7 @@ abstract class OpenAIProviderBase<
       name: modelName,
       apiKey: apiKey,
       baseUrl: embeddingsApiBaseUrl,
+      headers: headers,
       dimensions: options?.dimensions,
       batchSize: options?.batchSize,
       options: resolvedOptions,
@@ -84,6 +86,7 @@ abstract class OpenAIProviderBase<
       providerName: name,
       logger: logger,
       apiKey: apiKey,
+      headers: headers,
     );
   }
 

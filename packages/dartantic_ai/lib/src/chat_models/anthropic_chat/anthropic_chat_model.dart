@@ -25,6 +25,7 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
     super.temperature,
     bool enableThinking = false,
     http.Client? client,
+    Map<String, String>? headers,
     AnthropicChatOptions? defaultOptions,
     List<String> betaFeatures = const [],
   }) : _enableThinking = enableThinking,
@@ -32,6 +33,7 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
          apiKey: apiKey,
          baseUrl: baseUrl?.toString(),
          client: client,
+         headers: headers,
          betaFeatures: betaFeatures,
        ),
        super(defaultOptions: defaultOptions ?? const AnthropicChatOptions()) {
@@ -237,8 +239,14 @@ class _AnthropicStreamingClient extends a.AnthropicClient {
     required super.apiKey,
     super.baseUrl,
     super.client,
+    Map<String, String>? headers,
     List<String> betaFeatures = const [],
-  }) : super(headers: {'anthropic-beta': _buildBetaHeader(betaFeatures)});
+  }) : super(
+         headers: {
+           'anthropic-beta': _buildBetaHeader(betaFeatures),
+           ...?headers,
+         },
+       );
 
   static const List<String> _defaultBetaFeatures = <String>[
     'message-batches-2024-09-24',

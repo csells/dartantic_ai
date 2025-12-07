@@ -36,7 +36,7 @@ class GoogleProvider
   /// Creates a new Google AI provider instance.
   ///
   /// [apiKey]: The API key to use for the Google AI API.
-  GoogleProvider({String? apiKey, super.baseUrl})
+  GoogleProvider({String? apiKey, super.baseUrl, super.headers})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
@@ -111,6 +111,7 @@ class GoogleProvider
       enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
+      headers: headers,
       defaultOptions: GoogleChatModelOptions(
         topP: options?.topP,
         topK: options?.topK,
@@ -143,6 +144,7 @@ class GoogleProvider
       name: modelName,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
+      headers: headers,
       options: options,
     );
   }
@@ -154,7 +156,7 @@ class GoogleProvider
     final client = CustomHttpClient(
       baseHttpClient: RetryHttpClient(inner: http.Client()),
       baseUrl: resolvedBaseUrl,
-      headers: {'x-goog-api-key': apiKey},
+      headers: {'x-goog-api-key': apiKey, ...headers},
       queryParams: const {},
     );
 
@@ -211,7 +213,7 @@ class GoogleProvider
     final httpClient = CustomHttpClient(
       baseHttpClient: RetryHttpClient(inner: http.Client()),
       baseUrl: resolvedBaseUrl,
-      headers: {'x-goog-api-key': apiKey!},
+      headers: {'x-goog-api-key': apiKey!, ...headers},
       queryParams: const {},
     );
     final service = gl.GenerativeService(client: httpClient);
