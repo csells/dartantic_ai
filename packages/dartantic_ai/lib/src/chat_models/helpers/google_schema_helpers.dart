@@ -4,6 +4,16 @@ import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dar
 /// Helpers for converting JSON schema maps into Google Gemini [gl.Schema]
 /// instances.
 class GoogleSchemaHelpers {
+  /// Infers a JSON Schema type string from a Dart runtime value.
+  static String _inferTypeFromValue(Object value) {
+    if (value is int) return 'integer';
+    if (value is double || value is num) return 'number';
+    if (value is bool) return 'boolean';
+    if (value is List) return 'array';
+    if (value is Map) return 'object';
+    return 'string'; // Default fallback
+  }
+
   /// Converts a JSON schema map into a [gl.Schema].
   ///
   /// Supports the JSON schema constructs that dartantic emits for tools and
@@ -35,9 +45,17 @@ class GoogleSchemaHelpers {
       }
     }
 
+    // If type is missing, try to infer it from the 'default' value.
+    // This handles MCP servers (like HuggingFace) that omit explicit types.
     if (rawType == null) {
-      throw ArgumentError("Schema must define a 'type' property: $schema");
+      final defaultValue = schema['default'];
+      if (defaultValue != null) {
+        rawType = _inferTypeFromValue(defaultValue);
+      }
     }
+
+    // If still no type, default to 'string' as the most permissive option
+    rawType ??= 'string';
     if (rawType is! String) {
       throw ArgumentError('Schema type must be a string: $rawType');
     }
