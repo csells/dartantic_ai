@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main() async {
@@ -27,7 +26,7 @@ Future<void> multiTurnChat(String model) async {
   final result = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result.output.trim()}');
 
-  prompt = 'Is that typical for this time of year?';
+  prompt = 'Is that a good time for shorts?';
   stdout.writeln('User: $prompt');
   final result2 = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result2.output.trim()}');
@@ -49,7 +48,7 @@ Future<void> multiTurnChatStream(String model) async {
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
   stdout.writeln();
 
-  prompt = 'Is that typical for this time of year?';
+  prompt = 'Is that a good time for shorts?';
   stdout.writeln('User: $prompt');
   stdout.write('${chat.displayName}: ');
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
