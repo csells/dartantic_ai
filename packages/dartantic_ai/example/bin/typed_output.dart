@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
