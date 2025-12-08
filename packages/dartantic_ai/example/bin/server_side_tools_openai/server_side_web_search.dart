@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
@@ -16,7 +15,9 @@ void main(List<String> args) async {
     ),
   );
 
-  const prompt = 'What are the top 3 more recent news headlines about Dart?';
+  const prompt =
+      'What are the top 3 more recent news headlines about '
+      'Dart the programming language?';
   stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
 
