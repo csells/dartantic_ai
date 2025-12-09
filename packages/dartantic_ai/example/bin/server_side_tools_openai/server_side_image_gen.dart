@@ -7,7 +7,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('OpenAI Responses: Image Generation Demo\n');
+  stdout.writeln('OpenAI Responses: Image Generation Demo');
   stdout.writeln('This demo generates images from text descriptions.\n');
 
   final agent = Agent(

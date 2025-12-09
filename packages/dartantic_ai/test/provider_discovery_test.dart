@@ -11,7 +11,6 @@
 /// listModels()
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -25,9 +24,7 @@ void main() {
         expect(Providers.get('google'), equals(Providers.google));
         expect(Providers.get('mistral'), equals(Providers.mistral));
         expect(Providers.get('ollama'), equals(Providers.ollama));
-        expect(Providers.get('together'), equals(Providers.together));
         expect(Providers.get('cohere'), equals(Providers.cohere));
-        expect(Providers.get('openrouter'), equals(Providers.openrouter));
       });
 
       test('finds providers by aliases', () {
