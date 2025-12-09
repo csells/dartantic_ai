@@ -7,9 +7,7 @@ import 'package:example/example.dart';
 import 'package:openai_core/openai_core.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('Open AI Responses: Vector Search Demo');
-  stdout.writeln('This demo searches through uploaded documentation files.');
-  stdout.writeln();
+  stdout.writeln('Open AI Responses: Vector Search Demo\n');
 
   // Setup vector store with documentation files
   final vectorStoreId = await setupVectorStore([

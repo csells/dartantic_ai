@@ -6,7 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('Open AI Responses: Web Search Demo');
+  stdout.writeln('Open AI Responses: Web Search Demo\n');
 
   final agent = Agent(
     'openai-responses',

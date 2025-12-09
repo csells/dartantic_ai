@@ -3,24 +3,20 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
-/// Demonstrates Google media generation via `generateMedia()`.
 void main() async {
   const outputDir = 'tmp';
 
-  stdout.writeln('\n=== Google Media Generation Demo ===');
+  stdout.writeln('=== Google Media Generation Demo ===');
   stdout.writeln('Assets will be written to: $outputDir\n');
 
   final agent = Agent('google');
 
-  // Image generation
+  // Image generation (IMAGE modality is auto-set when mimeTypes include images)
   stdout.writeln('## Google: Image via generateMedia()');
   final imageResult = await agent.generateMedia(
     'Create a minimalist robot mascot for a developer conference. '
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
-    options: const GoogleMediaGenerationModelOptions(
-      responseModalities: ['IMAGE'],
-    ),
   );
   dumpAssets(imageResult.assets, outputDir, fallbackPrefix: 'google_image');
 

@@ -7,8 +7,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('OpenAI Responses: Image Generation Demo');
-  stdout.writeln('This demo generates images from text descriptions.\n');
+  stdout.writeln('OpenAI Responses: Image Generation Demo\n');
 
   final agent = Agent(
     'openai-responses',
@@ -36,30 +35,30 @@ void main(List<String> args) async {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
     // dumpMetadata(chunk.metadata, prefix: '\n');
-    dumpPartialImages(chunk.metadata);
+    _dumpPartialImages(chunk.metadata);
   }
   stdout.writeln();
 
-  // Final image arrives as a DataPart in the model's response
-  final imagePart = history.last.parts.whereType<DataPart>().singleWhere(
-    (p) => p.mimeType.startsWith('image/'),
-  );
-  dumpImage('Final', 'final_image', imagePart.bytes);
+  // Final image arrives as a DataPart in the message history
+  dumpAssetsFromHistory(history, 'tmp', fallbackPrefix: 'generated_image');
 
   dumpMessages(history);
   exit(0);
 }
 
-void dumpPartialImages(Map<String, dynamic> metadata) {
+/// Saves partial/progressive images from streaming metadata.
+void _dumpPartialImages(Map<String, dynamic> metadata) {
   final imageEvents = metadata['image_generation'] as List?;
-  if (imageEvents != null) {
-    for (final event in imageEvents) {
-      // Progressive/partial images show intermediate render stages
-      if (event['partial_image_b64'] != null) {
-        final base64 = event['partial_image_b64']! as String;
-        final index = event['partial_image_index']! as int;
-        dumpImage('Partial', 'partial_image_$index', base64Decode(base64));
-      }
-    }
+  if (imageEvents == null) return;
+
+  for (final event in imageEvents) {
+    final partial = event['partial_image_b64'];
+    if (partial == null) continue;
+
+    final base64 = partial as String;
+    final index = event['partial_image_index'] as int? ?? 0;
+    final bytes = base64Decode(base64);
+    final part = DataPart(bytes, mimeType: 'image/png', name: 'partial_$index');
+    dumpAssets([part], 'tmp', fallbackPrefix: 'partial');
   }
 }

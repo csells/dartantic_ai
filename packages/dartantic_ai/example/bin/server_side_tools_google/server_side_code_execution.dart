@@ -6,7 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('🧪 Google Server-Side Code Execution Demo');
+  stdout.writeln('Google Server-Side Code Execution Demo\n');
 
   final agent = Agent(
     'google',

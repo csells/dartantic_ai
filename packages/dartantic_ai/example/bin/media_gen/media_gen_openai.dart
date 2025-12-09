@@ -3,11 +3,10 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
-/// Demonstrates OpenAI Responses media generation via `generateMedia()`.
 void main() async {
   const outputDir = 'tmp';
 
-  stdout.writeln('\n=== OpenAI Responses Media Generation Demo ===');
+  stdout.writeln('=== OpenAI Responses Media Generation Demo ===');
   stdout.writeln('Assets will be written to: $outputDir\n');
 
   final agent = Agent('openai-responses');

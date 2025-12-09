@@ -7,7 +7,7 @@ import 'package:example/example.dart';
 
 void main(List<String> args) async {
   stdout.writeln(
-    'OpenAI Responses: Code Interpreter Demo with Container Reuse',
+    'OpenAI Responses: Code Interpreter Demo with Container Reuse\n',
   );
 
   // First session: Calculate Fibonacci numbers and store in container

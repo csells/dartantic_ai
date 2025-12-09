@@ -3,11 +3,10 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
-/// Demonstrates Anthropic media generation via `generateMedia()`.
 void main() async {
   const outputDir = 'tmp';
 
-  stdout.writeln('\n=== Anthropic Media Generation Demo ===');
+  stdout.writeln('=== Anthropic Media Generation Demo ===');
   stdout.writeln('Assets will be written to: $outputDir\n');
 
   final agent = Agent('anthropic');

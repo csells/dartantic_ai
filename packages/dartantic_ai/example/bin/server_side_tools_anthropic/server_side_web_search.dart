@@ -6,7 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('\n🔎 Anthropic Server-Side Web Search');
+  stdout.writeln('Anthropic Server-Side Web Search\n');
 
   final agent = Agent(
     'anthropic',

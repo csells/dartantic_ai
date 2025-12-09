@@ -139,6 +139,7 @@ class GoogleMediaGenerationModel
       history: history,
       mimeType: resolvedMimeType,
       options: options,
+      autoIncludeImageModality: true,
     );
 
     var chunkIndex = 0;
@@ -226,11 +227,32 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
 ''';
   }
 
+  /// Resolves response modalities, auto-including IMAGE when needed.
+  List<String>? _resolveModalities(
+    List<String>? explicit, {
+    required bool autoIncludeImageModality,
+  }) {
+    if (!autoIncludeImageModality) return explicit;
+
+    // Auto-include IMAGE modality for image generation
+    if (explicit == null || explicit.isEmpty) {
+      return const ['IMAGE'];
+    }
+
+    // Check if IMAGE is already included
+    final hasImage = explicit.any((m) => m.toUpperCase() == 'IMAGE');
+    if (hasImage) return explicit;
+
+    // Add IMAGE to the existing modalities
+    return [...explicit, 'IMAGE'];
+  }
+
   gl.GenerateContentRequest _buildRequest({
     required String prompt,
     required List<ChatMessage> history,
     required String mimeType,
     required GoogleMediaGenerationModelOptions options,
+    bool autoIncludeImageModality = false,
   }) {
     final contents = <gl.Content>[
       ...history.toContentList(),
@@ -249,6 +271,12 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
         ? ''
         : mimeType;
 
+    // Auto-include IMAGE modality when generating images
+    final modalities = _resolveModalities(
+      options.responseModalities,
+      autoIncludeImageModality: autoIncludeImageModality,
+    );
+
     final generationConfig = gl.GenerationConfig(
       temperature: options.temperature,
       topP: options.topP,
@@ -257,7 +285,7 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
       responseMimeType: textResponseMimeType,
       candidateCount: options.imageSampleCount,
       imageConfig: imageConfig,
-      responseModalities: mapGoogleModalities(options.responseModalities),
+      responseModalities: mapGoogleModalities(modalities),
     );
 
     return gl.GenerateContentRequest(
