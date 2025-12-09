@@ -104,10 +104,10 @@ run:
 
 ### Capability Signalling
 
-- Introduce a `mediaGeneration` capability bit in `ProviderCaps`. Providers that
-  set this flag must implement `createMediaModel`, mirroring the chat and
-  embeddings factories. Providers that cannot generate media should either omit
-  the flag or throw a clear `UnsupportedError`.
+- Providers that support media generation must implement `createMediaModel`,
+  mirroring the chat and embeddings factories. Providers that cannot generate
+  media should throw a clear `UnsupportedError`. Use `Provider.listModels()` at
+  runtime to discover which models support media generation via `ModelKind.media`.
 - Advertise default model names by extending `Provider.defaultModelNames` with a
   `ModelKind.media` entry. Providers may publish multiple media-capable models
   and should document their MIME coverage.

@@ -34,7 +34,7 @@ graph TB
         P1[Provider Interface]
         P2[ChatModel Interface]
         P3[EmbeddingsModel Interface]
-        P4[ProviderCaps]
+        P4[ModelInfo]
     end
     
     subgraph "Provider Implementation Layer"
@@ -363,9 +363,15 @@ return DefaultStreamingOrchestrator();
 
 ### Provider Discovery
 ```dart
-// Find providers by capability
-final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
-final embeddingsProviders = Providers.allWith({ProviderCaps.embeddings});
+// Get all providers
+final allProviders = Agent.allProviders;
+
+// Discover models and their capabilities
+for (final provider in allProviders) {
+  await for (final model in provider.listModels()) {
+    print('${model.name}: ${model.kinds}');
+  }
+}
 ```
 
 ## Development Guidelines

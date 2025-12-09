@@ -48,16 +48,6 @@ class GoogleProvider
           ModelKind.embeddings: _defaultEmbeddingsModelName,
           ModelKind.media: _defaultMediaModelName,
         },
-        caps: {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.typedOutputWithTools,
-          ProviderCaps.chatVision,
-          ProviderCaps.thinking,
-          ProviderCaps.mediaGeneration,
-        },
         aliases: const ['gemini'],
       );
 

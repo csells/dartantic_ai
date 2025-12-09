@@ -7,15 +7,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 void main() async {
   print('=== OpenAI-Compatible Providers ===\n');
 
-  Providers.providerMap['openrouter'] = OpenAIProvider(
-    name: 'openrouter',
-    displayName: 'OpenRouter',
-    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
-    baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
-    apiKeyName: 'OPENROUTER_API_KEY',
-  );
-
-  Providers.providerMap['together'] = OpenAIProvider(
+  Agent.providerFactories['together'] = () => OpenAIProvider(
     name: 'together',
     displayName: 'Together AI',
     defaultModelNames: {
@@ -25,7 +17,7 @@ void main() async {
     apiKeyName: 'TOGETHER_API_KEY',
   );
 
-  Providers.providerMap['google-openai'] = OpenAIProvider(
+  Agent.providerFactories['google-openai'] = () => OpenAIProvider(
     name: 'google-openai',
     displayName: 'Google AI (OpenAI-compatible)',
     defaultModelNames: {
@@ -38,7 +30,7 @@ void main() async {
     apiKeyName: 'GEMINI_API_KEY',
   );
 
-  Providers.providerMap['ollama-openai'] = OpenAIProvider(
+  Agent.providerFactories['ollama-openai'] = () => OpenAIProvider(
     name: 'ollama-openai',
     displayName: 'Ollama (OpenAI-compatible)',
     defaultModelNames: {ModelKind.chat: 'llama3.2'},

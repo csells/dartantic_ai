@@ -24,7 +24,10 @@ import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 
-final typedOutputProviders = Providers.allWith({ProviderCaps.typedOutput});
+/// First provider that supports typed output (for single-provider tests)
+Provider get _typedOutputProvider => Agent.allProviders.firstWhere(
+  (p) => providerHasTestCaps(p.name, {ProviderTestCaps.typedOutput}),
+);
 
 void main() {
   group('Typed Output', timeout: const Timeout(Duration(minutes: 5)), () {
@@ -51,7 +54,7 @@ void main() {
           expect(json['name'], isA<String>());
           expect(json['age'], isA<int>());
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -98,7 +101,7 @@ void main() {
             expect(json['settings']['notifications'], isA<bool>());
           }
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -137,7 +140,7 @@ void main() {
           expect(json['items'][0]['name'], equals('Apple'));
           expect(json['items'][2]['name'], equals('Cherry'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -183,7 +186,7 @@ void main() {
             reason: 'Provider ${provider.name} should generate correct boolean',
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         timeout: const Timeout(Duration(minutes: 3)),
         skipProviders: {'together'},
       );
@@ -230,7 +233,7 @@ void main() {
           // Google returns "null" as a string instead of actual null
           expect(json['null_field'], anyOf(isNull, equals('null')));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -262,7 +265,7 @@ void main() {
           expect(json['status'], equals('approved'));
           expect(json['priority'], equals('high'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -293,7 +296,7 @@ void main() {
           expect(json['age'], lessThanOrEqualTo(150));
           expect(json['score'], equals(87.5));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'cohere', 'together'},
       );
     });
@@ -337,7 +340,7 @@ void main() {
             expect(json['children'][0]['age'], isA<int>());
           }
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -378,7 +381,7 @@ void main() {
           // valid
           expect(json['value'], anyOf(equals(42), equals('42')));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google', 'google-openai', 'together'},
       );
     });
@@ -413,7 +416,7 @@ void main() {
             equals('${provider.name} test'.toLowerCase()),
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
     });
@@ -450,7 +453,7 @@ void main() {
             reason: 'Provider ${provider.name} should return correct value',
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
     });
@@ -478,7 +481,7 @@ void main() {
 
           expect(result.output, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google', 'google-openai', 'together'},
         edgeCase: true,
       );
@@ -508,7 +511,7 @@ void main() {
           expect(number, lessThanOrEqualTo(20));
           expect(number, greaterThanOrEqualTo(10));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
       );
     });
@@ -552,7 +555,7 @@ void main() {
           expect(json['count'], equals(42));
           expect(messages, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
@@ -602,7 +605,7 @@ void main() {
           expect(json['users'][1]['active'], isFalse);
           expect(json['total'], equals(2));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
     });
@@ -631,31 +634,28 @@ void main() {
           expect(result.output['city'], equals('Paris'));
           expect(result.output['country'], equals('France'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
 
-      test(
-        'returns custom typed objects - ${typedOutputProviders.first.name}',
-        () async {
-          // Test with just one provider to save time
-          final provider = typedOutputProviders.first;
+      test('returns custom typed objects - single provider', () async {
+        // Test with just one provider to save time
+        final provider = _typedOutputProvider;
 
-          final agent = Agent(provider.name);
+        final agent = Agent(provider.name);
 
-          final result = await agent.sendFor<WeatherReport>(
-            'Create a weather report for London: 15C, cloudy, 70% humidity',
-            outputSchema: WeatherReport.schema,
-            outputFromJson: WeatherReport.fromJson,
-          );
+        final result = await agent.sendFor<WeatherReport>(
+          'Create a weather report for London: 15C, cloudy, 70% humidity',
+          outputSchema: WeatherReport.schema,
+          outputFromJson: WeatherReport.fromJson,
+        );
 
-          expect(result.output, isA<WeatherReport>());
-          expect(result.output.location, contains('London'));
-          expect(result.output.temperature, equals(15));
-          expect(result.output.conditions.toLowerCase(), equals('cloudy'));
-          expect(result.output.humidity, equals(70));
-        },
-      );
+        expect(result.output, isA<WeatherReport>());
+        expect(result.output.location, contains('London'));
+        expect(result.output.temperature, equals(15));
+        expect(result.output.conditions.toLowerCase(), equals('cloudy'));
+        expect(result.output.humidity, equals(70));
+      });
 
       runProviderTest(
         'handles nested custom types',
@@ -676,7 +676,7 @@ void main() {
           expect(result.output.preferences.theme, contains('dark'));
           expect(result.output.preferences.notifications, isTrue);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'together'},
       );
     });
@@ -764,7 +764,7 @@ void main() {
           expect(json['data']['pagination']['totalPages'], equals(5));
           expect(json['metadata']['version'], isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google-openai', 'together'},
       );
 
@@ -840,7 +840,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google-openai', 'together'},
       );
     });
@@ -873,7 +873,7 @@ void main() {
           expect(json['special'], contains('&'));
           expect(json['special'], contains('<>'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
         skipProviders: {'together'},
       );
@@ -909,7 +909,7 @@ void main() {
           expect(json['emptyObject'], isA<Map>());
           expect(json['emptyObject'], isEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
         skipProviders: {'google', 'google-openai', 'together'},
       );
@@ -940,7 +940,7 @@ void main() {
           expect(json['preciseFloat'].toString(), contains('3.14'));
           expect(json['scientificNotation'], greaterThan(1e20));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
         skipProviders: {'together'},
       );

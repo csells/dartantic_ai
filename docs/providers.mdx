@@ -69,13 +69,16 @@ Agent('openai-responses:gpt-5');
 
 ```dart
 // All providers
-Providers.all
+Agent.allProviders
 
-// By capability
-Providers.allWith({ProviderCaps.chatVision})
+// By name (returns fresh instance)
+Agent.createProvider('claude') // → anthropic provider
 
-// By name
-Providers.get('claude') // → anthropic
+// For runtime capability discovery, use Provider.listModels()
+final provider = Agent.createProvider('openai');
+await for (final model in provider.listModels()) {
+  print('${model.name}: ${model.kinds}'); // Shows chat, embeddings, media, etc.
+}
 ```
 
 ## Custom Config
@@ -90,31 +93,34 @@ Agent.forProvider(provider);
 
 ## Check Capabilities
 
-```dart
-// Check what a provider supports
-final agent = Agent('openrouter');
-print('Capabilities: ${provider.caps}');
-// Output: {chat, vision, toolCalls, streaming}
+Use `Provider.listModels()` for runtime capability discovery:
 
-// Check specific capability
-if (provider.caps.contains(ProviderCaps.embeddings)) {
+```dart
+// List models and their capabilities
+final provider = Agent.createProvider('openai');
+await for (final model in provider.listModels()) {
+  print('${model.name}: ${model.kinds}');
+  // Output: gpt-4o: {chat}, text-embedding-3-small: {embeddings}
+}
+
+// Check if a specific model supports embeddings
+final models = await provider.listModels().toList();
+final hasEmbeddings = models.any((m) => m.kinds.contains(ModelKind.embeddings));
+if (hasEmbeddings) {
+  final agent = Agent('openai');
   final embed = await agent.embedQuery('test');
 } else {
   print('Provider does not support embeddings');
 }
 ```
 
-### Available Capabilities
+### Model Kinds
+
+Models are categorized by their kind via `ModelKind`:
 
 - **`chat`** - Chat conversations
 - **`embeddings`** - Vector embeddings
-- **`chatVision`** - Image/file processing handled by the chat model
-- **`toolCalls`** - Function calling
-- **`multiToolCalls`** - Multiple tool calls
-- **`streaming`** - Stream responses
-- **`typedOutput`** - Structured JSON output
-- **`typedOutputWithTools`** - Structured output combined with tool calls
-- **`thinking`** - Provider streams reasoning metadata (OpenAI Responses, Anthropic, Google)
+- **`media`** - Media generation (images, documents, etc.)
 
 ### Typed Output With Tools
 
@@ -143,7 +149,7 @@ Google provider.
 
 ```dart
 // List all models from a provider
-final provider = Providers.openai;
+final provider = Agent.createProvider('openai');
 await for (final model in provider.listModels()) {
   final status = model.stable ? 'stable' : 'preview';
   print('${model.name}: ${model.displayName} [$status]');

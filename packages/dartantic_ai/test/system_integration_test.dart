@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -10,7 +11,6 @@
 /// This file tests cross-provider integration scenarios
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -26,7 +26,7 @@ void main() {
     runProviderTest(
       testName,
       testFunction,
-      requiredCaps: {ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.multiToolCalls},
       timeout: timeout,
     );
   }
@@ -588,7 +588,7 @@ function fibonacci(n) {
           expect(result.output, isNotEmpty);
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -612,18 +612,15 @@ function fibonacci(n) {
           final hasToolResults = result.messages.any((m) => m.hasToolResults);
           expect(hasToolResults, isTrue);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
     });
 
     group('integration patterns', () {
       test('custom provider registration and usage', () async {
-        // Create custom echo provider
-        final echoProvider = _EchoProvider();
-
-        // Register custom provider
-        Providers.providerMap['echo-test'] = echoProvider;
+        // Register custom provider with factory function
+        Agent.providerFactories['echo-test'] = _EchoProvider.new;
 
         // Use custom provider
         final agent = Agent('echo-test');
@@ -633,21 +630,18 @@ function fibonacci(n) {
         expect(result.messages, isNotEmpty);
 
         // Cleanup
-        Providers.providerMap.remove('echo-test');
+        Agent.providerFactories.remove('echo-test');
       });
 
       test('OpenAI-compatible custom provider pattern', () async {
-        // Create OpenAI-compatible provider with custom baseUrl
-        final customProvider = OpenAIProvider(
+        // Register OpenAI-compatible provider with custom baseUrl
+        Agent.providerFactories['custom-openai-test'] = () => OpenAIProvider(
           name: 'custom-openai-test',
           displayName: 'Custom OpenAI',
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           baseUrl: Uri.parse('https://api.openai.com/v1'),
           apiKeyName: 'OPENAI_API_KEY',
         );
-
-        // Register and use
-        Providers.providerMap['custom-openai-test'] = customProvider;
 
         final agent = Agent('custom-openai-test');
         final result = await agent.send('Hello from custom provider');
@@ -656,7 +650,7 @@ function fibonacci(n) {
         expect(result.messages, isNotEmpty);
 
         // Cleanup
-        Providers.providerMap.remove('custom-openai-test');
+        Agent.providerFactories.remove('custom-openai-test');
       });
     });
   });
@@ -695,7 +689,6 @@ class _EchoProvider
         name: 'echo-test',
         displayName: 'Echo Test Provider',
         defaultModelNames: {ModelKind.chat: 'echo'},
-        caps: {},
       );
 
   @override

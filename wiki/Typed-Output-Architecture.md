@@ -498,7 +498,7 @@ final result = await agent.runFor<Person>(
 
 ### Ollama Support
 
-As of `ollama_dart ^0.3.0`, Ollama supports JSON schema natively through the `GenerateChatCompletionRequestFormat.schema()` API. Ollama has the `ProviderCaps.typedOutput` capability, making typed output work seamlessly:
+As of `ollama_dart ^0.3.0`, Ollama supports JSON schema natively through the `GenerateChatCompletionRequestFormat.schema()` API. Ollama supports typed output natively, making structured output work seamlessly:
 
 ```dart
 final agent = Agent('ollama:qwen2.5:7b-instruct');

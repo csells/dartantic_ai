@@ -14,7 +14,6 @@
 import 'dart:math' as math;
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -23,9 +22,9 @@ void main() {
   group('Embeddings', () {
     group('basic embeddings', () {
       test('generates embeddings for single text', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
 
         final result = await model.embedQuery('Hello, world!');
         final embedding = result.embeddings;
@@ -36,9 +35,9 @@ void main() {
       });
 
       test('generates consistent embeddings for same text', () async {
-        final model = Providers.google.createEmbeddingsModel(
-          name: 'text-embedding-004',
-        );
+        final model = Agent.getProvider(
+          'google',
+        ).createEmbeddingsModel(name: 'text-embedding-004');
 
         final result1 = await model.embedQuery('Test consistency');
         final result2 = await model.embedQuery('Test consistency');
@@ -56,9 +55,9 @@ void main() {
       });
 
       test('generates different embeddings for different text', () async {
-        final model = Providers.mistral.createEmbeddingsModel(
-          name: 'mistral-embed',
-        );
+        final model = Agent.getProvider(
+          'mistral',
+        ).createEmbeddingsModel(name: 'mistral-embed');
 
         final result1 = await model.embedQuery('Hello');
         final result2 = await model.embedQuery('Goodbye');
@@ -79,9 +78,9 @@ void main() {
 
     group('batch embeddings', () {
       test('embeds multiple documents', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
 
         final documents = [
           'First document',
@@ -103,9 +102,9 @@ void main() {
       });
 
       test('handles empty document list', () async {
-        final model = Providers.google.createEmbeddingsModel(
-          name: 'text-embedding-004',
-        );
+        final model = Agent.getProvider(
+          'google',
+        ).createEmbeddingsModel(name: 'text-embedding-004');
 
         final result = await model.embedDocuments([]);
         final embeddings = result.embeddings;
@@ -114,9 +113,9 @@ void main() {
       });
 
       test('handles large batches', () async {
-        final model = Providers.cohere.createEmbeddingsModel(
-          name: 'embed-english-v3.0',
-        );
+        final model = Agent.getProvider(
+          'cohere',
+        ).createEmbeddingsModel(name: 'embed-english-v3.0');
 
         final documents = List.generate(20, (i) => 'Document number $i');
 
@@ -139,9 +138,9 @@ void main() {
 
     group('similarity calculations', () {
       test('calculates similarity between related texts', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
 
         final result1 = await model.embedQuery('cat');
         final result2 = await model.embedQuery('kitten');
@@ -167,9 +166,9 @@ void main() {
       });
 
       test('finds most similar document', () async {
-        final model = Providers.google.createEmbeddingsModel(
-          name: 'text-embedding-004',
-        );
+        final model = Agent.getProvider(
+          'google',
+        ).createEmbeddingsModel(name: 'text-embedding-004');
 
         const query = 'programming language';
         final documents = [
@@ -217,12 +216,12 @@ void main() {
     group('vector dimensions', () {
       test('respects different embedding dimensions', () async {
         // OpenAI supports different dimensions
-        final smallModel = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
-        final largeModel = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-large',
-        );
+        final smallModel = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
+        final largeModel = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-large');
 
         final smallResult = await smallModel.embedQuery('Test');
         final largeResult = await largeModel.embedQuery('Test');
@@ -239,7 +238,7 @@ void main() {
       });
 
       test('handles custom dimensions when supported', () async {
-        final model = Providers.openai.createEmbeddingsModel(
+        final model = Agent.getProvider('openai').createEmbeddingsModel(
           name: 'text-embedding-3-small',
           options: const OpenAIEmbeddingsModelOptions(
             dimensions: 512, // Custom dimension
@@ -254,9 +253,9 @@ void main() {
 
     group('special cases', () {
       test('handles empty strings', () async {
-        final model = Providers.mistral.createEmbeddingsModel(
-          name: 'mistral-embed',
-        );
+        final model = Agent.getProvider(
+          'mistral',
+        ).createEmbeddingsModel(name: 'mistral-embed');
 
         final result = await model.embedQuery('');
         final embedding = result.embeddings;
@@ -267,9 +266,9 @@ void main() {
       });
 
       test('handles very long text', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
 
         final longText = 'Lorem ipsum ' * 1000; // Very long text
 
@@ -282,9 +281,9 @@ void main() {
       });
 
       test('handles special characters and unicode', () async {
-        final model = Providers.google.createEmbeddingsModel(
-          name: 'text-embedding-004',
-        );
+        final model = Agent.getProvider(
+          'google',
+        ).createEmbeddingsModel(name: 'text-embedding-004');
 
         const specialText = r'👋 Hello 世界! Special chars: @#$%^&*()';
 
@@ -298,9 +297,9 @@ void main() {
 
     group('normalization', () {
       test('produces normalized vectors', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'text-embedding-3-small');
 
         final result = await model.embedQuery('Test normalization');
         final embedding = result.embeddings;
@@ -317,9 +316,9 @@ void main() {
 
     group('error handling', () {
       test('handles invalid model names', () async {
-        final model = Providers.openai.createEmbeddingsModel(
-          name: 'invalid-model-xyz',
-        );
+        final model = Agent.getProvider(
+          'openai',
+        ).createEmbeddingsModel(name: 'invalid-model-xyz');
 
         expect(() async => model.embedQuery('Test'), throwsException);
       });
@@ -327,9 +326,9 @@ void main() {
       test('handles network errors gracefully', () async {
         // This test would need a mock or test server
         // For now, just verify the API structure
-        final model = Providers.cohere.createEmbeddingsModel(
-          name: 'embed-english-v3.0',
-        );
+        final model = Agent.getProvider(
+          'cohere',
+        ).createEmbeddingsModel(name: 'embed-english-v3.0');
 
         expect(model, isA<EmbeddingsModel>());
       });
@@ -369,7 +368,7 @@ void main() {
             reason: 'Provider ${provider.name} should produce sizable vectors',
           );
         },
-        requiredCaps: {ProviderCaps.embeddings},
+        requiredCaps: {ProviderTestCaps.embeddings},
       );
     });
   });

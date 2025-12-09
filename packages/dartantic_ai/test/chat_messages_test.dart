@@ -62,7 +62,7 @@ void main() {
             reason: 'Provider ${provider.name} should respond correctly',
           );
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -194,7 +194,7 @@ void main() {
                 'conversation context',
           );
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -254,7 +254,7 @@ void main() {
             reason: 'Provider ${provider.name} should stream complete response',
           );
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -287,7 +287,7 @@ void main() {
             reason: 'Provider ${provider.name} should respond correctly',
           );
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         timeout: const Timeout(Duration(seconds: 30)),
       );
     });

@@ -219,7 +219,7 @@ void main() {
           expect(json['message'], contains('valid'));
           expect(json['access_level'], equals('admin'));
         },
-        requiredCaps: {ProviderCaps.typedOutputWithTools},
+        requiredCaps: {ProviderTestCaps.typedOutputWithTools},
         timeout: const Timeout(Duration(seconds: 60)),
       );
     });
@@ -317,7 +317,7 @@ void main() {
 
           // Validate full conversation history follows correct pattern
         },
-        requiredCaps: {ProviderCaps.typedOutputWithTools},
+        requiredCaps: {ProviderTestCaps.typedOutputWithTools},
         timeout: const Timeout(Duration(seconds: 60)),
       );
     });

@@ -4,7 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 void main() {
   assert(
-    Providers.anthropic.defaultModelNames[ModelKind.chat] ==
+    Agent.getProvider('anthropic').defaultModelNames[ModelKind.chat] ==
         'claude-sonnet-4-0',
   );
 

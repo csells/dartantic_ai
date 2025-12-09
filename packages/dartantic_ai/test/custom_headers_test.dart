@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -34,8 +35,8 @@ void main() {
     });
 
     test('OpenAI Responses provider stores custom headers', () async {
-      // OpenAI Responses uses openai_core SDK which wraps HTTP differently,
-      // so we verify headers are stored on the provider instead
+      // OpenAI Responses uses openai_core SDK which wraps HTTP differently, so
+      // we verify headers are stored on the provider instead
       const customHeaders = {'X-Custom-Header': 'test-value'};
       final provider = OpenAIResponsesProvider(
         apiKey: 'test-key',
@@ -50,8 +51,8 @@ void main() {
     });
 
     test('custom headers override internal headers', () async {
-      // Test that custom headers can override internal headers
-      // Using Google since it has a known internal header (x-goog-api-key)
+      // Test that custom headers can override internal headers Using Google
+      // since it has a known internal header (x-goog-api-key)
       final captureClient = HeaderCapturingHttpClient();
       const customApiKey = 'custom-api-key-override';
 
@@ -99,7 +100,7 @@ Future<void> _testProviderHeaders(String providerName) async {
   const customValue = 'test-value-12345';
 
   // Get the base provider for API key
-  final baseProvider = Providers.get(providerName);
+  final baseProvider = Agent.getProvider(providerName);
 
   // Create provider with custom headers
   final customHeaders = {customHeader: customValue};
@@ -181,8 +182,8 @@ Future<void> _testProviderHeaders(String providerName) async {
   try {
     await model.sendStream([ChatMessage.user('Say "hi"')]).drain<void>();
   } on Object {
-    // Request may fail for various reasons (Ollama not running, etc.)
-    // but we still capture headers from the attempt
+    // Request may fail for various reasons (Ollama not running, etc.) but we
+    // still capture headers from the attempt
   }
 
   // Verify headers were passed to the HTTP request

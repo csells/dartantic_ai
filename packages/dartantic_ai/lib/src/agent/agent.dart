@@ -7,8 +7,14 @@ import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
 import '../platform/platform.dart';
+import '../providers/anthropic_provider.dart';
 import '../providers/chat_orchestrator_provider.dart';
-import '../providers/providers.dart';
+import '../providers/cohere_provider.dart';
+import '../providers/google_provider.dart';
+import '../providers/mistral_provider.dart';
+import '../providers/ollama_provider.dart';
+import '../providers/openai_provider.dart';
+import '../providers/openai_responses_provider.dart';
 import 'agent_response_accumulator.dart';
 import 'media_response_accumulator.dart';
 import 'model_string_parser.dart';
@@ -71,7 +77,7 @@ class Agent {
     _displayName = displayName;
 
     // Store provider and model parameters
-    _provider = Providers.get(providerName);
+    _provider = Agent.getProvider(providerName);
 
     _chatModelName = chatModelName;
     _embeddingsModelName = embeddingsModelName;
@@ -596,5 +602,96 @@ class Agent {
     if (level != null) loggingOptions = LoggingOptions(level: level);
 
     _loggingEnvironmentChecked = true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Provider Factory Registry
+  // -------------------------------------------------------------------------
+
+  /// Factory functions for creating provider instances.
+  ///
+  /// Maps provider names (and aliases) to factory functions that create fresh
+  /// provider instances. Add custom providers by assigning to this map.
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent.providerFactories['my-provider'] = () => MyProvider();
+  /// final agent = Agent('my-provider:my-model');
+  /// ```
+  static final Map<String, Provider Function()> providerFactories = {
+    // OpenAI
+    'openai': OpenAIProvider.new,
+
+    // OpenAI Responses
+    'openai-responses': OpenAIResponsesProvider.new,
+
+    // Anthropic
+    'anthropic': AnthropicProvider.new,
+    'claude': AnthropicProvider.new,
+
+    // Google
+    'google': GoogleProvider.new,
+    'gemini': GoogleProvider.new,
+    'googleai': GoogleProvider.new,
+    'google-gla': GoogleProvider.new,
+
+    // Mistral
+    'mistral': MistralProvider.new,
+    'mistralai': MistralProvider.new,
+
+    // Cohere
+    'cohere': CohereProvider.new,
+
+    // Ollama
+    'ollama': OllamaProvider.new,
+
+    // OpenRouter
+    'openrouter': _createOpenRouterProvider,
+  };
+
+  static Provider _createOpenRouterProvider() => OpenAIProvider(
+    name: 'openrouter',
+    displayName: 'OpenRouter',
+    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
+    baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
+    apiKeyName: 'OPENROUTER_API_KEY',
+  );
+
+  /// Creates a new provider instance by name or alias (case-insensitive).
+  ///
+  /// Each call creates a fresh provider instance - providers are not cached.
+  /// Throws [Exception] if the provider name is not found.
+  ///
+  /// Example:
+  /// ```dart
+  /// final openai = Agent.createProvider('openai');
+  /// final anthropic = Agent.createProvider('claude'); // alias
+  /// ```
+  static Provider getProvider(String name) {
+    final providerName = name.toLowerCase();
+    final factory = providerFactories[providerName];
+    if (factory == null) {
+      throw Exception(
+        'Provider "$providerName" not found. '
+        'Available providers: ${providerFactories.keys.join(', ')}',
+      );
+    }
+    return factory();
+  }
+
+  /// Returns a list of all available providers (creates fresh instances).
+  ///
+  /// NOTE: Filters out aliases to avoid duplicate providers in the list.
+  static List<Provider> get allProviders {
+    final seen = <String>{};
+    final providers = <Provider>[];
+    for (final entry in providerFactories.entries) {
+      final provider = entry.value();
+      if (!seen.contains(provider.name)) {
+        seen.add(provider.name);
+        providers.add(provider);
+      }
+    }
+    return providers;
   }
 }

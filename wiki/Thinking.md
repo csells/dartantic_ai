@@ -639,7 +639,7 @@ Tests should cover the following functional areas across all thinking-enabled pr
 - Non-streaming thinking in result metadata
 - Thinking NOT included in conversation history (except Anthropic with tools)
 - Thinking with tool calls
-- Provider capability declarations (`ProviderCaps.thinking`)
+- Provider thinking support (test infrastructure uses `ProviderTestCaps.thinking`)
 - Unsupported providers throw `UnsupportedError` when `enableThinking=true`
 
 **Test Organization:**
@@ -653,9 +653,9 @@ Tests should cover the following functional areas across all thinking-enabled pr
 
 When implementing thinking support for a new provider:
 
-1. **Declare Capability**
-   - Add `ProviderCaps.thinking` to the provider's capability set
-   - This enables capability-based test filtering
+1. **Declare Capability for Tests**
+   - Add `ProviderTestCaps.thinking` to the provider's entry in `providerTestCaps`
+   - This enables capability-based test filtering in the test infrastructure
 
 2. **Accept `enableThinking` Parameter**
    - Add `bool enableThinking = false` parameter to `Provider.createChatModel()`
@@ -706,7 +706,7 @@ When implementing thinking support for a new provider:
 
 Provider implementations should validate thinking configuration:
 
-- **Unsupported provider**: Throw `UnsupportedError` in `createChatModel()` when `enableThinking=true` for providers without `ProviderCaps.thinking`
+- **Unsupported provider**: Throw `UnsupportedError` in `createChatModel()` when `enableThinking=true` for providers that don't support thinking
 - **Budget constraints**: Validate token budgets against provider-specific minimums and maximums
 - **Invalid parameter combinations**: Enforce provider-specific restrictions (e.g., Anthropic's temperature constraints)
 - **Clear error messages**: Include which providers DO support thinking in error messages

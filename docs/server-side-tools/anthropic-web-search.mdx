@@ -1,0 +1,60 @@
+---
+title: Anthropic Web Search
+description: "Search the web using Anthropic's server-side search tool."
+---
+
+Anthropic's web search tool allows Claude to search the web and incorporate
+real-time information into responses.
+
+## Enable Web Search
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+```
+
+## Usage
+
+```dart
+await for (final chunk in agent.sendStream(
+  'Search the web for the three most recent announcements '
+  'about the Dart programming language and summarize them.',
+)) {
+  stdout.write(chunk.output);
+}
+```
+
+The model automatically decides when to search based on the query. Search
+results are incorporated directly into the response with citations.
+
+## Streaming Metadata
+
+Web search events stream through `metadata['web_search']`:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  stdout.write(chunk.output);
+
+  final events = chunk.metadata['web_search'] as List?;
+  if (events != null) {
+    for (final event in events) {
+      stdout.writeln('[search] ${event['type']}');
+    }
+  }
+}
+```
+
+## Example
+
+- [Anthropic Web Search
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_web_search.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [Web Fetch](/server-side-tools/anthropic-web-fetch)
+- [Code Interpreter](/server-side-tools/anthropic-code-interpreter)

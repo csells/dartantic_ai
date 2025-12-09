@@ -17,7 +17,6 @@ class DummyProvider
         name: 'dummy',
         displayName: 'Dummy',
         defaultModelNames: const {ModelKind.chat: 'test-model'},
-        caps: const {ProviderCaps.chat},
       );
 
   DummyChatModel? lastModel;
@@ -124,7 +123,6 @@ class WrapperProvider
         defaultModelNames: {
           ModelKind.chat: base.defaultModelNames[ModelKind.chat] ?? 'model',
         },
-        caps: base.caps,
         aliases: base.aliases,
       );
 
@@ -291,7 +289,7 @@ void main() {
         );
         expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
       },
-      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.chat, ProviderTestCaps.multiToolCalls},
     );
 
     final outputSchema = JsonSchema.create({
@@ -327,7 +325,7 @@ void main() {
         );
         expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
       },
-      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.chat, ProviderTestCaps.multiToolCalls},
     );
   });
 }

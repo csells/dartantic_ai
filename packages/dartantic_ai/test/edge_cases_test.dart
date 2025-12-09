@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -87,7 +88,7 @@ void main() {
           final result = await agent.send('Hello');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -108,7 +109,7 @@ void main() {
           expect(streamStarted, isTrue);
           expect(streamCompleted, isTrue);
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -123,7 +124,7 @@ void main() {
 
           expect(stopwatch.elapsedMilliseconds, lessThan(120000));
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -143,7 +144,7 @@ void main() {
           expect(results[0].output, isA<String>());
           expect(results[1].output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -158,7 +159,7 @@ void main() {
           expect(result.output, isA<String>());
           expect(result.messages, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -171,7 +172,7 @@ void main() {
           final result = await agent.send('Echo: $specialInput');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -184,7 +185,7 @@ void main() {
           final result = await agent.send('Repeat: $unicodeInput');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -197,7 +198,7 @@ void main() {
           expect(result.output, isA<String>());
           expect(result.output.isNotEmpty, isTrue);
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
     });

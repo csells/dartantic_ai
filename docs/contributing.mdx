@@ -86,7 +86,7 @@ All tests should pass before you make any changes.
 #### Testing Best Practices
 
 1. **No Exception Hiding**: Let exceptions bubble up for diagnosis
-2. **Provider Filtering**: Only filter by capabilities (e.g., `ProviderCaps`)
+2. **Provider Filtering**: Only filter by test capabilities (e.g., `ProviderTestCaps` in `run_provider_test.dart`)
 3. **80/20 Rule**: Test common cases across all providers, edge cases on Google only
 4. **No Duplication**: Each functionality should be tested in ONE file only
 

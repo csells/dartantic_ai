@@ -8,8 +8,7 @@ This guide shows the correct patterns for implementing providers and models in d
 3. Use `super.baseUrl` in constructor (not `baseUrl: baseUrl`)
 4. Pass `baseUrl ?? defaultBaseUrl` to models in create methods
 5. Models should accept required `Uri baseUrl` from provider
-6. Implement `createMediaModel` (or throw `UnsupportedError`) when
-   advertising `ProviderCaps.mediaGeneration`
+6. Implement `createMediaModel` (or throw `UnsupportedError`) for providers supporting media generation
 
 ## Provider Implementation Pattern
 
@@ -46,15 +45,6 @@ class ExampleProvider extends Provider<
           defaultModelNames: const {
             ModelKind.chat: 'example-chat-v1',
             ModelKind.embeddings: 'example-embed-v1',
-          },
-          caps: const {
-            ProviderCaps.chat,
-            ProviderCaps.embeddings,
-            ProviderCaps.streaming,
-            ProviderCaps.tools,
-            ProviderCaps.multiToolCalls,
-            ProviderCaps.typedOutput,
-            ProviderCaps.chatVision,
           },
         );
 
@@ -151,9 +141,8 @@ class ExampleProvider extends Provider<
     List<Tool>? tools,
     ExampleMediaOptions? options,
   }) {
-    if (!caps.contains(ProviderCaps.mediaGeneration)) {
-      throw UnsupportedError('Media generation is not supported');
-    }
+    // Providers that don't support media generation should throw:
+    // throw UnsupportedError('Media generation is not supported');
 
     final modelName = name ?? defaultModelNames[ModelKind.media]!;
     return ExampleMediaModel(
@@ -304,13 +293,6 @@ class LocalProvider extends Provider<LocalChatOptions, EmbeddingsModelOptions> {
     apiKeyName: null,  // No API key needed
     defaultModelNames: const {
       ModelKind.chat: 'llama3.2',
-    },
-    caps: const {
-      ProviderCaps.chat,
-      ProviderCaps.streaming,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.chatVision,
     },
     baseUrl: null,  // No base URL override in constructor
     apiKey: null,
@@ -639,17 +621,8 @@ gl.GenerateContentRequest _buildRequest(
 4. **Text Suppression**: Override `allowTextStreaming()` to control when text is streamed to the user
 5. **Clean Separation**: The orchestrator handles workflow logic; the model handles API communication
 
-### Provider Capabilities
+### Test Capability Registration
 
-When implementing a double agent pattern, declare the appropriate capability:
+When implementing a provider with advanced features like double agent pattern, ensure the provider is registered in the test capability mapping (`test/test_helpers/run_provider_test.dart`) with appropriate capabilities like `ProviderTestCaps.typedOutputWithTools`. This ensures the provider is included in tests that verify tools + typed output functionality.
 
-```dart
-caps: {
-  ProviderCaps.chat,
-  ProviderCaps.tools,
-  ProviderCaps.typedOutput,
-  ProviderCaps.typedOutputWithTools, // Declare this capability
-},
-```
-
-This ensures the provider is included in tests that verify tools + typed output functionality.
+Note: Provider capabilities (`ProviderTestCaps`) are test-only and describe what the default model supports for testing. They are NOT part of the public API.

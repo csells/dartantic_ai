@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -66,33 +67,41 @@ void main() {
     });
 
     group('tool execution orchestration (80% cases)', () {
-      runProviderTest('single tool orchestration', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool]);
+      runProviderTest(
+        'single tool orchestration',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool]);
 
-        final result = await agent.send(
-          'Use string_tool with input "orchestration test"',
-        );
+          final result = await agent.send(
+            'Use string_tool with input "orchestration test"',
+          );
 
-        // Should orchestrate tool call and response
-        expect(result.output, isNotEmpty);
-        expect(result.messages.any((m) => m.hasToolCalls), isTrue);
-        expect(result.messages.any((m) => m.hasToolResults), isTrue);
-      }, requiredCaps: {ProviderCaps.multiToolCalls});
+          // Should orchestrate tool call and response
+          expect(result.output, isNotEmpty);
+          expect(result.messages.any((m) => m.hasToolCalls), isTrue);
+          expect(result.messages.any((m) => m.hasToolResults), isTrue);
+        },
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
+      );
 
-      runProviderTest('multi-tool orchestration', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool, intTool]);
+      runProviderTest(
+        'multi-tool orchestration',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
-        final result = await agent.send(
-          'First use string_tool with "hello", then use int_tool with 42',
-        );
+          final result = await agent.send(
+            'First use string_tool with "hello", then use int_tool with 42',
+          );
 
-        // Should orchestrate multiple tools
-        expect(result.output, isNotEmpty);
-        final toolResults = result.messages
-            .expand((m) => m.toolResults)
-            .toList();
-        expect(toolResults.length, greaterThanOrEqualTo(2));
-      }, requiredCaps: {ProviderCaps.multiToolCalls});
+          // Should orchestrate multiple tools
+          expect(result.output, isNotEmpty);
+          final toolResults = result.messages
+              .expand((m) => m.toolResults)
+              .toList();
+          expect(toolResults.length, greaterThanOrEqualTo(2));
+        },
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
+      );
 
       runProviderTest(
         'tool error handling orchestration',
@@ -110,7 +119,7 @@ void main() {
             anyOf(contains('error'), contains('failed'), contains('problem')),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
     });
 
@@ -198,7 +207,7 @@ void main() {
             anyOf(contains('1234'), contains('order')),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
     });
 
@@ -265,7 +274,7 @@ void main() {
               .toList();
           expect(toolResults, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -287,7 +296,7 @@ void main() {
               .toList();
           expect(toolResults.length, greaterThanOrEqualTo(2));
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
     });

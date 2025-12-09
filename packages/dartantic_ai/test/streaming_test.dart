@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -25,7 +26,7 @@ void main() {
     group('basic streaming responses (80% cases)', () {
       runProviderTest(
         'simple streaming works',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final chunks = <String>[];
@@ -43,7 +44,7 @@ void main() {
 
       runProviderTest(
         'streaming preserves message order',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final chunks = <String>[];
@@ -71,7 +72,7 @@ void main() {
 
       runProviderTest(
         'streaming accumulates correctly',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final chunks = <String>[];
@@ -129,39 +130,44 @@ void main() {
             ),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
 
-      runProviderTest('streams multiple tool calls', (provider) async {
-        final agent = Agent(provider.name, tools: [stringTool, intTool]);
+      runProviderTest(
+        'streams multiple tool calls',
+        (provider) async {
+          final agent = Agent(provider.name, tools: [stringTool, intTool]);
 
-        final result = await agent.send(
-          'Draft a quick warehouse update. '
-          'Call string_tool with "hello" to greet the team, then call int_tool '
-          'with 42 to report how many packages shipped today. Summarise both '
-          'tool results in your reply.',
-        );
+          final result = await agent.send(
+            'Draft a quick warehouse update. '
+            'Call string_tool with "hello" to greet the team, then call '
+            'int_tool with 42 to report how many packages shipped today. '
+            'Summarise both tool results in your reply.',
+          );
 
-        // Should see evidence of both tools being used
-        expect(result.output, isNotEmpty);
-        final toolResults = result.messages
-            .expand((m) => m.toolResults)
-            .toList();
-        expect(
-          toolResults.any(
-            (r) =>
-                r.name == 'string_tool' &&
-                r.result.toString().toLowerCase().contains('hello'),
-          ),
-          isTrue,
-        );
-        expect(
-          toolResults.any(
-            (r) => r.name == 'int_tool' && (r.result == 42 || r.result == '42'),
-          ),
-          isTrue,
-        );
-      }, requiredCaps: {ProviderCaps.multiToolCalls});
+          // Should see evidence of both tools being used
+          expect(result.output, isNotEmpty);
+          final toolResults = result.messages
+              .expand((m) => m.toolResults)
+              .toList();
+          expect(
+            toolResults.any(
+              (r) =>
+                  r.name == 'string_tool' &&
+                  r.result.toString().toLowerCase().contains('hello'),
+            ),
+            isTrue,
+          );
+          expect(
+            toolResults.any(
+              (r) =>
+                  r.name == 'int_tool' && (r.result == 42 || r.result == '42'),
+            ),
+            isTrue,
+          );
+        },
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
+      );
 
       runProviderTest(
         'tool streaming preserves order',
@@ -192,14 +198,14 @@ void main() {
             ),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
     });
 
     group('multi-turn streaming (80% cases)', () {
       runProviderTest(
         'streaming with conversation history',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final history = <ChatMessage>[];
@@ -226,7 +232,7 @@ void main() {
 
       runProviderTest(
         'multi-turn streaming maintains context',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider, {timeout = const Timeout(Duration(seconds: 60))}) async {
           // Skip for Cohere - same conversation history issue as above
           final agent = Agent(provider.name);
@@ -282,58 +288,62 @@ void main() {
         },
       );
 
-      runProviderTest('streaming with tool history', (provider) async {
-        // Skip for Cohere - inconsistent tool history behavior (fails ~10% of
-        // the time) Tested with both our package and curl - Cohere
-        // intermittently fails to reference previous tool results in
-        // conversation history.
-        //
-        // Curl command that demonstrates the issue: curl -X POST
-        // https://api.cohere.com/v2/chat \
-        //   -H "Authorization: bearer $COHERE_API_KEY" \
-        //   -H "Content-Type: application/json" \
-        //   -d '{ "model": "command-r-plus", "messages": [ {"role": "user",
-        //     "content": "Use int_tool with 100"}, {"role": "assistant",
-        //     "tool_calls": [{"id": "call_test", "type": "function",
-        //     "function": {"name": "int_tool", "arguments": "{\"value\":
-        //     100}"}}]}, {"role": "tool", "tool_call_id": "call_test",
-        //     "content": "100"}, {"role": "assistant", "content": "Sure,
-        //     100."}, {"role": "user", "content": "What was the result of the
-        //     calculation?"}
-        //     ]
-        //   }'
-        // Expected: Response mentioning "100" Actual: Sometimes "The result was
-        // 100", sometimes "Sorry, I can't find the result"
-        final agent = Agent(provider.name, tools: [intTool]);
-        final history = <ChatMessage>[];
+      runProviderTest(
+        'streaming with tool history',
+        (provider) async {
+          // Skip for Cohere - inconsistent tool history behavior (fails ~10% of
+          // the time) Tested with both our package and curl - Cohere
+          // intermittently fails to reference previous tool results in
+          // conversation history.
+          //
+          // Curl command that demonstrates the issue: curl -X POST
+          // https://api.cohere.com/v2/chat \
+          //   -H "Authorization: bearer $COHERE_API_KEY" \
+          //   -H "Content-Type: application/json" \
+          //   -d '{ "model": "command-r-plus", "messages": [ {"role": "user",
+          //     "content": "Use int_tool with 100"}, {"role": "assistant",
+          //     "tool_calls": [{"id": "call_test", "type": "function",
+          //     "function": {"name": "int_tool", "arguments": "{\"value\":
+          //     100}"}}]}, {"role": "tool", "tool_call_id": "call_test",
+          //     "content": "100"}, {"role": "assistant", "content": "Sure,
+          //     100."}, {"role": "user", "content": "What was the result of the
+          //     calculation?"}
+          //     ]
+          //   }'
+          // Expected: Response mentioning "100" Actual: Sometimes "The result
+          // was 100", sometimes "Sorry, I can't find the result"
+          final agent = Agent(provider.name, tools: [intTool]);
+          final history = <ChatMessage>[];
 
-        // First turn - use tool
-        final result = await agent.send(
-          'Use int_tool with 100',
-          history: history,
-        );
-        history.addAll(result.messages);
+          // First turn - use tool
+          final result = await agent.send(
+            'Use int_tool with 100',
+            history: history,
+          );
+          history.addAll(result.messages);
 
-        // Second turn - stream reference to previous tool use
-        final chunks = <String>[];
-        await for (final chunk in agent.sendStream(
-          'Earlier you used int_tool with 100. '
-          'Remind me of that result and include the exact number '
-          'in your reply.',
-          history: history,
-        )) {
-          chunks.add(chunk.output);
-        }
+          // Second turn - stream reference to previous tool use
+          final chunks = <String>[];
+          await for (final chunk in agent.sendStream(
+            'Earlier you used int_tool with 100. '
+            'Remind me of that result and include the exact number '
+            'in your reply.',
+            history: history,
+          )) {
+            chunks.add(chunk.output);
+          }
 
-        final fullText = chunks.join();
-        expect(fullText, contains('100'));
-      }, requiredCaps: {ProviderCaps.multiToolCalls});
+          final fullText = chunks.join();
+          expect(fullText, contains('100'));
+        },
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
+      );
     });
 
     group('edge cases', () {
       runProviderTest(
         'handles stream interruption gracefully',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final chunks = <String>[];
@@ -357,7 +367,7 @@ void main() {
 
       runProviderTest(
         'accumulates very long streams',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
           final chunks = <String>[];

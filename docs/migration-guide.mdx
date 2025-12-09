@@ -4,6 +4,63 @@ title: Migration Guide
 
 ## Migrating from 1.x to 2.0.0
 
+### Provider Factory Registry
+
+Provider lookup has been moved from the `Providers` class to `Agent` static
+methods. Providers are now created via factory functions (not cached instances).
+
+#### Old Code
+```dart
+// Get provider by name
+final provider = Providers.get('openai');
+
+// Get all providers
+final allProviders = Providers.all;
+
+// No longer available - use Provider.listModels() for runtime capability discovery
+
+// Register custom provider
+Providers.providerMap['custom'] = MyProvider();
+```
+
+#### New Code
+```dart
+// Get provider by name (creates fresh instance)
+final provider = Agent.createProvider('openai');
+
+// Get all providers
+final allProviders = Agent.allProviders;
+
+// Filter by capability - use Provider.listModels() for runtime capability discovery
+// ProviderCaps removed - capabilities are now model-specific, not provider-wide
+
+// Register custom provider factory
+Agent.providerFactories['custom'] = MyProvider.new;
+```
+
+### Google JSON Schema Support
+
+Google's Gemini API now uses native JSON Schema support via `responseJsonSchema`
+instead of the custom Schema object conversion. This enables better support for
+complex schemas including `anyOf`, `$ref`, and other JSON Schema features.
+
+This is an internal change - no code changes required for users.
+
+### Google Function Calling Mode
+
+Added `functionCallingMode` and `allowedFunctionNames` options to
+`GoogleChatModelOptions` for controlling tool/function calling behavior.
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    functionCallingMode: GoogleFunctionCallingMode.any, // Force tool calls
+    allowedFunctionNames: ['get_weather'], // Limit to specific functions
+  ),
+);
+```
+
 ### Google Chat Options: Server-Side Tools
 
 The `enableCodeExecution` option has been replaced by a unified
@@ -114,28 +171,27 @@ This is a list of changes (some of them breaking) to help you migrate. And as
 long as this list is, I'm sure I've missed some. If you find something that's
 not here, please let me know!
 
-### Dynamic => Static Provider instances
+### Dynamic => Static Provider factories
 
-Provider instances are now static, so you can use the `Providers` class to get
-them by name or alias:
+Provider access has moved to `Agent` static methods:
 
 ```dart
-// OLD
+// OLD (0.9.7)
 final provider = OpenAiProvider();
 final providerFactory = Agent.providers['google'];
 final providerFactoryByAlias = Agent.providers['gemini'];
 
-// NEW
-final provider1 = Providers.openai;
-final provider2 = Providers.get('google');
-final provider3 = Providers.get('gemini');
+// NEW (2.0.0)
+final provider1 = Agent.createProvider('openai');
+final provider2 = Agent.createProvider('google');
+final provider3 = Agent.createProvider('gemini');
 ```
 
 If you'd like to extend the list of providers dynamically at runtime, you can
-use the `providerMap` property of the `Providers` class:
+use the `providerFactories` map on the `Agent` class:
 
 ```dart
-Providers.providerMap['my-provider'] = MyProvider();
+Agent.providerFactories['my-provider'] = MyProvider.new;
 ```
 
 ### Agent.runXxx => Agent.sendXxx
@@ -180,7 +236,7 @@ clarity:
 final agent = Agent.provider(OpenAiProvider());
 
 // NEW
-final agent = Agent.forProvider(Providers.anthropic);
+final agent = Agent.forProvider(Agent.createProvider('anthropic'));
 ```
 
 ### Message => ChatMessage
@@ -382,8 +438,8 @@ The `Agent.sendForXxx` method now supports specifying the output type of the
 tool call:
 
 ```dart
-final provider = Providers.openai;
-assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
+final provider = Agent.createProvider('openai');
+// Note: ProviderCaps removed - capabilities are now model-specific
 
 // tools
 final agent = Agent.forProvider(

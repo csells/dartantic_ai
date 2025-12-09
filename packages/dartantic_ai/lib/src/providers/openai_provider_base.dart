@@ -18,7 +18,6 @@ abstract class OpenAIProviderBase<
     required super.name,
     required super.displayName,
     required super.defaultModelNames,
-    required super.caps,
     super.baseUrl,
     super.apiKeyName,
     super.apiKey,

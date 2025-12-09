@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -69,7 +70,7 @@ void main() {
 
       runProviderTest(
         'track usage correctly',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
 
@@ -90,8 +91,8 @@ void main() {
             reason: 'Provider ${provider.name} MUST track total tokens',
           );
 
-          // Providers should ideally provide prompt and response tokens
-          // but at minimum must provide total tokens
+          // Providers should ideally provide prompt and response tokens but at
+          // minimum must provide total tokens
           if (result.usage!.promptTokens != null &&
               result.usage!.responseTokens != null) {
             expect(
@@ -214,7 +215,7 @@ void main() {
 
       runProviderTest(
         'streaming provides usage',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final agent = Agent(provider.name);
 
@@ -378,7 +379,7 @@ void main() {
             expect(result.usage!.totalTokens, greaterThanOrEqualTo(0));
           }
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -392,7 +393,7 @@ void main() {
             expect(result.usage!.promptTokens, greaterThan(0));
           }
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
     });

@@ -6,9 +6,6 @@ import '../media/media_generation_model.dart';
 import '../media/media_generation_model_options.dart';
 import '../model/model.dart';
 import '../tool.dart';
-import 'provider_caps.dart';
-
-export 'provider_caps.dart';
 
 /// Provides a unified interface for accessing all major LLM, chat, and
 /// embedding providers in dartantic_ai.
@@ -41,7 +38,6 @@ abstract class Provider<
     required this.name,
     required this.displayName,
     required this.defaultModelNames,
-    required this.caps,
     this.apiKey,
     this.baseUrl,
     this.apiKeyName,
@@ -74,9 +70,6 @@ abstract class Provider<
   ///
   /// These headers will override internal headers if there's a conflict.
   final Map<String, String> headers;
-
-  /// The capabilities of this provider.
-  final Set<ProviderCaps> caps;
 
   /// Returns all available models for this provider.
   ///

@@ -111,7 +111,7 @@ Each provider has its own configuration that defines:
 - **`baseUrl`**: The API endpoint (nullable - uses model's default if not set)
 - **`apiKeyName`**: The environment variable name for the API key (nullable -
   some providers like Ollama don't need API keys)
-- **`caps`**: Set of capabilities (chat, embeddings, vision, etc.)
+- **Runtime Capabilities**: Use `Provider.listModels()` for model-specific capabilities
 
 ### 2. Provider Examples
 
@@ -162,8 +162,8 @@ parameters. These are set at the provider level through the constructor. Provide
 Providers can be discovered by:
 - **Name**: `Providers.get('openai')`
 - **Alias**: `Providers.get('claude')` → resolves to Anthropic
-- **Capabilities**: `Providers.allWith({ProviderCaps.chatVision})`
 - **All Providers**: `Providers.all`
+- **Runtime Capabilities**: Use `Provider.listModels()` to discover model-specific capabilities
 
 ### 5. Provider-Specific Environment Variables
 

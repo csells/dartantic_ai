@@ -41,15 +41,6 @@ class AnthropicProvider
           ModelKind.chat: 'claude-sonnet-4-0',
           ModelKind.media: 'claude-sonnet-4-5',
         },
-        caps: {
-          ProviderCaps.chat,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.typedOutputWithTools,
-          ProviderCaps.chatVision,
-          ProviderCaps.thinking,
-          ProviderCaps.mediaGeneration,
-        },
         aliases: ['claude'],
         baseUrl: null,
       );

@@ -74,12 +74,12 @@ The documentation includes:
 - **Core Features** - JSON output, typed responses, and streaming
 - **Advanced Features** - Tool calling, agentic behavior, and embeddings
 - **Thinking Metadata & Server-Side Tools** - Reasoning streams and built-in
-  provider tools (OpenAI Responses)
+  provider tools across OpenAI Responses, Google, and Anthropic
 - **Integration** - Logging, MCP servers, and custom providers
 - **Provider Reference** - Detailed info on all supported providers
 - **Examples** - Complete working examples for every feature, including:
-  - `dart run example/bin/media_generation.dart` to stream image previews and
-    generate downloadable media assets
+  - `dart run example/bin/media_gen/media_gen_google.dart` to generate images,
+    PDFs, and other media assets
 
 ## Installation
 
@@ -97,7 +97,7 @@ Welcome contributions! Feature requests, bug reports and PRs are welcome on [the
 dartantic_ai github site](https://github.com/csells/dartantic_ai).
 
 Want to chat about Dartantic? Drop by [the Discussions
-forum](https://github.com/davidmigloz/csells/dartantic_ai).
+forum](https://github.com/csells/dartantic_ai/discussions).
 
 ## License
 

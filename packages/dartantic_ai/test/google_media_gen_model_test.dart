@@ -62,7 +62,7 @@ void main() {
     });
 
     test('maps fileData, inlineData, and metadata into media result', () {
-      final provider = Providers.get('google');
+      final provider = Agent.getProvider('google');
       final model = provider.createMediaModel() as GoogleMediaGenerationModel;
 
       final response = gl.GenerateContentResponse(
@@ -152,7 +152,7 @@ void main() {
     // With code execution enabled, non-image types are now supported
     // via the Python sandbox fallback.
     test('non-image mime types use code execution fallback', () async {
-      final provider = Providers.get('google');
+      final provider = Agent.getProvider('google');
       final model = provider.createMediaModel() as GoogleMediaGenerationModel;
 
       // Non-image types should not throw - they use code execution

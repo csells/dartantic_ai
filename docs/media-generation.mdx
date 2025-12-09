@@ -1,0 +1,198 @@
+---
+title: Media Generation
+description: "Generate images, PDFs, and files using a unified API across providers."
+---
+
+Dartantic provides a unified `generateMedia()` API that works across multiple
+providers. Each provider uses its own underlying mechanism (native image
+generation, code execution, etc.) but the API surface is consistent.
+
+## Provider Support
+
+| Provider | Images | PDFs | CSV/Files | Mechanism |
+|----------|--------|------|-----------|-----------|
+| **OpenAI Responses** | Native + Code | Code | Code | DALL-E + Code Interpreter |
+| **Google** | Native + Code | Code | Code | Imagen + Code Execution |
+| **Anthropic** | Code | Code | Code | Code Interpreter (matplotlib, reportlab) |
+
+## Basic Usage
+
+```dart
+final agent = Agent('google'); // or 'openai-responses', 'anthropic'
+
+final result = await agent.generateMedia(
+  'Create a minimalist robot mascot for a developer conference.',
+  mimeTypes: const ['image/png'],
+);
+
+// Access generated assets
+for (final asset in result.assets) {
+  if (asset is DataPart) {
+    print('Generated: ${asset.name} (${asset.mimeType})');
+    File('output/${asset.name}').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+## Supported MIME Types
+
+The `mimeTypes` parameter tells the provider what kind of output you want:
+
+- `image/png`, `image/jpeg` - Images
+- `application/pdf` - PDF documents
+- `text/csv` - CSV files
+- Other file types depend on provider code execution capabilities
+
+## Image Generation
+
+All three providers support image generation:
+
+```dart
+final agent = Agent('openai-responses');
+
+final result = await agent.generateMedia(
+  'A serene mountain landscape at sunset with a lake in the foreground.',
+  mimeTypes: const ['image/png'],
+);
+
+for (final asset in result.assets) {
+  if (asset is DataPart && asset.mimeType.startsWith('image/')) {
+    File('landscape.png').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+## PDF Generation
+
+Generate PDF documents using provider code execution:
+
+```dart
+final agent = Agent('anthropic');
+
+final result = await agent.generateMedia(
+  'Create a one-page PDF with the title "Project Status" '
+  'and three bullet points summarizing a software project.',
+  mimeTypes: const ['application/pdf'],
+);
+
+for (final asset in result.assets) {
+  if (asset is DataPart && asset.mimeType == 'application/pdf') {
+    File('status_report.pdf').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+## CSV and Data Files
+
+Generate structured data files:
+
+```dart
+final agent = Agent('google');
+
+final result = await agent.generateMedia(
+  'Create a CSV file called "metrics.csv" with columns: date, users, revenue. '
+  'Add 5 rows of sample data for the past week.',
+  mimeTypes: const ['text/csv'],
+);
+
+for (final asset in result.assets) {
+  if (asset is DataPart) {
+    File(asset.name ?? 'data.csv').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+## Streaming Generation
+
+Use `generateMediaStream()` to receive incremental updates:
+
+```dart
+final agent = Agent('openai-responses');
+
+await for (final chunk in agent.generateMediaStream(
+  'Create a colorful abstract art piece.',
+  mimeTypes: const ['image/png'],
+)) {
+  // Check for partial/preview images in metadata
+  final previews = chunk.metadata['image_generation'] as List?;
+  if (previews != null) {
+    for (final preview in previews) {
+      final b64 = preview['partial_image_b64'] as String?;
+      if (b64 != null) {
+        print('Preview available at index ${preview['partial_image_index']}');
+      }
+    }
+  }
+
+  // Check for completed assets
+  if (chunk.isComplete) {
+    for (final asset in chunk.assets) {
+      if (asset is DataPart) {
+        File('final.png').writeAsBytesSync(asset.bytes);
+      }
+    }
+  }
+}
+```
+
+## Provider-Specific Options
+
+Each provider accepts options for customization:
+
+### OpenAI Responses
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  mediaModelOptions: OpenAIResponsesMediaGenerationModelOptions(
+    imageModel: 'gpt-image-1',  // Specific image model
+  ),
+);
+```
+
+### Google
+
+```dart
+final agent = Agent(
+  'google',
+  mediaModelOptions: GoogleMediaGenerationModelOptions(
+    aspectRatio: '16:9',  // Image aspect ratio
+  ),
+);
+```
+
+### Anthropic
+
+```dart
+final agent = Agent(
+  'anthropic',
+  mediaModelOptions: AnthropicMediaGenerationModelOptions(
+    // Uses code interpreter for all generation
+  ),
+);
+```
+
+## Result Structure
+
+`MediaGenerationResult` contains:
+
+- `assets` - List of `Part` objects (typically `DataPart` with bytes)
+- `links` - List of `LinkPart` for hosted URLs (if applicable)
+- `messages` - Conversation messages generated during the run
+- `metadata` - Provider-specific metadata (previews, progress, etc.)
+- `isComplete` - Whether generation is finished (for streaming)
+
+## Examples
+
+- [OpenAI Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_openai.dart)
+- [Google Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_google.dart)
+- [Anthropic Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_anthropic.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools) - Lower-level access to code
+  interpreters
+- [Multimedia Input](/attachments) - Send images and files to models

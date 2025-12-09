@@ -29,7 +29,6 @@ class EchoProvider extends Provider<
         name: 'echo',
         displayName: 'Echo',
         defaultModelNames: {ModelKind.chat: 'echo'},
-        caps: {ProviderCaps.chat},
       );
 
   @override
@@ -91,17 +90,19 @@ print(result.output);
 
 ## Dynamic Provider Registration
 
-If you'd like to participate in the named lookup of providers, you can add your custom provider to the provider map:
+If you'd like to participate in the named lookup of providers, you can add your custom provider to the factory registry:
 
 ```dart
-// Add your custom provider to the registry
-Providers.providerMap['echo'] = EchoProvider();
+// Add your custom provider factory to the registry
+Agent.providerFactories['echo'] = EchoProvider.new;
 
 // Use it like any built-in provider
 final agent = Agent('echo');
 final result = await agent.send('Hello!');
 print(result.output);
 ```
+
+Note: The registry maps provider names to factory functions (`Provider Function()`), not instances. Each time a provider is requested, a fresh instance is created.
 
 ## Examples
 

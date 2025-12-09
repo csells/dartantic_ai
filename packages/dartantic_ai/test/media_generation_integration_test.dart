@@ -32,7 +32,7 @@ void main() {
           expect(link.url.hasScheme, isTrue);
         }
       },
-      requiredCaps: {ProviderCaps.mediaGeneration},
+      requiredCaps: {ProviderTestCaps.mediaGeneration},
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
@@ -57,7 +57,7 @@ void main() {
           reason: 'Provider ${provider.name} should stream media output',
         );
       },
-      requiredCaps: {ProviderCaps.mediaGeneration},
+      requiredCaps: {ProviderTestCaps.mediaGeneration},
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
@@ -92,7 +92,7 @@ void main() {
           expect(asset.bytes.isNotEmpty, isTrue);
         }
       },
-      requiredCaps: {ProviderCaps.mediaGeneration},
+      requiredCaps: {ProviderTestCaps.mediaGeneration},
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
@@ -126,7 +126,7 @@ void main() {
           expect(asset.name, isNotNull);
         }
       },
-      requiredCaps: {ProviderCaps.mediaGeneration},
+      requiredCaps: {ProviderTestCaps.mediaGeneration},
       timeout: const Timeout(Duration(minutes: 2)),
     );
   });

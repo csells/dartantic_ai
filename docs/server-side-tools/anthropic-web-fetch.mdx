@@ -1,0 +1,76 @@
+---
+title: Anthropic Web Fetch
+description: "Fetch and process web pages using Anthropic's server-side tool."
+---
+
+Anthropic's web fetch tool retrieves and processes content from specific URLs.
+Unlike web search, this tool fetches a known URL directly.
+
+## Enable Web Fetch
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webFetch},
+  ),
+);
+```
+
+## Usage
+
+```dart
+await for (final chunk in agent.sendStream(
+  'Retrieve https://dart.dev and summarize the main features.',
+)) {
+  stdout.write(chunk.output);
+}
+```
+
+## Fetched Documents
+
+Fetched content is attached as `DataPart` instances on the message history:
+
+```dart
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(prompt)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Access fetched documents
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Fetched: ${part.name} (${part.mimeType})');
+      File('output/${part.name}').writeAsBytesSync(part.bytes);
+    }
+  }
+}
+```
+
+## Combined Tools
+
+Combine web fetch with other tools for research workflows:
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {
+      AnthropicServerSideTool.webSearch,
+      AnthropicServerSideTool.webFetch,
+    },
+  ),
+);
+```
+
+## Example
+
+- [Anthropic Web Fetch
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_web_fetch.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [Web Search](/server-side-tools/anthropic-web-search)

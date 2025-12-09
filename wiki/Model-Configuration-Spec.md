@@ -120,7 +120,7 @@ abstract class Provider {
       // Optional: ModelKind.media: 'gpt-image-1',
     },
     apiKeyName: 'OPENAI_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.embeddings, ...},
+    // Use Provider.listModels() for runtime capability discovery
   );
 }
 ```

@@ -34,7 +34,7 @@ flowchart TB
     subgraph PABS["Provider Abstraction Layer"]
         P1["ChatModel: Provider-agnostic interface"]
         P2["MessageAccumulator: Provider-specific message accumulation"]
-        P3["ProviderCaps: Capability-based feature detection"]
+        P3["Provider.listModels(): Runtime capability discovery"]
     end
     
     subgraph PIMP["Provider Implementation Layer"]
@@ -485,7 +485,7 @@ catch (error, stackTrace) {
 - **Issue**: Generates non-unique tool IDs (pattern: `<tool_name><digit>`)
 - **Problem**: IDs collide across conversation turns (e.g., `int_tool0` reused), violating Cohere's own uniqueness requirement
 - **Impact**: 400 errors in multi-turn tool calling scenarios
-- **Workaround**: Single tool calls still work; multi-tool calling disabled via `ProviderCaps`
+- **Workaround**: Single tool calls still work; multi-tool calling disabled in test infrastructure via `ProviderTestCaps`
 - **Streaming**: Custom format with <|python_tag|>
 - **Tool IDs**: Provided by API (but non-unique)
 - **Arguments**: Special parsing for "null" string

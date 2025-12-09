@@ -1,0 +1,92 @@
+---
+title: Anthropic Code Interpreter
+description: "Execute Python code in Anthropic's sandbox environment."
+---
+
+Anthropic's code interpreter runs Python in a sandboxed environment. State
+persists across turns, and generated files are automatically downloaded.
+
+## Enable Code Interpreter
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.codeInterpreter},
+  ),
+);
+```
+
+## Multi-Turn Execution
+
+State persists across conversation turns:
+
+```dart
+final history = <ChatMessage>[];
+
+// Step 1: Calculate data
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and store them in a variable '
+  'called "fib_sequence". Create a CSV file called "fibonacci.csv".',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Step 2: Use the data from step 1
+await for (final chunk in agent.sendStream(
+  'Using fib_sequence, create a plot showing the golden ratio convergence. '
+  'Save it as "golden_ratio.png".',
+  history: history,
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+```
+
+## Generated Files
+
+Files created during code execution are attached as `DataPart` instances:
+
+```dart
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.mimeType})');
+      File('output/${part.name}').writeAsBytesSync(part.bytes);
+    }
+  }
+}
+```
+
+Anthropic's code interpreter supports common Python libraries including
+matplotlib for plotting, pandas for data manipulation, and reportlab for PDF
+generation.
+
+## Streaming Code Events
+
+Code execution events stream through `metadata['code_interpreter']`:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  final events = chunk.metadata['code_interpreter'] as List?;
+  if (events != null) {
+    for (final event in events) {
+      if (event['type'] == 'code_delta') {
+        stdout.write(event['delta']);
+      }
+    }
+  }
+}
+```
+
+## Example
+
+- [Anthropic Code Interpreter
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_code_interpreter.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [Media Generation](/media-generation)
+- [Anthropic Web Search](/server-side-tools/anthropic-web-search)

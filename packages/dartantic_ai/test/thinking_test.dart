@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -26,8 +27,8 @@ void main() {
             final agent = _createAgentWithThinking(provider);
 
             // Use a simple conceptual question like the example does
-            // (example/bin/thinking.dart uses "how does quicksort work?")
-            // Math questions may be processed differently by reasoning models.
+            // (example/bin/thinking.dart uses "how does quicksort work?") Math
+            // questions may be processed differently by reasoning models.
             final thinkingChunks = <String>[];
             final textChunks = <String>[];
 
@@ -78,7 +79,7 @@ void main() {
               reason: 'Should explain quicksort',
             );
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
 
         _runThinkingProviderTest(
@@ -111,7 +112,7 @@ void main() {
               reason: 'Thinking should accumulate to substantial content',
             );
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
 
         _runThinkingProviderTest(
@@ -141,7 +142,7 @@ void main() {
             // Should have checked at least some messages
             expect(hadMessages, true, reason: 'Should have messages to verify');
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
 
         _runThinkingProviderTest(
@@ -174,7 +175,10 @@ void main() {
             expect(hadToolCall, true, reason: 'Should have tool call');
             expect(hadText, true, reason: 'Should have text response');
           },
-          requiredCaps: {ProviderCaps.thinking, ProviderCaps.multiToolCalls},
+          requiredCaps: {
+            ProviderTestCaps.thinking,
+            ProviderTestCaps.multiToolCalls,
+          },
         );
       });
 
@@ -206,7 +210,7 @@ void main() {
               reason: 'Should contain correct answer',
             );
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
 
         _runThinkingProviderTest(
@@ -232,7 +236,7 @@ void main() {
             // But thinking should be in result
             expect(result.thinking, isNotNull);
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
       });
 
@@ -253,26 +257,28 @@ void main() {
             // Should contain the answer
             expect(result.output, contains('150'));
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
 
-        _runThinkingProviderTest('thinking for logical reasoning', (
-          provider,
-        ) async {
-          final agent = _createAgentWithThinking(provider);
+        _runThinkingProviderTest(
+          'thinking for logical reasoning',
+          (provider) async {
+            final agent = _createAgentWithThinking(provider);
 
-          final result = await agent.send(
-            'If all cats are mammals, and Fluffy is a cat, '
-            'what can we conclude about Fluffy?',
-          );
+            final result = await agent.send(
+              'If all cats are mammals, and Fluffy is a cat, '
+              'what can we conclude about Fluffy?',
+            );
 
-          expect(result.thinking, isNotNull);
-          expect(result.thinking, isNotEmpty);
+            expect(result.thinking, isNotNull);
+            expect(result.thinking, isNotEmpty);
 
-          // Should conclude Fluffy is a mammal
-          final output = result.output.toLowerCase();
-          expect(output, contains('mammal'));
-        }, requiredCaps: {ProviderCaps.thinking});
+            // Should conclude Fluffy is a mammal
+            final output = result.output.toLowerCase();
+            expect(output, contains('mammal'));
+          },
+          requiredCaps: {ProviderTestCaps.thinking},
+        );
 
         _runThinkingProviderTest(
           'thinking for problem decomposition',
@@ -289,7 +295,7 @@ void main() {
             // Should contain the answer
             expect(result.output, contains('20'));
           },
-          requiredCaps: {ProviderCaps.thinking},
+          requiredCaps: {ProviderTestCaps.thinking},
         );
       });
     },
@@ -299,7 +305,7 @@ void main() {
 void _runThinkingProviderTest(
   String description,
   Future<void> Function(Provider provider) testFunction, {
-  Set<ProviderCaps>? requiredCaps,
+  Set<ProviderTestCaps>? requiredCaps,
   bool edgeCase = false,
   Timeout? timeout,
   Set<String>? skipProviders,

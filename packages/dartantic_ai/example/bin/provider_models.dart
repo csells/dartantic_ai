@@ -11,7 +11,7 @@ Future<void> main() async {
   var totalMediaModels = 0;
   var totalOtherModels = 0;
 
-  for (final provider in Providers.all) {
+  for (final provider in Agent.allProviders) {
     totalProviders++;
     print('\n# ${provider.displayName} (${provider.name})');
     List<ModelInfo> models;

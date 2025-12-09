@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -8,7 +9,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 
@@ -40,7 +40,7 @@ Future<void> _testProviderHttpClient(String providerName) async {
   final trackingClient = TrackingHttpClient();
 
   // Get the base provider
-  final baseProvider = Providers.get(providerName);
+  final baseProvider = Agent.getProvider(providerName);
 
   // Create a custom provider with tracking HTTP client
   Provider customProvider;

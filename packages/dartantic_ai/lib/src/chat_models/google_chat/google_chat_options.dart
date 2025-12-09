@@ -23,6 +23,8 @@ class GoogleChatModelOptions extends ChatModelOptions {
     this.safetySettings,
     this.thinkingBudgetTokens,
     this.serverSideTools,
+    this.functionCallingMode,
+    this.allowedFunctionNames,
   });
 
   /// The model to use (e.g. 'gemini-1.5-pro').
@@ -124,6 +126,36 @@ class GoogleChatModelOptions extends ChatModelOptions {
 
   /// The server-side tools to enable.
   final Set<GoogleServerSideTool>? serverSideTools;
+
+  /// Controls how the model decides when to call functions.
+  ///
+  /// - [GoogleFunctionCallingMode.auto] (default): Model decides whether to
+  ///   call a function or give a natural language response.
+  /// - [GoogleFunctionCallingMode.any]: Model is constrained to always predict
+  ///   a function call. Use with [allowedFunctionNames] to limit which
+  ///   functions can be called.
+  /// - [GoogleFunctionCallingMode.none]: Model will not predict any function
+  ///   calls, behaves as if no functions were provided.
+  /// - [GoogleFunctionCallingMode.validated]: Like auto but validates function
+  ///   calls with constrained decoding.
+  ///
+  /// Example:
+  /// ```dart
+  /// GoogleChatModelOptions(
+  ///   functionCallingMode: GoogleFunctionCallingMode.any,
+  ///   allowedFunctionNames: ['get_weather', 'get_forecast'],
+  /// )
+  /// ```
+  final GoogleFunctionCallingMode? functionCallingMode;
+
+  /// A set of function names that limits which functions the model can call.
+  ///
+  /// This should only be set when [functionCallingMode] is
+  /// [GoogleFunctionCallingMode.any] or [GoogleFunctionCallingMode.validated].
+  /// Function names should match the names of functions provided to the model.
+  ///
+  /// When set, model will only predict function calls from the allowed names.
+  final List<String>? allowedFunctionNames;
 }
 
 /// {@template chat_google_generative_ai_safety_setting}
@@ -183,4 +215,34 @@ enum ChatGoogleGenerativeAISafetySettingThreshold {
 
   /// Always show regardless of probability of unsafe content.
   blockNone,
+}
+
+/// Controls how the model decides when to call functions.
+///
+/// See [Google's function calling guide](https://ai.google.dev/gemini-api/docs/function-calling#function_calling_mode)
+/// for more details.
+enum GoogleFunctionCallingMode {
+  /// Default model behavior. Model decides whether to predict a function call
+  /// or a natural language response.
+  auto,
+
+  /// Model is constrained to always predict a function call.
+  ///
+  /// If `allowedFunctionNames` are set, the predicted function call will be
+  /// limited to those functions. Otherwise, any provided function may be
+  /// called.
+  any,
+
+  /// Model will not predict any function calls.
+  ///
+  /// Model behavior is the same as when not passing any function declarations.
+  none,
+
+  /// Model decides whether to predict a function call or natural language
+  /// response, but validates function calls with constrained decoding.
+  ///
+  /// If `allowedFunctionNames` are set, the predicted function call will be
+  /// limited to those functions. Otherwise, any provided function may be
+  /// called.
+  validated,
 }

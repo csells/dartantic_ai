@@ -30,16 +30,6 @@ class OpenAIResponsesProvider
            ModelKind.embeddings: defaultEmbeddingsModel,
            ModelKind.media: defaultMediaModel,
          },
-         caps: const {
-           ProviderCaps.chat,
-           ProviderCaps.embeddings,
-           ProviderCaps.multiToolCalls,
-           ProviderCaps.typedOutput,
-           ProviderCaps.typedOutputWithTools,
-           ProviderCaps.thinking,
-           ProviderCaps.chatVision,
-           ProviderCaps.mediaGeneration,
-         },
          apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
          apiKeyName: defaultApiKeyName,
        );

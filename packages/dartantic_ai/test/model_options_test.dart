@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -46,7 +47,7 @@ void main() {
 
       runProviderTest(
         'temperature parameter is respected',
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         (provider) async {
           final modelName = provider.name == 'openai-responses'
               ? 'openai-responses:gpt-4o'

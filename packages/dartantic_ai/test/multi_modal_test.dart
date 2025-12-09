@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -64,7 +65,7 @@ void main() {
         final agent = Agent(provider.name);
         await testFunction(provider, agent);
       },
-      requiredCaps: {ProviderCaps.chatVision},
+      requiredCaps: {ProviderTestCaps.chatVision},
       edgeCase: edgeCase,
     );
   }
@@ -86,7 +87,7 @@ void main() {
 
       final agent = Agent('${provider.name}:$modelName');
       await testFunction(provider, agent);
-    }, requiredCaps: {ProviderCaps.chatVision});
+    }, requiredCaps: {ProviderTestCaps.chatVision});
   }
 
   group('Multi-Modal', () {
@@ -234,9 +235,9 @@ void main() {
           );
           expect(userMessage.parts.whereType<LinkPart>().length, equals(1));
         },
-        requiredCaps: {ProviderCaps.chatVision},
-        // Google requires File API upload, not arbitrary URLs
-        // Other providers without chatVision are filtered by requiredCaps
+        requiredCaps: {ProviderTestCaps.chatVision},
+        // Google requires File API upload, not arbitrary URLs Other providers
+        // without chatVision are filtered by requiredCaps
         skipProviders: {'google', 'google-openai'},
       );
 
@@ -267,9 +268,9 @@ void main() {
           );
           expect(userMessage.parts.whereType<LinkPart>().length, equals(2));
         },
-        requiredCaps: {ProviderCaps.chatVision},
-        // Google requires File API upload, not arbitrary URLs
-        // Other providers without chatVision are filtered by requiredCaps
+        requiredCaps: {ProviderTestCaps.chatVision},
+        // Google requires File API upload, not arbitrary URLs Other providers
+        // without chatVision are filtered by requiredCaps
         skipProviders: {'google', 'google-openai'},
       );
     });

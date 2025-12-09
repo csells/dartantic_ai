@@ -1,0 +1,63 @@
+---
+title: Google Search
+description: "Search the web using Google's Grounding feature."
+---
+
+Google's server-side search tool uses Google Search to ground responses in
+real-time web data. Results are automatically woven into the model's response.
+
+## Enable Google Search
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+```
+
+## Usage
+
+```dart
+await for (final chunk in agent.sendStream(
+  'Search the web for the three most recent announcements '
+  'about the Dart programming language and summarize them.',
+)) {
+  stdout.write(chunk.output);
+}
+```
+
+The model automatically decides when to search based on the query. Search
+results are incorporated directly into the response.
+
+## Grounding Metadata
+
+Google Search results include grounding metadata in the response. Access it via
+the message metadata to show citations or sources:
+
+```dart
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(prompt)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Check for grounding metadata in the final message
+for (final msg in history) {
+  final grounding = msg.metadata['grounding'];
+  if (grounding != null) {
+    print('Sources: $grounding');
+  }
+}
+```
+
+## Example
+
+- [Google Search
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools_google/server_side_google_search.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [Code Execution](/server-side-tools/google-code-execution)

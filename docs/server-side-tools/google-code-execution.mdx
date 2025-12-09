@@ -1,0 +1,88 @@
+---
+title: Google Code Execution
+description: "Execute Python code in Google's sandbox environment."
+---
+
+Google's code execution tool runs Python in a sandboxed environment. State
+persists across turns, allowing multi-step computations and file generation.
+
+## Enable Code Execution
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.codeExecution},
+  ),
+);
+```
+
+## Multi-Turn Execution
+
+State persists across conversation turns, enabling iterative workflows:
+
+```dart
+final history = <ChatMessage>[];
+
+// Step 1: Calculate data
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and store them in a variable '
+  'called "fib_sequence".',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Step 2: Use the data from step 1
+await for (final chunk in agent.sendStream(
+  'Using fib_sequence, create a plot showing the golden ratio convergence. '
+  'Save it as "golden_ratio.png".',
+  history: history,
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+```
+
+## Generated Files
+
+Files created during code execution (images, CSVs, etc.) are attached as
+`DataPart` instances on the assistant message:
+
+```dart
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.mimeType})');
+      File('output/${part.name}').writeAsBytesSync(part.bytes);
+    }
+  }
+}
+```
+
+## Combined Tools
+
+Enable both search and code execution for research + computation workflows:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {
+      GoogleServerSideTool.googleSearch,
+      GoogleServerSideTool.codeExecution,
+    },
+  ),
+);
+```
+
+## Example
+
+- [Code Execution
+  demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools_google/server_side_code_execution.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [Google Search](/server-side-tools/google-search)
+- [Media Generation](/media-generation)

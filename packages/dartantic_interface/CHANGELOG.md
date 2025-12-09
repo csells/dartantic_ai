@@ -1,3 +1,13 @@
+## 2.0.0
+
+- **BREAKING**: Removed `ProviderCaps` enum from the interface. Provider
+  capabilities were only meaningful for testing default models and provided no
+  provider-wide guarantees. Capability filtering for tests is now handled via
+  `ProviderTestCaps` in `dartantic_ai`'s test infrastructure. Consider the
+  `Provider.listModels` method for run-time model details, e.g. chat, embedding,
+  media, etc.
+- Removed `caps` field from `Provider` base class.
+
 ## 1.3.0
 
 - introduced media generation primitives (`MediaGenerationModel`,

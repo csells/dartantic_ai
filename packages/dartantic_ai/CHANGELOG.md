@@ -1,20 +1,130 @@
 ## 2.0.0
 
+### Breaking Changes
+
+I took this opportunity in the major version bump to break some things that have
+been bothering me.
+
+#### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
+
+TODO: OLD and NEW code samples
+
+The dartantic_interface package is great for building your own providers without
+pulling in all of dartantic. However, the way I had it split meant that you had
+to import both packages into every file that used them both. No more!
+
+#### Breaking Change: Provider Factory Registry
+
+Provider lookup has been moved from the `Providers` class to `Agent` static
+methods. Providers are now created via factory functions not cached instances.
+
+#### Moved provider look-up to `Agent`
+
+```dart
+// OLD
+final provider = Providers.get('openai');
+final allProviders = Providers.all;
+Providers.providerMap['custom'] = MyProvider();
+
+// NEW
+final provider = Agent.getProvider('openai');
+final allProviders = Agent.allProviders;
+Agent.providerFactories['custom'] = MyProvider.new;
+```
+
+I removed static provider instances, e.g. Providers.google, as being not useful
+in practice. Either you want the default initialization for a project and the
+convenience of using a model string, e.g. `Agent('claude')`, or you want to use
+the type and create a provider instance with non-defaults, e.g.
+`OpenAIProvider('openai-responses:gpt-5', apiKey: ...)`. The halfway of having
+a typed default instance was good for discovery, but if you're using syntax
+completion to choose your LLM, now you've got two problems. : )
+
+Once I removed the static instances, there was no need for an entire type just
+to look-up providers, so I moved that to `Agent` instead.
+
+#### Moved Together, Google and Ollama OpenAI-compat providers to example
+
+There are lots and lots of OpenAi-compatible providers in the world, so trying
+to test dartantic against all of them is impractical. Plus, most of them don't
+do such a great job of actually implementing the features, e.g. multi-turn tool
+calling. 
+
+So, I've removed three of them from the list of built-in providers and moved
+them to the `openai_compat.dart` example. You can still use them and define them
+in your app -- in fact, they can be configured to work EXACTLY like the built-in
+providers using the new `Agent.providerFactories` -- but they're not built in
+and they're no longer part of the dartantic testing suite. I wasn't really
+testing dartantic by using them in my integration testing anyway -- I was just
+finding out all the places that they're not good at their job.
+
+I did leave the Open Router provider as built-in however via
+`Agent('openrouter')` since it's so popular and they do a good job of
+implementing the APi across their models.
+
+#### Removed `ProviderCaps`
+
+```dart
+// OLD
+final visionProviders = Providers.allWith({ProviderCaps.chatVision});
+
+// NEW
+// use Provider.listModels() and choose via ModelInfo instead
+```
+
+I added `ProviderCaps` originally to help users drill in on what providers they
+could use in their apps. However, it really became "what are the capabilities of
+the default model of that provider" because every model on every provider is
+different and cannot be captured with one enum. It's still useful for driving
+tests, so I moved it into the tests and took it out of the provider interface as
+misleading.
+
+
+### Google Native JSON Schema Support
+
+Google's Gemini API now uses native JSON Schema support via `responseJsonSchema`
+instead of the custom Schema object conversion. This enables better support for
+complex schemas including `anyOf`, `$ref`, and other JSON Schema features.
+
+This is an internal change with no API surface changes for you except that now
+you can pass in much more interesting JSON schemas to Google models.
+
+### Google Function Calling Mode
+
+Added `functionCallingMode` and `allowedFunctionNames` options to
+`GoogleChatModelOptions` for controlling tool/function calling behavior:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    functionCallingMode: GoogleFunctionCallingMode.any, // Force tool calls
+    allowedFunctionNames: ['get_weather'], // Limit to specific functions
+  ),
+);
+```
+
+Available modes:
+- `auto` (default): Model decides when to call functions
+- `any`: Model always calls a function
+- `none`: Model never calls functions
+- `validated`: Like auto but validates calls with constrained decoding
+
 ### New Model Type: Media Generation
+
+TODO: code sample
 
 - Added media generation APIs to `Agent` (`generateMedia` and
   `generateMediaStream`) with streaming aggregation helpers.
-- Introduced `OpenAIResponsesMediaModel` with automatic server-side image
-  generation support and MIME negotiation.
-- Added `AnthropicMediaModel` powered by Claude code execution, with automatic
-  file downloads (PDF, ZIP, text artifacts) via the Files beta API.
-- Expanded Google Gemini media streaming to normalize inline data and hosted
-  file responses from Nana Banana using the Gemini `streamGenerateContent`
-  endpoint (default model `gemini-2.5-flash-image`).
-- Updated provider contracts to support media models and added the
-  `ProviderCaps.mediaGeneration` capability flag.
+- Added media generation support for the `OpenAIResponsesProvider`,
+  `GoogleProvider` and `AnthropicProvider` implementations `createMediaModel`.
+  All three of them support generating media with a prompt and a mime type,
+  using a combination of their intrinsic image generation and their server-side
+  code execution environments to generate files of all types.
 - Extended `ModelStringParser` with `media=` selectors and added media-specific
   defaults in the provider registry.
+
+Check out the new media-gen examples to see them in action.
 
 ### Breaking Changes: Simplified Thinking API
 
@@ -24,10 +134,7 @@ Dartantic with a simplified, unified API across all providers:
 **New API:**
 ```dart
 // Enable thinking at Agent level (simple!)
-final agent = Agent(
-  'google:gemini-2.5-flash',
-  enableThinking: true,
-);
+final agent = Agent('google', enableThinking: true);
 
 // Access thinking as a first-class field
 final result = await agent.send('Complex question...');
@@ -60,19 +167,39 @@ final agent = Agent(
 final thinking = result.metadata['thinking'] as String?;
 
 // After (2.0) - All providers use the same simple API:
-final agent = Agent(
-  'openai-responses',
-  enableThinking: true,
-);
+final agent = Agent('openai-responses', enableThinking: true);
 final thinking = result.thinking;
 ```
 
-### Other Changes
+### Server-Side Tools Across Providers
 
-- **Google Extended Thinking Support**: All Gemini 2.5 models support thinking
-  with configurable token budgets and dynamic thinking modes.
-- Added `example/bin/media_generation.dart` showcasing streaming previews,
-  PDF generation, and asset persistence with the new media APIs.
+Server-side tools are now supported across multiple providers:
+
+| Provider             | Tools Available                                             |
+| -------------------- | ----------------------------------------------------------- |
+| **OpenAI Responses** | Web Search, File Search, Image Generation, Code Interpreter |
+| **Google**           | Google Search (Grounding), Code Execution                   |
+| **Anthropic**        | Web Search, Web Fetch, Code Interpreter                     |
+
+```dart
+// Google server-side tools
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+// Anthropic server-side tools
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+```
+
+You can see how they all work in the new set of server-side tooling examples!
 
 ## 1.3.0
 
@@ -206,28 +333,27 @@ This is a big release!
 
 ## 1.0.0
 
-### Dynamic => Static Provider instances
+### Dynamic => Static Provider factories
 
-Provider instances are now static, so you can use the `Providers` class to get
-them by name or alias:
+Provider access has moved to `Agent` static methods:
 
 ```dart
-// OLD
+// OLD (0.9.x)
 final provider = OpenAiProvider();
 final providerFactory = Agent.providers['google'];
 final providerFactoryByAlias = Agent.providers['gemini'];
 
-// NEW
-final provider1 = Providers.openai;
-final provider2 = Providers.get('google');
-final provider3 = Providers.get('gemini');
+// NEW (2.0.0)
+final provider1 = Agent.createProvider('openai');
+final provider2 = Agent.createProvider('google');
+final provider3 = Agent.createProvider('gemini');
 ```
 
 If you'd like to extend the list of providers dynamically at runtime, you can
-use the `providerMap` property of the `Providers` class:
+use the `providerFactories` map on the `Agent` class:
 
 ```dart
-Providers.providerMap['my-provider'] = MyProvider();
+Agent.providerFactories['my-provider'] = MyProvider.new;
 ```
 
 ### Agent.runXxx => Agent.sendXxx
@@ -272,7 +398,7 @@ clarity:
 final agent = Agent.provider(OpenAiProvider());
 
 // NEW
-final agent = Agent.forProvider(Providers.anthropic);
+final agent = Agent.forProvider(Agent.createProvider('anthropic'));
 ```
 
 ### Message => ChatMessage
@@ -474,7 +600,7 @@ The `Agent.sendForXxx` method now supports specifying the output type of the
 tool call:
 
 ```dart
-final provider = Providers.openai;
+final provider = Agent.createProvider('openai');
 assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
 
 // tools

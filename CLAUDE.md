@@ -152,17 +152,18 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 
 ### Capability-Based Provider Filtering
 
-Tests use `requiredCaps` to filter providers by capability. This ensures tests only run against providers that support required features:
+Tests use `requiredCaps` to filter providers by capability. This ensures tests only run against providers that support required features. The test infrastructure uses `ProviderTestCaps` (a test-only enum in `test/test_helpers/run_provider_test.dart`) to describe what capabilities each provider's default model supports:
 
 ```dart
-// Filter to providers supporting tool calls
-final providers = Providers.allWith({ProviderCaps.multiToolCalls});
-
-// Filter to providers with embeddings support
-final providers = Providers.allWith({ProviderCaps.embeddings});
+// In test files, use runProviderTest with requiredCaps:
+runProviderTest(
+  'test description',
+  (provider) async { /* test code */ },
+  requiredCaps: {ProviderTestCaps.multiToolCalls},
+);
 ```
 
-See `ProviderCaps` enum in `packages/dartantic_interface/` for all available capabilities.
+See `ProviderTestCaps` in `test/test_helpers/run_provider_test.dart` for test capabilities. For runtime capability discovery, use `Provider.listModels()`.
 
 ## Configuration
 
@@ -180,17 +181,17 @@ See `ProviderCaps` enum in `packages/dartantic_interface/` for all available cap
 ### Adding New Providers
 
 1. Create provider class in `lib/src/providers/` extending `Provider`
-2. Declare capabilities accurately (see `ProviderCaps` enum)
-3. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
-4. Create chat model in `lib/src/chat_models/<provider>_chat/`
-5. Implement message mappers in `<provider>_message_mappers.dart`
-6. Add provider to `Providers.get()` registry in `lib/src/providers/providers.dart`
+2. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
+3. Create chat model in `lib/src/chat_models/<provider>_chat/`
+4. Implement message mappers in `<provider>_message_mappers.dart`
+5. Register provider factory in `Agent.providerFactories` in `lib/src/agent/agent.dart`
+6. Add provider's test capabilities to `providerTestCaps` map in `test/test_helpers/run_provider_test.dart`
 7. Create tests following existing patterns in `test/`
 
 ### Provider Structure
 
 Each provider implementation includes:
-- Provider factory class with capability declarations
+- Provider factory class
 - Chat model with streaming support
 - Message mappers for bidirectional conversion
 - Options class for provider-specific configuration

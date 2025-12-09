@@ -328,7 +328,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
@@ -389,7 +389,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

@@ -31,7 +31,7 @@ class ModelInfo {
   /// The full model name, including the provider name.
   String get model => '$providerName/$name';
 
-  /// The set of kinds of model (text, embedding, rerank, etc). Must not be
+  /// The set of kinds of model (chat, embedding, media, etc). Must not be
   /// empty.
   final Set<ModelKind> kinds;
 
