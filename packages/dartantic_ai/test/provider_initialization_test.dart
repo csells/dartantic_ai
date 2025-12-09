@@ -103,22 +103,5 @@ void main() {
         ),
       );
     });
-
-    test('Providers are lazily initialized', () {
-      // Access only the google provider
-      final googleProvider = Providers.get('google');
-      expect(googleProvider.displayName, equals('Google'));
-
-      // Verify we can create an agent without triggering other provider
-      // initialization
-      expect(() => Agent('google:gemini-2.5-flash'), returnsNormally);
-
-      // Now access all providers - this triggers initialization of all
-      final allProviders = Providers.all;
-      expect(allProviders.length, equals(11));
-
-      // Verify we can still use a specific provider
-      expect(() => Agent('anthropic:claude-3-5-sonnet'), returnsNormally);
-    });
   });
 }

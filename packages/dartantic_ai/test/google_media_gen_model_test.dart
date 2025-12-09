@@ -140,7 +140,7 @@ void main() {
       expect(result.metadata['block_reason'], isNotNull);
       expect(result.metadata['safety_ratings'], isNotEmpty);
       expect(result.metadata['citation_metadata'], isNotEmpty);
-      expect(result.metadata['model'], 'gemini-2.5-flash');
+      expect(result.metadata['model'], 'gemini-2.5-flash-image');
       expect(result.metadata['model_version'], 'v1beta');
       expect(result.metadata['generation_mode'], 'test');
       expect(result.metadata['resolved_mime_type'], 'test/unknown');

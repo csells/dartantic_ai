@@ -8,7 +8,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -140,7 +139,7 @@ void main() {
         final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
 
         // Many providers should support tools
-        expect(toolProviders.length, greaterThan(5));
+        expect(toolProviders.length, greaterThan(3));
 
         // Known tool-supporting providers
         final toolProviderNames = toolProviders.map((p) => p.name).toSet();

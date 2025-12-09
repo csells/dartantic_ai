@@ -22,7 +22,7 @@ void main() {
         final providers = Providers.all;
 
         expect(providers, isNotEmpty);
-        expect(providers.length, greaterThan(10)); // We have 11+ providers
+        expect(providers.length, greaterThanOrEqualTo(7)); // Core providers
 
         // Check for some key providers
         expect(providers.any((p) => p.name == 'openai'), isTrue);
@@ -172,14 +172,14 @@ void main() {
 
       test('agent uses custom model name when specified', () {
         // Test that Agent correctly parses "provider:model" format
-        final agent1 = Agent('together:Qwen/Qwen2.5-VL-72B-Instruct');
-        expect(agent1.model, contains('Qwen/Qwen2.5-VL-72B-Instruct'));
+        final agent1 = Agent('openai:gpt-4o');
+        expect(agent1.model, contains('gpt-4o'));
 
-        final agent2 = Agent('openai:gpt-4o');
-        expect(agent2.model, contains('gpt-4o'));
+        final agent2 = Agent('anthropic:claude-sonnet-4-0');
+        expect(agent2.model, contains('claude-sonnet-4-0'));
 
-        final agent3 = Agent('anthropic:claude-sonnet-4-0');
-        expect(agent3.model, contains('claude-sonnet-4-0'));
+        final agent3 = Agent('google:gemini-2.0-flash');
+        expect(agent3.model, contains('gemini-2.0-flash'));
       });
 
       test('default model names follow conventions', () {

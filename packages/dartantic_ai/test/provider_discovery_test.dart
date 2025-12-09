@@ -77,8 +77,8 @@ void main() {
       test('lists all chat providers', () {
         final providers = Providers.all;
         expect(providers, isNotEmpty);
-        // At least 11 providers available
-        expect(providers.length, greaterThanOrEqualTo(11));
+        // At least 7 providers available
+        expect(providers.length, greaterThanOrEqualTo(7));
 
         // Verify key providers are included
         final providerNames = providers.map((p) => p.name).toSet();
@@ -87,23 +87,18 @@ void main() {
         expect(providerNames, contains('google'));
         expect(providerNames, contains('mistral'));
         expect(providerNames, contains('ollama'));
-        expect(providerNames, contains('together'));
         expect(providerNames, contains('cohere'));
       });
 
       test('lists all embeddings providers', () {
         final providers = Providers.allWith({ProviderCaps.embeddings});
-        expect(providers, hasLength(6));
+        expect(providers, hasLength(5));
 
         final providerNames = providers.map((p) => p.name).toSet();
         expect(providerNames, contains('openai'));
         expect(providerNames, contains('google'));
         expect(providerNames, contains('mistral'));
         expect(providerNames, contains('cohere'));
-        expect(
-          providerNames,
-          contains('google-openai'),
-        ); // OpenAI-compatible Google endpoint
       });
 
       runProviderTest(

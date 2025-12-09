@@ -108,8 +108,10 @@ void main() {
         );
 
         final textAssets = result.assets.whereType<DataPart>().where(
-          (asset) => asset.mimeType.contains('text') ||
-              asset.mimeType.contains('csv'),
+          (asset) =>
+              asset.mimeType.contains('text') ||
+              asset.mimeType.contains('csv') ||
+              (asset.name?.endsWith('.csv') ?? false),
         );
 
         expect(
