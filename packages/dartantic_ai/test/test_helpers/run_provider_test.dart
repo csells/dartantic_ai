@@ -88,7 +88,7 @@ const providerTestCaps = <String, Set<ProviderTestCaps>>{
     ProviderTestCaps.typedOutputWithTools,
     ProviderTestCaps.chatVision,
     ProviderTestCaps.thinking,
-    ProviderTestCaps.mediaGeneration,
+    // Note: OpenRouter does not support media generation
   },
 };
 

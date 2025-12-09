@@ -101,9 +101,14 @@ void main() {
       (provider) async {
         final agent = Agent(provider.name);
 
+        // Use a computation-based prompt that reliably triggers code
+        // interpreter and produces structured output with proper file
+        // citations. Pattern from: example/bin/server_side_tools_openai/
+        // server_side_code_interpreter.dart
         final result = await agent.generateMedia(
-          'Create a CSV file called "sample_data.csv" with columns: id, name, '
-          'value. Add 3 rows of sample data.',
+          'Calculate the first 5 prime numbers and store them in a variable '
+          'called "primes". Then create a CSV file called "primes.csv" with '
+          'two columns: index and value.',
           mimeTypes: const ['text/csv'],
         );
 

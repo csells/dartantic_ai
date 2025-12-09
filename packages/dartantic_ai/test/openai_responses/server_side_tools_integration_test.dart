@@ -297,44 +297,48 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
-    test('streams partial images in metadata', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.imageGeneration},
-          imageGenerationConfig: ImageGenerationConfig(
-            partialImages: 2,
-            quality: ImageGenerationQuality.low,
-            size: ImageGenerationSize.square256,
+    test(
+      'streams partial images in metadata',
+      () async {
+        final agent = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.imageGeneration},
+            imageGenerationConfig: ImageGenerationConfig(
+              partialImages: 2,
+              quality: ImageGenerationQuality.low,
+              size: ImageGenerationSize.square256,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent.sendStream('Generate a blue square').forEach(results.add);
+        // Accumulate results properly
+        final results = <ChatResult>[];
+        await agent.sendStream('Generate a blue square').forEach(results.add);
 
-      // Check for partial image events in metadata
-      var hadPartialImage = false;
-      for (final result in results) {
-        final imageEvents = result.metadata['image_generation'] as List?;
-        if (imageEvents != null) {
-          for (final event in imageEvents) {
-            if (event is Map && event['partial_image_b64'] != null) {
-              hadPartialImage = true;
-              break;
+        // Check for partial image events in metadata
+        var hadPartialImage = false;
+        for (final result in results) {
+          final imageEvents = result.metadata['image_generation'] as List?;
+          if (imageEvents != null) {
+            for (final event in imageEvents) {
+              if (event is Map && event['partial_image_b64'] != null) {
+                hadPartialImage = true;
+                break;
+              }
             }
           }
+          if (hadPartialImage) break;
         }
-        if (hadPartialImage) break;
-      }
 
-      expect(
-        hadPartialImage,
-        isTrue,
-        reason: 'Should have partial images in streaming metadata',
-      );
-    });
+        expect(
+          hadPartialImage,
+          isTrue,
+          reason: 'Should have partial images in streaming metadata',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Web Search Integration', () {

@@ -31,7 +31,6 @@ with generative AI easier and more fun!
 
 ```dart
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart' show ChatMessage;
 import 'package:json_schema/json_schema.dart' show JsonSchema;
 
 void main() async {
@@ -88,8 +87,10 @@ Add to your `pubspec.yaml`:
 ```yaml
 dependencies:
   dartantic_ai: ^VERSION
-  dartantic_interface: ^VERSION
 ```
+
+Note: `dartantic_interface` types are re-exported from `dartantic_ai`, so you
+only need one import.
 
 ## Contributing & Community
 

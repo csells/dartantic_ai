@@ -7,7 +7,14 @@ been bothering me.
 
 #### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
 
-TODO: OLD and NEW code samples
+```dart
+// OLD - had to import both packages
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+
+// NEW - one import does it all
+import 'package:dartantic_ai/dartantic_ai.dart';
+```
 
 The dartantic_interface package is great for building your own providers without
 pulling in all of dartantic. However, the way I had it split meant that you had
@@ -79,6 +86,22 @@ different and cannot be captured with one enum. It's still useful for driving
 tests, so I moved it into the tests and took it out of the provider interface as
 misleading.
 
+### Custom Headers for Enterprise
+
+All providers now support custom HTTP headers for enterprise scenarios like
+authentication proxies, request tracing, or compliance logging:
+
+```dart
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
+```
+
+This works consistently across OpenAI, Google, Anthropic, Mistral, and Ollama.
 
 ### Google Native JSON Schema Support
 
@@ -112,7 +135,18 @@ Available modes:
 
 ### New Model Type: Media Generation
 
-TODO: code sample
+```dart
+final agent = Agent('google');
+
+// Image generation - uses Nano Banana Pro under the hood
+final imageResult = await agent.generateMedia(
+  'Create a minimalist robot mascot for a developer conference.',
+  mimeTypes: const ['image/png'],
+);
+
+// Or specify the model explicitly
+final agent = Agent('google?media=gemini-3-pro-image-preview');
+```
 
 - Added media generation APIs to `Agent` (`generateMedia` and
   `generateMediaStream`) with streaming aggregation helpers.

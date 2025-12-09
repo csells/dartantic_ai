@@ -12,8 +12,12 @@ generation, code execution, etc.) but the API surface is consistent.
 | Provider | Images | PDFs | CSV/Files | Mechanism |
 |----------|--------|------|-----------|-----------|
 | **OpenAI Responses** | Native + Code | Code | Code | DALL-E + Code Interpreter |
-| **Google** | Native + Code | Code | Code | Imagen + Code Execution |
+| **Google** | Native + Code | Code | Code | Nano Banana Pro (`gemini-3-pro-image-preview`) + Code Execution |
 | **Anthropic** | Code | Code | Code | Code Interpreter (matplotlib, reportlab) |
+
+When you request an image, Dartantic routes to the provider's native image model
+(DALL-E for OpenAI, Nano Banana Pro for Google). For other file types, it uses
+each provider's code execution environment.
 
 ## Basic Usage
 
@@ -135,6 +139,21 @@ await for (final chunk in agent.generateMediaStream(
 }
 ```
 
+## Specifying Media Models
+
+Use the model string to specify which media model to use:
+
+```dart
+// Use Nano Banana Pro explicitly for Google image generation
+final agent = Agent('google?media=gemini-3-pro-image-preview');
+
+// Or combine with a chat model
+final agent = Agent('google?chat=gemini-3-pro-preview&media=gemini-3-pro-image-preview');
+```
+
+The model string is passed through to the provider's API, so you can use new
+models as soon as they're available without waiting for a Dartantic update.
+
 ## Provider-Specific Options
 
 Each provider accepts options for customization:
@@ -154,7 +173,7 @@ final agent = Agent(
 
 ```dart
 final agent = Agent(
-  'google',
+  'google?media=gemini-3-pro-image-preview',  // Use Nano Banana Pro
   mediaModelOptions: GoogleMediaGenerationModelOptions(
     aspectRatio: '16:9',  // Image aspect ratio
   ),

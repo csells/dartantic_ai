@@ -3,7 +3,8 @@ title: Providers
 description: "Providers for chat and embeddings models."
 ---
 
-Out of the box support for 11 providers, with more to come.
+Out of the box support for 8 built-in providers, with more available via the
+`openai_compat.dart` example.
 
 ## Provider Capabilities
 
@@ -17,9 +18,10 @@ Out of the box support for 11 providers, with more to come.
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
 | **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
 | **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
-| **Together AI** | `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | - | Chat, Tools, Streaming | Open source models |
-| **Google-OpenAI** | `gemini-2.0-flash-exp` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
-| **Ollama-OpenAI** | `llama3.2:latest` | - | Chat, Tools, Streaming | Ollama via OpenAI API |
+
+**Note**: Together AI, Google-OpenAI, and Ollama-OpenAI have been moved to the
+`openai_compat.dart` example. You can still use them by registering them with
+`Agent.providerFactories`.
 
 ## Provider Configuration
 
@@ -33,9 +35,6 @@ Out of the box support for 11 providers, with more to come.
 | **Cohere** | `cohere` | - | `COHERE_API_KEY` | `CohereProvider` |
 | **Ollama** | `ollama` | - | None (local) | `OllamaProvider` |
 | **OpenRouter** | `openrouter` | - | `OPENROUTER_API_KEY` | `OpenAIProvider` |
-| **Together AI** | `togetherai` | `together` | `TOGETHER_API_KEY` | `OpenAIProvider` |
-| **Google-OpenAI** | `google-openai` | - | `GEMINI_API_KEY` | `OpenAIProvider` |
-| **Ollama-OpenAI** | `ollama-openai` | - | None (local) | `OpenAIProvider` |
 
 ## Setup
 
@@ -90,6 +89,27 @@ final provider = OpenAIProvider(
 );
 Agent.forProvider(provider);
 ```
+
+## Custom Headers
+
+All providers support custom HTTP headers for enterprise scenarios like
+authentication proxies, request tracing, or compliance logging:
+
+```dart
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
+
+final agent = Agent.forProvider(provider);
+```
+
+Custom headers flow through to all API calls and can override internal headers
+when needed. This works consistently across OpenAI, Google, Anthropic, Mistral,
+and Ollama.
 
 ## Check Capabilities
 

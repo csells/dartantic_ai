@@ -4,6 +4,42 @@ title: Migration Guide
 
 ## Migrating from 1.x to 2.0.0
 
+### Dartantic Interface Re-export
+
+The `dartantic_interface` package types are now re-exported from `dartantic_ai`,
+so you only need one import:
+
+#### Old Code
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+```
+
+#### New Code
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+```
+
+### Custom Headers Support
+
+All providers now support custom HTTP headers for enterprise scenarios:
+
+```dart
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
+```
+
+### Streamlined Provider List
+
+Together AI, Google-OpenAI, and Ollama-OpenAI have been moved from built-in
+providers to the `openai_compat.dart` example. You can still use them by
+registering them with `Agent.providerFactories`. OpenRouter remains built-in.
+
 ### Provider Factory Registry
 
 Provider lookup has been moved from the `Providers` class to `Agent` static
