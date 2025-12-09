@@ -3,6 +3,7 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
+import '../chat_models/openai_responses/openai_responses_server_side_tools.dart';
 import '../media_gen_models/openai_responses/openai_responses_media_gen_model.dart';
 import '../media_gen_models/openai_responses/openai_responses_media_gen_model_options.dart';
 import '../platform/platform.dart';
@@ -155,7 +156,7 @@ class OpenAIResponsesProvider
   }) {
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.media]!;
-    final defaultOptions =
+    final resolvedOptions =
         options ?? const OpenAIResponsesMediaGenerationModelOptions();
 
     _logger.info(
@@ -163,8 +164,21 @@ class OpenAIResponsesProvider
       '${(tools ?? const []).length} tools',
     );
 
-    final chatDefaultOptions =
-        OpenAIResponsesMediaGenerationModel.buildChatOptions(defaultOptions);
+    // Create chat options directly with image generation and code interpreter
+    final chatOptions = OpenAIResponsesChatModelOptions(
+      store: resolvedOptions.store,
+      metadata: resolvedOptions.metadata,
+      user: resolvedOptions.user,
+      serverSideTools: const {
+        OpenAIServerSideTool.imageGeneration,
+        OpenAIServerSideTool.codeInterpreter,
+      },
+      imageGenerationConfig: ImageGenerationConfig(
+        partialImages: resolvedOptions.partialImages ?? 0,
+        quality: resolvedOptions.quality ?? ImageGenerationQuality.auto,
+        size: resolvedOptions.size ?? ImageGenerationSize.auto,
+      ),
+    );
 
     final chatModel = OpenAIResponsesChatModel(
       name: modelName,
@@ -172,13 +186,13 @@ class OpenAIResponsesProvider
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultResponsesBaseUrl,
       headers: headers,
-      defaultOptions: chatDefaultOptions,
+      defaultOptions: chatOptions,
     );
 
     return OpenAIResponsesMediaGenerationModel(
       name: modelName,
       tools: tools,
-      defaultOptions: defaultOptions,
+      defaultOptions: resolvedOptions,
       chatModel: chatModel,
     );
   }

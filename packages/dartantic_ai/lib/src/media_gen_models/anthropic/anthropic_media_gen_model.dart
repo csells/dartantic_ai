@@ -36,21 +36,8 @@ class AnthropicMediaGenerationModel
 
   static final Logger _logger = Logger('dartantic.media.models.anthropic');
 
-  static const AnthropicServerToolConfig _codeExecutionTool =
-      AnthropicServerToolConfig(
-        type: 'code_execution_20250825',
-        name: 'code_execution',
-      );
   final AnthropicChatModel _chatModel;
   final AnthropicFilesClient _filesClient;
-
-  /// Builds chat model options for provided media defaults.
-  static AnthropicChatOptions buildChatOptions(
-    AnthropicMediaGenerationModelOptions base,
-  ) {
-    final resolved = _resolve(base, null);
-    return _toChatOptions(resolved);
-  }
 
   @override
   Stream<MediaGenerationResult> generateMediaStream(
@@ -212,26 +199,23 @@ file names in your final response.
     );
   }
 
+  /// Converts resolved settings to chat options.
+  ///
+  /// Note: serverTools are NOT included here - they are set by the provider
+  /// when creating the chat model. This only passes through per-request
+  /// options.
   static AnthropicChatOptions _toChatOptions(
     _ResolvedAnthropicMediaSettings settings,
-  ) {
-    final toolMap = <String, AnthropicServerToolConfig>{
-      _codeExecutionTool.name: _codeExecutionTool,
-      for (final tool in settings.serverTools) tool.name: tool,
-    };
-
-    return AnthropicChatOptions(
-      maxTokens: settings.maxTokens,
-      stopSequences: settings.stopSequences,
-      temperature: settings.temperature,
-      topK: settings.topK,
-      topP: settings.topP,
-      userId: settings.userId,
-      thinkingBudgetTokens: settings.thinkingBudgetTokens,
-      serverTools: toolMap.values.toList(growable: false),
-      toolChoice: const AnthropicToolChoice.auto(),
-    );
-  }
+  ) => AnthropicChatOptions(
+    maxTokens: settings.maxTokens,
+    stopSequences: settings.stopSequences,
+    temperature: settings.temperature,
+    topK: settings.topK,
+    topP: settings.topP,
+    userId: settings.userId,
+    thinkingBudgetTokens: settings.thinkingBudgetTokens,
+    // serverTools are set by the provider - don't override them here
+  );
 
   String _augmentPrompt(String prompt, List<String> mimeTypes) {
     if (prompt.trim().isEmpty) return prompt;

@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
@@ -14,7 +13,7 @@ void main(List<String> args) async {
   );
 
   final agent = Agent(
-    'anthropic:claude-sonnet-4-5-20250929',
+    'anthropic',
     chatModelOptions: const AnthropicChatOptions(
       serverSideTools: {AnthropicServerSideTool.webFetch},
     ),
@@ -38,8 +37,7 @@ void main(List<String> args) async {
 
   _saveFetchedDocuments(history);
   dumpMessages(history);
-
-  stdout.writeln('✅ Completed web fetch demo.');
+  exit(0);
 }
 
 void _saveFetchedDocuments(List<ChatMessage> history) {

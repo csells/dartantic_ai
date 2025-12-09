@@ -217,6 +217,12 @@ class AnthropicProvider
     ];
   }
 
+  /// Code execution tool configuration for media generation.
+  static const _codeExecutionTool = AnthropicServerToolConfig(
+    type: 'code_execution_20250825',
+    name: 'code_execution',
+  );
+
   @override
   MediaGenerationModel<AnthropicMediaGenerationModelOptions> createMediaModel({
     String? name,
@@ -239,9 +245,25 @@ class AnthropicProvider
       '${tools?.length ?? 0} tools',
     );
 
-    final chatOptions = AnthropicMediaGenerationModel.buildChatOptions(
-      resolvedOptions,
+    // Build server tools list with code execution enabled
+    final serverTools = <AnthropicServerToolConfig>[
+      _codeExecutionTool,
+      ...?resolvedOptions.serverTools,
+    ];
+
+    // Create chat options directly with code execution enabled
+    final chatOptions = AnthropicChatOptions(
+      maxTokens: resolvedOptions.maxTokens ?? 4096,
+      stopSequences: resolvedOptions.stopSequences,
+      temperature: resolvedOptions.temperature,
+      topK: resolvedOptions.topK,
+      topP: resolvedOptions.topP,
+      userId: resolvedOptions.userId,
+      thinkingBudgetTokens: resolvedOptions.thinkingBudgetTokens,
+      serverTools: serverTools,
+      toolChoice: const AnthropicToolChoice.auto(),
     );
+
     final betaFeatures = betaFeaturesForAnthropicTools(
       manualConfigs: chatOptions.serverTools,
       serverSideTools: chatOptions.serverSideTools,

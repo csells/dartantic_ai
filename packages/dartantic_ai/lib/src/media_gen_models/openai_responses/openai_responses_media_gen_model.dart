@@ -32,21 +32,6 @@ class OpenAIResponsesMediaGenerationModel
 
   final OpenAIResponsesChatModel _chatModel;
 
-  /// Builds chat model options for the provided media defaults.
-  static OpenAIResponsesChatModelOptions buildChatOptions(
-    OpenAIResponsesMediaGenerationModelOptions base,
-  ) {
-    final resolved = _resolve(base, null);
-    return _toChatOptions(
-      resolved,
-      serverSideTools: const {
-        OpenAIServerSideTool.imageGeneration,
-        OpenAIServerSideTool.codeInterpreter,
-      },
-      includeImageConfig: true,
-    );
-  }
-
   @override
   Stream<MediaGenerationResult> generateMediaStream(
     String prompt, {

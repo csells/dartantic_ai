@@ -3,14 +3,13 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
   stdout.writeln('🧪 Google Server-Side Code Execution Demo');
 
   final agent = Agent(
-    'google:gemini-2.5-flash',
+    'google',
     chatModelOptions: const GoogleChatModelOptions(
       serverSideTools: {GoogleServerSideTool.codeExecution},
     ),
@@ -31,7 +30,7 @@ void main(List<String> args) async {
   await for (final chunk in agent.sendStream(prompt1)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
@@ -51,27 +50,11 @@ void main(List<String> args) async {
   await for (final chunk in agent.sendStream(prompt2, history: history)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
-  dumpFiles(history);
+  dumpAssetsFromHistory(history, 'tmp');
   dumpMessages(history);
   exit(0);
-}
-
-void dumpFiles(List<ChatMessage> history) {
-  for (final msg in history) {
-    for (final part in msg.parts) {
-      if (part is DataPart) {
-        final filename = part.name ?? 'unnamed_file';
-        final file = File('tmp/$filename');
-        file.parent.createSync(recursive: true);
-        file.writeAsBytesSync(part.bytes);
-        stdout.writeln(
-          '💾 Saved file: tmp/$filename (${part.bytes.length} bytes)',
-        );
-      }
-    }
-  }
 }

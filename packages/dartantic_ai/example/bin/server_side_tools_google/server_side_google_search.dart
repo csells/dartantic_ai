@@ -9,7 +9,7 @@ void main(List<String> args) async {
   stdout.writeln('\n🔎 Google Server-Side Web Search Demo');
 
   final agent = Agent(
-    'google:gemini-2.5-flash',
+    'google',
     chatModelOptions: const GoogleChatModelOptions(
       serverSideTools: {GoogleServerSideTool.googleSearch},
     ),
@@ -25,9 +25,10 @@ void main(List<String> args) async {
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
   dumpMessages(history);
+  exit(0);
 }

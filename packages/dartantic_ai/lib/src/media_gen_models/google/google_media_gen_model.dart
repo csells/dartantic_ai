@@ -7,24 +7,25 @@ import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
+import '../../chat_models/google_chat/google_chat_model.dart';
 import '../../chat_models/google_chat/google_message_mappers.dart';
 import '../../providers/google_api_utils.dart';
 import 'google_media_gen_model_options.dart';
 
 /// Media generation model for Google Gemini.
 ///
-/// Supports native image generation via the Gemini API. Non-image media types
-/// (PDF, CSV, etc.) are not supported - Google's code execution can only
-/// output Matplotlib graphs as images, not arbitrary files.
-/// See: https://ai.google.dev/gemini-api/docs/code-execution
+/// Supports native image generation via Imagen and code execution fallback
+/// for non-image file types (PDF, CSV, etc.) via Python sandbox.
 class GoogleMediaGenerationModel
     extends MediaGenerationModel<GoogleMediaGenerationModelOptions> {
   /// Creates a new Google media model instance.
   GoogleMediaGenerationModel({
     required super.name,
     required gl.GenerativeService service,
+    required GoogleChatModel chatModel,
     GoogleMediaGenerationModelOptions? defaultOptions,
   }) : _service = service,
+       _chatModel = chatModel,
        super(
          defaultOptions:
              defaultOptions ?? const GoogleMediaGenerationModelOptions(),
@@ -33,6 +34,7 @@ class GoogleMediaGenerationModel
   static final Logger _logger = Logger('dartantic.media.google');
 
   final gl.GenerativeService _service;
+  final GoogleChatModel _chatModel;
 
   @override
   Stream<MediaGenerationResult> generateMediaStream(
@@ -49,55 +51,179 @@ class GoogleMediaGenerationModel
       );
     }
 
-    if (attachments.isNotEmpty) {
-      throw UnsupportedError(
-        'Google media generation does not support attachments.',
-      );
-    }
-
     final resolvedOptions = options ?? defaultOptions;
 
-    // Google only supports native image generation - code execution cannot
-    // return arbitrary files like PDFs or CSVs (only Matplotlib graphs)
-    final hasNonImageMimeType = mimeTypes.any((m) => !m.startsWith('image/'));
-    if (hasNonImageMimeType) {
+    // Check if any non-image types are requested
+    final wantsImages = mimeTypes.any(
+      (m) => m == 'image/*' || m.startsWith('image/'),
+    );
+    final wantsNonImages = mimeTypes.any(
+      (m) => m != 'image/*' && !m.startsWith('image/'),
+    );
+
+    // Route to appropriate generation path
+    if (wantsNonImages && !wantsImages) {
+      // Pure non-image request → use code execution
+      yield* _generateViaCodeExecution(
+        prompt,
+        mimeTypes: mimeTypes,
+        history: history,
+        attachments: attachments,
+        options: resolvedOptions,
+      );
+      return;
+    }
+
+    if (wantsImages && wantsNonImages) {
+      // Mixed request - generate images first, then non-images
+      _logger.info(
+        'Mixed MIME types requested - generating images via Imagen, '
+        'non-images via code execution',
+      );
+
+      // First generate images
+      final imageMimes = mimeTypes.where(
+        (m) => m == 'image/*' || m.startsWith('image/'),
+      ).toList();
+      yield* _generateViaImagen(
+        prompt,
+        mimeTypes: imageMimes,
+        history: history,
+        options: resolvedOptions,
+      );
+
+      // Then generate non-images
+      final nonImageMimes = mimeTypes.where(
+        (m) => m != 'image/*' && !m.startsWith('image/'),
+      ).toList();
+      yield* _generateViaCodeExecution(
+        prompt,
+        mimeTypes: nonImageMimes,
+        history: history,
+        attachments: attachments,
+        options: resolvedOptions,
+      );
+      return;
+    }
+
+    // Pure image request → use native Imagen
+    if (attachments.isNotEmpty) {
       throw UnsupportedError(
-        'Google media generation only supports image types (image/png, '
-        'image/jpeg, image/webp). Non-image types like PDFs and text files '
-        'are not supported because Google code execution can only output '
-        'Matplotlib graphs as images. '
-        'Requested: ${mimeTypes.join(', ')}. '
-        'See: https://ai.google.dev/gemini-api/docs/code-execution',
+        'Google native image generation does not support attachments. '
+        'Request non-image types to use code execution with attachments.',
       );
     }
 
+    yield* _generateViaImagen(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      options: resolvedOptions,
+    );
+  }
+
+  /// Generates media via native Imagen image generation.
+  Stream<MediaGenerationResult> _generateViaImagen(
+    String prompt, {
+    required List<String> mimeTypes,
+    required List<ChatMessage> history,
+    required GoogleMediaGenerationModelOptions options,
+  }) async* {
     final resolvedMimeType = resolveGoogleMediaMimeType(
       mimeTypes,
-      resolvedOptions.responseMimeType ?? defaultOptions.responseMimeType,
+      options.responseMimeType ?? defaultOptions.responseMimeType,
     );
 
     final request = _buildRequest(
       prompt: prompt,
       history: history,
       mimeType: resolvedMimeType,
-      options: resolvedOptions,
+      options: options,
     );
 
     var chunkIndex = 0;
-    // Use streamGenerateContent but expect image data in response
     await for (final response in _service.streamGenerateContent(request)) {
       chunkIndex++;
       _logger.fine(
-        'Received Google media chunk $chunkIndex for model: ${request.model}',
+        'Received Google Imagen chunk $chunkIndex for model: ${request.model}',
       );
       yield _mapResponse(
         response,
-        generationMode: 'direct',
+        generationMode: 'imagen',
         chunkIndex: chunkIndex,
         resolvedMimeType: resolvedMimeType,
         requestedMimeTypes: mimeTypes,
       );
     }
+  }
+
+  /// Generates media via code execution (Python sandbox).
+  Stream<MediaGenerationResult> _generateViaCodeExecution(
+    String prompt, {
+    required List<String> mimeTypes,
+    required List<ChatMessage> history,
+    required List<Part> attachments,
+    required GoogleMediaGenerationModelOptions options,
+  }) async* {
+    _logger.info(
+      'Using code execution for non-image generation: ${mimeTypes.join(', ')}',
+    );
+
+    final augmentedPrompt = _augmentPromptForCodeExecution(prompt, mimeTypes);
+    final messages = <ChatMessage>[
+      ...history,
+      ChatMessage.user(augmentedPrompt, parts: attachments),
+    ];
+
+    var chunkIndex = 0;
+    await for (final chunk in _chatModel.sendStream(messages)) {
+      chunkIndex++;
+      _logger.fine('Received Google code execution chunk $chunkIndex');
+
+      final assets = <Part>[];
+      final links = <LinkPart>[];
+
+      // Extract DataParts from messages
+      for (final message in chunk.messages) {
+        for (final part in message.parts) {
+          if (part is DataPart) {
+            assets.add(part);
+          } else if (part is LinkPart) {
+            links.add(part);
+          }
+        }
+      }
+
+      final isComplete = chunk.finishReason != FinishReason.unspecified;
+      final metadata = <String, dynamic>{
+        ...chunk.metadata,
+        'generation_mode': 'code_execution',
+        'requested_mime_types': mimeTypes,
+        'chunk_index': chunkIndex,
+      };
+
+      yield MediaGenerationResult(
+        id: chunk.id,
+        assets: assets,
+        links: links,
+        messages: chunk.messages,
+        metadata: metadata,
+        usage: chunk.usage,
+        finishReason: chunk.finishReason,
+        isComplete: isComplete,
+      );
+    }
+  }
+
+  String _augmentPromptForCodeExecution(String prompt, List<String> mimeTypes) {
+    final mimeList = mimeTypes.join(', ');
+    return '''
+$prompt
+
+Use Python code execution to create the requested files. The output should be
+in one of these formats: $mimeList. For PDFs, use libraries like reportlab or
+fpdf. For CSV files, use the csv module. Save the file and return it as output.
+''';
   }
 
   gl.GenerateContentRequest _buildRequest({
@@ -337,6 +463,7 @@ class GoogleMediaGenerationModel
   @override
   void dispose() {
     _service.close();
+    _chatModel.dispose();
   }
 }
 

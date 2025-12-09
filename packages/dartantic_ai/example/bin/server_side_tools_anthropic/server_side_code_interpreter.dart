@@ -6,7 +6,6 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_files_client.dart';
 import 'package:dartantic_ai/src/media_gen_models/anthropic/anthropic_tool_deliverable_tracker.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
@@ -57,7 +56,7 @@ void main(List<String> args) async {
         savedAssetKeys,
         seenLinks,
       );
-      dumpMetadata(chunk.metadata, prefix: '\n');
+      // dumpMetadata(chunk.metadata, prefix: '\n');
     }
     stdout.writeln();
 
@@ -83,7 +82,7 @@ void main(List<String> args) async {
         savedAssetKeys,
         seenLinks,
       );
-      dumpMetadata(chunk.metadata, prefix: '\n');
+      // dumpMetadata(chunk.metadata, prefix: '\n');
     }
     stdout.writeln();
 
@@ -100,8 +99,7 @@ void main(List<String> args) async {
     );
   }
   dumpMessages(history);
-
-  stdout.writeln('✅ Completed code execution demo.');
+  exit(0);
 }
 
 const _outputDirectory = 'tmp';

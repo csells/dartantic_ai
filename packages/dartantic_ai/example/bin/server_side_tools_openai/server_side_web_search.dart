@@ -6,7 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('\n Server-Side Web Search');
+  stdout.writeln('Open AI Responses: Web Search Demo');
 
   final agent = Agent(
     'openai-responses',
@@ -25,9 +25,10 @@ void main(List<String> args) async {
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
   }
   stdout.writeln();
 
   dumpMessages(history);
+  exit(0);
 }

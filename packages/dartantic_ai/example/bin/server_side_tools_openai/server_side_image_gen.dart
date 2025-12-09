@@ -4,11 +4,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('🎨 Image Generation Demo\n');
+  stdout.writeln('OpenAI Responses: Image Generation Demo\n');
   stdout.writeln('This demo generates images from text descriptions.\n');
 
   final agent = Agent(
@@ -36,7 +35,7 @@ void main(List<String> args) async {
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
     dumpPartialImages(chunk.metadata);
   }
   stdout.writeln();
@@ -48,6 +47,7 @@ void main(List<String> args) async {
   dumpImage('Final', 'final_image', imagePart.bytes);
 
   dumpMessages(history);
+  exit(0);
 }
 
 void dumpPartialImages(Map<String, dynamic> metadata) {

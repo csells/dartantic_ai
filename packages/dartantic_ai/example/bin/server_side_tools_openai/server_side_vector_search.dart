@@ -3,12 +3,11 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 import 'package:openai_core/openai_core.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('🔍 Vector Search Demo');
+  stdout.writeln('Open AI Responses: Vector Search Demo');
   stdout.writeln('This demo searches through uploaded documentation files.');
   stdout.writeln();
 
@@ -44,12 +43,13 @@ void main(List<String> args) async {
   final history = <ChatMessage>[];
   await for (final chunk in agent.sendStream(prompt)) {
     stdout.write(chunk.output);
-    dumpMetadata(chunk.metadata, prefix: '\n');
+    // dumpMetadata(chunk.metadata, prefix: '\n');
     history.addAll(chunk.messages);
   }
   stdout.writeln('');
 
   dumpMessages(history);
+  exit(0);
 }
 
 /// Sets up a vector store with the specified documentation files.

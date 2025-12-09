@@ -10,6 +10,7 @@ import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/google_chat/google_chat_model.dart';
 import '../chat_models/google_chat/google_chat_options.dart';
 import '../chat_models/google_chat/google_double_agent_orchestrator.dart';
+import '../chat_models/google_chat/google_server_side_tools.dart';
 import '../custom_http_client.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
@@ -197,6 +198,8 @@ class GoogleProvider
     GoogleMediaGenerationModelOptions? options,
   }) {
     final modelName = name ?? _defaultMediaModelName;
+    final resolvedOptions =
+        options ?? const GoogleMediaGenerationModelOptions();
 
     _logger.info(
       'Creating Google media model: $modelName '
@@ -209,7 +212,7 @@ class GoogleProvider
 
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
 
-    // Create the GenerativeService for image generation
+    // Create the GenerativeService for native image generation (Imagen)
     final httpClient = CustomHttpClient(
       baseHttpClient: RetryHttpClient(inner: http.Client()),
       baseUrl: resolvedBaseUrl,
@@ -218,10 +221,30 @@ class GoogleProvider
     );
     final service = gl.GenerativeService(client: httpClient);
 
+    // Create chat model with code execution for non-image file generation
+    final chatOptions = GoogleChatModelOptions(
+      temperature: resolvedOptions.temperature,
+      topP: resolvedOptions.topP,
+      topK: resolvedOptions.topK,
+      maxOutputTokens: resolvedOptions.maxOutputTokens,
+      safetySettings: resolvedOptions.safetySettings,
+      serverSideTools: const {GoogleServerSideTool.codeExecution},
+    );
+
+    final chatModel = GoogleChatModel(
+      name: _defaultChatModelName, // Use chat model for code execution
+      apiKey: apiKey!,
+      baseUrl: resolvedBaseUrl,
+      headers: headers,
+      tools: tools,
+      defaultOptions: chatOptions,
+    );
+
     return GoogleMediaGenerationModel(
       name: modelName,
       service: service,
-      defaultOptions: options ?? const GoogleMediaGenerationModelOptions(),
+      chatModel: chatModel,
+      defaultOptions: resolvedOptions,
     );
   }
 

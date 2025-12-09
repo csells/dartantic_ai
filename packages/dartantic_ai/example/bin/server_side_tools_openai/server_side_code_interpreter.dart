@@ -3,11 +3,12 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:example/example.dart';
 
 void main(List<String> args) async {
-  stdout.writeln('🐍 Code Interpreter Demo with Container Reuse');
+  stdout.writeln(
+    'OpenAI Responses: Code Interpreter Demo with Container Reuse',
+  );
 
   // First session: Calculate Fibonacci numbers and store in container
   stdout.writeln('=== Session 1: Calculate Fibonacci Numbers ===');
@@ -32,7 +33,7 @@ void main(List<String> args) async {
   await for (final chunk in agent1.sendStream(prompt1)) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
+    // dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
 
     // Extract container_id from streaming metadata
     final cid = containerIdFromMetadata(chunk.metadata);
@@ -77,7 +78,7 @@ void main(List<String> args) async {
   )) {
     stdout.write(chunk.output);
     history.addAll(chunk.messages);
-    dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
+    // dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
 
     // Extract container_id from streaming metadata
     final cid = containerIdFromMetadata(chunk.metadata);
@@ -96,28 +97,53 @@ void main(List<String> args) async {
   } else {
     stdout.writeln('✅ Container reused: $containerId');
   }
+  stdout.writeln();
 
-  dumpFiles(history);
+  // Third session: Generate a PDF report
+  stdout.writeln('=== Session 3: Generate PDF Report ===');
+
+  final agent3 = Agent(
+    'openai-responses',
+    chatModelOptions: OpenAIResponsesChatModelOptions(
+      serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+      codeInterpreterConfig: CodeInterpreterConfig(
+        containerId: containerId, // Continue using same container
+      ),
+    ),
+  );
+
+  const prompt3 =
+      'Create a PDF document called "fibonacci_report.pdf" that includes: '
+      '1) The golden ratio plot we created earlier '
+      '2) A brief explanation of how Fibonacci numbers approach the golden '
+      'ratio '
+      '3) The first 10 Fibonacci numbers from our CSV file';
+
+  stdout.writeln('User: $prompt3');
+  stdout.write('${agent3.displayName}: ');
+
+  String? session3ContainerId;
+  await for (final chunk in agent3.sendStream(prompt3, history: history)) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+    // dumpMetadataSpecialDelta(chunk.metadata, prefix: '\n');
+
+    final cid = containerIdFromMetadata(chunk.metadata);
+    if (cid != null) session3ContainerId = cid;
+  }
+  stdout.writeln();
+
+  if (session3ContainerId != containerId) {
+    stdout.writeln(
+      '❌ Container NOT reused for PDF: $containerId != $session3ContainerId',
+    );
+  } else {
+    stdout.writeln('✅ Container reused for PDF: $containerId');
+  }
+
+  dumpAssetsFromHistory(history, 'tmp');
   dumpMessages(history);
   exit(0);
-}
-
-void dumpFiles(List<ChatMessage> history) {
-  for (final msg in history) {
-    for (final part in msg.parts) {
-      if (part is DataPart) {
-        // Use the actual filename from the DataPart (without path)
-        final filename = part.name ?? 'unnamed_file';
-
-        final file = File('tmp/$filename');
-        file.parent.createSync(recursive: true);
-        file.writeAsBytesSync(part.bytes);
-        stdout.writeln(
-          '💾 Saved file: tmp/$filename (${part.bytes.length} bytes)',
-        );
-      }
-    }
-  }
 }
 
 void dumpMetadataSpecialDelta(

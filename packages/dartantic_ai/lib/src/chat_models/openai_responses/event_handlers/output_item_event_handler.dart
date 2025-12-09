@@ -91,6 +91,33 @@ class OutputItemEventHandler implements OpenAIResponsesEventHandler {
 
     if (item is openai.CodeInterpreterCall) {
       _logger.fine('Code interpreter completed at index ${event.outputIndex}');
+      _logger.fine(
+        'CodeInterpreterCall details: containerId=${item.containerId}, '
+        'results=${item.results?.length ?? 0}, status=${item.status}',
+      );
+
+      // Extract file outputs from code interpreter results
+      final containerId = item.containerId;
+      if (containerId != null && item.results != null) {
+        for (final result in item.results!) {
+          if (result is openai.CodeInterpreterFiles) {
+            for (final file in result.files) {
+              final fileId = file.fileId ?? file.id;
+              if (fileId != null) {
+                _logger.info(
+                  'Found code interpreter file output: '
+                  'container_id=$containerId, file_id=$fileId',
+                );
+                attachments.trackContainerCitation(
+                  containerId: containerId,
+                  fileId: fileId,
+                );
+              }
+            }
+          }
+        }
+      }
+
       toolRecorder.recordToolEvent(
         OpenAIResponsesToolTypes.codeInterpreter,
         event,

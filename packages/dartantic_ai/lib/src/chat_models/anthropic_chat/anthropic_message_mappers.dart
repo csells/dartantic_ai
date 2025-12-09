@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' as a;
 import 'package:collection/collection.dart' show IterableExtension;
@@ -598,13 +599,14 @@ class MessageStreamEventTransformer
     }
 
     if (cb is a.ToolResultBlock && _serverToolUseIds.contains(cb.toolUseId)) {
-      final parts = _mapContentBlock(cb);
+      final baseParts = _mapContentBlock(cb);
       final rawPayload = _rawToolContentById.remove(cb.toolUseId);
+      final contentJson = _toolResultContentToJson(cb.content);
       final event = <String, Object?>{
         'type': 'tool_result',
         'tool_use_id': cb.toolUseId,
         'tool_name': _serverToolNamesById[cb.toolUseId] ?? cb.toolUseId,
-        'content': _toolResultContentToJson(cb.content),
+        'content': contentJson,
         if (rawPayload != null) 'raw_content': rawPayload,
       };
       if (cb.isError != null) event['is_error'] = cb.isError;
@@ -612,6 +614,13 @@ class MessageStreamEventTransformer
       final toolKey =
           (event['tool_name'] as String?) ??
           AnthropicServerToolTypes.codeExecution;
+
+      // For web_fetch, extract DataParts from the content structure
+      final webFetchParts = _isWebFetchTool(cb.toolUseId)
+          ? _extractWebFetchDataParts(contentJson)
+          : const <Part>[];
+
+      final parts = [...baseParts, ...webFetchParts];
 
       final outputMessage = parts.isEmpty
           ? const ChatMessage(role: ChatMessageRole.model, parts: [])
@@ -912,6 +921,56 @@ class MessageStreamEventTransformer
       name == 'text_editor_code_execution' ||
       name == 'web_search' ||
       name == 'web_fetch';
+
+  bool _isWebFetchTool(String? toolUseId) {
+    if (toolUseId == null) return false;
+    final toolName = _serverToolNamesById[toolUseId];
+    return toolName == 'web_fetch';
+  }
+
+  /// Extracts DataParts from web_fetch tool result content.
+  ///
+  /// Web fetch returns content in a nested structure with base64 or text data.
+  /// This mirrors the extraction logic in AnthropicToolDeliverableTracker.
+  List<Part> _extractWebFetchDataParts(Object? content) {
+    if (content is! Map<String, Object?>) return const [];
+
+    final inner = content['content'];
+    if (inner is! Map<String, Object?>) return const [];
+
+    // Look for source data in content.content or content.source
+    final source =
+        (inner['content'] as Map<String, Object?>?) ??
+        (inner['source'] as Map<String, Object?>?);
+    if (source == null) return const [];
+
+    final sourceType = source['type'] as String?;
+    final data = source['data'] as String?;
+    final mediaType =
+        source['media_type'] as String? ?? source['mediaType'] as String?;
+
+    if (data == null || data.isEmpty) return const [];
+
+    Uint8List? bytes;
+    if (sourceType == 'text' || sourceType == null) {
+      bytes = Uint8List.fromList(utf8.encode(data));
+    } else if (sourceType == 'base64' || sourceType == 'bytes') {
+      bytes = base64Decode(data);
+    }
+
+    if (bytes == null) return const [];
+
+    final resolvedMime = mediaType ?? 'text/plain';
+    final title = inner['title'] as String?;
+    final extension = Part.extensionFromMimeType(resolvedMime);
+    final baseName = title != null && title.trim().isNotEmpty
+        ? title.replaceAll(RegExp(r'[\\/:]'), '_')
+        : extension != null
+            ? 'web_fetch_document.$extension'
+            : 'web_fetch_document';
+
+    return [DataPart(bytes, mimeType: resolvedMime, name: baseName)];
+  }
 
   Object? _toolResultContentToJson(a.ToolResultBlockContent content) =>
       content.map(
