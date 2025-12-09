@@ -601,7 +601,7 @@ class MessageStreamEventTransformer
     if (cb is a.ToolResultBlock && _serverToolUseIds.contains(cb.toolUseId)) {
       final baseParts = _mapContentBlock(cb);
       final rawPayload = _rawToolContentById.remove(cb.toolUseId);
-      final contentJson = _toolResultContentToJson(cb.content);
+      final contentJson = rawPayload ?? _toolResultContentToJson(cb.content);
       final event = <String, Object?>{
         'type': 'tool_result',
         'tool_use_id': cb.toolUseId,
@@ -962,12 +962,26 @@ class MessageStreamEventTransformer
 
     final resolvedMime = mediaType ?? 'text/plain';
     final title = inner['title'] as String?;
-    final extension = Part.extensionFromMimeType(resolvedMime);
-    final baseName = title != null && title.trim().isNotEmpty
+    final extension = _preferredTextExtension(resolvedMime);
+    final sanitizedTitle = title != null && title.trim().isNotEmpty
         ? title.replaceAll(RegExp(r'[\\/:]'), '_')
-        : extension != null
-            ? 'web_fetch_document.$extension'
-            : 'web_fetch_document';
+        : null;
+    final baseName = () {
+      if (sanitizedTitle != null && sanitizedTitle.isNotEmpty) {
+        // Append an extension derived from the MIME type when the title lacks
+        // one.
+        final hasExtension =
+            sanitizedTitle.contains('.') &&
+            sanitizedTitle.split('.').last.isNotEmpty;
+        if (extension != null && !hasExtension) {
+          return '$sanitizedTitle.$extension';
+        }
+        return sanitizedTitle;
+      }
+      return extension != null
+          ? 'web_fetch_document.$extension'
+          : 'web_fetch_document';
+    }();
 
     return [DataPart(bytes, mimeType: resolvedMime, name: baseName)];
   }
@@ -978,6 +992,11 @@ class MessageStreamEventTransformer
             value.value.map((block) => block.toJson()).toList(growable: false),
         text: (value) => value.value,
       );
+
+  String? _preferredTextExtension(String mimeType) {
+    if (mimeType == 'text/plain') return 'txt';
+    return Part.extensionFromMimeType(mimeType);
+  }
 }
 
 String _imageMediaTypeToString(a.ImageBlockSourceMediaType mediaType) =>

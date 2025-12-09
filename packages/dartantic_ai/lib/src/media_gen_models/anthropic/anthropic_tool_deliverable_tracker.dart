@@ -275,7 +275,7 @@ class AnthropicToolDeliverableTracker {
 
             if (bytes != null) {
               final resolvedMime = mediaType ?? 'text/plain';
-              final extension = Part.extensionFromMimeType(resolvedMime);
+              final extension = _preferredTextExtension(resolvedMime);
               final title = inner['title'] as String?;
               final baseName = title != null && title.trim().isNotEmpty
                   ? _sanitizeFileName(title)
@@ -443,6 +443,12 @@ class AnthropicToolDeliverableTracker {
 
   String _composeFileName(String prefix, String id, String? extension) =>
       extension == null ? '$prefix$id' : '$prefix$id.$extension';
+
+  String? _preferredTextExtension(String mimeType) {
+    if (mimeType == 'text/plain') return 'txt';
+    if (mimeType == 'text/markdown') return 'md';
+    return Part.extensionFromMimeType(mimeType);
+  }
 }
 
 /// Container for deliverables emitted while processing tool metadata.

@@ -148,7 +148,6 @@ void main() {
         expect(toolResults, hasLength(2));
         expect(toolResults[0].result, equals('Step 1 processed: hello'));
         expect(toolResults[1].result, contains('Step 2 processed:'));
-
       });
 
       test('calls multiple independent tools', () async {
@@ -174,7 +173,6 @@ void main() {
         // Tool results may be serialized as strings
         expect(results.any((r) => r == 100 || r == '100'), isTrue);
         expect(results.any((r) => r == true || r == 'true'), isTrue);
-
       });
 
       test('calls same tool multiple times with different arguments', () async {
@@ -260,7 +258,6 @@ void main() {
             reason:
                 'Provider ${provider.name} should execute int_tool correctly',
           );
-
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
       );
@@ -602,7 +599,6 @@ void main() {
           fullResponse.toLowerCase(),
           anyOf(contains('99'), contains('int_tool')),
         );
-
       });
     });
 

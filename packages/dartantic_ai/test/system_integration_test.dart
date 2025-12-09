@@ -65,7 +65,6 @@ void main() {
 
         // Complete conversation should have appropriate message count
         expect(history.length, greaterThan(4));
-
       });
 
       test('multi-tool workflow with dependencies', () async {
@@ -83,7 +82,6 @@ void main() {
             .expand((m) => m.toolResults)
             .toList();
         expect(toolResults.length, greaterThanOrEqualTo(1));
-
       });
 
       test('complex conversation with system prompt', () async {
@@ -127,7 +125,6 @@ void main() {
 
         final fullText = chunks.join();
         expect(fullText, isNotEmpty);
-
       });
 
       runProviderTest(
@@ -163,7 +160,6 @@ void main() {
             reason: 'Provider ${provider.name} should respond in conversation',
           );
           history.addAll(result.messages);
-
         },
         timeout: const Timeout(Duration(minutes: 3)),
       );
@@ -186,7 +182,6 @@ void main() {
             isTrue,
             reason: 'Provider ${provider.name} should execute tools',
           );
-
         },
         timeout: const Timeout(Duration(minutes: 3)),
       );
@@ -255,7 +250,6 @@ void main() {
           reason: '${provider.name} should reference previous tool results',
         );
         history.addAll(result.messages);
-
 
         // Verify we have a proper multi-turn conversation
         expect(
@@ -354,7 +348,6 @@ void main() {
         expect(result.output, isNotEmpty);
         expect(result.output.toLowerCase(), contains('test'));
         history.addAll(result.messages);
-
       });
     });
 
@@ -433,7 +426,6 @@ void main() {
         expect(result2.output, isNotEmpty);
         expect(result2.output, contains('4'));
         history.addAll(result2.messages);
-
       });
     });
 
@@ -560,7 +552,6 @@ function fibonacci(n) {
         final hasToolResults = result.messages.any((m) => m.hasToolResults);
         expect(hasToolResults, isTrue);
         history.addAll(result.messages);
-
       });
 
       test('creative writing with constraints', () async {

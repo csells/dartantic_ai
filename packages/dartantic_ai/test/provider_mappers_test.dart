@@ -34,7 +34,6 @@ void main() {
           isTrue,
           reason: '${provider.name} should have AI message',
         );
-
       });
 
       test('message metadata is consistent', () async {
@@ -80,7 +79,6 @@ void main() {
             isTrue,
             reason: '${provider.name} should have tool messages',
           );
-
         },
         requiredCaps: {ProviderCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),

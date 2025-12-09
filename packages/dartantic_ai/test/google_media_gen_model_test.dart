@@ -28,19 +28,13 @@ void main() {
     });
 
     test('mapGoogleModalities validates and maps values', () {
-      expect(
-        mapGoogleModalities(['text', 'IMAGE', 'audio']),
-        [
-          gl.GenerationConfig_Modality.text,
-          gl.GenerationConfig_Modality.image,
-          gl.GenerationConfig_Modality.audio,
-        ],
-      );
+      expect(mapGoogleModalities(['text', 'IMAGE', 'audio']), [
+        gl.GenerationConfig_Modality.text,
+        gl.GenerationConfig_Modality.image,
+        gl.GenerationConfig_Modality.audio,
+      ]);
 
-      expect(
-        () => mapGoogleModalities(['video']),
-        throwsUnsupportedError,
-      );
+      expect(() => mapGoogleModalities(['video']), throwsUnsupportedError);
     });
 
     test('mapGoogleMediaFinishReason maps known values', () {
@@ -69,8 +63,7 @@ void main() {
 
     test('maps fileData, inlineData, and metadata into media result', () {
       final provider = Providers.get('google');
-      final model =
-          provider.createMediaModel() as GoogleMediaGenerationModel;
+      final model = provider.createMediaModel() as GoogleMediaGenerationModel;
 
       final response = gl.GenerateContentResponse(
         modelVersion: 'v1beta',
@@ -160,8 +153,7 @@ void main() {
     // via the Python sandbox fallback.
     test('non-image mime types use code execution fallback', () async {
       final provider = Providers.get('google');
-      final model =
-          provider.createMediaModel() as GoogleMediaGenerationModel;
+      final model = provider.createMediaModel() as GoogleMediaGenerationModel;
 
       // Non-image types should not throw - they use code execution
       // This test just verifies the model can be created and accepts PDF

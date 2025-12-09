@@ -165,84 +165,88 @@ void main() {
     test(
       'reuses container across sessions',
       () async {
-      // Session 1: Create variable AND file (file creation forces code
-      // interpreter usage - reasoning models might answer simple math prompts
-      // directly from training data without executing code)
-      final agent1 = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        ),
-      );
+        // Session 1: Create variable AND file (file creation forces code
+        // interpreter usage - reasoning models might answer simple math prompts
+        // directly from training data without executing code)
+        final agent1 = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+          ),
+        );
 
-      // Accumulate results and history properly
-      final results1 = <ChatResult>[];
-      final history = <ChatMessage>[];
-      await for (final chunk in agent1.sendStream(
-        'Calculate the first 10 Fibonacci numbers and store them in a variable '
-        'called "fib_sequence". Then create a text file called "fib.txt" '
-        'containing those numbers.',
-      )) {
-        results1.add(chunk);
-        history.addAll(chunk.messages);
-      }
+        // Accumulate results and history properly
+        final results1 = <ChatResult>[];
+        final history = <ChatMessage>[];
+        await for (final chunk in agent1.sendStream(
+          'Calculate the first 10 Fibonacci numbers and store them in a variable '
+          'called "fib_sequence". Then create a text file called "fib.txt" '
+          'containing those numbers.',
+        )) {
+          results1.add(chunk);
+          history.addAll(chunk.messages);
+        }
 
-      // Extract container ID from the response.output_item.done event metadata.
-      // The container_id is nested in event['item']['container_id'] because
-      // OpenAI wraps the CodeInterpreterCall item inside the done event.
-      String? containerId;
-      for (final result in results1) {
-        final codeInterpreterMeta =
-            result.metadata['code_interpreter'] as List?;
-        if (codeInterpreterMeta != null) {
-          for (final event in codeInterpreterMeta) {
-            if (event is Map) {
-              final item = event['item'];
-              if (item is Map && item['container_id'] != null) {
-                containerId = item['container_id'] as String;
-                break;
+        // Extract container ID from the response.output_item.done event metadata.
+        // The container_id is nested in event['item']['container_id'] because
+        // OpenAI wraps the CodeInterpreterCall item inside the done event.
+        String? containerId;
+        for (final result in results1) {
+          final codeInterpreterMeta =
+              result.metadata['code_interpreter'] as List?;
+          if (codeInterpreterMeta != null) {
+            for (final event in codeInterpreterMeta) {
+              if (event is Map) {
+                final item = event['item'];
+                if (item is Map && item['container_id'] != null) {
+                  containerId = item['container_id'] as String;
+                  break;
+                }
               }
             }
           }
+          if (containerId != null) break;
         }
-        if (containerId != null) break;
-      }
 
-      expect(containerId, isNotNull, reason: 'Container ID should be captured');
+        expect(
+          containerId,
+          isNotNull,
+          reason: 'Container ID should be captured',
+        );
 
-      // Session 2: Reuse container
-      final agent2 = Agent(
-        'openai-responses',
-        chatModelOptions: OpenAIResponsesChatModelOptions(
-          serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
-          codeInterpreterConfig: CodeInterpreterConfig(
-            containerId: containerId,
+        // Session 2: Reuse container
+        final agent2 = Agent(
+          'openai-responses',
+          chatModelOptions: OpenAIResponsesChatModelOptions(
+            serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+            codeInterpreterConfig: CodeInterpreterConfig(
+              containerId: containerId,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Accumulate results properly for session 2
-      final results2 = <ChatResult>[];
-      await agent2
-          .sendStream(
-            'Using the fib_sequence variable we created earlier, calculate the '
-            'golden ratio by dividing each consecutive pair '
-            '(skipping the first term since it is 0).',
-            history: history,
-          )
-          .forEach(results2.add);
+        // Accumulate results properly for session 2
+        final results2 = <ChatResult>[];
+        await agent2
+            .sendStream(
+              'Using the fib_sequence variable we created earlier, calculate the '
+              'golden ratio by dividing each consecutive pair '
+              '(skipping the first term since it is 0).',
+              history: history,
+            )
+            .forEach(results2.add);
 
-      final fullOutput = results2.map((r) => r.output).join();
+        final fullOutput = results2.map((r) => r.output).join();
 
-      // Should mention fib_sequence or golden ratio or 1.618
-      expect(
-        fullOutput.contains('fib') ||
-            fullOutput.contains('golden') ||
-            fullOutput.contains('1.6'),
-        isTrue,
-        reason: 'Should reference fib_sequence or golden ratio',
-      );
-    },
+        // Should mention fib_sequence or golden ratio or 1.618
+        expect(
+          fullOutput.contains('fib') ||
+              fullOutput.contains('golden') ||
+              fullOutput.contains('1.6'),
+          isTrue,
+          reason: 'Should reference fib_sequence or golden ratio',
+        );
+      },
       // Two code interpreter sessions need more than 30 seconds
       timeout: const Timeout(Duration(minutes: 2)),
     );

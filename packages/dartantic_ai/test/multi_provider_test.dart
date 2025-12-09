@@ -42,7 +42,6 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('hiking'));
-
       });
 
       test('system prompt preservation across providers', () async {
@@ -84,7 +83,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('fare'), contains('ahoy'), contains('sail')),
         );
-
       });
 
       test('round-robin conversation pattern', () async {
@@ -107,7 +105,6 @@ void main() {
             expect(result.output.toLowerCase(), contains(i == 1 ? '5' : 'dog'));
           }
         }
-
       });
     });
 
@@ -155,7 +152,6 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('boston'));
-
       });
 
       test('multiple tool calls in one turn', () async {
@@ -202,7 +198,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('seattle'), contains('chicago')),
         );
-
       });
 
       test('sequential tool dependencies', () async {
@@ -236,7 +231,6 @@ void main() {
           result3.output.toLowerCase(),
           allOf(contains('step'), anyOf(contains('1'), contains('2'))),
         );
-
       });
 
       test('tool error handling across providers', () async {
@@ -266,7 +260,6 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-
       });
     });
 
@@ -336,7 +329,6 @@ void main() {
             anyOf(contains('weather'), contains('temperature')),
           ),
         );
-
       });
 
       test('tool result references across providers', () async {
@@ -382,7 +374,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('share'), contains('stock'), contains('buy')),
         );
-
       });
 
       test('streaming conversation across providers', () async {
@@ -425,7 +416,6 @@ void main() {
         }
         final response3 = chunks3.join().toLowerCase();
         expect(response3, contains('flutter'));
-
       });
     });
 
@@ -469,7 +459,6 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-
       });
 
       test(
@@ -577,7 +566,6 @@ void main() {
         );
         history.addAll(result2.messages);
         expect(result2.output.toLowerCase(), contains('paris'));
-
       });
 
       test('complex nested schema portability', () async {
@@ -652,7 +640,6 @@ void main() {
             contains('apple'),
           ),
         );
-
       });
     });
   });

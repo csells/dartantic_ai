@@ -78,7 +78,6 @@ void main() {
         );
         expect(response.output.toLowerCase(), contains('alice'));
 
-
         // Add to history
         messages.add(
           const ChatMessage(
@@ -113,7 +112,6 @@ void main() {
           ],
         );
         expect(response.output.toLowerCase(), contains('indeed'));
-
       });
 
       test('accumulates multiple exchanges', () async {

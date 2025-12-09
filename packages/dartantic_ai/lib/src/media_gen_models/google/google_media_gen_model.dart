@@ -82,9 +82,9 @@ class GoogleMediaGenerationModel
       );
 
       // First generate images
-      final imageMimes = mimeTypes.where(
-        (m) => m == 'image/*' || m.startsWith('image/'),
-      ).toList();
+      final imageMimes = mimeTypes
+          .where((m) => m == 'image/*' || m.startsWith('image/'))
+          .toList();
       yield* _generateViaImagen(
         prompt,
         mimeTypes: imageMimes,
@@ -93,9 +93,9 @@ class GoogleMediaGenerationModel
       );
 
       // Then generate non-images
-      final nonImageMimes = mimeTypes.where(
-        (m) => m != 'image/*' && !m.startsWith('image/'),
-      ).toList();
+      final nonImageMimes = mimeTypes
+          .where((m) => m != 'image/*' && !m.startsWith('image/'))
+          .toList();
       yield* _generateViaCodeExecution(
         prompt,
         mimeTypes: nonImageMimes,
@@ -267,9 +267,7 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
     // Google's responseMimeType only accepts text-based formats
     // (text/plain, application/json, etc.), not image MIME types.
     // For image generation, output format is controlled by responseModalities.
-    final textResponseMimeType = mimeType.startsWith('image/')
-        ? ''
-        : mimeType;
+    final textResponseMimeType = mimeType.startsWith('image/') ? '' : mimeType;
 
     // Auto-include IMAGE modality when generating images
     final modalities = _resolveModalities(
@@ -302,14 +300,13 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
   @visibleForTesting
   MediaGenerationResult mapResponseForTest(
     gl.GenerateContentResponse response,
-  ) =>
-      _mapResponse(
-        response,
-        generationMode: 'test',
-        chunkIndex: 0,
-        resolvedMimeType: 'test/unknown',
-        requestedMimeTypes: const [],
-      );
+  ) => _mapResponse(
+    response,
+    generationMode: 'test',
+    chunkIndex: 0,
+    resolvedMimeType: 'test/unknown',
+    requestedMimeTypes: const [],
+  );
 
   MediaGenerationResult _mapResponse(
     gl.GenerateContentResponse response, {
@@ -372,15 +369,12 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
       }
     }
 
-    final metadata = _mergeMetadata(
-      _extractMetadata(response),
-      {
-        'generation_mode': generationMode,
-        'chunk_index': chunkIndex,
-        'resolved_mime_type': resolvedMimeType,
-        'requested_mime_types': requestedMimeTypes,
-      },
-    );
+    final metadata = _mergeMetadata(_extractMetadata(response), {
+      'generation_mode': generationMode,
+      'chunk_index': chunkIndex,
+      'resolved_mime_type': resolvedMimeType,
+      'requested_mime_types': requestedMimeTypes,
+    });
 
     return MediaGenerationResult(
       assets: assets,
@@ -403,10 +397,7 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
     Map<String, dynamic>? base,
     Map<String, dynamic> overlay,
   ) {
-    final merged = <String, dynamic>{
-      if (base != null) ...base,
-      ...overlay,
-    };
+    final merged = <String, dynamic>{if (base != null) ...base, ...overlay};
 
     merged.removeWhere((_, value) {
       if (value == null) return true;
@@ -497,18 +488,18 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
 
 /// Maps Google finish reasons to Dartantic finish reasons.
 @visibleForTesting
-  FinishReason mapGoogleMediaFinishReason(gl.Candidate_FinishReason? reason) =>
-      switch (reason) {
-        gl.Candidate_FinishReason.stop => FinishReason.stop,
-        gl.Candidate_FinishReason.maxTokens => FinishReason.length,
-        gl.Candidate_FinishReason.safety ||
+FinishReason mapGoogleMediaFinishReason(gl.Candidate_FinishReason? reason) =>
+    switch (reason) {
+      gl.Candidate_FinishReason.stop => FinishReason.stop,
+      gl.Candidate_FinishReason.maxTokens => FinishReason.length,
+      gl.Candidate_FinishReason.safety ||
       gl.Candidate_FinishReason.blocklist ||
       gl.Candidate_FinishReason.prohibitedContent ||
       gl.Candidate_FinishReason.imageSafety ||
       gl.Candidate_FinishReason.spii => FinishReason.contentFilter,
-        gl.Candidate_FinishReason.recitation => FinishReason.recitation,
-        _ => FinishReason.unspecified,
-      };
+      gl.Candidate_FinishReason.recitation => FinishReason.recitation,
+      _ => FinishReason.unspecified,
+    };
 
 /// Validates and maps response modalities to Google enums.
 @visibleForTesting

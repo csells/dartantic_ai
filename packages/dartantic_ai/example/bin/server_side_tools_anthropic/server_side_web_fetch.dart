@@ -16,10 +16,7 @@ void main(List<String> args) async {
   );
 
   const prompt =
-      'Fetch the article at https://example.com and summarize the key '
-      'information in a few bullet points. Include the original text as an '
-      'attachment if possible.';
-
+      'Retrieve https://sellsbrothers.com. Summarize in one sentence.';
   stdout.writeln('User: $prompt');
   stdout.write('${agent.displayName}: ');
 
@@ -31,6 +28,7 @@ void main(List<String> args) async {
   }
   stdout.writeln();
 
+  // web_fetch returns fetched document bytes; this saves them to disk.
   dumpAssetsFromHistory(history, 'tmp', fallbackPrefix: 'fetched_document');
   dumpMessages(history);
   exit(0);

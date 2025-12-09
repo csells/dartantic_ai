@@ -177,10 +177,7 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
         );
         yield ChatResult<ChatMessage>(
           id: lastResult.id,
-          output: ChatMessage(
-            role: ChatMessageRole.model,
-            parts: remoteFiles,
-          ),
+          output: ChatMessage(role: ChatMessageRole.model, parts: remoteFiles),
           messages: [
             ChatMessage(role: ChatMessageRole.model, parts: remoteFiles),
           ],
