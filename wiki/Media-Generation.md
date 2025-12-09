@@ -137,12 +137,11 @@ run:
   advertises the `image` modality. The media model should configure these
   defaults automatically and stream binary payloads (either inline base64 or
   hosted URLs) alongside metadata updates.
-- **Google Gemini:** Gemini 2.5 supports native media generation via
-  `responseModalities`. The media model configures the session to output
-  image modalities directly. **Non-image formats (PDF, CSV, text files) are
-  not supported** because Google's code execution can only output Matplotlib
-  graphs as images—it cannot return arbitrary files. See the
-  [official documentation](https://ai.google.dev/gemini-api/docs/code-execution).
+- **Google Gemini:** Gemini 2.5 supports native image generation via
+  `responseModalities` and code execution for non-image file types. The media
+  model routes image requests through native Imagen APIs and non-image requests
+  (PDF, CSV, text files) through code execution. All file types are fully
+  supported and returned as `DataPart`s.
 - **Anthropic Claude:** Claude supports media generation via its **Code Interpreter**
   (Analysis) tool. The provider automatically enables the tool and instructs the
   model to generate files (e.g., PDFs, images) by writing and executing code.

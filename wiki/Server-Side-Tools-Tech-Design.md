@@ -4,23 +4,28 @@ This document describes the architecture and implementation patterns for server-
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Generic Patterns](#generic-patterns)
+2. [Provider Capabilities Summary](#provider-capabilities-summary)
+3. [Generic Patterns](#generic-patterns)
    - [Metadata vs Message Output](#metadata-vs-message-output)
    - [Metadata Flow Pattern](#metadata-flow-pattern)
    - [Streaming Events](#streaming-events)
    - [Final Message Metadata](#final-message-metadata)
    - [Synthetic Summary Events](#synthetic-summary-events)
    - [Content Deliverables](#content-deliverables)
-3. [Implementation Guidelines](#implementation-guidelines)
-4. [OpenAI Responses Provider](#openai-responses-provider)
+4. [Implementation Guidelines](#implementation-guidelines)
+5. [OpenAI Responses Provider](#openai-responses-provider)
    - [Configuration](#configuration)
    - [Supported Tools](#supported-tools)
    - [Provider-Specific Details](#provider-specific-details)
-5. [Anthropic Claude Provider](#anthropic-claude-provider)
+6. [Anthropic Claude Provider](#anthropic-claude-provider)
    - [Configuration](#anthropic-configuration)
    - [Supported Tools](#anthropic-supported-tools)
    - [Provider-Specific Details](#anthropic-provider-specific-details)
-6. [Testing Strategy](#testing-strategy)
+7. [Google Gemini Provider](#google-gemini-provider)
+   - [Configuration](#google-configuration)
+   - [Supported Tools](#google-supported-tools)
+   - [Provider-Specific Details](#google-provider-specific-details)
+8. [Testing Strategy](#testing-strategy)
 
 ## Overview
 
@@ -32,6 +37,35 @@ Server-side tools are capabilities provided by AI providers that execute on the 
 - Require standardized metadata handling to expose their operation to applications
 
 This document establishes generic patterns that apply across providers, with provider-specific details documented separately.
+
+## Provider Capabilities Summary
+
+The following table summarizes server-side tool availability across the three major providers:
+
+| Tool | OpenAI Responses | Anthropic Claude | Google Gemini |
+|------|------------------|------------------|---------------|
+| **Code Execution** | ✅ `codeInterpreter` | ✅ `codeInterpreter` | ✅ `codeExecution` |
+| **Web Search** | ✅ `webSearch` | ✅ `webSearch` | ✅ `googleSearch` |
+| **Web Fetch** | ❌ | ✅ `webFetch` | ❌ |
+| **File/Vector Search** | ✅ `fileSearch` | ❌ | ❌ |
+| **Image Generation** | ✅ `imageGeneration` | ❌ | ❌ |
+
+### Feature Comparison
+
+| Feature | OpenAI Responses | Anthropic Claude | Google Gemini |
+|---------|------------------|------------------|---------------|
+| Container/session reuse | ✅ | ❌ | ❌ |
+| Partial image previews | ✅ | ❌ | ❌ |
+| File download from sandbox | ✅ | ✅ | ✅ |
+| Grounding/citations | ✅ | ✅ | ✅ |
+
+### Configuration Classes
+
+| Provider | Options Class | Server-Side Tools Enum |
+|----------|--------------|------------------------|
+| OpenAI Responses | `OpenAIResponsesChatModelOptions` | `OpenAIServerSideTool` |
+| Anthropic Claude | `AnthropicChatOptions` | `AnthropicServerSideTool` |
+| Google Gemini | `GoogleChatModelOptions` | `GoogleServerSideTool` |
 
 ## Generic Patterns
 
@@ -690,6 +724,190 @@ same event recording pipeline when they become generally available.
 - **Metadata Output**: Final media results merge the tracker log into
   `MediaGenerationResult.metadata`, ensuring non-streaming consumers see the
   complete tool history without replaying the stream.
+
+### Example Usage
+
+#### Web Search
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+
+await for (final chunk in agent.sendStream(
+  'Search for recent Dart programming language announcements',
+)) {
+  stdout.write(chunk.output);
+  // Web search results appear as LinkParts in messages
+  for (final msg in chunk.messages) {
+    for (final part in msg.parts) {
+      if (part is LinkPart) {
+        print('Source: ${part.url}');
+      }
+    }
+  }
+}
+```
+
+#### Web Fetch
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webFetch},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Retrieve https://example.com and summarize its content',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Fetched document bytes appear as DataParts
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Fetched: ${part.name} (${part.mimeType})');
+      // Save or process the fetched document bytes
+    }
+  }
+}
+```
+
+#### Code Execution
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.codeInterpreter},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and create a CSV file',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Generated files are automatically downloaded and appear as DataParts
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.bytes.length} bytes)');
+    }
+  }
+}
+```
+
+## Google Gemini Provider
+
+Google Gemini provides server-side tools through the Gemini API, offering code
+execution and Google Search grounding capabilities.
+
+### Configuration
+
+Server-side tools are configured when creating an Agent via `GoogleChatModelOptions`:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {
+      GoogleServerSideTool.codeExecution,
+      GoogleServerSideTool.googleSearch,
+    },
+  ),
+);
+```
+
+### Supported Tools
+
+| Tool | Enum Value | Description |
+|------|------------|-------------|
+| Code Execution | `codeExecution` | Python sandbox for code execution |
+| Google Search | `googleSearch` | Web search with grounding |
+
+### Provider-Specific Details
+
+#### Code Execution Capabilities
+
+Google's code execution supports generating arbitrary files:
+
+- **Full file generation**: Code execution can create any file type including
+  CSVs, PDFs, text files, images, and more. All generated files are returned
+  as `DataPart`s.
+- **No container persistence**: Unlike OpenAI Responses, there's no way to reuse
+  a container/session across turns. Each request runs in a fresh sandbox.
+- **Inline images**: Matplotlib plots and other images appear as inline data
+  in the response, automatically converted to `DataPart`s.
+
+#### Google Search (Grounding)
+
+Google Search provides web grounding for responses:
+
+- Results are integrated into the model's response
+- Grounding metadata includes source URLs and citations
+- No separate metadata key - grounding is embedded in response
+
+### Example Usage
+
+#### Code Execution
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.codeExecution},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and create a CSV file '
+  'called "fibonacci.csv" with two columns: index and value.',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Generated files appear as DataParts (CSV, images, PDFs, etc.)
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.mimeType}, ${part.bytes.length} bytes)');
+    }
+  }
+}
+```
+
+#### Google Search
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+await for (final chunk in agent.sendStream(
+  'What are the most recent announcements about the Dart '
+  'programming language?',
+)) {
+  stdout.write(chunk.output);
+  // Response includes grounded information from web search
+}
+```
 
 ## Testing Strategy
 

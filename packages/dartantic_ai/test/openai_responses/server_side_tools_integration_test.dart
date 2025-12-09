@@ -18,7 +18,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:openai_core/openai_core.dart';
 import 'package:test/test.dart';
 
@@ -38,9 +37,9 @@ void main() {
 
         // Use a prompt that FORCES code execution by requiring file creation.
         // Simple math prompts like "2+2" are answered directly by reasoning
-        // models without using the code interpreter.
-        // Pattern from: example/bin/server_side_tools_openai/
-        //               server_side_code_interpreter.dart
+        // models without using the code interpreter. Pattern from:
+        // example/bin/server_side_tools_openai/
+        // server_side_code_interpreter.dart
         final results = <ChatResult>[];
         await agent
             .sendStream(
@@ -90,8 +89,8 @@ void main() {
       final fullOutput = results.map((r) => r.output).join();
       expect(fullOutput, contains('test.txt'));
 
-      // The bug would have crashed here if the workaround wasn't in place
-      // This test proves the workaround works
+      // The bug would have crashed here if the workaround wasn't in place This
+      // test proves the workaround works
     });
 
     test(
@@ -179,17 +178,18 @@ void main() {
         final results1 = <ChatResult>[];
         final history = <ChatMessage>[];
         await for (final chunk in agent1.sendStream(
-          'Calculate the first 10 Fibonacci numbers and store them in a variable '
-          'called "fib_sequence". Then create a text file called "fib.txt" '
-          'containing those numbers.',
+          'Calculate the first 10 Fibonacci numbers and store them in a '
+          'variable called "fib_sequence". Then create a text file called '
+          '"fib.txt" containing those numbers.',
         )) {
           results1.add(chunk);
           history.addAll(chunk.messages);
         }
 
-        // Extract container ID from the response.output_item.done event metadata.
-        // The container_id is nested in event['item']['container_id'] because
-        // OpenAI wraps the CodeInterpreterCall item inside the done event.
+        // Extract container ID from the response.output_item.done event
+        // metadata. The container_id is nested in event['item']['container_id']
+        // because OpenAI wraps the CodeInterpreterCall item inside the done
+        // event.
         String? containerId;
         for (final result in results1) {
           final codeInterpreterMeta =
@@ -229,8 +229,8 @@ void main() {
         final results2 = <ChatResult>[];
         await agent2
             .sendStream(
-              'Using the fib_sequence variable we created earlier, calculate the '
-              'golden ratio by dividing each consecutive pair '
+              'Using the fib_sequence variable we created earlier, calculate '
+              'the golden ratio by dividing each consecutive pair '
               '(skipping the first term since it is 0).',
               history: history,
             )
@@ -269,8 +269,8 @@ void main() {
           ),
         );
 
-        // Use exact prompt from example
-        // Accumulate history like the example does
+        // Use exact prompt from example Accumulate history like the example
+        // does
         final history = <ChatMessage>[];
         await for (final chunk in agent.sendStream(
           'Generate a simple, minimalist logo for a fictional '
@@ -350,9 +350,9 @@ void main() {
           ),
         );
 
-        // Use a prompt that FORCES web search by asking for recent/current info.
-        // Pattern from: example/bin/server_side_tools_openai/
-        //               server_side_web_search.dart
+        // Use a prompt that FORCES web search by asking for recent/current
+        // info. Pattern from: example/bin/server_side_tools_openai/
+        // server_side_web_search.dart
         final results = <ChatResult>[];
         await agent
             .sendStream(

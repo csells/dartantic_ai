@@ -93,9 +93,6 @@ void main() {
         }
       },
       requiredCaps: {ProviderCaps.mediaGeneration},
-      // Google code execution only outputs Matplotlib graphs as images, not
-      // arbitrary files like PDFs. See: ai.google.dev/gemini-api/docs/code-execution
-      skipProviders: {'google'},
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
@@ -105,13 +102,14 @@ void main() {
         final agent = Agent(provider.name);
 
         final result = await agent.generateMedia(
-          'Write a short README.txt file that explains how to run a Dart '
-          'Hello World program. Provide the README as a file asset.',
-          mimeTypes: const ['text/plain'],
+          'Create a CSV file called "sample_data.csv" with columns: id, name, '
+          'value. Add 3 rows of sample data.',
+          mimeTypes: const ['text/csv'],
         );
 
         final textAssets = result.assets.whereType<DataPart>().where(
-          (asset) => asset.mimeType.contains('text'),
+          (asset) => asset.mimeType.contains('text') ||
+              asset.mimeType.contains('csv'),
         );
 
         expect(
@@ -127,9 +125,6 @@ void main() {
         }
       },
       requiredCaps: {ProviderCaps.mediaGeneration},
-      // Google code execution only outputs Matplotlib graphs as images, not
-      // arbitrary files like text. See: ai.google.dev/gemini-api/docs/code-execution
-      skipProviders: {'google'},
       timeout: const Timeout(Duration(minutes: 2)),
     );
   });

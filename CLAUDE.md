@@ -12,6 +12,7 @@ The project is organized as a monorepo with multiple packages:
 
 ## Documentation
 
+- **External Docs**: Full documentation at [docs.dartantic.ai](https://docs.dartantic.ai)
 - **Wiki Documentation**: The `wiki/` folder contains comprehensive architecture documentation. See `wiki/Home.md` for the complete index of design documents, specifications, and implementation guides.
 - **Design documents should NOT include code implementations** - Specifications in the `wiki/` folder should describe algorithms, data flow, and architecture without including actual code, as code in documentation immediately goes stale. Implementation details belong in the code itself, not in design docs.
 
@@ -47,6 +48,15 @@ cd packages/dartantic_ai && dart format --set-exit-if-changed .
 cd packages/dartantic_ai && dart run example/bin/single_turn_chat.dart
 cd packages/dartantic_ai && dart run example/bin/typed_output.dart
 cd packages/dartantic_ai && dart run example/bin/tool_calling.dart
+```
+
+### Debugging
+```bash
+# Enable detailed logging via environment variable
+DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+
+# Log levels: SEVERE, WARNING, INFO, FINE (most verbose)
+DARTANTIC_LOG_LEVEL=INFO dart test test/specific_test.dart
 ```
 
 ### Package Management
@@ -138,8 +148,21 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 - **ALWAYS check for existing tests before creating new ones** - Search the test directory for related tests using grep/glob before creating new test files. Update existing tests rather than duplicating functionality.
 - Integration tests connect to actual providers when API keys are available (from environment variables or `~/global_env.sh`)
 - Mock tools and utilities in `test/test_tools.dart` and `test/test_utils.dart`
-- Capability-based provider filtering ensures tests only run against providers that support required features
 - Focus on 80% cases; edge cases are documented but not exhaustively tested
+
+### Capability-Based Provider Filtering
+
+Tests use `requiredCaps` to filter providers by capability. This ensures tests only run against providers that support required features:
+
+```dart
+// Filter to providers supporting tool calls
+final providers = Providers.allWith({ProviderCaps.multiToolCalls});
+
+// Filter to providers with embeddings support
+final providers = Providers.allWith({ProviderCaps.embeddings});
+```
+
+See `ProviderCaps` enum in `packages/dartantic_interface/` for all available capabilities.
 
 ## Configuration
 
