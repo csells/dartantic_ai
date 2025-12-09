@@ -58,7 +58,13 @@ void _dumpPartialImages(Map<String, dynamic> metadata) {
     final base64 = partial as String;
     final index = event['partial_image_index'] as int? ?? 0;
     final bytes = base64Decode(base64);
-    final part = DataPart(bytes, mimeType: 'image/png', name: 'partial_$index');
+    final mimeType = Part.mimeType('', headerBytes: bytes);
+    final extension = Part.extensionFromMimeType(mimeType)!;
+    final part = DataPart(
+      bytes,
+      mimeType: mimeType,
+      name: 'partial_$index.$extension',
+    );
     dumpAssets([part], 'tmp', fallbackPrefix: 'partial');
   }
 }
