@@ -105,12 +105,18 @@ This works consistently across OpenAI, Google, Anthropic, Mistral, and Ollama.
 
 ### Google Native JSON Schema Support
 
-Google's Gemini API now uses native JSON Schema support via `responseJsonSchema`
-instead of the custom Schema object conversion. This enables better support for
-complex schemas including `anyOf`, `$ref`, and other JSON Schema features.
+Google's Gemini API now uses native JSON Schema support for both:
+
+- **Typed output** via `responseJsonSchema` - for structured responses
+- **Tool parameters** via `parametersJsonSchema` - for function calling
+
+This replaces the previous custom `Schema` object conversion, enabling better
+support for complex schemas including `anyOf`, `$ref`, and other JSON Schema
+features that were previously rejected.
 
 This is an internal change with no API surface changes for you except that now
-you can pass in much more interesting JSON schemas to Google models.
+you can pass more complex JSON schemas to Google models for both typed output
+and tool definitions.
 
 ### Google Function Calling Mode
 

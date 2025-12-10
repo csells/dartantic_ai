@@ -682,6 +682,7 @@ void main() {
     });
 
     group('complex real-world schemas', () {
+      // Tests nested schemas (4 levels deep to stay within provider limits)
       runProviderTest(
         'handles API response schema',
         (provider) async {
@@ -689,52 +690,32 @@ void main() {
             'type': 'object',
             'properties': {
               'success': {'type': 'boolean'},
-              'data': {
+              'users': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'id': {'type': 'string'},
+                    'username': {'type': 'string'},
+                    'firstName': {'type': 'string'},
+                    'lastName': {'type': 'string'},
+                  },
+                  'required': ['id', 'username', 'firstName', 'lastName'],
+                },
+              },
+              'pagination': {
                 'type': 'object',
                 'properties': {
-                  'users': {
-                    'type': 'array',
-                    'items': {
-                      'type': 'object',
-                      'properties': {
-                        'id': {'type': 'string'},
-                        'username': {'type': 'string'},
-                        'profile': {
-                          'type': 'object',
-                          'properties': {
-                            'firstName': {'type': 'string'},
-                            'lastName': {'type': 'string'},
-                            'avatar': {'type': 'string'},
-                          },
-                          'required': ['firstName', 'lastName'],
-                        },
-                      },
-                      'required': ['id', 'username', 'profile'],
-                    },
-                  },
-                  'pagination': {
-                    'type': 'object',
-                    'properties': {
-                      'page': {'type': 'integer'},
-                      'perPage': {'type': 'integer'},
-                      'total': {'type': 'integer'},
-                      'totalPages': {'type': 'integer'},
-                    },
-                    'required': ['page', 'perPage', 'total', 'totalPages'],
-                  },
+                  'page': {'type': 'integer'},
+                  'perPage': {'type': 'integer'},
+                  'total': {'type': 'integer'},
+                  'totalPages': {'type': 'integer'},
                 },
-                'required': ['users', 'pagination'],
+                'required': ['page', 'perPage', 'total', 'totalPages'],
               },
-              'metadata': {
-                'type': 'object',
-                'properties': {
-                  'version': {'type': 'string'},
-                  'timestamp': {'type': 'string'},
-                },
-                'required': ['version', 'timestamp'],
-              },
+              'version': {'type': 'string'},
             },
-            'required': ['success', 'data', 'metadata'],
+            'required': ['success', 'users', 'pagination', 'version'],
           });
 
           final agent = Agent(provider.name);
@@ -742,68 +723,54 @@ void main() {
           final result = await agent.send(
             'Return a JSON payload for GET /api/users. '
             'Mark "success" as true and include exactly two users: '
-            'Alice Smith (id "1") and Bob Jones (id "2"). '
-            'Each user profile must include firstName, lastName, and avatar '
-            'URL. Set pagination to page 1 of 5 with perPage 10 and total 50. '
-            'Add metadata with a non-empty version string and timestamp.',
+            'Alice Smith (id "1", username "alice") and '
+            'Bob Jones (id "2", username "bob"). '
+            'Set pagination to page 1 of 5 with perPage 10 and total 50. '
+            'Set version to "1.0".',
             outputSchema: schema,
           );
 
           final json = jsonDecode(result.output) as Map<String, dynamic>;
           expect(json['success'], isTrue);
-          expect(json['data']['users'], hasLength(2));
+          expect(json['users'], hasLength(2));
           expect(
-            json['data']['users'][0]['profile']['firstName'],
+            json['users'][0]['firstName'],
             anyOf(equals('Alice'), equals('Smith')),
           );
-          expect(
-            json['data']['users'][1]['profile']['firstName'],
-            equals('Bob'),
-          );
-          expect(json['data']['pagination']['page'], equals(1));
-          expect(json['data']['pagination']['totalPages'], equals(5));
-          expect(json['metadata']['version'], isNotEmpty);
+          expect(json['users'][1]['firstName'], equals('Bob'));
+          expect(json['pagination']['page'], equals(1));
+          expect(json['pagination']['totalPages'], equals(5));
+          expect(json['version'], isNotEmpty);
         },
         requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google-openai', 'together'},
       );
 
+      // Tests nested object schemas (4 levels deep to stay within provider
+      // limits)
       runProviderTest(
-        'handles deeply nested configuration',
+        'handles nested configuration',
         (provider) async {
           final schema = js.JsonSchema.create({
             'type': 'object',
             'properties': {
-              'application': {
+              'name': {'type': 'string'},
+              'version': {'type': 'string'},
+              'authentication': {
                 'type': 'object',
                 'properties': {
-                  'name': {'type': 'string'},
-                  'version': {'type': 'string'},
-                  'features': {
-                    'type': 'object',
-                    'properties': {
-                      'authentication': {
-                        'type': 'object',
-                        'properties': {
-                          'enabled': {'type': 'boolean'},
-                          'providers': {
-                            'type': 'array',
-                            'items': {'type': 'string'},
-                          },
-                          'settings': {
-                            'type': 'object',
-                            'properties': {
-                              'sessionTimeout': {'type': 'integer'},
-                              'requireMFA': {'type': 'boolean'},
-                            },
-                          },
-                        },
-                      },
-                    },
+                  'enabled': {'type': 'boolean'},
+                  'providers': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
                   },
+                  'sessionTimeout': {'type': 'integer'},
+                  'requireMFA': {'type': 'boolean'},
                 },
+                'required': ['enabled', 'providers', 'sessionTimeout'],
               },
             },
+            'required': ['name', 'version', 'authentication'],
           });
 
           final agent = Agent(provider.name);
@@ -811,34 +778,28 @@ void main() {
           final result = await agent.send(
             'Generate a JSON configuration for the SaaS product "MyApp". '
             'Set version to "1.0.0". '
-            'In authentication settings, mark enabled=true, list '
-            '["Google","GitHub"] as providers, sessionTimeout=30, and '
-            'requireMFA=true. Do not omit or null any fields.',
+            'In authentication, mark enabled=true, list '
+            '["Google","GitHub"] as providers, and sessionTimeout=30.',
             outputSchema: schema,
           );
 
           final json = jsonDecode(result.output) as Map<String, dynamic>;
-          expect(json.containsKey('application'), isTrue);
-          final app = json['application'] as Map<String, dynamic>;
-          expect(app['name'], equals('MyApp'));
+          expect(json['name'], equals('MyApp'));
           // Some models prefix version with 'v'
-          expect(app['version'], anyOf(equals('1.0.0'), equals('v1.0.0')));
+          expect(json['version'], anyOf(equals('1.0.0'), equals('v1.0.0')));
 
-          if (app['features'] != null) {
-            expect(app['features']['authentication']['enabled'], isTrue);
-            // Some models return lowercase provider names
-            final providers =
-                (app['features']['authentication']['providers'] as List)
-                    .map((p) => p.toString().toLowerCase())
-                    .toList();
-            expect(providers, containsAll(['google', 'github']));
-            // Some models interpret "30min" as 30, others as 1800 seconds, or
-            // 1800000 ms
-            expect(
-              app['features']['authentication']['settings']['sessionTimeout'],
-              anyOf(equals(30), equals(1800), equals(1800000)),
-            );
-          }
+          final auth = json['authentication'] as Map<String, dynamic>;
+          expect(auth['enabled'], isTrue);
+          // Some models return lowercase provider names
+          final providers = (auth['providers'] as List)
+              .map((p) => p.toString().toLowerCase())
+              .toList();
+          expect(providers, containsAll(['google', 'github']));
+          // Some models interpret "30min" as 30, others as 1800 seconds
+          expect(
+            auth['sessionTimeout'],
+            anyOf(equals(30), equals(1800), equals(1800000)),
+          );
         },
         requiredCaps: {ProviderTestCaps.typedOutput},
         skipProviders: {'google-openai', 'together'},

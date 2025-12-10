@@ -3,7 +3,6 @@ import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dar
     as gl;
 import 'package:logging/logging.dart';
 
-import '../helpers/google_schema_helpers.dart';
 import '../helpers/message_part_helpers.dart';
 import '../helpers/protobuf_value_helpers.dart';
 import '../helpers/tool_id_helpers.dart';
@@ -454,8 +453,9 @@ extension ChatToolListMapper on List<Tool>? {
                 (tool) => gl.FunctionDeclaration(
                   name: tool.name,
                   description: tool.description,
-                  parameters: tool.inputSchema.schemaMap != null
-                      ? GoogleSchemaHelpers.schemaFromJson(
+                  // Use native JSON Schema support via parametersJsonSchema
+                  parametersJsonSchema: tool.inputSchema.schemaMap != null
+                      ? ProtobufValueHelpers.valueFromJson(
                           Map<String, dynamic>.from(
                             tool.inputSchema.schemaMap!,
                           ),
@@ -483,11 +483,4 @@ extension ChatToolListMapper on List<Tool>? {
       ),
     ];
   }
-}
-
-/// Extension on [Map<String, dynamic>] to convert to a Gemini [gl.Schema].
-extension GoogleSchemaMapper on Map<String, dynamic> {
-  /// Converts this map to a [gl.Schema].
-  gl.Schema toGoogleSchema() =>
-      GoogleSchemaHelpers.schemaFromJson(Map<String, dynamic>.from(this));
 }
