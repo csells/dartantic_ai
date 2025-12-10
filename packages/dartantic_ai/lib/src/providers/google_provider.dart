@@ -136,6 +136,8 @@ class GoogleProvider
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
       headers: headers,
+      dimensions: options?.dimensions,
+      batchSize: options?.batchSize,
       options: options,
     );
   }

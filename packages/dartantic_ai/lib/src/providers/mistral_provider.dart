@@ -103,6 +103,8 @@ class MistralProvider
       apiKey: apiKey!,
       baseUrl: baseUrl,
       headers: headers,
+      dimensions: options?.dimensions,
+      batchSize: options?.batchSize,
       options: options,
     );
   }

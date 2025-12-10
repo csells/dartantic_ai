@@ -82,7 +82,7 @@ const providerTestCaps = <String, Set<ProviderTestCaps>>{
   'ollama': {ProviderTestCaps.chat, ProviderTestCaps.typedOutput},
   'openrouter': {
     ProviderTestCaps.chat,
-    ProviderTestCaps.embeddings,
+    // Note: OpenRouter does not have a default embeddings model
     ProviderTestCaps.multiToolCalls,
     ProviderTestCaps.typedOutput,
     ProviderTestCaps.typedOutputWithTools,

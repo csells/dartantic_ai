@@ -237,18 +237,69 @@ void main() {
         ); // Default for large
       });
 
-      test('handles custom dimensions when supported', () async {
-        final model = Agent.getProvider('openai').createEmbeddingsModel(
-          name: 'text-embedding-3-small',
-          options: const OpenAIEmbeddingsModelOptions(
-            dimensions: 512, // Custom dimension
-          ),
-        );
+      // TODO(csells): Unskip mistral once mistralai_dart adds `dimensions`
+      // parameter to EmbeddingRequest. The Mistral API supports it but the Dart
+      // package doesn't expose it yet.
+      // See: https://github.com/davidmigloz/langchain_dart/issues/820
+      runProviderTest(
+        'returns requested custom dimensions for embedQuery',
+        (provider) async {
+          // Use 256 which is valid for all providers that support custom dims
+          const requestedDimensions = 256;
+          final modelName = provider.defaultModelNames[ModelKind.embeddings]!;
 
-        final result = await model.embedQuery('Test dimensions');
+          final model = _createEmbeddingsModelWithDimensions(
+            provider,
+            modelName,
+            requestedDimensions,
+          );
 
-        expect(result.embeddings.length, equals(512));
-      });
+          final result = await model.embedQuery('Test dimensions');
+
+          expect(
+            result.embeddings.length,
+            equals(requestedDimensions),
+            reason:
+                'Provider ${provider.name} should return '
+                '$requestedDimensions dimensions',
+          );
+        },
+        requiredCaps: {ProviderTestCaps.embeddings},
+        skipProviders: {'mistral'},
+      );
+
+      runProviderTest(
+        'returns requested custom dimensions for embedDocuments',
+        (provider) async {
+          // Use 256 which is valid for all providers that support custom dims
+          const requestedDimensions = 256;
+          final modelName = provider.defaultModelNames[ModelKind.embeddings]!;
+
+          final model = _createEmbeddingsModelWithDimensions(
+            provider,
+            modelName,
+            requestedDimensions,
+          );
+
+          final result = await model.embedDocuments([
+            'First document',
+            'Second document',
+          ]);
+
+          expect(result.embeddings, hasLength(2));
+          for (final embedding in result.embeddings) {
+            expect(
+              embedding.length,
+              equals(requestedDimensions),
+              reason:
+                  'Provider ${provider.name} should return '
+                  '$requestedDimensions dimensions per document',
+            );
+          }
+        },
+        requiredCaps: {ProviderTestCaps.embeddings},
+        skipProviders: {'mistral'},
+      );
     });
 
     group('special cases', () {
@@ -372,4 +423,38 @@ void main() {
       );
     });
   });
+}
+
+/// Creates an embeddings model with custom dimensions for the given provider.
+EmbeddingsModel _createEmbeddingsModelWithDimensions(
+  Provider provider,
+  String modelName,
+  int dimensions,
+) {
+  switch (provider.name) {
+    case 'openai':
+    case 'openai-responses':
+    case 'openrouter':
+      return provider.createEmbeddingsModel(
+        name: modelName,
+        options: OpenAIEmbeddingsModelOptions(dimensions: dimensions),
+      );
+    case 'google':
+      return provider.createEmbeddingsModel(
+        name: modelName,
+        options: GoogleEmbeddingsModelOptions(dimensions: dimensions),
+      );
+    case 'mistral':
+      return provider.createEmbeddingsModel(
+        name: modelName,
+        options: MistralEmbeddingsModelOptions(dimensions: dimensions),
+      );
+    case 'cohere':
+      return provider.createEmbeddingsModel(
+        name: modelName,
+        options: OpenAIEmbeddingsModelOptions(dimensions: dimensions),
+      );
+    default:
+      throw ArgumentError('Unknown provider: ${provider.name}');
+  }
 }
