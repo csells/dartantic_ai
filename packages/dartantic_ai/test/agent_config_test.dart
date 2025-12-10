@@ -192,6 +192,38 @@ void main() {
         );
         expect(agent.providerName, equals('openai'));
       });
+
+      test('model string round-trips with all three model types', () {
+        Agent.environment['OPENAI_API_KEY'] = 'sk-test';
+        final provider = OpenAIProvider(
+          name: 'openai',
+          displayName: 'OpenAI',
+          defaultModelNames: {
+            ModelKind.chat: 'gpt-4o',
+            ModelKind.embeddings: 'text-embedding-3-small',
+            ModelKind.media: 'dall-e-3',
+          },
+          apiKeyName: 'OPENAI_API_KEY',
+          apiKey: 'sk-test',
+        );
+
+        final agent1 = Agent.forProvider(provider);
+        final modelString = agent1.model;
+
+        // Verify model string is parseable as URI with all three models
+        final modelUri = Uri.parse(modelString);
+        expect(modelUri.path, equals('openai'));
+        expect(modelUri.queryParameters['chat'], equals('gpt-4o'));
+        expect(
+          modelUri.queryParameters['embeddings'],
+          equals('text-embedding-3-small'),
+        );
+        expect(modelUri.queryParameters['media'], equals('dall-e-3'));
+
+        // Verify round-trip: create new Agent from model string gets same config
+        final agent2 = Agent(modelString); // ignore: avoid_redundant_argument_values
+        expect(agent2.model, equals(agent1.model));
+      });
     });
 
     group('Provider.createChatModel Configuration', () {

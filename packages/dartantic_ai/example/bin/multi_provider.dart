@@ -20,32 +20,39 @@ void main() async {
   stdout.writeln('\n## Multi-Provider Conversation\n');
   final history = <ChatMessage>[ChatMessage.system('Be brief.')];
   await _promptAgent(
-    Agent('google'),
+    Agent('google', displayName: 'Google'),
     'Hi! My name is Alice and I work as a software engineer in Seattle. '
     'I love hiking and coffee.',
     history,
   );
 
   await _promptAgent(
-    Agent('anthropic'),
+    Agent('anthropic', displayName: 'Claude'),
     'What do you remember about me?',
     history,
   );
 
   await _promptAgent(
-    Agent('openai', tools: [weatherTool, temperatureTool]),
+    Agent(
+      'openai',
+      displayName: 'OpenAI',
+      tools: [weatherTool, temperatureTool],
+    ),
     'Can you check the weather where I live?',
     history,
   );
 
   await _promptAgent(
-    Agent('google:gemini-3-pro-preview'),
+    Agent(
+      'google:gemini-3-pro-preview',
+      displayName: 'Google Gemini 3 Pro Preview',
+    ),
     'What outdoor activities would you recommend for me?',
     history,
   );
 
   await _promptAgent(
-    Agent('openai-responses'),
+    Agent('openai-responses', displayName: 'OpenAI Responses'),
     'Can you summarize our conversation?',
     history,
   );
@@ -61,15 +68,12 @@ Future<void> _promptAgent(
   final userColor = entityColor('user');
   stdout.writeln('$bold${userColor}User:$reset $userColor$prompt$reset');
   final agentColor = entityColor(agent.model.split(':')[0]);
-  stdout.write(
-    '$bold$agentColor${agent.displayName}$reset '
-    '$agentColor(${agent.model}): $reset',
-  );
+  stdout.write('$bold$agentColor${agent.displayName}: $reset');
   await agent.sendStream(prompt, history: history).forEach((chunk) {
     stdout.write('$agentColor${chunk.output}$reset');
     history.addAll(chunk.messages);
   });
-  stdout.writeln('\n');
+  stdout.writeln('\n\n');
 }
 
 // ANSI color codes

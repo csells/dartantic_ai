@@ -230,6 +230,49 @@ final agent = Agent.forProvider(provider);
 - Custom models override defaults only for specified types
 - `Agent.forProvider` allows direct provider instance usage with optional model overrides
 
+## Agent.model Round-Trip Requirement
+
+The `Agent.model` property returns a fully-qualified model string that can be used to reconstruct an equivalent Agent configuration. This is a critical invariant:
+
+```dart
+final agent1 = Agent.forProvider(provider);
+final modelString = agent1.model;
+
+// Round-trip: creating a new Agent from the model string produces equivalent config
+final agent2 = Agent(modelString);
+assert(agent2.model == agent1.model);
+```
+
+### Model String Construction
+
+The `Agent.model` getter constructs the model string by:
+
+1. Using explicit model names if provided during Agent creation
+2. Falling back to provider defaults for any unspecified model types
+3. Including all three model types (chat, embeddings, media) when the provider has defaults
+
+For providers with all three model type defaults, `Agent.model` produces:
+```
+openai?chat=gpt-4o&embeddings=text-embedding-3-small&media=dall-e-3
+```
+
+For providers with only chat and embeddings:
+```
+openai?chat=gpt-4o&embeddings=text-embedding-3-small
+```
+
+For providers with only chat (or when only chat is specified):
+```
+openai:gpt-4o
+```
+
+### Why Round-Trip Matters
+
+- **Serialization**: Model strings can be stored and used to recreate agents
+- **Display**: UI can show the complete configuration to users
+- **Debugging**: Easy to see exactly what models an Agent is configured to use
+- **Cloning**: Create equivalent agents from the model string
+
 ## Design Principles
 
 1. **Simplicity**: URI parsing handles all formats cleanly
@@ -238,6 +281,7 @@ final agent = Agent.forProvider(provider);
 4. **Type Safety**: Separate chat and embeddings model creation
 5. **Backwards Compatibility**: Legacy `provider:model` format still works
 6. **Extensibility**: Query format allows future model types
+7. **Round-Trip**: `Agent.model` produces strings that reconstruct equivalent agents
 
 ## Related Specifications
 
