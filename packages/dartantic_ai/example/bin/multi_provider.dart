@@ -3,8 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
-import 'package:example/src/dump_stuff.dart';
 import 'package:example/src/example_tools.dart';
 
 void main() async {
@@ -23,64 +21,58 @@ void main() async {
 
   // agent 1
   final agent1 = Agent('google');
-  print('## Starting with ${agent1.displayName}');
-  final result1 = await agent1.send(
-    'Hi! My name is Alice and I work as a software engineer in Seattle. '
-    'I love hiking and coffee.',
-  );
-  history.addAll(result1.messages);
-  print('${agent1.displayName}: ${result1.output}\n');
+  const prompt1 =
+      'Hi! My name is Alice and I work as a software engineer in Seattle. '
+      'I love hiking and coffee.';
+  stdout.writeln('User: $prompt1');
+  stdout.write('${agent1.displayName} (${agent1.model}): ');
+  await agent1.sendStream(prompt1, history: history).forEach((chunk) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  });
+  stdout.writeln('\n');
 
   // agent 2
   final agent2 = Agent('anthropic');
-  print('## Switching to ${agent2.displayName}');
-  final result2 = await agent2.send(
-    'What do you remember about me?',
-    history: history,
-  );
-  history.addAll(result2.messages);
-  print('${agent2.displayName}: ${result2.output}\n');
+  const prompt2 = 'What do you remember about me?';
+  stdout.writeln('User: $prompt2');
+  stdout.write('${agent2.displayName} (${agent2.model}): ');
+  await agent2.sendStream(prompt2, history: history).forEach((chunk) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  });
+  stdout.writeln('\n');
 
   // agent 3
   final agent3 = Agent('openai', tools: [weatherTool, temperatureTool]);
-  print('## Using ${agent3.displayName} with tools');
-  final result3 = await agent3.send(
-    'Can you check the weather where I live?',
-    history: history,
-  );
-  history.addAll(result3.messages);
-  print('${agent3.displayName}: ${result3.output}\n');
+  const prompt3 = 'Can you check the weather where I live?';
+  stdout.writeln('User: $prompt3');
+  stdout.write('${agent3.displayName} (${agent3.model}): ');
+  await agent3.sendStream(prompt3, history: history).forEach((chunk) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  });
+  stdout.writeln('\n');
 
   // agent 4
-  final agent4 = Agent('google');
-  print('## Back to ${agent4.displayName} to reference the tool results');
-  final result4 = await agent4.send(
-    'Based on the weather, what outdoor activities would you recommend for me?',
-    history: history,
-  );
-  history.addAll(result4.messages);
-  print('${agent4.displayName}: ${result4.output}\n');
+  final agent4 = Agent('google:gemini-3-pro-preview');
+  const prompt4 = 'What outdoor activities would you recommend for me?';
+  stdout.writeln('User: $prompt4');
+  stdout.write('${agent4.displayName} (${agent4.model}): ');
+  await agent4.sendStream(prompt4, history: history).forEach((chunk) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  });
+  stdout.writeln('\n');
 
   // agent 5
   final agent5 = Agent('openai-responses');
-  print('## Using ${agent5.displayName} for a final summary');
-  final result5 = await agent5.send(
-    'Can you summarize our conversation?',
-    history: history,
-  );
-  history.addAll(result5.messages);
-  print('${agent5.displayName}: ${result5.output}\n');
-
-  print('## Message History');
-  print('Total messages: ${history.length}');
-  dumpMessages(history);
-
-  print('## Provider sequence:');
-  print('  → ${agent1.displayName}');
-  print('  → ${agent2.displayName}');
-  print('  → ${agent3.displayName}');
-  print('  → ${agent4.displayName}');
-  print('  → ${agent5.displayName}');
-
-  exit(0);
+  const prompt5 = 'Can you summarize our conversation?';
+  stdout.writeln('User: $prompt5');
+  stdout.write('${agent5.displayName} (${agent5.model}): ');
+  await agent5.sendStream(prompt5, history: history).forEach((chunk) {
+    stdout.write(chunk.output);
+    history.addAll(chunk.messages);
+  });
+  stdout.writeln('\n');
 }
