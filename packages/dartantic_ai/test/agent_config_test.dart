@@ -58,7 +58,9 @@ void main() {
           platform.tryGetEnv('OPENAI_API_KEY'),
           equals('sk-agent-env-key'),
         );
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
       });
 
       test('System environment is used when no other source available', () {
@@ -75,7 +77,9 @@ void main() {
 
           // platform.tryGetEnv should find it
           expect(platform.tryGetEnv('OPENAI_API_KEY'), equals(systemKey));
-          expect(agent.model, equals('openai:gpt-4o-mini'));
+          // Agent.model includes provider defaults (chat + embeddings)
+          expect(agent.chatModelName, equals('gpt-4o-mini'));
+          expect(agent.providerName, equals('openai'));
         }
       });
 
@@ -102,7 +106,9 @@ void main() {
         // Use default provider (which has null apiKey)
         final agent = Agent('openai:gpt-4o-mini');
 
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
         expect(platform.tryGetEnv('OPENAI_API_KEY'), equals('sk-env-key'));
       });
 
@@ -144,7 +150,9 @@ void main() {
         // Provider should have its default
         final provider = Agent.getProvider('openai');
         expect(provider.baseUrl, isNull);
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
       });
 
       test('Null baseUrl in provider uses defaults', () {
@@ -154,7 +162,9 @@ void main() {
         final agent = Agent('openai:gpt-4o-mini');
         final provider = Agent.getProvider('openai');
 
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
         expect(provider.baseUrl, isNull);
       });
     });
@@ -186,9 +196,16 @@ void main() {
 
         final agent = Agent.forProvider(provider);
 
+        // Agent.model includes provider defaults (chat + embeddings)
+        final modelUri = Uri.parse(agent.model);
+        expect(modelUri.path, equals('openai'));
         expect(
-          agent.model,
-          equals('openai:${provider.defaultModelNames[ModelKind.chat]}'),
+          modelUri.queryParameters['chat'],
+          equals(provider.defaultModelNames[ModelKind.chat]),
+        );
+        expect(
+          modelUri.queryParameters['embeddings'],
+          equals(provider.defaultModelNames[ModelKind.embeddings]),
         );
         expect(agent.providerName, equals('openai'));
       });
@@ -220,8 +237,11 @@ void main() {
         );
         expect(modelUri.queryParameters['media'], equals('dall-e-3'));
 
-        // Verify round-trip: create new Agent from model string gets same config
-        final agent2 = Agent(modelString); // ignore: avoid_redundant_argument_values
+        // Verify round-trip: create new Agent from model string gets same
+        // config
+        final agent2 = Agent(
+          modelString,
+        ); // ignore: avoid_redundant_argument_values
         expect(agent2.model, equals(agent1.model));
       });
     });
@@ -399,10 +419,9 @@ void main() {
         // Test with default provider (uses environment)
         var agent = Agent('openai:gpt-4o-mini', temperature: 0.5);
 
-        // Verify agent configuration
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Verify agent configuration - model includes provider defaults
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
         expect(agent.providerName, equals('openai'));
-        expect(agent.model, equals('openai:gpt-4o-mini'));
 
         // API key should come from environment
         expect(platform.tryGetEnv('OPENAI_API_KEY'), equals('sk-test-key'));
@@ -537,8 +556,8 @@ void main() {
         final model = ollama.createChatModel();
         expect(model, isNotNull);
 
-        // Test custom provider could have null defaultBaseUrl
-        // (verified in custom_provider.dart example)
+        // Test custom provider could have null defaultBaseUrl (verified in
+        // custom_provider.dart example)
       });
 
       test('Provider configuration precedence with nulls', () {

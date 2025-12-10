@@ -1,11 +1,8 @@
 ## 2.0.0
 
-### Breaking Changes
+### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
 
-I took this opportunity in the major version bump to break some things that have
-been bothering me.
-
-#### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
+It's no longer necessary to manually include the dartantic_interface package.
 
 ```dart
 // OLD - had to import both packages
@@ -16,60 +13,65 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 ```
 
-The dartantic_interface package is great for building your own providers without
-pulling in all of dartantic. However, the way I had it split meant that you had
-to import both packages into every file that used them both. No more!
-
-#### Breaking Change: Provider Factory Registry
+### Breaking Change: Provider Factory Registry
 
 Provider lookup has been moved from the `Providers` class to `Agent` static
 methods. Providers are now created via factory functions not cached instances.
-
-#### Moved provider look-up to `Agent`
 
 ```dart
 // OLD
 final provider = Providers.get('openai');
 final allProviders = Providers.all;
 Providers.providerMap['custom'] = MyProvider();
+final provider2 = Providers.openai;
 
 // NEW
 final provider = Agent.getProvider('openai');
 final allProviders = Agent.allProviders;
 Agent.providerFactories['custom'] = MyProvider.new;
+final provider2 = OpenAIProvider();
 ```
 
-I removed static provider instances, e.g. Providers.google, as being not useful
-in practice. Either you want the default initialization for a project and the
-convenience of using a model string, e.g. `Agent('claude')`, or you want to use
-the type and create a provider instance with non-defaults, e.g.
-`OpenAIProvider('openai-responses:gpt-5', apiKey: ...)`. The halfway of having
-a typed default instance was good for discovery, but if you're using syntax
-completion to choose your LLM, now you've got two problems. : )
+### Breaking Change: Moved OpenAI-compat providers to example (except OpenRouter)
 
-Once I removed the static instances, there was no need for an entire type just
-to look-up providers, so I moved that to `Agent` instead.
+Removed the following intrinsic providers from dartantic to the
+`openai_compat.dart` example:
+- `google-openai`
+- `together`
+- `ollama-openai`
 
-#### Moved Together, Google and Ollama OpenAI-compat providers to example
+The `openrouter` OpenAI-compatible provider remains as an intrinsic provider.
 
-There are lots and lots of OpenAi-compatible providers in the world, so trying
-to test dartantic against all of them is impractical. Plus, most of them don't
-do such a great job of actually implementing the features, e.g. multi-turn tool
-calling. 
+### Breaking Changes: Simplified Thinking API
 
-So, I've removed three of them from the list of built-in providers and moved
-them to the `openai_compat.dart` example. You can still use them and define them
-in your app -- in fact, they can be configured to work EXACTLY like the built-in
-providers using the new `Agent.providerFactories` -- but they're not built in
-and they're no longer part of the dartantic testing suite. I wasn't really
-testing dartantic by using them in my integration testing anyway -- I was just
-finding out all the places that they're not good at their job.
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers that support
+thinking:
 
-I did leave the Open Router provider as built-in however via
-`Agent('openrouter')` since it's so popular and they do a good job of
-implementing the APi across their models.
+```dart
+// OLD
+final agent = Agent(
+  'openai-responses:gpt5',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
+);
+final thinking = result.metadata['thinking'] as String?;
 
-#### Removed `ProviderCaps`
+// NEW
+final agent = Agent('openai-responses:gpt5', enableThinking: true);
+final thinking = result.thinking;
+```
+
+- Provider-specific fine-tuning options remain for advanced use cases:
+  - `GoogleChatModelOptions.thinkingBudgetTokens`
+  - `AnthropicChatOptions.thinkingBudgetTokens`
+  - `OpenAIResponsesChatModelOptions.reasoningSummary`
+
+### Breaking Change: Removed `ProviderCaps`
+
+The `ProviderCaps` type was removed from the provider implementation and moved
+to a helper function in the tests.
 
 ```dart
 // OLD
@@ -78,15 +80,7 @@ final visionProviders = Providers.allWith({ProviderCaps.chatVision});
 // NEW
 // use Provider.listModels() and choose via ModelInfo instead
 ```
-
-I added `ProviderCaps` originally to help users drill in on what providers they
-could use in their apps. However, it really became "what are the capabilities of
-the default model of that provider" because every model on every provider is
-different and cannot be captured with one enum. It's still useful for driving
-tests, so I moved it into the tests and took it out of the provider interface as
-misleading.
-
-### Custom Headers for Enterprise
+### New: Custom Headers for Enterprise
 
 All providers now support custom HTTP headers for enterprise scenarios like
 authentication proxies, request tracing, or compliance logging:
@@ -101,9 +95,7 @@ final provider = GoogleProvider(
 );
 ```
 
-This works consistently across OpenAI, Google, Anthropic, Mistral, and Ollama.
-
-### Google Native JSON Schema Support
+### Updated: Google Native JSON Schema Support
 
 Google's Gemini API now uses native JSON Schema support for both:
 
@@ -118,7 +110,7 @@ This is an internal change with no API surface changes for you except that now
 you can pass more complex JSON schemas to Google models for both typed output
 and tool definitions.
 
-### Google Function Calling Mode
+### New: Google Function Calling Mode
 
 Added `functionCallingMode` and `allowedFunctionNames` options to
 `GoogleChatModelOptions` for controlling tool/function calling behavior:
@@ -144,74 +136,31 @@ Available modes:
 ```dart
 final agent = Agent('google');
 
-// Image generation - uses Nano Banana Pro under the hood
+// Image generation - uses Nano Banana by default (gemini-2.5-flash-image)
 final imageResult = await agent.generateMedia(
   'Create a minimalist robot mascot for a developer conference.',
   mimeTypes: const ['image/png'],
 );
 
-// Or specify the model explicitly
+// Or specify the model explicitly (like Nano Banana Pro)
 final agent = Agent('google?media=gemini-3-pro-image-preview');
 ```
 
 - Added media generation APIs to `Agent` (`generateMedia` and
   `generateMediaStream`) with streaming aggregation helpers.
+
 - Added media generation support for the `OpenAIResponsesProvider`,
   `GoogleProvider` and `AnthropicProvider` implementations `createMediaModel`.
   All three of them support generating media with a prompt and a mime type,
   using a combination of their intrinsic image generation and their server-side
   code execution environments to generate files of all types.
+
 - Extended `ModelStringParser` with `media=` selectors and added media-specific
   defaults in the provider registry.
 
 Check out the new media-gen examples to see them in action.
 
-### Breaking Changes: Simplified Thinking API
-
-Extended thinking (chain-of-thought reasoning) is now a first-class feature in
-Dartantic with a simplified, unified API across all providers:
-
-**New API:**
-```dart
-// Enable thinking at Agent level (simple!)
-final agent = Agent('google', enableThinking: true);
-
-// Access thinking as a first-class field
-final result = await agent.send('Complex question...');
-print(result.thinking); // String? - the thinking content
-```
-
-**What Changed:**
-- **Agent-level configuration**: Use `enableThinking: true` parameter on Agent
-  constructor (like `temperature` and `tools`)
-- **First-class field**: Thinking moved from `ChatResult.metadata['thinking']`
-  to `ChatResult.thinking` (`String?`)
-- **Simplified for OpenAI**: When `enableThinking: true`, automatically uses
-  `OpenAIReasoningSummary.detailed`
-
-**Still Available:**
-- Provider-specific fine-tuning options remain for advanced use cases:
-  - `GoogleChatModelOptions.thinkingBudgetTokens`
-  - `AnthropicChatOptions.thinkingBudgetTokens`
-  - `OpenAIResponsesChatModelOptions.reasoningSummary`
-
-**Migration Guide:**
-```dart
-// Before (1.x) - OpenAI Responses:
-final agent = Agent(
-  'openai-responses',
-  chatModelOptions: OpenAIResponsesChatModelOptions(
-    reasoningSummary: OpenAIReasoningSummary.detailed,
-  ),
-);
-final thinking = result.metadata['thinking'] as String?;
-
-// After (2.0) - All providers use the same simple API:
-final agent = Agent('openai-responses', enableThinking: true);
-final thinking = result.thinking;
-```
-
-### Server-Side Tools Across Providers
+### New: Server-Side Tools Across Providers
 
 Server-side tools are now supported across multiple providers:
 
@@ -239,7 +188,7 @@ final agent = Agent(
 );
 ```
 
-You can see how they all work in the new set of server-side tooling examples!
+You can see how they all work in the new set of server-side tooling examples.
 
 ## 1.3.0
 
