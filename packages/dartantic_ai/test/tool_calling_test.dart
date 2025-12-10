@@ -17,7 +17,6 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -498,7 +497,7 @@ void main() {
         );
 
         // The error will come when trying to use the agent, not at creation
-        expect(() => agent.send('Use the string_tool'), throwsException);
+        expect(() => agent.send('Use the string_tool'), throwsUnsupportedError);
       });
 
       runProviderTest(

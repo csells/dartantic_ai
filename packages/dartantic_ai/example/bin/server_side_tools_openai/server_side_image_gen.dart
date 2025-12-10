@@ -42,7 +42,6 @@ void main(List<String> args) async {
   // Final image arrives as a DataPart in the message history
   dumpAssetsFromHistory(history, 'tmp', fallbackPrefix: 'generated_image');
 
-  dumpMessages(history);
   exit(0);
 }
 

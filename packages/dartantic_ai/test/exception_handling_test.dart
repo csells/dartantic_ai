@@ -26,7 +26,7 @@ void main() {
         final agent = Agent('mistral:mistral-small-latest', tools: []);
 
         // The exception is thrown when the model is created (on first use)
-        await expectLater(() => agent.send('test'), throwsException);
+        await expectLater(() => agent.send('test'), throwsUnsupportedError);
       });
 
       test('handles malformed model strings', () {

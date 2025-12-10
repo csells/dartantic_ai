@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:example/example.dart';
 import 'package:openai_core/openai_core.dart';
 
 void main(List<String> args) async {
@@ -46,7 +45,6 @@ void main(List<String> args) async {
   }
   stdout.writeln('');
 
-  dumpMessages(history);
   exit(0);
 }
 

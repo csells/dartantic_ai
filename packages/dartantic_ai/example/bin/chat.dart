@@ -30,8 +30,6 @@ Future<void> multiTurnChat(String model) async {
   stdout.writeln('User: $prompt');
   final result2 = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result2.output.trim()}');
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiTurnChatStream(String model) async {
@@ -53,8 +51,6 @@ Future<void> multiTurnChatStream(String model) async {
   stdout.write('${chat.displayName}: ');
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
   stdout.writeln();
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiToolTypedChat(String model) async {
@@ -77,8 +73,6 @@ Future<void> multiToolTypedChat(String model) async {
   stdout.writeln(
     '${chat.displayName}: temperature= ${typedResult.output.temperature}°C',
   );
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiToolTypedChatStream(String model) async {
@@ -103,6 +97,4 @@ Future<void> multiToolTypedChatStream(String model) async {
   final tnt = TimeAndTemperature.fromJson(jsonDecode(jsonBuffer.toString()));
   stdout.writeln('${chat.displayName}: time= ${tnt.time}');
   stdout.writeln('${chat.displayName}: temperature= ${tnt.temperature}°C');
-
-  dumpMessages(chat.history);
 }

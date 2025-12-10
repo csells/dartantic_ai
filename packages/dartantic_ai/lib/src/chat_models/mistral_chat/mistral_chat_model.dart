@@ -58,7 +58,7 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
     var chunkCount = 0;
 
     if (outputSchema != null) {
-      throw Exception(
+      throw UnsupportedError(
         'JSON schema support is not yet implemented for Mistral.',
       );
     }

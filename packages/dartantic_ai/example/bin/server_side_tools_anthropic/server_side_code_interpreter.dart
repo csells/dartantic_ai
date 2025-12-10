@@ -58,6 +58,5 @@ void main(List<String> args) async {
   // Files are automatically downloaded and appear as DataParts in history
   dumpAssetsFromHistory(history, 'tmp', fallbackPrefix: 'anthropic_file');
 
-  dumpMessages(history);
   exit(0);
 }

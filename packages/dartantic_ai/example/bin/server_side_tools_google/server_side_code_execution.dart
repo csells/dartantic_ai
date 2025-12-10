@@ -55,6 +55,5 @@ void main(List<String> args) async {
   stdout.writeln();
 
   dumpAssetsFromHistory(history, 'tmp');
-  dumpMessages(history);
   exit(0);
 }

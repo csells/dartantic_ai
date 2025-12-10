@@ -131,6 +131,7 @@ Future<void> main() async {
       totalMediaModels +
       totalOtherModels;
   print('Grand total: $grandTotal models');
+  exit(0);
 }
 
 // ignore: unused_element

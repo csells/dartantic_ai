@@ -142,7 +142,6 @@ void main(List<String> args) async {
   }
 
   dumpAssetsFromHistory(history, 'tmp');
-  dumpMessages(history);
   exit(0);
 }
 

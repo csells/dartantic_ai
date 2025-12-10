@@ -30,6 +30,5 @@ void main(List<String> args) async {
 
   // web_fetch returns fetched document bytes; this saves them to disk.
   dumpAssetsFromHistory(history, 'tmp', fallbackPrefix: 'fetched_document');
-  dumpMessages(history);
   exit(0);
 }
