@@ -11,8 +11,8 @@ void main() async {
 
   final agent = Agent('google');
 
-  // Image generation (IMAGE modality is auto-set when mimeTypes include images)
-  stdout.writeln('## Google: Image via generateMedia()');
+  // Image generation using Nano Banana
+  stdout.writeln('## Google: Image via generateMedia() using Nano Banana');
   final imageResult = await agent.generateMedia(
     'Create a minimalist robot mascot for a developer conference. '
     'Use high contrast black and white line art.',
@@ -37,5 +37,17 @@ void main() async {
     mimeTypes: const ['text/csv'],
   );
   dumpAssets(csvResult.assets, outputDir, fallbackPrefix: 'google_data');
+
+  // Image generation using Nano Banana Pro
+  final nbpAgent = Agent('google?media=gemini-3-pro-image-preview');
+  stdout.writeln(
+    '\n## Google: Image via generateMedia() using Nano Banana Pro!',
+  );
+  final nbpResult = await nbpAgent.generateMedia(
+    'Create a 3D model of a minimalist robot mascot for a developer conference',
+    mimeTypes: const ['image/png'],
+  );
+  dumpAssets(nbpResult.assets, outputDir, fallbackPrefix: 'google_nbp_image');
+
   exit(0);
 }
