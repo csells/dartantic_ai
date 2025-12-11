@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -10,7 +11,6 @@
 // ignore_for_file: avoid_print
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -19,10 +19,10 @@ void main() {
   group('Infrastructure Helpers', () {
     group('provider discove ry (80% cases)', () {
       test('lists all available providers', () {
-        final providers = Providers.all;
+        final providers = Agent.allProviders;
 
         expect(providers, isNotEmpty);
-        expect(providers.length, greaterThan(10)); // We have 11+ providers
+        expect(providers.length, greaterThanOrEqualTo(7)); // Core providers
 
         // Check for some key providers
         expect(providers.any((p) => p.name == 'openai'), isTrue);
@@ -31,64 +31,69 @@ void main() {
       });
 
       test('finds provider by exact name', () {
-        final openai = Providers.get('openai');
+        final openai = Agent.getProvider('openai');
         expect(openai, isNotNull);
         expect(openai.name, equals('openai'));
 
-        final anthropic = Providers.get('anthropic');
+        final anthropic = Agent.getProvider('anthropic');
         expect(anthropic, isNotNull);
         expect(anthropic.name, equals('anthropic'));
       });
 
       test('finds provider by alias', () {
-        final claude = Providers.get('claude');
+        final claude = Agent.getProvider('claude');
         expect(claude, isNotNull);
         expect(claude.name, equals('anthropic'));
 
-        final gemini = Providers.get('gemini');
+        final gemini = Agent.getProvider('gemini');
         expect(gemini, isNotNull);
         expect(gemini.name, equals('google'));
       });
 
       test('throws for unknown provider', () {
         expect(
-          () => Providers.get('unknown-provider'),
+          () => Agent.getProvider('unknown-provider'),
           throwsA(isA<Exception>()),
         );
       });
 
       test('provider names are unique', () {
-        final names = Providers.all.map((p) => p.name).toList();
+        final names = Agent.allProviders.map((p) => p.name).toList();
         final uniqueNames = names.toSet();
-        print('named: ${names.join(', ')}');
-        print('unique: ${uniqueNames.join(', ')}');
-        print('google: ${Providers.google.aliases.contains('google')}');
-        print('googleai: ${Providers.google.aliases.contains('googleai')}');
-        print('google-gla: ${Providers.google.aliases.contains('google-gla')}');
-        print('google-gla: ${Providers.google.aliases.contains('google-gla')}');
         expect(uniqueNames.length, equals(names.length));
       });
     });
 
     group('provider capabilities (80% cases)', () {
       test('at least one provider advertises multi-tool support', () {
-        final toolProviders = Providers.allWith({ProviderCaps.multiToolCalls});
+        final toolProviders = Agent.allProviders
+            .where(
+              (p) => providerHasTestCaps(p.name, {
+                ProviderTestCaps.multiToolCalls,
+              }),
+            )
+            .toList();
         expect(toolProviders, isNotEmpty);
       });
 
       runProviderTest(
         'multi-tool capability flag is accurate',
         (provider) async {
-          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
+          final caps = getProviderTestCaps(provider.name);
+          expect(caps.contains(ProviderTestCaps.multiToolCalls), isTrue);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
 
       test('at least one provider advertises multi-tool + typed output', () {
-        final advancedProviders = Providers.allWith({
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-        });
+        final advancedProviders = Agent.allProviders
+            .where(
+              (p) => providerHasTestCaps(p.name, {
+                ProviderTestCaps.multiToolCalls,
+                ProviderTestCaps.typedOutput,
+              }),
+            )
+            .toList();
 
         expect(advancedProviders, isNotEmpty);
       });
@@ -96,24 +101,29 @@ void main() {
       runProviderTest(
         'multi-tool + typed output capability flags are accurate',
         (provider) async {
-          expect(provider.caps.contains(ProviderCaps.multiToolCalls), isTrue);
-          expect(provider.caps.contains(ProviderCaps.typedOutput), isTrue);
+          final caps = getProviderTestCaps(provider.name);
+          expect(caps.contains(ProviderTestCaps.multiToolCalls), isTrue);
+          expect(caps.contains(ProviderTestCaps.typedOutput), isTrue);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls, ProviderCaps.typedOutput},
+        requiredCaps: {
+          ProviderTestCaps.multiToolCalls,
+          ProviderTestCaps.typedOutput,
+        },
       );
 
       test('capabilities are consistent', () {
-        for (final provider in Providers.all) {
-          // If provider supports multi-tool calls, it should support
-          // single tools
-          if (provider.caps.contains(ProviderCaps.multiToolCalls)) {
+        for (final provider in Agent.allProviders) {
+          final caps = getProviderTestCaps(provider.name);
+          // If provider supports multi-tool calls, it should support single
+          // tools
+          if (caps.contains(ProviderTestCaps.multiToolCalls)) {
             // multiToolCalls implies basic tool support
-            expect(provider.caps, isNotEmpty);
+            expect(caps, isNotEmpty);
           }
 
           // Chat capability should be present for all chat providers
-          if (provider.caps.contains(ProviderCaps.chat)) {
-            expect(provider.caps, isNotEmpty);
+          if (caps.contains(ProviderTestCaps.chat)) {
+            expect(caps, isNotEmpty);
           }
         }
       });
@@ -121,14 +131,14 @@ void main() {
 
     group('provider metadata (80% cases)', () {
       test('all providers have valid names', () {
-        for (final provider in Providers.all) {
+        for (final provider in Agent.allProviders) {
           expect(provider.name, isNotEmpty);
           expect(provider.name, matches(RegExp(r'^[a-z0-9_-]+$')));
         }
       });
 
       test('all providers have default model names', () {
-        for (final provider in Providers.all) {
+        for (final provider in Agent.allProviders) {
           expect(provider.defaultModelNames[ModelKind.chat], isNotNull);
           expect(provider.defaultModelNames[ModelKind.chat], isNotEmpty);
           expect(
@@ -139,15 +149,16 @@ void main() {
       });
 
       test('all providers have non-empty capabilities', () {
-        for (final provider in Providers.all) {
-          expect(provider.caps, isA<Set<ProviderCaps>>());
+        for (final provider in Agent.allProviders) {
+          final caps = getProviderTestCaps(provider.name);
+          expect(caps, isA<Set<ProviderTestCaps>>());
           // All providers should have at least chat capability
-          expect(provider.caps, isNotEmpty);
+          expect(caps, isNotEmpty);
         }
       });
 
       test('provider display names are valid', () {
-        for (final provider in Providers.all) {
+        for (final provider in Agent.allProviders) {
           final agent = Agent(provider.name);
           expect(agent.displayName, isNotEmpty);
           // Just verify the display name exists and is not empty Don't require
@@ -163,7 +174,7 @@ void main() {
         final testProviders = ['openai', 'anthropic', 'google'];
 
         for (final providerName in testProviders) {
-          final provider = Providers.get(providerName);
+          final provider = Agent.getProvider(providerName);
           // For now, just check we can create an agent
           final agent = Agent(provider.name);
           expect(agent, isNotNull);
@@ -172,20 +183,20 @@ void main() {
 
       test('agent uses custom model name when specified', () {
         // Test that Agent correctly parses "provider:model" format
-        final agent1 = Agent('together:Qwen/Qwen2.5-VL-72B-Instruct');
-        expect(agent1.model, contains('Qwen/Qwen2.5-VL-72B-Instruct'));
+        final agent1 = Agent('openai:gpt-4o');
+        expect(agent1.model, contains('gpt-4o'));
 
-        final agent2 = Agent('openai:gpt-4o');
-        expect(agent2.model, contains('gpt-4o'));
+        final agent2 = Agent('anthropic:claude-sonnet-4-0');
+        expect(agent2.model, contains('claude-sonnet-4-0'));
 
-        final agent3 = Agent('anthropic:claude-sonnet-4-0');
-        expect(agent3.model, contains('claude-sonnet-4-0'));
+        final agent3 = Agent('google:gemini-2.0-flash');
+        expect(agent3.model, contains('gemini-2.0-flash'));
       });
 
       test('default model names follow conventions', () {
         final testProviderNames = ['openai', 'google'];
         for (final providerName in testProviderNames) {
-          final provider = Providers.get(providerName);
+          final provider = Agent.getProvider(providerName);
           final model = provider.defaultModelNames[ModelKind.chat];
 
           expect(model, isNotNull);
@@ -198,7 +209,7 @@ void main() {
 
     group('embeddings provider infrastructure (80% cases)', () {
       test('lists all embeddings providers', () {
-        final providers = Providers.all;
+        final providers = Agent.allProviders;
 
         expect(providers, isNotEmpty);
         expect(providers.length, greaterThanOrEqualTo(4)); // At least 4
@@ -209,7 +220,7 @@ void main() {
       });
 
       test('finds embeddings provider by name', () {
-        final openai = Providers.get('openai');
+        final openai = Agent.getProvider('openai');
         expect(openai, isNotNull);
         expect(openai.name, equals('openai'));
       });
@@ -221,7 +232,7 @@ void main() {
           final model = provider.createEmbeddingsModel();
           expect(model, isNotNull);
         },
-        requiredCaps: {ProviderCaps.embeddings},
+        requiredCaps: {ProviderTestCaps.embeddings},
       );
     });
 
@@ -231,7 +242,7 @@ void main() {
         final futures = <Future<Provider?>>[];
 
         for (var i = 0; i < 100; i++) {
-          futures.add(Future(() => Providers.get('openai')));
+          futures.add(Future(() => Agent.getProvider('openai')));
         }
 
         final results = await Future.wait(futures);
@@ -243,31 +254,35 @@ void main() {
 
       test('handles case-insensitive provider names', () {
         // Provider lookup is case-insensitive by design
-        expect(Providers.get('openai'), isNotNull);
-        expect(Providers.get('OpenAI'), isNotNull);
-        expect(Providers.get('OPENAI'), isNotNull);
+        expect(Agent.getProvider('openai'), isNotNull);
+        expect(Agent.getProvider('OpenAI'), isNotNull);
+        expect(Agent.getProvider('OPENAI'), isNotNull);
 
-        // All should return the same provider
-        final provider1 = Providers.get('openai');
-        final provider2 = Providers.get('OpenAI');
-        final provider3 = Providers.get('OPENAI');
-        expect(provider1, equals(provider2));
-        expect(provider2, equals(provider3));
+        // All should return providers with the same name
+        final provider1 = Agent.getProvider('openai');
+        final provider2 = Agent.getProvider('OpenAI');
+        final provider3 = Agent.getProvider('OPENAI');
+        expect(provider1.name, equals(provider2.name));
+        expect(provider2.name, equals(provider3.name));
       });
 
       test('handles empty capability filters', () {
         // Empty capability filter should return all providers
-        final providers = Providers.allWith({});
-        expect(providers.length, equals(Providers.all.length));
+        final providers = Agent.allProviders
+            .where((p) => providerHasTestCaps(p.name, {}))
+            .toList();
+        expect(providers.length, equals(Agent.allProviders.length));
       });
 
       test('handles non-existent capability filters', () {
         // If we had a hypothetical capability that no provider supports
-        final providers = Providers.all
+        final providers = Agent.allProviders
             .where(
               (p) =>
-                  p.caps.contains(ProviderCaps.multiToolCalls) &&
-                  p.caps.contains(ProviderCaps.typedOutput) &&
+                  providerHasTestCaps(p.name, {
+                    ProviderTestCaps.multiToolCalls,
+                    ProviderTestCaps.typedOutput,
+                  }) &&
                   p.name == 'nonexistent',
             )
             .toList();
@@ -284,7 +299,7 @@ void main() {
         };
 
         for (final entry in aliases.entries) {
-          final provider = Providers.get(entry.key);
+          final provider = Agent.getProvider(entry.key);
           expect(provider.name, equals(entry.value));
         }
       });

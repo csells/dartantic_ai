@@ -18,7 +18,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:openai_core/openai_core.dart';
 import 'package:test/test.dart';
 
@@ -26,38 +25,52 @@ import '../test_utils.dart';
 
 void main() {
   group('Code Interpreter Integration', () {
-    test('executes code and returns results', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        ),
-      );
+    test(
+      'executes code and returns results',
+      () async {
+        final agent = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+          ),
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent.sendStream('Calculate 2 + 2 in Python').forEach(results.add);
+        // Use a prompt that FORCES code execution by requiring file creation.
+        // Simple math prompts like "2+2" are answered directly by reasoning
+        // models without using the code interpreter. Pattern from:
+        // example/bin/server_side_tools_openai/
+        // server_side_code_interpreter.dart
+        final results = <ChatResult>[];
+        await agent
+            .sendStream(
+              'Calculate the first 10 Fibonacci numbers and store them in a '
+              'variable called "fib_sequence". Then create a CSV file called '
+              '"fibonacci.csv" with two columns: index and value.',
+            )
+            .forEach(results.add);
 
-      final fullOutput = results.map((r) => r.output).join();
-      expect(fullOutput, contains('4'));
+        final fullOutput = results.map((r) => r.output).join();
+        expect(fullOutput.toLowerCase(), contains('fibonacci'));
 
-      // Verify code_interpreter metadata is streamed
-      var hadCodeInterpreterEvent = false;
-      for (final result in results) {
-        if (result.metadata['code_interpreter'] != null) {
-          hadCodeInterpreterEvent = true;
-          break;
+        // Verify code_interpreter metadata is streamed
+        var hadCodeInterpreterEvent = false;
+        for (final result in results) {
+          if (result.metadata['code_interpreter'] != null) {
+            hadCodeInterpreterEvent = true;
+            break;
+          }
         }
-      }
-      expect(
-        hadCodeInterpreterEvent,
-        isTrue,
-        reason: 'Should have code_interpreter events in metadata',
-      );
+        expect(
+          hadCodeInterpreterEvent,
+          isTrue,
+          reason: 'Should have code_interpreter events in metadata',
+        );
 
-      // Verify no duplicate metadata
-      validateNoMetadataDuplicates(results);
-    });
+        // Verify no duplicate metadata
+        validateNoMetadataDuplicates(results);
+      },
+      timeout: const Timeout(Duration(minutes: 1)),
+    );
 
     test('generates and downloads container files', () async {
       final agent = Agent(
@@ -76,8 +89,8 @@ void main() {
       final fullOutput = results.map((r) => r.output).join();
       expect(fullOutput, contains('test.txt'));
 
-      // The bug would have crashed here if the workaround wasn't in place
-      // This test proves the workaround works
+      // The bug would have crashed here if the workaround wasn't in place This
+      // test proves the workaround works
     });
 
     test(
@@ -148,77 +161,95 @@ void main() {
       timeout: const Timeout(Duration(minutes: 1)),
     );
 
-    test('reuses container across sessions', () async {
-      // Session 1: Create variable
-      final agent1 = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.codeInterpreter},
-        ),
-      );
+    test(
+      'reuses container across sessions',
+      () async {
+        // Session 1: Create variable AND file (file creation forces code
+        // interpreter usage - reasoning models might answer simple math prompts
+        // directly from training data without executing code)
+        final agent1 = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+          ),
+        );
 
-      // Accumulate results and history properly
-      final results1 = <ChatResult>[];
-      final history = <ChatMessage>[];
-      await for (final chunk in agent1.sendStream(
-        'Calculate the first 10 Fibonacci numbers and store them in a variable '
-        'called "fib_sequence".',
-      )) {
-        results1.add(chunk);
-        history.addAll(chunk.messages);
-      }
+        // Accumulate results and history properly
+        final results1 = <ChatResult>[];
+        final history = <ChatMessage>[];
+        await for (final chunk in agent1.sendStream(
+          'Calculate the first 10 Fibonacci numbers and store them in a '
+          'variable called "fib_sequence". Then create a text file called '
+          '"fib.txt" containing those numbers.',
+        )) {
+          results1.add(chunk);
+          history.addAll(chunk.messages);
+        }
 
-      // Extract container ID from metadata
-      String? containerId;
-      for (final result in results1) {
-        final codeInterpreterMeta =
-            result.metadata['code_interpreter'] as List?;
-        if (codeInterpreterMeta != null) {
-          for (final event in codeInterpreterMeta) {
-            if (event is Map && event['item']?['container_id'] != null) {
-              containerId = event['item']['container_id'] as String;
-              break;
+        // Extract container ID from the response.output_item.done event
+        // metadata. The container_id is nested in event['item']['container_id']
+        // because OpenAI wraps the CodeInterpreterCall item inside the done
+        // event.
+        String? containerId;
+        for (final result in results1) {
+          final codeInterpreterMeta =
+              result.metadata['code_interpreter'] as List?;
+          if (codeInterpreterMeta != null) {
+            for (final event in codeInterpreterMeta) {
+              if (event is Map) {
+                final item = event['item'];
+                if (item is Map && item['container_id'] != null) {
+                  containerId = item['container_id'] as String;
+                  break;
+                }
+              }
             }
           }
+          if (containerId != null) break;
         }
-        if (containerId != null) break;
-      }
 
-      expect(containerId, isNotNull, reason: 'Container ID should be captured');
+        expect(
+          containerId,
+          isNotNull,
+          reason: 'Container ID should be captured',
+        );
 
-      // Session 2: Reuse container
-      final agent2 = Agent(
-        'openai-responses',
-        chatModelOptions: OpenAIResponsesChatModelOptions(
-          serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
-          codeInterpreterConfig: CodeInterpreterConfig(
-            containerId: containerId,
+        // Session 2: Reuse container
+        final agent2 = Agent(
+          'openai-responses',
+          chatModelOptions: OpenAIResponsesChatModelOptions(
+            serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+            codeInterpreterConfig: CodeInterpreterConfig(
+              containerId: containerId,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Accumulate results properly for session 2
-      final results2 = <ChatResult>[];
-      await agent2
-          .sendStream(
-            'Using the fib_sequence variable we created earlier, calculate the '
-            'golden ratio by dividing each consecutive pair '
-            '(skipping the first term since it is 0).',
-            history: history,
-          )
-          .forEach(results2.add);
+        // Accumulate results properly for session 2
+        final results2 = <ChatResult>[];
+        await agent2
+            .sendStream(
+              'Using the fib_sequence variable we created earlier, calculate '
+              'the golden ratio by dividing each consecutive pair '
+              '(skipping the first term since it is 0).',
+              history: history,
+            )
+            .forEach(results2.add);
 
-      final fullOutput = results2.map((r) => r.output).join();
+        final fullOutput = results2.map((r) => r.output).join();
 
-      // Should mention fib_sequence or golden ratio or 1.618
-      expect(
-        fullOutput.contains('fib') ||
-            fullOutput.contains('golden') ||
-            fullOutput.contains('1.6'),
-        isTrue,
-        reason: 'Should reference fib_sequence or golden ratio',
-      );
-    });
+        // Should mention fib_sequence or golden ratio or 1.618
+        expect(
+          fullOutput.contains('fib') ||
+              fullOutput.contains('golden') ||
+              fullOutput.contains('1.6'),
+          isTrue,
+          reason: 'Should reference fib_sequence or golden ratio',
+        );
+      },
+      // Two code interpreter sessions need more than 30 seconds
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Image Generation Integration', () {
@@ -238,8 +269,8 @@ void main() {
           ),
         );
 
-        // Use exact prompt from example
-        // Accumulate history like the example does
+        // Use exact prompt from example Accumulate history like the example
+        // does
         final history = <ChatMessage>[];
         await for (final chunk in agent.sendStream(
           'Generate a simple, minimalist logo for a fictional '
@@ -266,82 +297,94 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
-    test('streams partial images in metadata', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.imageGeneration},
-          imageGenerationConfig: ImageGenerationConfig(
-            partialImages: 2,
-            quality: ImageGenerationQuality.low,
-            size: ImageGenerationSize.square256,
+    test(
+      'streams partial images in metadata',
+      () async {
+        final agent = Agent(
+          'openai-responses',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.imageGeneration},
+            imageGenerationConfig: ImageGenerationConfig(
+              partialImages: 2,
+              quality: ImageGenerationQuality.low,
+              size: ImageGenerationSize.square256,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent.sendStream('Generate a blue square').forEach(results.add);
+        // Accumulate results properly
+        final results = <ChatResult>[];
+        await agent.sendStream('Generate a blue square').forEach(results.add);
 
-      // Check for partial image events in metadata
-      var hadPartialImage = false;
-      for (final result in results) {
-        final imageEvents = result.metadata['image_generation'] as List?;
-        if (imageEvents != null) {
-          for (final event in imageEvents) {
-            if (event is Map && event['partial_image_b64'] != null) {
-              hadPartialImage = true;
-              break;
+        // Check for partial image events in metadata
+        var hadPartialImage = false;
+        for (final result in results) {
+          final imageEvents = result.metadata['image_generation'] as List?;
+          if (imageEvents != null) {
+            for (final event in imageEvents) {
+              if (event is Map && event['partial_image_b64'] != null) {
+                hadPartialImage = true;
+                break;
+              }
             }
           }
+          if (hadPartialImage) break;
         }
-        if (hadPartialImage) break;
-      }
 
-      expect(
-        hadPartialImage,
-        isTrue,
-        reason: 'Should have partial images in streaming metadata',
-      );
-    });
+        expect(
+          hadPartialImage,
+          isTrue,
+          reason: 'Should have partial images in streaming metadata',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Web Search Integration', () {
-    test('searches web and returns results', () async {
-      final agent = Agent(
-        'openai-responses',
-        chatModelOptions: const OpenAIResponsesChatModelOptions(
-          serverSideTools: {OpenAIServerSideTool.webSearch},
-        ),
-      );
+    test(
+      'searches web and returns results',
+      () async {
+        // Note: Use gpt-4o instead of gpt-5 (default) because reasoning models
+        // tend to answer directly from training data instead of using tools.
+        final agent = Agent(
+          'openai-responses:gpt-4o',
+          chatModelOptions: const OpenAIResponsesChatModelOptions(
+            serverSideTools: {OpenAIServerSideTool.webSearch},
+          ),
+        );
 
-      // Accumulate results properly
-      final results = <ChatResult>[];
-      await agent
-          .sendStream(
-            'What is the latest version of Dart programming language?',
-          )
-          .forEach(results.add);
+        // Use a prompt that FORCES web search by asking for recent/current
+        // info. Pattern from: example/bin/server_side_tools_openai/
+        // server_side_web_search.dart
+        final results = <ChatResult>[];
+        await agent
+            .sendStream(
+              'What are the top 3 most recent news headlines about Dart?',
+            )
+            .forEach(results.add);
 
-      final fullOutput = results.map((r) => r.output).join();
+        final fullOutput = results.map((r) => r.output).join();
 
-      expect(fullOutput, isNotEmpty);
-      expect(fullOutput.toLowerCase(), contains('dart'));
+        expect(fullOutput, isNotEmpty);
+        expect(fullOutput.toLowerCase(), contains('dart'));
 
-      // Verify web_search metadata is streamed
-      var hadWebSearchEvent = false;
-      for (final result in results) {
-        if (result.metadata['web_search'] != null) {
-          hadWebSearchEvent = true;
-          break;
+        // Verify web_search metadata is streamed
+        var hadWebSearchEvent = false;
+        for (final result in results) {
+          if (result.metadata['web_search'] != null) {
+            hadWebSearchEvent = true;
+            break;
+          }
         }
-      }
-      expect(
-        hadWebSearchEvent,
-        isTrue,
-        reason: 'Should have web_search events in metadata',
-      );
-    });
+        expect(
+          hadWebSearchEvent,
+          isTrue,
+          reason: 'Should have web_search events in metadata',
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
 
     test('includes location hints in search', () async {
       final agent = Agent(

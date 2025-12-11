@@ -225,3 +225,73 @@ void dumpImage(String name, String baseFilename, Uint8List bytes) {
   out.writeAsBytesSync(bytes);
   stdout.writeln('  🎨 $name mage saved: $filename (${bytes.length} bytes)');
 }
+
+/// Counter used by [resolveAssetName] for generating unique fallback names.
+int _assetCounter = 0;
+
+/// Saves DataParts to disk with deduplication and filename resolution.
+///
+/// - [parts] - List of Parts (only DataParts are saved)
+/// - [outputDirectory] - Directory path to save files to
+/// - [fallbackPrefix] - Prefix for generated filenames when name is missing
+/// - [savedKeys] - Optional set for deduplication (prevents duplicate saves)
+void dumpAssets(
+  Iterable<Part> parts,
+  String outputDirectory, {
+  String fallbackPrefix = 'asset',
+  Set<String>? savedKeys,
+}) {
+  final dir = Directory(outputDirectory);
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+
+  var count = 0;
+  for (final part in parts) {
+    if (part is! DataPart) continue;
+    final name = resolveAssetName(part, fallbackPrefix);
+
+    // Skip duplicates if tracking
+    if (savedKeys != null && !savedKeys.add(name)) continue;
+
+    final file = File('$outputDirectory/$name');
+    file.writeAsBytesSync(part.bytes);
+    stdout.writeln(
+      '  Saved: ${file.path} (${part.mimeType}, ${part.bytes.length} bytes)',
+    );
+    count++;
+  }
+
+  if (count == 0) {
+    stdout.writeln('  No assets generated');
+  }
+}
+
+/// Resolves a filename for a DataPart, sanitizing and adding extensions.
+///
+/// If the part has a name, sanitizes it. Otherwise generates a unique name
+/// using [fallbackPrefix] and an auto-incrementing counter.
+String resolveAssetName(DataPart part, String fallbackPrefix) {
+  final existing = part.name?.trim();
+  if (existing != null && existing.isNotEmpty) {
+    // Sanitize the existing name
+    return existing.replaceAll(RegExp(r'[\\/:]'), '_');
+  }
+  // Generate a unique fallback name
+  final extension = Part.extensionFromMimeType(part.mimeType);
+  final id = _assetCounter++;
+  return extension == null
+      ? '$fallbackPrefix-$id'
+      : '$fallbackPrefix-$id.$extension';
+}
+
+/// Extracts DataParts from message history and saves them to disk.
+///
+/// This is a convenience function for code execution examples where
+/// generated files appear as DataParts in the message history.
+void dumpAssetsFromHistory(
+  List<ChatMessage> history,
+  String outputDirectory, {
+  String fallbackPrefix = 'file',
+}) {
+  final allParts = history.expand((msg) => msg.parts);
+  dumpAssets(allParts, outputDirectory, fallbackPrefix: fallbackPrefix);
+}

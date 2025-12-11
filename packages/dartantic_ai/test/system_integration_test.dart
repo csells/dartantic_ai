@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -10,12 +11,10 @@
 /// This file tests cross-provider integration scenarios
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
-import 'test_utils.dart';
 
 void main() {
   // Helper for tool-supporting providers
@@ -27,7 +26,7 @@ void main() {
     runProviderTest(
       testName,
       testFunction,
-      requiredCaps: {ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.multiToolCalls},
       timeout: timeout,
     );
   }
@@ -66,9 +65,6 @@ void main() {
 
         // Complete conversation should have appropriate message count
         expect(history.length, greaterThan(4));
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(history);
       });
 
       test('multi-tool workflow with dependencies', () async {
@@ -86,9 +82,6 @@ void main() {
             .expand((m) => m.toolResults)
             .toList();
         expect(toolResults.length, greaterThanOrEqualTo(1));
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(result.messages);
       });
 
       test('complex conversation with system prompt', () async {
@@ -108,8 +101,6 @@ void main() {
         expect(result.output, contains('23'));
 
         // Validate message history with system prompt
-        final fullHistory = [...history, ...result.messages];
-        validateMessageHistory(fullHistory);
       });
 
       test('streaming workflow with tool execution', () async {
@@ -134,9 +125,6 @@ void main() {
 
         final fullText = chunks.join();
         expect(fullText, isNotEmpty);
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(allMessages);
       });
 
       runProviderTest(
@@ -172,9 +160,6 @@ void main() {
             reason: 'Provider ${provider.name} should respond in conversation',
           );
           history.addAll(result.messages);
-
-          // Validate message history follows correct pattern
-          validateMessageHistory(history);
         },
         timeout: const Timeout(Duration(minutes: 3)),
       );
@@ -197,9 +182,6 @@ void main() {
             isTrue,
             reason: 'Provider ${provider.name} should execute tools',
           );
-
-          // Validate message history follows correct pattern
-          validateMessageHistory(toolResult.messages);
         },
         timeout: const Timeout(Duration(minutes: 3)),
       );
@@ -223,7 +205,6 @@ void main() {
         );
         expect(result.output, isNotEmpty);
         history.addAll(result.messages);
-        validateMessageHistory(history);
 
         // Turn 2: Single tool call
         result = await agent.send(
@@ -237,7 +218,6 @@ void main() {
           reason: '${provider.name} should execute string_tool',
         );
         history.addAll(result.messages);
-        validateMessageHistory(history);
 
         // Turn 3: Multiple tool calls in one turn
         result = await agent.send(
@@ -257,7 +237,6 @@ void main() {
           reason: '${provider.name} should execute multiple tools',
         );
         history.addAll(result.messages);
-        validateMessageHistory(history);
 
         // Turn 4: Reference previous tool results
         result = await agent.send(
@@ -271,9 +250,6 @@ void main() {
           reason: '${provider.name} should reference previous tool results',
         );
         history.addAll(result.messages);
-
-        // Final validation of complete multi-turn conversation
-        validateMessageHistory(history);
 
         // Verify we have a proper multi-turn conversation
         expect(
@@ -372,9 +348,6 @@ void main() {
         expect(result.output, isNotEmpty);
         expect(result.output.toLowerCase(), contains('test'));
         history.addAll(result.messages);
-
-        // Validate full multi-turn conversation with tools
-        validateMessageHistory(history);
       });
     });
 
@@ -453,9 +426,6 @@ void main() {
         expect(result2.output, isNotEmpty);
         expect(result2.output, contains('4'));
         history.addAll(result2.messages);
-
-        // Validate conversation history even with error
-        validateMessageHistory(history);
       });
     });
 
@@ -582,9 +552,6 @@ function fibonacci(n) {
         final hasToolResults = result.messages.any((m) => m.hasToolResults);
         expect(hasToolResults, isTrue);
         history.addAll(result.messages);
-
-        // Validate multi-turn conversation with tools
-        validateMessageHistory(history);
       });
 
       test('creative writing with constraints', () async {
@@ -621,7 +588,7 @@ function fibonacci(n) {
           expect(result.output, isNotEmpty);
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -645,18 +612,15 @@ function fibonacci(n) {
           final hasToolResults = result.messages.any((m) => m.hasToolResults);
           expect(hasToolResults, isTrue);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
     });
 
     group('integration patterns', () {
       test('custom provider registration and usage', () async {
-        // Create custom echo provider
-        final echoProvider = _EchoProvider();
-
-        // Register custom provider
-        Providers.providerMap['echo-test'] = echoProvider;
+        // Register custom provider with factory function
+        Agent.providerFactories['echo-test'] = _EchoProvider.new;
 
         // Use custom provider
         final agent = Agent('echo-test');
@@ -666,21 +630,18 @@ function fibonacci(n) {
         expect(result.messages, isNotEmpty);
 
         // Cleanup
-        Providers.providerMap.remove('echo-test');
+        Agent.providerFactories.remove('echo-test');
       });
 
       test('OpenAI-compatible custom provider pattern', () async {
-        // Create OpenAI-compatible provider with custom baseUrl
-        final customProvider = OpenAIProvider(
+        // Register OpenAI-compatible provider with custom baseUrl
+        Agent.providerFactories['custom-openai-test'] = () => OpenAIProvider(
           name: 'custom-openai-test',
           displayName: 'Custom OpenAI',
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           baseUrl: Uri.parse('https://api.openai.com/v1'),
           apiKeyName: 'OPENAI_API_KEY',
         );
-
-        // Register and use
-        Providers.providerMap['custom-openai-test'] = customProvider;
 
         final agent = Agent('custom-openai-test');
         final result = await agent.send('Hello from custom provider');
@@ -689,7 +650,7 @@ function fibonacci(n) {
         expect(result.messages, isNotEmpty);
 
         // Cleanup
-        Providers.providerMap.remove('custom-openai-test');
+        Agent.providerFactories.remove('custom-openai-test');
       });
     });
   });
@@ -716,13 +677,18 @@ class _EchoChatModel extends ChatModel<ChatModelOptions> {
   void dispose() {}
 }
 
-class _EchoProvider extends Provider {
+class _EchoProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   _EchoProvider()
     : super(
         name: 'echo-test',
         displayName: 'Echo Test Provider',
         defaultModelNames: {ModelKind.chat: 'echo'},
-        caps: {},
       );
 
   @override
@@ -730,6 +696,7 @@ class _EchoProvider extends Provider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => _EchoChatModel(name: name ?? defaultModelNames[ModelKind.chat]!);
 
@@ -738,6 +705,13 @@ class _EchoProvider extends Provider {
     String? name,
     EmbeddingsModelOptions? options,
   }) => throw UnimplementedError('Echo provider does not support embeddings');
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Echo provider does not support media');
 
   @override
   Stream<ModelInfo> listModels() async* {

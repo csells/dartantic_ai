@@ -7,7 +7,7 @@ class ModelStringParser {
     this.providerName, {
     this.chatModelName,
     this.embeddingsModelName,
-    this.otherModelName,
+    this.mediaModelName,
   });
 
   /// Parses a model string into provider, chat, and embeddings model names.
@@ -18,8 +18,8 @@ class ModelStringParser {
   /// - `providerName/chatModel`
   /// - `providerName?chat=chatModel`
   /// - `providerName?embeddings=embeddingsModel`
-  /// - `providerName?other=otherModel`
-  /// - `providerName?chat=...&embeddings=...&other=...`
+  /// - `providerName?media=mediaModel`
+  /// - `providerName?chat=...&embeddings=...&media=...`
   factory ModelStringParser.parse(String model) {
     Never doThrow(String model) =>
         throw Exception('Invalid model string format: "$model".');
@@ -30,7 +30,7 @@ class ModelStringParser {
       late final String provider;
       late final String? chat;
       late final String? embed;
-      late final String? other;
+      late final String? media;
 
       if (uri.isAbsolute) {
         // e.g. anthropic:claude-3-5-sonnet or openrouter:google/gemini-2.0-flash
@@ -39,19 +39,19 @@ class ModelStringParser {
         // Remove leading slash if present
         chat = uri.path.startsWith('/') ? uri.path.substring(1) : uri.path;
         embed = null;
-        other = null;
+        media = null;
       } else if (uri.pathSegments.length == 1) {
         // e.g. anthropic?chat=claude-3-5-sonnet&...
         provider = uri.pathSegments.first;
         chat = uri.queryParameters['chat'];
         embed = uri.queryParameters['embeddings'];
-        other = uri.queryParameters['other'];
+        media = uri.queryParameters['media'] ?? uri.queryParameters['other'];
       } else if (uri.pathSegments.length == 2) {
         // e.g. anthropic/claude-3-5-sonnet
         provider = uri.pathSegments.first;
         chat = uri.pathSegments.last;
         embed = null;
-        other = null;
+        media = null;
       } else {
         doThrow(model);
       }
@@ -61,7 +61,7 @@ class ModelStringParser {
         provider.toLowerCase(),
         chatModelName: chat?.isNotEmpty ?? false ? chat : null,
         embeddingsModelName: embed?.isNotEmpty ?? false ? embed : null,
-        otherModelName: other?.isNotEmpty ?? false ? other : null,
+        mediaModelName: media?.isNotEmpty ?? false ? media : null,
       );
     }
 
@@ -77,20 +77,20 @@ class ModelStringParser {
   /// The embeddings model name.
   final String? embeddingsModelName;
 
-  /// The other model name.
-  final String? otherModelName;
+  /// The media generation model name.
+  final String? mediaModelName;
 
   @override
   String toString() {
     if (chatModelName == null &&
         embeddingsModelName == null &&
-        otherModelName == null) {
+        mediaModelName == null) {
       return providerName;
     }
 
     if (chatModelName != null &&
         embeddingsModelName == null &&
-        otherModelName == null) {
+        mediaModelName == null) {
       return '$providerName:$chatModelName';
     }
 
@@ -99,7 +99,7 @@ class ModelStringParser {
       queryParameters: {
         if (chatModelName != null) 'chat': chatModelName,
         if (embeddingsModelName != null) 'embeddings': embeddingsModelName,
-        if (otherModelName != null) 'other': otherModelName,
+        if (mediaModelName != null) 'media': mediaModelName,
       },
     ).toString();
   }

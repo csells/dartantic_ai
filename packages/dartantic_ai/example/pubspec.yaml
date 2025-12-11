@@ -1,6 +1,7 @@
 name: example
 description: Examples using dartantic_ai.
 publish_to: none
+resolution: workspace
 
 environment:
   sdk: ^3.9.0
@@ -10,7 +11,7 @@ dependencies:
   cross_file: ^0.3.4+2
   dartantic_ai:
     path: ..
-  dartantic_interface: ^1.1.0
+  dartantic_interface: ^2.0.0
   dotprompt_dart: ^0.5.0
   freezed_annotation: ^3.1.0
   http: ^1.4.0

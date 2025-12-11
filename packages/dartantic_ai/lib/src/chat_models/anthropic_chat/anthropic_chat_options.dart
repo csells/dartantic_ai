@@ -1,6 +1,8 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:meta/meta.dart';
 
+import 'anthropic_server_side_tools.dart';
+
 /// Options to pass into the Anthropic Chat Model.
 @immutable
 class AnthropicChatOptions extends ChatModelOptions {
@@ -12,6 +14,10 @@ class AnthropicChatOptions extends ChatModelOptions {
     this.topK,
     this.topP,
     this.userId,
+    this.thinkingBudgetTokens,
+    this.serverTools,
+    this.serverSideTools,
+    this.toolChoice,
   });
 
   /// The maximum number of tokens to generate before stopping.
@@ -67,4 +73,110 @@ class AnthropicChatOptions extends ChatModelOptions {
   /// may use this id to help detect abuse. Do not include any identifying
   /// information such as name, email address, or phone number.
   final String? userId;
+
+  /// Optional token budget for thinking (defaults to 4096).
+  ///
+  /// Only applies when thinking is enabled at the Agent level via
+  /// `Agent(model, enableThinking: true)`.
+  ///
+  /// Controls how many tokens Claude can use for its internal reasoning.
+  /// Larger budgets enable more comprehensive reasoning.
+  ///
+  /// Anthropic recommends starting with lower values (4k-10k) and scaling up
+  /// based on task complexity. If not specified, defaults to 4096 tokens.
+  ///
+  /// The Anthropic SDK validates minimum and maximum constraints based on
+  /// their current API requirements.
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent(
+  ///   'anthropic:claude-sonnet-4-5',
+  ///   enableThinking: true,
+  ///   chatModelOptions: AnthropicChatOptions(
+  ///     thinkingBudgetTokens: 10000,  // Override default 4096
+  ///   ),
+  /// )
+  /// ```
+  final int? thinkingBudgetTokens;
+
+  /// Server-side tools that should be enabled for the Anthropic request.
+  ///
+  /// These map to Anthropic's built-in tool capabilities such as the
+  /// `code_execution` sandbox. They are passed directly to the API and do not
+  /// require local tool implementations.
+  final List<AnthropicServerToolConfig>? serverTools;
+
+  /// Convenience set of Anthropic server-side tools to enable.
+  final Set<AnthropicServerSideTool>? serverSideTools;
+
+  /// Preferred server-side tool selection behaviour.
+  ///
+  /// When omitted, the model defaults to Anthropic's automatic tool selection
+  /// whenever tools are available. Specify [AnthropicToolChoice.required] to
+  /// force Claude to invoke a particular tool such as `code_execution`.
+  final AnthropicToolChoice? toolChoice;
+}
+
+/// Configuration for enabling Anthropic server-side tools.
+@immutable
+class AnthropicServerToolConfig {
+  /// Creates a new server-side tool configuration.
+  const AnthropicServerToolConfig({
+    required this.type,
+    required this.name,
+    this.description,
+    Map<String, dynamic>? inputSchema,
+  }) : inputSchema =
+           inputSchema ??
+           const {'type': 'object', 'additionalProperties': false};
+
+  /// Tool type identifier (for example, `code_execution_20250825`).
+  final String type;
+
+  /// Tool name (for example, `code_execution`).
+  final String name;
+
+  /// Optional human-readable description of the tool.
+  final String? description;
+
+  /// JSON schema describing the tool input shape.
+  final Map<String, dynamic> inputSchema;
+}
+
+/// Determines how Claude should select server-side tools.
+@immutable
+class AnthropicToolChoice {
+  /// Creates an automatic tool choice (Anthropic decides when to call tools).
+  const AnthropicToolChoice.auto()
+    : type = AnthropicToolChoiceType.auto,
+      name = null;
+
+  /// Creates an "any" tool choice where Claude selects any available tool.
+  const AnthropicToolChoice.any()
+    : type = AnthropicToolChoiceType.any,
+      name = null;
+
+  /// Requires Claude to call the specified [name] tool.
+  const AnthropicToolChoice.required(String toolName)
+    : type = AnthropicToolChoiceType.required,
+      name = toolName;
+
+  /// The underlying tool choice mode.
+  final AnthropicToolChoiceType type;
+
+  /// Tool name to require when [type] is [AnthropicToolChoiceType.required].
+  final String? name;
+}
+
+/// Modes for Anthropic server-side tool selection.
+enum AnthropicToolChoiceType {
+  /// Allow Claude to decide when to call server-side tools automatically.
+  auto,
+
+  /// Permit Claude to call any available tool as needed.
+  any,
+
+  /// Force Claude to call a specific tool.
+  required,
 }

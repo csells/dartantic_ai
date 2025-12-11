@@ -44,6 +44,24 @@
       "program": "packages/dartantic_ai/example/bin/mcp_servers.dart"
     },
     {
+      "name": "media_gen (Google)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/media_gen/media_gen_google.dart"
+    },
+    {
+      "name": "media_gen (OpenAI)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/media_gen/media_gen_openai.dart"
+    },
+    {
+      "name": "media_gen (Anthropic)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/media_gen/media_gen_anthropic.dart"
+    },
+    {
       "name": "model_string",
       "request": "launch",
       "type": "dart",
@@ -68,10 +86,11 @@
       "program": "packages/dartantic_ai/example/bin/multi_turn_chat.dart"
     },
     {
-      "name": "multimedia",
+      "name": "multimedia_input",
       "request": "launch",
+      "cwd": "${workspaceFolder}/packages/dartantic_ai/example",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/multimedia.dart"
+      "program": "bin/multimedia_input.dart"
     },
     {
       "name": "openai_compat",
@@ -122,28 +141,58 @@
       "program": "packages/dartantic_ai/example/bin/usage_tracking.dart"
     },
     {
-      "name": "server-side code interpreter",
+      "name": "server-side code interpreter (OpenAI)",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_code_interpreter.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_openai/server_side_code_interpreter.dart"
     },
     {
-      "name": "server-side image generation",
+      "name": "server-side image generation (OpenAI)",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_image_gen.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_openai/server_side_image_gen.dart"
     },
     {
-      "name": "server-side vector search",
+      "name": "server-side vector search (OpenAI)",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_vector_search.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_openai/server_side_vector_search.dart"
     },
     {
-      "name": "server-side web search",
+      "name": "server-side web search (OpenAI)",
       "request": "launch",
       "type": "dart",
-      "program": "packages/dartantic_ai/example/bin/server_side_tools/server_side_web_search.dart"
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_openai/server_side_web_search.dart"
+    },
+    {
+      "name": "server-side code execution (Anthropic)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_code_interpreter.dart"
+    },
+    {
+      "name": "server-side web search (Anthropic)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_web_search.dart"
+    },
+    {
+      "name": "server-side web fetch (Anthropic)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_anthropic/server_side_web_fetch.dart"
+    },
+    {
+      "name": "server-side code execution (Google)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_google/server_side_code_execution.dart"
+    },
+    {
+      "name": "server-side google search (Google)",
+      "request": "launch",
+      "type": "dart",
+      "program": "packages/dartantic_ai/example/bin/server_side_tools_google/server_side_google_search.dart"
     },
     {
       "name": "chatarang",

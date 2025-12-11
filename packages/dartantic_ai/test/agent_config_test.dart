@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/platform/platform.dart' as platform;
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
@@ -37,7 +36,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-provider-key', // This takes precedence
-          caps: Providers.openai.caps,
         );
 
         // Create agent with custom provider
@@ -60,7 +58,9 @@ void main() {
           platform.tryGetEnv('OPENAI_API_KEY'),
           equals('sk-agent-env-key'),
         );
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
       });
 
       test('System environment is used when no other source available', () {
@@ -77,7 +77,9 @@ void main() {
 
           // platform.tryGetEnv should find it
           expect(platform.tryGetEnv('OPENAI_API_KEY'), equals(systemKey));
-          expect(agent.model, equals('openai:gpt-4o-mini'));
+          // Agent.model includes provider defaults (chat + embeddings)
+          expect(agent.chatModelName, equals('gpt-4o-mini'));
+          expect(agent.providerName, equals('openai'));
         }
       });
 
@@ -91,7 +93,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: '', // Empty string should fall back to environment
-          caps: Providers.openai.caps,
         );
 
         final agent = Agent.forProvider(provider);
@@ -105,7 +106,9 @@ void main() {
         // Use default provider (which has null apiKey)
         final agent = Agent('openai:gpt-4o-mini');
 
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
         expect(platform.tryGetEnv('OPENAI_API_KEY'), equals('sk-env-key'));
       });
 
@@ -133,7 +136,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           baseUrl: Uri.parse('https://custom.api.com'),
-          caps: Providers.openai.caps,
         );
 
         final agent = Agent.forProvider(provider);
@@ -146,9 +148,11 @@ void main() {
         final agent = Agent('openai:gpt-4o-mini');
 
         // Provider should have its default
-        final provider = Providers.openai;
+        final provider = Agent.getProvider('openai');
         expect(provider.baseUrl, isNull);
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
       });
 
       test('Null baseUrl in provider uses defaults', () {
@@ -156,9 +160,11 @@ void main() {
 
         // Default provider has null baseUrl, falls back to defaultBaseUrl
         final agent = Agent('openai:gpt-4o-mini');
-        final provider = Providers.openai;
+        final provider = Agent.getProvider('openai');
 
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Agent.model includes provider defaults (chat + embeddings)
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
+        expect(agent.providerName, equals('openai'));
         expect(provider.baseUrl, isNull);
       });
     });
@@ -175,7 +181,6 @@ void main() {
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-custom',
           baseUrl: Uri.parse('https://custom.openai.com'),
-          caps: Providers.openai.caps,
         );
 
         final agent = Agent.forProvider(provider, chatModelName: 'gpt-4o-mini');
@@ -187,15 +192,57 @@ void main() {
 
       test('forProvider uses provider defaults when not specified', () {
         Agent.environment['OPENAI_API_KEY'] = 'sk-test';
-        final provider = Providers.openai;
+        final provider = Agent.getProvider('openai');
 
         final agent = Agent.forProvider(provider);
 
+        // Agent.model includes provider defaults (chat + embeddings)
+        final modelUri = Uri.parse(agent.model);
+        expect(modelUri.path, equals('openai'));
         expect(
-          agent.model,
-          equals('openai:${provider.defaultModelNames[ModelKind.chat]}'),
+          modelUri.queryParameters['chat'],
+          equals(provider.defaultModelNames[ModelKind.chat]),
+        );
+        expect(
+          modelUri.queryParameters['embeddings'],
+          equals(provider.defaultModelNames[ModelKind.embeddings]),
         );
         expect(agent.providerName, equals('openai'));
+      });
+
+      test('model string round-trips with all three model types', () {
+        Agent.environment['OPENAI_API_KEY'] = 'sk-test';
+        final provider = OpenAIProvider(
+          name: 'openai',
+          displayName: 'OpenAI',
+          defaultModelNames: {
+            ModelKind.chat: 'gpt-4o',
+            ModelKind.embeddings: 'text-embedding-3-small',
+            ModelKind.media: 'dall-e-3',
+          },
+          apiKeyName: 'OPENAI_API_KEY',
+          apiKey: 'sk-test',
+        );
+
+        final agent1 = Agent.forProvider(provider);
+        final modelString = agent1.model;
+
+        // Verify model string is parseable as URI with all three models
+        final modelUri = Uri.parse(modelString);
+        expect(modelUri.path, equals('openai'));
+        expect(modelUri.queryParameters['chat'], equals('gpt-4o'));
+        expect(
+          modelUri.queryParameters['embeddings'],
+          equals('text-embedding-3-small'),
+        );
+        expect(modelUri.queryParameters['media'], equals('dall-e-3'));
+
+        // Verify round-trip: create new Agent from model string gets same
+        // config
+        final agent2 = Agent(
+          modelString,
+        ); // ignore: avoid_redundant_argument_values
+        expect(agent2.model, equals(agent1.model));
       });
     });
 
@@ -210,7 +257,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-provider-key',
-          caps: Providers.openai.caps,
         );
 
         final model = provider.createChatModel();
@@ -224,7 +270,7 @@ void main() {
           Agent.environment['OPENAI_API_KEY'] = 'sk-env-key';
 
           // Use default provider (no apiKey set)
-          final provider = Providers.openai;
+          final provider = Agent.getProvider('openai');
           final model = provider.createChatModel();
 
           // Model should be created successfully with env API key
@@ -304,7 +350,7 @@ void main() {
         Agent.environment.clear();
 
         // Ollama should work without any API key
-        final ollama = Providers.ollama;
+        final ollama = Agent.getProvider('ollama');
         expect(ollama.createChatModel, returnsNormally);
 
         // Agent creation should also work
@@ -338,7 +384,6 @@ void main() {
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-provider-key',
           baseUrl: Uri.parse('https://custom.api.com'),
-          caps: Providers.openai.caps,
         );
 
         var agent = Agent.forProvider(customProvider);
@@ -355,7 +400,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           baseUrl: Uri.parse('https://mixed.api.com'),
-          caps: Providers.openai.caps,
         );
 
         agent = Agent.forProvider(mixedProvider);
@@ -375,10 +419,9 @@ void main() {
         // Test with default provider (uses environment)
         var agent = Agent('openai:gpt-4o-mini', temperature: 0.5);
 
-        // Verify agent configuration
-        expect(agent.model, equals('openai:gpt-4o-mini'));
+        // Verify agent configuration - model includes provider defaults
+        expect(agent.chatModelName, equals('gpt-4o-mini'));
         expect(agent.providerName, equals('openai'));
-        expect(agent.model, equals('openai:gpt-4o-mini'));
 
         // API key should come from environment
         expect(platform.tryGetEnv('OPENAI_API_KEY'), equals('sk-test-key'));
@@ -390,7 +433,6 @@ void main() {
           defaultModelNames: {ModelKind.chat: 'gpt-4o-mini'},
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-provider-key',
-          caps: Providers.openai.caps,
         );
 
         agent = Agent.forProvider(customProvider, temperature: 0.7);
@@ -421,7 +463,7 @@ void main() {
     group('Provider Configuration Properties', () {
       test('Provider has correct default configuration', () {
         // Test provider with API key and base URL
-        final openai = Providers.openai;
+        final openai = Agent.getProvider('openai');
         expect(openai.name, equals('openai'));
         expect(openai.displayName, equals('OpenAI'));
         expect(openai.defaultModelNames[ModelKind.chat], equals('gpt-4o'));
@@ -430,10 +472,10 @@ void main() {
           isNull,
         ); // OpenAI provider uses default baseUrl in the API client
         expect(openai.apiKeyName, equals('OPENAI_API_KEY'));
-        expect(openai.caps.contains(ProviderCaps.chat), isTrue);
+        // Provider caps are tested via getProviderTestCaps in tests
 
         // Test provider without API key (Ollama)
-        final ollama = Providers.ollama;
+        final ollama = Agent.getProvider('ollama');
         expect(ollama.name, equals('ollama'));
         expect(ollama.displayName, equals('Ollama'));
         expect(ollama.apiKeyName, isNull);
@@ -445,28 +487,21 @@ void main() {
 
       test('Provider discovery methods work correctly', () {
         // Discovery by name
-        final openai = Providers.get('openai');
+        final openai = Agent.getProvider('openai');
         expect(openai.name, equals('openai'));
 
         // Discovery by alias
-        final anthropic = Providers.get('claude');
+        final anthropic = Agent.getProvider('claude');
         expect(anthropic.name, equals('anthropic'));
 
-        // Discovery by capabilities
-        final visionProviders = Providers.allWith({ProviderCaps.chatVision});
-        expect(visionProviders.length, greaterThan(0));
-        expect(
-          visionProviders.every(
-            (p) => p.caps.contains(ProviderCaps.chatVision),
-          ),
-          isTrue,
-        );
+        // Provider count check (capability filtering is done via test helpers)
+        expect(Agent.allProviders.length, greaterThan(5));
       });
 
       test('Provider configuration flows through to model creation', () {
         // Test 1: Default provider uses environment
         Agent.environment['OPENAI_API_KEY'] = 'sk-default';
-        final provider1 = Providers.openai;
+        final provider1 = Agent.getProvider('openai');
         final model1 = provider1.createChatModel();
         expect(model1, isNotNull);
         expect(
@@ -482,14 +517,13 @@ void main() {
           apiKeyName: 'OPENAI_API_KEY',
           apiKey: 'sk-custom',
           baseUrl: Uri.parse('https://custom.api.com'),
-          caps: Providers.openai.caps,
         );
         final model2 = provider2.createChatModel(name: 'gpt-4o-mini');
         expect(model2, isNotNull);
         expect(model2.name, equals('gpt-4o-mini'));
 
         // Test 3: Provider without API key requirement
-        final provider3 = Providers.ollama;
+        final provider3 = Agent.getProvider('ollama');
         final model3 = provider3.createChatModel(name: 'llama2');
         expect(model3, isNotNull);
         expect(model3.name, equals('llama2'));
@@ -497,7 +531,7 @@ void main() {
 
       test('Provider list filtering works correctly', () {
         // Get all providers
-        final allProviders = Providers.all;
+        final allProviders = Agent.allProviders;
         expect(allProviders.length, greaterThan(5));
 
         // Verify no duplicates from aliases
@@ -515,20 +549,20 @@ void main() {
 
       test('Nullable provider properties handled correctly', () {
         // Test Ollama with null apiKeyName
-        final ollama = Providers.ollama;
+        final ollama = Agent.getProvider('ollama');
         expect(ollama.apiKeyName, isNull);
 
         // Should still create model without API key
         final model = ollama.createChatModel();
         expect(model, isNotNull);
 
-        // Test custom provider could have null defaultBaseUrl
-        // (verified in custom_provider.dart example)
+        // Test custom provider could have null defaultBaseUrl (verified in
+        // custom_provider.dart example)
       });
 
       test('Provider configuration precedence with nulls', () {
         // Provider with null apiKeyName should not try to read from env
-        final ollama = Providers.ollama;
+        final ollama = Agent.getProvider('ollama');
         Agent.environment['SOME_KEY'] = 'should-not-be-used';
 
         final model = ollama.createChatModel();
@@ -551,7 +585,13 @@ class TestChatOptions extends ChatModelOptions {
 class TestEmbeddingsOptions extends EmbeddingsModelOptions {}
 
 // Test provider that requires a fake API key
-class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
+class TestProvider
+    extends
+        Provider<
+          TestChatOptions,
+          TestEmbeddingsOptions,
+          MediaGenerationModelOptions
+        > {
   TestProvider()
     : super(
         name: 'test-provider',
@@ -559,7 +599,6 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
         defaultModelNames: {ModelKind.chat: 'test-model'},
         baseUrl: Uri.parse('https://test.example.com'),
         apiKeyName: 'TEST_PROVIDER_API_KEY_THAT_DOES_NOT_EXIST',
-        caps: const {ProviderCaps.chat},
       );
 
   @override
@@ -567,6 +606,7 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     TestChatOptions? options,
   }) {
     // Provider resolves API key if it has an apiKeyName
@@ -589,6 +629,15 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
     TestEmbeddingsOptions? options,
   }) {
     throw UnsupportedError('Test provider does not support embeddings');
+  }
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) {
+    throw UnsupportedError('Test provider does not support media generation');
   }
 }
 

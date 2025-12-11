@@ -4,14 +4,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
 void main() async {
   const model = 'gemini';
-  final provider = Providers.get(model);
-  assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
+  final provider = Agent.getProvider(model);
   final agent = Agent.forProvider(
     provider,
     tools: [currentDateTimeTool, temperatureTool, recipeLookupTool],

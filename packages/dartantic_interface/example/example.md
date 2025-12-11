@@ -18,7 +18,11 @@ dependencies:
 Here's a simple example of a custom provider that exposes a `ChatModel`:
 
 ```dart
-class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class EchoProvider extends Provider<
+  ChatModelOptions,
+  EmbeddingsModelOptions,
+  MediaGenerationModelOptions
+> {
   EchoProvider()
     : super(
         name: 'echo',
@@ -38,6 +42,13 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     defaultOptions: options,
   );
   
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Media generation is not supported.');
+
   // ... other required methods
 }
 ```

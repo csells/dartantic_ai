@@ -1,28 +1,65 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 void main() async {
-  // you can define your own OpenAI-compatible provider
-  final fireworks = OpenAIProvider(
-    name: 'fireworks',
-    displayName: 'Fireworks',
+  print('=== OpenAI-Compatible Providers ===\n');
+
+  Agent.providerFactories['together'] = () => OpenAIProvider(
+    name: 'together',
+    displayName: 'Together AI',
     defaultModelNames: {
-      ModelKind.chat: 'accounts/fireworks/models/llama-v3p1-8b-instruct',
+      ModelKind.chat: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
     },
-    baseUrl: Uri.parse('https://api.fireworks.ai/inference/v1'),
-    apiKeyName: 'FIREWORKS_API_KEY',
+    baseUrl: Uri.parse('https://api.together.xyz/v1'),
+    apiKeyName: 'TOGETHER_API_KEY',
   );
 
-  // and you can register it like any other provider
-  Providers.providerMap['fireworks'] = fireworks;
-
-  // and use it like any other provider
-  final agent = Agent('fireworks');
-  final result = await agent.send(
-    'What is the meaning to life, the universe, and everything?',
-    history: [ChatMessage.system('provide short, snappy answers')],
+  Agent.providerFactories['google-openai'] = () => OpenAIProvider(
+    name: 'google-openai',
+    displayName: 'Google AI (OpenAI-compatible)',
+    defaultModelNames: {
+      ModelKind.chat: 'gemini-2.5-flash',
+      ModelKind.embeddings: 'text-embedding-004',
+    },
+    baseUrl: Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/openai',
+    ),
+    apiKeyName: 'GEMINI_API_KEY',
   );
-  stdout.writeln(result.output);
+
+  Agent.providerFactories['ollama-openai'] = () => OpenAIProvider(
+    name: 'ollama-openai',
+    displayName: 'Ollama (OpenAI-compatible)',
+    defaultModelNames: {ModelKind.chat: 'llama3.2'},
+    baseUrl: Uri.parse('http://localhost:11434/v1'),
+    apiKeyName: null,
+  );
+
+  final agents = [
+    Agent('openrouter'),
+    Agent('together'),
+    Agent('google-openai'),
+    Agent('ollama-openai'),
+  ];
+
+  final history = <ChatMessage>[];
+  for (final agent in agents) {
+    final prompt =
+        'You are ${agent.displayName}. '
+        'Introduce yourself to the others, addressing them by name. '
+        'Be concise and to the point.';
+    stdout.writeln('User: $prompt');
+    stdout.write('${agent.displayName}: ');
+    await for (final chunk in agent.sendStream(prompt, history: history)) {
+      stdout.write(chunk.output);
+      history.addAll(chunk.messages);
+    }
+    stdout.writeln();
+    stdout.writeln();
+  }
+
+  exit(0);
 }

@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -11,7 +12,6 @@
 /// listModels()
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -20,57 +20,72 @@ void main() {
   group('Provider Discovery', () {
     group('chat provider selection', () {
       test('finds providers by exact name', () {
-        expect(Providers.get('openai'), equals(Providers.openai));
-        expect(Providers.get('anthropic'), equals(Providers.anthropic));
-        expect(Providers.get('google'), equals(Providers.google));
-        expect(Providers.get('mistral'), equals(Providers.mistral));
-        expect(Providers.get('ollama'), equals(Providers.ollama));
-        expect(Providers.get('together'), equals(Providers.together));
-        expect(Providers.get('cohere'), equals(Providers.cohere));
-        expect(Providers.get('openrouter'), equals(Providers.openrouter));
+        expect(Agent.getProvider('openai').name, equals('openai'));
+        expect(Agent.getProvider('anthropic').name, equals('anthropic'));
+        expect(Agent.getProvider('google').name, equals('google'));
+        expect(Agent.getProvider('mistral').name, equals('mistral'));
+        expect(Agent.getProvider('ollama').name, equals('ollama'));
+        expect(Agent.getProvider('cohere').name, equals('cohere'));
       });
 
       test('finds providers by aliases', () {
-        // Test documented aliases from README
-        expect(Providers.get('claude'), equals(Providers.anthropic));
-        expect(Providers.get('gemini'), equals(Providers.google));
-        // These aliases were removed in the migration
+        // Test documented aliases - aliases resolve to same provider name
+        expect(
+          Agent.getProvider('claude').name,
+          equals(Agent.getProvider('anthropic').name),
+        );
+        expect(
+          Agent.getProvider('gemini').name,
+          equals(Agent.getProvider('google').name),
+        );
       });
 
       test('throws on unknown provider name', () {
         expect(
-          () => Providers.get('unknown-provider'),
+          () => Agent.getProvider('unknown-provider'),
           throwsA(isA<Exception>()),
         );
-        expect(() => Providers.get('invalid'), throwsA(isA<Exception>()));
-        expect(() => Providers.get(''), throwsA(isA<Exception>()));
+        expect(() => Agent.getProvider('invalid'), throwsA(isA<Exception>()));
+        expect(() => Agent.getProvider(''), throwsA(isA<Exception>()));
       });
 
       test('is case insensitive', () {
-        // Provider lookup is actually case-insensitive
-        expect(Providers.get('OpenAI'), equals(Providers.openai));
-        expect(Providers.get('ANTHROPIC'), equals(Providers.anthropic));
-        expect(Providers.get('Claude'), equals(Providers.anthropic));
+        // Provider lookup is case-insensitive
+        expect(
+          Agent.getProvider('OpenAI').name,
+          equals(Agent.getProvider('openai').name),
+        );
+        expect(
+          Agent.getProvider('ANTHROPIC').name,
+          equals(Agent.getProvider('anthropic').name),
+        );
+        expect(
+          Agent.getProvider('Claude').name,
+          equals(Agent.getProvider('anthropic').name),
+        );
       });
     });
 
     group('embeddings provider selection', () {
       test('finds providers by exact name', () {
-        expect(Providers.get('openai'), equals(Providers.openai));
-        expect(Providers.get('google'), equals(Providers.google));
-        expect(Providers.get('mistral'), equals(Providers.mistral));
-        expect(Providers.get('cohere'), equals(Providers.cohere));
+        expect(Agent.getProvider('openai').name, equals('openai'));
+        expect(Agent.getProvider('google').name, equals('google'));
+        expect(Agent.getProvider('mistral').name, equals('mistral'));
+        expect(Agent.getProvider('cohere').name, equals('cohere'));
       });
 
       test('finds providers by aliases', () {
         // After unified Provider, aliases work for embeddings too
-        expect(Providers.get('gemini'), equals(Providers.google));
+        expect(
+          Agent.getProvider('gemini').name,
+          equals(Agent.getProvider('google').name),
+        );
       });
 
       test('throws on unknown provider name', () {
-        expect(() => Providers.get('unknown'), throwsA(isA<Exception>()));
+        expect(() => Agent.getProvider('unknown'), throwsA(isA<Exception>()));
         expect(
-          () => Providers.get('invalid-provider'),
+          () => Agent.getProvider('invalid-provider'),
           throwsA(isA<Exception>()),
         );
       });
@@ -78,10 +93,10 @@ void main() {
 
     group('provider enumeration', () {
       test('lists all chat providers', () {
-        final providers = Providers.all;
+        final providers = Agent.allProviders;
         expect(providers, isNotEmpty);
-        // At least 11 providers available
-        expect(providers.length, greaterThanOrEqualTo(11));
+        // At least 7 providers available
+        expect(providers.length, greaterThanOrEqualTo(7));
 
         // Verify key providers are included
         final providerNames = providers.map((p) => p.name).toSet();
@@ -90,23 +105,22 @@ void main() {
         expect(providerNames, contains('google'));
         expect(providerNames, contains('mistral'));
         expect(providerNames, contains('ollama'));
-        expect(providerNames, contains('together'));
         expect(providerNames, contains('cohere'));
       });
 
       test('lists all embeddings providers', () {
-        final providers = Providers.allWith({ProviderCaps.embeddings});
-        expect(providers, hasLength(6));
+        final providers = Agent.allProviders
+            .where(
+              (p) => providerHasTestCaps(p.name, {ProviderTestCaps.embeddings}),
+            )
+            .toList();
+        expect(providers, hasLength(5));
 
         final providerNames = providers.map((p) => p.name).toSet();
         expect(providerNames, contains('openai'));
         expect(providerNames, contains('google'));
         expect(providerNames, contains('mistral'));
         expect(providerNames, contains('cohere'));
-        expect(
-          providerNames,
-          contains('google-openai'),
-        ); // OpenAI-compatible Google endpoint
       });
 
       runProviderTest(
@@ -117,7 +131,7 @@ void main() {
           expect(provider.createChatModel, isNotNull);
           expect(provider.listModels, isNotNull);
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
       );
 
       runProviderTest(
@@ -128,7 +142,7 @@ void main() {
           expect(provider.createEmbeddingsModel, isNotNull);
           expect(provider.listModels, isNotNull);
         },
-        requiredCaps: {ProviderCaps.embeddings},
+        requiredCaps: {ProviderTestCaps.embeddings},
       );
     });
 
@@ -136,11 +150,11 @@ void main() {
     group('basic model access', () {
       test('providers have listModels method', () {
         // Test that all providers have the method (no API calls)
-        for (final provider in Providers.all) {
+        for (final provider in Agent.allProviders) {
           expect(provider.listModels, isNotNull);
         }
 
-        for (final provider in Providers.all) {
+        for (final provider in Agent.allProviders) {
           expect(provider.listModels, isNotNull);
         }
       });
@@ -148,24 +162,24 @@ void main() {
 
     group('provider display names', () {
       test('chat providers have descriptive display names', () {
-        expect(Providers.openai.displayName, equals('OpenAI'));
-        expect(Providers.anthropic.displayName, equals('Anthropic'));
-        expect(Providers.google.displayName, contains('Google'));
-        expect(Providers.mistral.displayName, equals('Mistral'));
-        expect(Providers.ollama.displayName, equals('Ollama'));
+        expect(Agent.getProvider('openai').displayName, equals('OpenAI'));
+        expect(Agent.getProvider('anthropic').displayName, equals('Anthropic'));
+        expect(Agent.getProvider('google').displayName, contains('Google'));
+        expect(Agent.getProvider('mistral').displayName, equals('Mistral'));
+        expect(Agent.getProvider('ollama').displayName, equals('Ollama'));
       });
 
       test('embeddings providers have descriptive display names', () {
-        expect(Providers.openai.displayName, equals('OpenAI'));
-        expect(Providers.google.displayName, contains('Google'));
-        expect(Providers.mistral.displayName, equals('Mistral'));
-        expect(Providers.cohere.displayName, equals('Cohere'));
+        expect(Agent.getProvider('openai').displayName, equals('OpenAI'));
+        expect(Agent.getProvider('google').displayName, contains('Google'));
+        expect(Agent.getProvider('mistral').displayName, equals('Mistral'));
+        expect(Agent.getProvider('cohere').displayName, equals('Cohere'));
       });
     });
 
     group('provider uniqueness', () {
       test('chat provider names are unique', () {
-        final providers = Providers.all;
+        final providers = Agent.allProviders;
         final names = providers.map((p) => p.name).toList();
         final uniqueNames = names.toSet();
         expect(
@@ -176,7 +190,7 @@ void main() {
       });
 
       test('embeddings provider names are unique', () {
-        final providers = Providers.all;
+        final providers = Agent.allProviders;
         final names = providers.map((p) => p.name).toList();
         final uniqueNames = names.toSet();
         expect(
@@ -189,13 +203,13 @@ void main() {
 
     group('dynamic provider usage', () {
       test('can create models via discovered providers', () {
-        final provider = Providers.get('openai');
+        final provider = Agent.getProvider('openai');
         final model = provider.createChatModel(name: 'gpt-4o-mini');
         expect(model, isNotNull);
       });
 
       test('can use aliases for model creation', () {
-        final claudeProvider = Providers.get('claude');
+        final claudeProvider = Agent.getProvider('claude');
         expect(claudeProvider.name, equals('anthropic'));
 
         // Skip actual model creation if API key not available
@@ -203,42 +217,47 @@ void main() {
       });
 
       test('supports dynamic agent creation', () {
-        final provider = Providers.get('gemini');
+        final provider = Agent.getProvider('gemini');
         expect(provider.name, equals('google'));
 
         final agent = Agent('${provider.name}:gemini-2.5-flash');
         expect(agent, isNotNull);
-        // Agent.model returns "provider:model" format
-        expect(agent.model, equals('google:gemini-2.5-flash'));
+        final parsed = ModelStringParser.parse(agent.model);
+        expect(parsed.providerName, equals('google'));
+        expect(parsed.chatModelName, equals('gemini-2.5-flash'));
+        expect(
+          parsed.mediaModelName,
+          equals(provider.defaultModelNames[ModelKind.media]),
+        );
       });
     });
 
     group('provider comparison', () {
-      test('providers are comparable', () {
-        final provider1 = Providers.get('openai');
-        final provider2 = Providers.openai;
-        expect(provider1, equals(provider2));
+      test('providers with same name are equivalent', () {
+        final provider1 = Agent.getProvider('openai');
+        final provider2 = Agent.getProvider('openai');
+        expect(provider1.name, equals(provider2.name));
 
-        final aliasProvider = Providers.get('claude');
-        final directProvider = Providers.anthropic;
-        expect(aliasProvider, equals(directProvider));
+        final aliasProvider = Agent.getProvider('claude');
+        final directProvider = Agent.getProvider('anthropic');
+        expect(aliasProvider.name, equals(directProvider.name));
       });
 
-      test('different providers are not equal', () {
-        final openai = Providers.openai;
-        final anthropic = Providers.anthropic;
-        expect(openai, isNot(equals(anthropic)));
+      test('different providers have different names', () {
+        final openai = Agent.getProvider('openai');
+        final anthropic = Agent.getProvider('anthropic');
+        expect(openai.name, isNot(equals(anthropic.name)));
       });
     });
 
     group('error handling', () {
       test('handles null and empty provider names gracefully', () {
-        expect(() => Providers.get(''), throwsA(isA<Exception>()));
+        expect(() => Agent.getProvider(''), throwsA(isA<Exception>()));
       });
 
       test('provides helpful error messages', () {
         expect(
-          () => Providers.get('invalid-provider'),
+          () => Agent.getProvider('invalid-provider'),
           throwsA(isA<Exception>()),
         );
       });
@@ -262,7 +281,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
       );
 
       runProviderTest(
@@ -282,7 +301,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.embeddings},
+        requiredCaps: {ProviderTestCaps.embeddings},
       );
 
       runProviderTest(
@@ -305,7 +324,7 @@ void main() {
             expect('${provider.name}:${model.name}', isNotEmpty);
           }
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
       );
     });
   });

@@ -18,13 +18,13 @@ void main() {
 
     test('Can access provider metadata without API keys', () {
       // This should NOT throw even if API keys are not set
-      expect(() => Providers.get('google'), returnsNormally);
-      expect(() => Providers.get('mistral'), returnsNormally);
-      expect(() => Providers.get('anthropic'), returnsNormally);
-      expect(() => Providers.get('cohere'), returnsNormally);
+      expect(() => Agent.getProvider('google'), returnsNormally);
+      expect(() => Agent.getProvider('mistral'), returnsNormally);
+      expect(() => Agent.getProvider('anthropic'), returnsNormally);
+      expect(() => Agent.getProvider('cohere'), returnsNormally);
 
       // Should be able to access provider properties
-      final googleProvider = Providers.get('google');
+      final googleProvider = Agent.getProvider('google');
       expect(googleProvider.name, equals('google'));
       expect(googleProvider.displayName, equals('Google'));
       expect(googleProvider.apiKeyName, equals('GEMINI_API_KEY'));
@@ -32,12 +32,12 @@ void main() {
 
     test('Can list all providers without API keys', () {
       // This should NOT throw even if API keys are not set
-      expect(() => Providers.all, returnsNormally);
-      expect(Providers.all.length, greaterThan(0));
+      expect(() => Agent.allProviders, returnsNormally);
+      expect(Agent.allProviders.length, greaterThan(0));
     });
 
     test('Throws when creating model without required API key', () {
-      final provider = Providers.get('google') as GoogleProvider;
+      final provider = Agent.getProvider('google') as GoogleProvider;
 
       // Assume GEMINI_API_KEY is not set in test environment
       expect(
@@ -77,7 +77,7 @@ void main() {
     });
 
     test('Ollama provider works without API key', () {
-      final provider = Providers.get('ollama');
+      final provider = Agent.getProvider('ollama');
 
       // Should not throw since Ollama doesn't require API key
       expect(provider.createChatModel, returnsNormally);
@@ -102,23 +102,6 @@ void main() {
           ),
         ),
       );
-    });
-
-    test('Providers are lazily initialized', () {
-      // Access only the google provider
-      final googleProvider = Providers.get('google');
-      expect(googleProvider.displayName, equals('Google'));
-
-      // Verify we can create an agent without triggering other provider
-      // initialization
-      expect(() => Agent('google:gemini-2.5-flash'), returnsNormally);
-
-      // Now access all providers - this triggers initialization of all
-      final allProviders = Providers.all;
-      expect(allProviders.length, equals(11));
-
-      // Verify we can still use a specific provider
-      expect(() => Agent('anthropic:claude-3-5-sonnet'), returnsNormally);
     });
   });
 }

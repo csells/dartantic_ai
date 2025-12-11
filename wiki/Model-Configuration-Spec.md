@@ -6,12 +6,14 @@ The `ModelStringParser` supports flexible URI-based parsing with multiple format
 
 ### Supported Formats
 
-| Format             | Example                                          | Parsed Result                                                      |
-| ------------------ | ------------------------------------------------ | ------------------------------------------------------------------ |
-| **Provider only**  | `openai`                                         | provider: `openai`, chat: `null`, embeddings: `null`               |
-| **Provider:model** | `openai:gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
-| **Provider/model** | `openai/gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`             |
-| **Query params**   | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3` |
+| Format             | Example                                          | Parsed Result                                                                     |
+| ------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **Provider only**  | `openai`                                         | provider: `openai`, chat: `null`, embeddings: `null`, media: `null`               |
+| **Provider:model** | `openai:gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`, media: `null`             |
+| **Provider/model** | `openai/gpt-4o`                                  | provider: `openai`, chat: `gpt-4o`, embeddings: `null`, media: `null`             |
+| **Query params**   | `openai?chat=gpt-4o&embeddings=text-embedding-3` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3`, media: `null` |
+| **Media query**    | `openai?media=gpt-image-1`                       | provider: `openai`, chat: `null`, embeddings: `null`, media: `gpt-image-1`        |
+| **All selectors**  | `openai?chat=gpt-4o&embeddings=text-embedding-3&media=gpt-image-1` | provider: `openai`, chat: `gpt-4o`, embeddings: `text-embedding-3`, media: `gpt-image-1` |
 
 ### Parsing Flow
 
@@ -53,11 +55,11 @@ factory ModelStringParser.parse(String model) {
 The parser can also build model strings using `toString()`:
 - Provider only → `"openai"`
 - Chat model only → `"openai:gpt-4"` (uses colon format)
-- Multiple models → `"openai?chat=gpt-4&embeddings=ada"` (uses query format)
+- Multiple models → `"openai?chat=gpt-4&embeddings=ada&media=gpt-image-1"` (uses query format)
 
 ## Provider Model Defaults
 
-Each provider defines default models for both chat and embeddings operations:
+Each provider defines default models for chat, embeddings, and optionally media operations:
 
 ### Default Resolution Flow
 
@@ -84,18 +86,23 @@ flowchart TD
     style J fill:#9f9,stroke:#333,stroke-width:2px
 ```
 
+Media selectors follow the same precedence rules—if `ModelKind.media` has a
+default configured by the provider, the agent will use it whenever the model
+string omits an explicit `media=` query parameter.
+
 ### Provider Defaults Table
 
-| Provider   | Chat Default                             | Embeddings Default          |
-| ---------- | ---------------------------------------- | --------------------------- |
-| OpenAI     | `gpt-4o`                                 | `text-embedding-3-small`    |
-| Anthropic  | `claude-sonnet-4-0`                      | N/A (no embeddings)         |
-| Google     | `gemini-2.0-flash`                       | `models/text-embedding-004` |
-| Mistral    | `mistral-7b-instruct`                    | `mistral-embed`             |
-| Cohere     | `command-r-plus`                         | `embed-v4.0`                |
-| Ollama     | `llama3.2`                               | N/A (no embeddings)         |
-| OpenRouter | `google/gemini-2.0-flash`                | N/A (chat only)             |
-| Together   | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only)             |
+| Provider         | Chat Default                             | Embeddings Default          | Media Default |
+| ---------------- | ---------------------------------------- | --------------------------- | ------------- |
+| OpenAI           | `gpt-4o`                                 | `text-embedding-3-small`    | N/A           |
+| OpenAI Responses | `gpt-4o`                                 | `text-embedding-3-small`    | `gpt-4o`      |
+| Anthropic        | `claude-sonnet-4-0`                      | N/A (no embeddings)         | N/A           |
+| Google           | `gemini-2.0-flash`                       | `models/text-embedding-004` | N/A           |
+| Mistral          | `mistral-7b-instruct`                    | `mistral-embed`             | N/A           |
+| Cohere           | `command-r-plus`                         | `embed-v4.0`                | N/A           |
+| Ollama           | `llama3.2`                               | N/A (no embeddings)         | N/A           |
+| OpenRouter       | `google/gemini-2.0-flash`                | N/A (chat only)             | N/A           |
+| Together         | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | N/A (chat only)             | N/A           |
 
 ### Provider Configuration
 
@@ -110,9 +117,10 @@ abstract class Provider {
     defaultModelNames: {
       ModelKind.chat: 'gpt-4o',
       ModelKind.embeddings: 'text-embedding-3-small',
+      // Optional: ModelKind.media: 'gpt-image-1',
     },
     apiKeyName: 'OPENAI_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.embeddings, ...},
+    // Use Provider.listModels() for runtime capability discovery
   );
 }
 ```
@@ -222,6 +230,49 @@ final agent = Agent.forProvider(provider);
 - Custom models override defaults only for specified types
 - `Agent.forProvider` allows direct provider instance usage with optional model overrides
 
+## Agent.model Round-Trip Requirement
+
+The `Agent.model` property returns a fully-qualified model string that can be used to reconstruct an equivalent Agent configuration. This is a critical invariant:
+
+```dart
+final agent1 = Agent.forProvider(provider);
+final modelString = agent1.model;
+
+// Round-trip: creating a new Agent from the model string produces equivalent config
+final agent2 = Agent(modelString);
+assert(agent2.model == agent1.model);
+```
+
+### Model String Construction
+
+The `Agent.model` getter constructs the model string by:
+
+1. Using explicit model names if provided during Agent creation
+2. Falling back to provider defaults for any unspecified model types
+3. Including all three model types (chat, embeddings, media) when the provider has defaults
+
+For providers with all three model type defaults, `Agent.model` produces:
+```
+openai?chat=gpt-4o&embeddings=text-embedding-3-small&media=dall-e-3
+```
+
+For providers with only chat and embeddings:
+```
+openai?chat=gpt-4o&embeddings=text-embedding-3-small
+```
+
+For providers with only chat (or when only chat is specified):
+```
+openai:gpt-4o
+```
+
+### Why Round-Trip Matters
+
+- **Serialization**: Model strings can be stored and used to recreate agents
+- **Display**: UI can show the complete configuration to users
+- **Debugging**: Easy to see exactly what models an Agent is configured to use
+- **Cloning**: Create equivalent agents from the model string
+
 ## Design Principles
 
 1. **Simplicity**: URI parsing handles all formats cleanly
@@ -230,6 +281,7 @@ final agent = Agent.forProvider(provider);
 4. **Type Safety**: Separate chat and embeddings model creation
 5. **Backwards Compatibility**: Legacy `provider:model` format still works
 6. **Extensibility**: Query format allows future model types
+7. **Round-Trip**: `Agent.model` produces strings that reconstruct equivalent agents
 
 ## Related Specifications
 

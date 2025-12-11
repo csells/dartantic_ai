@@ -76,6 +76,10 @@ class MessageAccumulator {
       ...accumulated.metadata,
       ...newChunk.metadata,
     };
+    _logger.fine(
+      'Merging metadata; accumulated keys=${accumulated.metadata.keys}, '
+      'new keys=${newChunk.metadata.keys}',
+    );
 
     return ChatMessage(
       role: accumulated.role,
@@ -96,6 +100,7 @@ class MessageAccumulator {
     _logger.fine(
       'Consolidating accumulated message: ${accumulated.parts.length} parts',
     );
+    _logger.fine('Consolidated metadata keys: ${accumulated.metadata.keys}');
 
     // Separate text and non-text parts
     final textParts = accumulated.parts.whereType<TextPart>().toList();

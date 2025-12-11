@@ -1,5 +1,6 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
+import 'package:openai_dart/openai_dart.dart';
 
 import '../chat_models/openai_chat/openai_chat_model.dart';
 import '../chat_models/openai_chat/openai_chat_options.dart';
@@ -8,7 +9,8 @@ import 'openai_provider_base.dart';
 
 /// Provider for OpenAI-compatible APIs (OpenAI, Cohere, Together, etc.).
 /// Handles API key, base URL, and model configuration.
-class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class OpenAIProvider
+    extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new OpenAI provider instance.
   ///
   /// - [name]: The canonical provider name (e.g., 'openai', 'cohere').
@@ -25,17 +27,10 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
       ModelKind.chat: 'gpt-4o',
       ModelKind.embeddings: 'text-embedding-3-small',
     },
-    super.caps = const {
-      ProviderCaps.chat,
-      ProviderCaps.embeddings,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.typedOutputWithTools,
-      ProviderCaps.chatVision,
-    },
     super.baseUrl,
     super.apiKeyName = 'OPENAI_API_KEY',
     super.aliases,
+    super.headers,
   }) : super(apiKey: apiKey ?? tryGetEnv(apiKeyName));
 
   static final Logger _logger = Logger('dartantic.chat.providers.openai');
@@ -54,8 +49,18 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError(
+        'Extended thinking is not supported by the $displayName provider. '
+        'Only OpenAI Responses, Anthropic, and Google providers support '
+        'thinking. Set enableThinking=false or use a provider that supports '
+        'this feature.',
+      );
+    }
+
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
@@ -71,6 +76,7 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
       temperature: temperature,
       apiKey: apiKey ?? tryGetEnv(apiKeyName),
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: OpenAIChatOptions(
         temperature: temperature ?? options?.temperature,
         topP: options?.topP,
@@ -84,7 +90,9 @@ class OpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
         responseFormat: options?.responseFormat,
         seed: options?.seed,
         parallelToolCalls: options?.parallelToolCalls,
-        streamOptions: options?.streamOptions,
+        streamOptions:
+            options?.streamOptions ??
+            const ChatCompletionStreamOptions(includeUsage: true),
         serviceTier: options?.serviceTier,
       ),
     );

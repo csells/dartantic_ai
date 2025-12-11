@@ -1,7 +1,7 @@
 name: chatarang
 description: A chat agent that uses Dartantic.
-version: 0.1.0
 publish_to: none
+resolution: workspace
 
 environment:
   sdk: ^3.8.0
@@ -9,9 +9,8 @@ environment:
 dependencies:
   all_lint_rules_community: ^0.0.43
   cli_repl: ^0.2.3
-  dartantic_ai:
-    path: ../../packages/dartantic_ai
-  dartantic_interface: ^1.1.0
+  dartantic_ai: ^2.0.0
+  dartantic_interface: ^2.0.0
   http: ^1.4.0
   json_schema: ^5.2.1
 

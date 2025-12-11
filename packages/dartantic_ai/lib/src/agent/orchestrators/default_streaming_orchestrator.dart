@@ -83,10 +83,11 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
   ) async* {
     final textOutput = _extractText(result);
     final hasMetadata = result.metadata.isNotEmpty;
+    final hasThinking = result.thinking != null && result.thinking!.isNotEmpty;
 
     final streamText =
         textOutput.isNotEmpty && allowTextStreaming(state, result);
-    if (!streamText && !hasMetadata) {
+    if (!streamText && !hasMetadata && !hasThinking) {
       return;
     }
 
@@ -107,6 +108,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       shouldContinue: true,
       finishReason: result.finishReason,
       metadata: result.metadata,
+      thinking: result.thinking,
       usage: null, // Usage only in final result
     );
   }
@@ -149,6 +151,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
       metadata: const {}, // Empty - metadata already streamed via onModelChunk
+      thinking: null,
       usage: null, // Usage only in final chunk
     );
 
@@ -161,6 +164,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         finishReason: state.lastResult.finishReason,
         metadata:
             const {}, // Empty - metadata already streamed via onModelChunk
+        thinking: null,
         usage: state.lastResult.usage, // Final usage here
       );
       return;
@@ -187,6 +191,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
               shouldContinue: true,
               finishReason: state.lastResult.finishReason,
               metadata: const {}, // Empty - metadata already streamed
+              thinking: null,
               usage: state.lastResult.usage,
             ),
           );
@@ -203,6 +208,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
             shouldContinue: false,
             finishReason: state.lastResult.finishReason,
             metadata: const {}, // Empty - metadata already streamed
+            thinking: null,
             usage: state.lastResult.usage,
           ),
         );
@@ -218,6 +224,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
             shouldContinue: false,
             finishReason: state.lastResult.finishReason,
             metadata: const {}, // Empty - metadata already streamed
+            thinking: null,
             usage: state.lastResult.usage,
           ),
         );
@@ -259,6 +266,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
         metadata: const {}, // Empty - metadata already streamed
+        thinking: null,
         usage: state.lastResult.usage,
       );
     }
@@ -269,6 +277,7 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
       metadata: const {}, // Empty - metadata already streamed
+      thinking: null,
       usage: state.lastResult.usage,
     );
   }

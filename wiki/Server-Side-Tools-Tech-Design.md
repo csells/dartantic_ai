@@ -4,19 +4,28 @@ This document describes the architecture and implementation patterns for server-
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Generic Patterns](#generic-patterns)
+2. [Provider Capabilities Summary](#provider-capabilities-summary)
+3. [Generic Patterns](#generic-patterns)
    - [Metadata vs Message Output](#metadata-vs-message-output)
    - [Metadata Flow Pattern](#metadata-flow-pattern)
    - [Streaming Events](#streaming-events)
    - [Final Message Metadata](#final-message-metadata)
    - [Synthetic Summary Events](#synthetic-summary-events)
    - [Content Deliverables](#content-deliverables)
-3. [Implementation Guidelines](#implementation-guidelines)
-4. [OpenAI Responses Provider](#openai-responses-provider)
+4. [Implementation Guidelines](#implementation-guidelines)
+5. [OpenAI Responses Provider](#openai-responses-provider)
    - [Configuration](#configuration)
    - [Supported Tools](#supported-tools)
    - [Provider-Specific Details](#provider-specific-details)
-5. [Testing Strategy](#testing-strategy)
+6. [Anthropic Claude Provider](#anthropic-claude-provider)
+   - [Configuration](#anthropic-configuration)
+   - [Supported Tools](#anthropic-supported-tools)
+   - [Provider-Specific Details](#anthropic-provider-specific-details)
+7. [Google Gemini Provider](#google-gemini-provider)
+   - [Configuration](#google-configuration)
+   - [Supported Tools](#google-supported-tools)
+   - [Provider-Specific Details](#google-provider-specific-details)
+8. [Testing Strategy](#testing-strategy)
 
 ## Overview
 
@@ -28,6 +37,35 @@ Server-side tools are capabilities provided by AI providers that execute on the 
 - Require standardized metadata handling to expose their operation to applications
 
 This document establishes generic patterns that apply across providers, with provider-specific details documented separately.
+
+## Provider Capabilities Summary
+
+The following table summarizes server-side tool availability across the three major providers:
+
+| Tool | OpenAI Responses | Anthropic Claude | Google Gemini |
+|------|------------------|------------------|---------------|
+| **Code Execution** | ✅ `codeInterpreter` | ✅ `codeInterpreter` | ✅ `codeExecution` |
+| **Web Search** | ✅ `webSearch` | ✅ `webSearch` | ✅ `googleSearch` |
+| **Web Fetch** | ❌ | ✅ `webFetch` | ❌ |
+| **File/Vector Search** | ✅ `fileSearch` | ❌ | ❌ |
+| **Image Generation** | ✅ `imageGeneration` | ❌ | ❌ |
+
+### Feature Comparison
+
+| Feature | OpenAI Responses | Anthropic Claude | Google Gemini |
+|---------|------------------|------------------|---------------|
+| Container/session reuse | ✅ | ❌ | ❌ |
+| Partial image previews | ✅ | ❌ | ❌ |
+| File download from sandbox | ✅ | ✅ | ✅ |
+| Grounding/citations | ✅ | ✅ | ✅ |
+
+### Configuration Classes
+
+| Provider | Options Class | Server-Side Tools Enum |
+|----------|--------------|------------------------|
+| OpenAI Responses | `OpenAIResponsesChatModelOptions` | `OpenAIServerSideTool` |
+| Anthropic Claude | `AnthropicChatOptions` | `AnthropicServerSideTool` |
+| Google Gemini | `GoogleChatModelOptions` | `GoogleServerSideTool` |
 
 ## Generic Patterns
 
@@ -451,9 +489,13 @@ final agent = Agent(
 - **scoreThreshold**: Minimum relevance score
 
 #### CodeInterpreterConfig
-- **shouldReuseContainer**: Whether to reuse previous container
-- **containerId**: Specific container ID to reuse
+- **containerId**: Specific container ID to reuse (enables container persistence)
 - **fileIds**: Files to make available in container
+
+**Important**: Container reuse requires explicit configuration:
+1. The `container_id` is only returned in metadata when files are created in the container
+2. To reuse a container across turns, pass the `containerId` from a previous response
+3. Create a new Agent instance with the `containerId` set in `CodeInterpreterConfig`
 
 ### Provider-Specific Details
 
@@ -560,25 +602,54 @@ await for (final chunk in agent.sendStream('Calculate fibonacci(100)')) {
   }
 }
 
-// Access complete code in result metadata (not message metadata)
-final result = await agent.send('Calculate fibonacci(100)');
-final codeEvents = result.metadata['code_interpreter'] as List?;
-if (codeEvents != null) {
-  // Find code deltas in the event stream
-  for (final event in codeEvents) {
-    if (event['type'] == 'response.code_interpreter_call_code.delta') {
-      print('Code chunk: ${event['delta']}');
-    }
-
-    // Find completion events with execution details
-    if (event['type'] == 'response.output_item.done') {
+// Extract container_id from metadata (only returned when files are created)
+String? extractContainerId(Map<String, dynamic> metadata) {
+  final ciEvents = metadata['code_interpreter'] as List?;
+  if (ciEvents != null) {
+    for (final event in ciEvents) {
+      // container_id is nested in event['item']['container_id']
       final item = event['item'];
-      if (item['container_id'] != null) {
-        print('Container: ${item['container_id']}');
-        print('Status: ${item['status']}');
+      if (item is Map && item['container_id'] != null) {
+        return item['container_id'] as String;
       }
     }
   }
+  return null;
+}
+
+// Container reuse across turns requires explicit configuration
+final history = <ChatMessage>[];
+String? containerId;
+
+// First turn: create a file to get a container_id
+final agent1 = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {OpenAIServerSideTool.codeInterpreter},
+  ),
+);
+
+await for (final chunk in agent1.sendStream(
+  'Calculate fibonacci(10) and write results to fib.txt',
+)) {
+  history.addAll(chunk.messages);
+  containerId ??= extractContainerId(chunk.metadata);
+}
+
+// Second turn: reuse container with explicit config
+final agent2 = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.codeInterpreter},
+    codeInterpreterConfig: CodeInterpreterConfig(containerId: containerId),
+  ),
+);
+
+await for (final chunk in agent2.sendStream(
+  'Read fib.txt and calculate the sum',
+  history: history,
+)) {
+  // Container is reused - can access files from previous turn
 }
 
 // Generated images are automatically attached as DataParts
@@ -595,6 +666,248 @@ for (final part in agent.messages.last.parts) {
 1. Referenced via `container_file_citation` events in streaming metadata
 2. Automatically downloaded and attached as `DataPart`s in the model's response
 3. Citations with zero-length text ranges (start_index == end_index) are filtered out
+
+- Metadata keys follow the constants defined in
+  `OpenAIResponsesToolTypes` (for example `image_generation`, `code_interpreter`).
+- Tool events are recorded in `EventMappingState.toolEventLog` and surfaced in
+  both streaming chunks and the aggregated final metadata.
+
+## Anthropic Claude Provider
+
+Anthropic tooling mirrors the generic patterns with a lighter-weight event
+recorder tailored to Claude's SSE payloads.
+
+### Configuration
+
+- Server-side tools can be enabled with the `AnthropicServerSideTool` enum set
+  (`serverSideTools`) or via explicit `AnthropicServerToolConfig` entries.
+  Dartantic injects the required code execution sandbox automatically for media
+  runs.
+- Requests remove Anthropic's tool input schemas to avoid `input_schema`
+  validation issues when streaming (`_stripServerToolInputSchemas`).
+- **Default maxTokens**: Dartantic uses 4096 tokens by default for Anthropic
+  requests (matching Anthropic's default for modern Claude models). This is
+  sufficient for server-side tool execution. If you override this with a lower
+  value, server-side tools may fail to complete their execution cycles.
+
+### Supported Tools
+
+| Tool | Metadata Key | Notes |
+|------|--------------|-------|
+| Code execution sandbox | `code_execution` | Emits execution events, file IDs, stdout/stderr. |
+| Text editor helper | `text_editor_code_execution` | Provides intermediate file edits for the sandbox. |
+| Bash execution helper | `bash_code_execution` | Shell commands executed within the code sandbox. |
+| Web search | `web_search` | Returns search queries/results and produces external link metadata. |
+| Web fetch | `web_fetch` | Streams fetched document metadata/content; delivers document bytes when available. |
+
+Other Anthropic tools (for example computer-use) are wired to fall through the
+same event recording pipeline when they become generally available.
+
+### Provider-Specific Details
+
+- **Event Recording**: `MessageStreamEventTransformer` now uses
+  `AnthropicEventMappingState` and `_buildToolMetadataChunk` to record every
+  tool event. Streaming chunks emit metadata under the relevant tool key, and
+  the final `ChatResult.metadata` contains the full aggregated history.
+- **Deliverables**: `AnthropicToolDeliverableTracker` handles inline image
+  previews, downloads sandbox files via `AnthropicFilesClient`, surfaces web
+  search results as `LinkPart`s, and materializes fetched documents as
+  `DataPart`s when content is provided. The tracker deduplicates base64
+  previews, file downloads, links, and fetched documents, matching the patterns
+  used for OpenAI Responses.
+- **Fallback Content**: When no explicit document asset is returned, the media
+  model synthesizes a PDF summary from accumulated stdout/stderr snippets using
+  the shared tracker text buffer.
+- **File Downloads**: `AnthropicFilesClient` centralises the Files API access,
+  normalising beta headers and error handling so both chat and media layers can
+  reuse the client without duplicating HTTP logic.
+- **Metadata Output**: Final media results merge the tracker log into
+  `MediaGenerationResult.metadata`, ensuring non-streaming consumers see the
+  complete tool history without replaying the stream.
+
+### Example Usage
+
+#### Web Search
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+
+await for (final chunk in agent.sendStream(
+  'Search for recent Dart programming language announcements',
+)) {
+  stdout.write(chunk.output);
+  // Web search results appear as LinkParts in messages
+  for (final msg in chunk.messages) {
+    for (final part in msg.parts) {
+      if (part is LinkPart) {
+        print('Source: ${part.url}');
+      }
+    }
+  }
+}
+```
+
+#### Web Fetch
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webFetch},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Retrieve https://example.com and summarize its content',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Fetched document bytes appear as DataParts
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Fetched: ${part.name} (${part.mimeType})');
+      // Save or process the fetched document bytes
+    }
+  }
+}
+```
+
+#### Code Execution
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.codeInterpreter},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and create a CSV file',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Generated files are automatically downloaded and appear as DataParts
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.bytes.length} bytes)');
+    }
+  }
+}
+```
+
+## Google Gemini Provider
+
+Google Gemini provides server-side tools through the Gemini API, offering code
+execution and Google Search grounding capabilities.
+
+### Configuration
+
+Server-side tools are configured when creating an Agent via `GoogleChatModelOptions`:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {
+      GoogleServerSideTool.codeExecution,
+      GoogleServerSideTool.googleSearch,
+    },
+  ),
+);
+```
+
+### Supported Tools
+
+| Tool | Enum Value | Description |
+|------|------------|-------------|
+| Code Execution | `codeExecution` | Python sandbox for code execution |
+| Google Search | `googleSearch` | Web search with grounding |
+
+### Provider-Specific Details
+
+#### Code Execution Capabilities
+
+Google's code execution supports generating arbitrary files:
+
+- **Full file generation**: Code execution can create any file type including
+  CSVs, PDFs, text files, images, and more. All generated files are returned
+  as `DataPart`s.
+- **No container persistence**: Unlike OpenAI Responses, there's no way to reuse
+  a container/session across turns. Each request runs in a fresh sandbox.
+- **Inline images**: Matplotlib plots and other images appear as inline data
+  in the response, automatically converted to `DataPart`s.
+
+#### Google Search (Grounding)
+
+Google Search provides web grounding for responses:
+
+- Results are integrated into the model's response
+- Grounding metadata includes source URLs and citations
+- No separate metadata key - grounding is embedded in response
+
+### Example Usage
+
+#### Code Execution
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.codeExecution},
+  ),
+);
+
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream(
+  'Calculate the first 10 Fibonacci numbers and create a CSV file '
+  'called "fibonacci.csv" with two columns: index and value.',
+)) {
+  stdout.write(chunk.output);
+  history.addAll(chunk.messages);
+}
+
+// Generated files appear as DataParts (CSV, images, PDFs, etc.)
+for (final msg in history) {
+  for (final part in msg.parts) {
+    if (part is DataPart) {
+      print('Generated: ${part.name} (${part.mimeType}, ${part.bytes.length} bytes)');
+    }
+  }
+}
+```
+
+#### Google Search
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+await for (final chunk in agent.sendStream(
+  'What are the most recent announcements about the Dart '
+  'programming language?',
+)) {
+  stdout.write(chunk.output);
+  // Response includes grounded information from web search
+}
+```
 
 ## Testing Strategy
 

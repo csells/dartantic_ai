@@ -100,7 +100,7 @@ OPENAI_API_KEY=sk-xxx dart test test/embeddings_test.dart
 ### Testing Principles
 
 1. **Exception Transparency**: DO NOT catch exceptions - let them bubble up for diagnosis
-2. **Capability-Based Filtering**: DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+2. **Capability-Based Filtering**: DO NOT add provider filtering except by capabilities (e.g. ProviderTestCaps)
 3. **No Performance Testing**: DO NOT add performance tests
 4. **No Regression Testing**: DO NOT add regression tests
 5. **80% Coverage**: Common usage patterns tested across ALL capable providers
@@ -114,7 +114,7 @@ OPENAI_API_KEY=sk-xxx dart test test/embeddings_test.dart
 ```dart
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -280,14 +280,14 @@ Based on comprehensive analysis of lib/dartantic_ai.dart and the entire codebase
     - Missing API keys
     - Environment setup issues
 
-### 17. **Provider Capabilities** (ProviderCaps)
+### 17. **Provider Test Capabilities** (ProviderTestCaps)
     **80% Cases:**
-    - Feature detection
-    - Capability filtering
-    
+    - Feature detection for tests
+    - Capability-based test filtering
+
     **Edge Cases:**
     - Provider limitations
-    - Dynamic capabilities
+    - Dynamic capabilities (via listModels())
 
 ## Test Organization
 
@@ -314,7 +314,7 @@ test/
 ├── model_string_parser_test.dart      # ModelStringParser tests
 ├── multi_modal_test.dart              # Image and file attachments
 ├── multi_provider_test.dart           # Cross-provider compatibility
-├── provider_capabilities_test.dart    # ProviderCaps filtering
+├── provider_capabilities_test.dart    # ProviderTestCaps filtering
 ├── provider_discovery_test.dart       # Provider enumeration and lookup
 ├── provider_mappers_test.dart         # Message transformation
 ├── streaming_test.dart                # Streaming responses and tool calls
@@ -356,16 +356,16 @@ test/debug_*.dart                      # Temporary debugging tests (not part of 
 void runProviderTest(
   String description,
   Future<void> Function(Provider provider) testFunction, {
-  Set<ProviderCaps>? requiredCaps,
+  Set<ProviderTestCaps>? requiredCaps,
   bool edgeCase = false,
 }) {
   final providers = edgeCase
-      ? ['google:gemini-2.0-flash'] // Edge cases on Google only
-      : Providers.all
+      ? ['google:gemini-2.5-flash'] // Edge cases on Google only
+      : Agent.allProviders
             .where(
               (p) =>
                   requiredCaps == null ||
-                  requiredCaps.every((cap) => p.caps.contains(cap)),
+                  providerHasTestCaps(p.name, requiredCaps),
             )
             .map((p) => '${p.name}:${p.defaultModelNames[ModelKind.chat]}');
 
@@ -401,7 +401,7 @@ Based on analysis, these files need to be created or have missing coverage:
 7. **infrastructure_helpers_test.dart** - Test all helper utilities
 8. **model_options_test.dart** - Test provider-specific options
 9. **provider_mappers_test.dart** - Test request/response transformations
-10. **provider_capabilities_test.dart** - Test ProviderCaps filtering
+10. **provider_capabilities_test.dart** - Test ProviderTestCaps filtering
 
 
 ## Implementation Priority

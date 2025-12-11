@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
@@ -113,6 +112,7 @@ class LoggingProvider extends GoogleProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
@@ -121,6 +121,7 @@ class LoggingProvider extends GoogleProvider {
       name: modelName,
       tools: tools,
       temperature: temperature,
+      enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? GoogleProvider.defaultBaseUrl,
       client: LoggingHttpClient(),
@@ -134,7 +135,7 @@ class LoggingProvider extends GoogleProvider {
         responseMimeType: options?.responseMimeType,
         responseSchema: options?.responseSchema,
         safetySettings: options?.safetySettings,
-        enableCodeExecution: options?.enableCodeExecution,
+        serverSideTools: options?.serverSideTools,
       ),
     );
   }

@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 late final List<Tool> hgTools;
@@ -62,6 +61,4 @@ Future<void> multipleToolsAndMcpServers(String model) async {
         history.addAll(r.messages);
       });
   stdout.writeln();
-
-  dumpMessages(history);
 }

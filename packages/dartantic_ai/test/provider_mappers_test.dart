@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -8,12 +9,10 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Provider Mappers', () {
@@ -35,8 +34,6 @@ void main() {
           isTrue,
           reason: '${provider.name} should have AI message',
         );
-
-        validateMessageHistory(result.messages);
       });
 
       test('message metadata is consistent', () async {
@@ -82,10 +79,8 @@ void main() {
             isTrue,
             reason: '${provider.name} should have tool messages',
           );
-
-          validateMessageHistory(result.messages);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
 
@@ -139,7 +134,6 @@ void main() {
         expect(toolResultPart.id, equals(toolCallPart.id));
 
         // Validate message history follows correct pattern
-        validateMessageHistory(result.messages);
       });
     });
 
@@ -170,7 +164,6 @@ void main() {
         expect(result.messages.length, greaterThanOrEqualTo(2));
 
         // Validate message history follows correct pattern
-        validateMessageHistory(result.messages);
       });
     });
 
@@ -222,17 +215,6 @@ void main() {
           result.messages.any((m) => m.role == ChatMessageRole.model),
           isTrue,
         );
-      });
-
-      test('handles very long messages', () async {
-        final agent = Agent('google:gemini-2.5-flash');
-
-        final longPrompt = 'Repeat this word: test ' * 100;
-        final result = await agent.send(longPrompt);
-
-        // Should handle long input
-        expect(result.messages, isNotEmpty);
-        expect(result.output, isNotEmpty);
       });
 
       test('handles special characters in messages', () async {

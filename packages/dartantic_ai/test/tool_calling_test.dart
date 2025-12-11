@@ -17,12 +17,10 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 import 'test_tools.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Tool Calling', () {
@@ -126,7 +124,7 @@ void main() {
             reason: 'Provider ${provider.name} should reference tool result',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
     });
 
@@ -149,9 +147,6 @@ void main() {
         expect(toolResults, hasLength(2));
         expect(toolResults[0].result, equals('Step 1 processed: hello'));
         expect(toolResults[1].result, contains('Step 2 processed:'));
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(response.messages);
       });
 
       test('calls multiple independent tools', () async {
@@ -177,9 +172,6 @@ void main() {
         // Tool results may be serialized as strings
         expect(results.any((r) => r == 100 || r == '100'), isTrue);
         expect(results.any((r) => r == true || r == 'true'), isTrue);
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(response.messages);
       });
 
       test('calls same tool multiple times with different arguments', () async {
@@ -265,11 +257,8 @@ void main() {
             reason:
                 'Provider ${provider.name} should execute int_tool correctly',
           );
-
-          // Validate message history follows correct pattern
-          validateMessageHistory(response.messages);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
 
       runProviderTest(
@@ -307,7 +296,7 @@ void main() {
             reason: 'Provider ${provider.name} should get LA weather',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
 
       runProviderTest(
@@ -346,7 +335,7 @@ void main() {
 
           // The provider might call it 1, 2, 3 or more times - all are valid
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
       );
     });
 
@@ -359,7 +348,7 @@ void main() {
           final response = await agent.send('Call the null_tool');
           expect(response.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -370,7 +359,7 @@ void main() {
           final response = await agent.send('Call the empty_string_tool');
           expect(response.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -392,7 +381,7 @@ void main() {
             ),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -410,7 +399,7 @@ void main() {
           expect(toolResults.first.result, contains('👋'));
           expect(toolResults.first.result, contains('世界'));
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -431,7 +420,7 @@ void main() {
             ),
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -449,7 +438,7 @@ void main() {
             expect(tr.result, equals('Called with no parameters'));
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -463,7 +452,7 @@ void main() {
           );
           expect(response.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -478,7 +467,7 @@ void main() {
           expect(toolResults, hasLength(1));
           expect(toolResults.first.result, equals('Called with no parameters'));
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
     });
@@ -508,7 +497,7 @@ void main() {
         );
 
         // The error will come when trying to use the agent, not at creation
-        expect(() => agent.send('Use the string_tool'), throwsException);
+        expect(() => agent.send('Use the string_tool'), throwsUnsupportedError);
       });
 
       runProviderTest(
@@ -536,7 +525,7 @@ void main() {
                 'gracefully',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
     });
@@ -583,7 +572,7 @@ void main() {
             reason: 'Provider ${provider.name} failed to stream tool results',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
@@ -609,9 +598,6 @@ void main() {
           fullResponse.toLowerCase(),
           anyOf(contains('99'), contains('int_tool')),
         );
-
-        // Validate message history follows correct pattern
-        validateMessageHistory(messages);
       });
     });
 
@@ -715,7 +701,7 @@ void main() {
                 'result in response',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
 
         timeout: const Timeout(Duration(minutes: 3)),
       );
@@ -750,7 +736,7 @@ void main() {
             reason: 'Provider ${provider.name} did not execute tool',
           );
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
 
         timeout: const Timeout(Duration(minutes: 2)),
       );

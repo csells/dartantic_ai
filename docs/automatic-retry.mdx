@@ -3,11 +3,18 @@ title: "Automatic Retry"
 description: "Built-in retry logic handles temporary rate limits and failures."
 ---
 
-Model provider endpoints can be busy places; sometimes an LLM request will time out. When that happens, dartantic will invoke its built-in retry logic to handle temporary rate limits and failures.
+Model provider endpoints can be busy places; sometimes an LLM request will time
+out. When that happens, dartantic will invoke its built-in retry logic to handle
+temporary rate limits and failures.
 
 ## Zero Configuration
 
-The HTTP 429 "Too Many Requests" client error response status code indicates that the client has sent too many requests within a given time period. This mechanism, known as "rate limiting," is employed by servers to prevent overload, ensure fair resource usage, and mitigate potential abuse or denial-of-service attacks. When dartantic gets a 429 response, it will retry automatically without you having to do anything:
+The HTTP 429 "Too Many Requests" client error response status code indicates
+that the client has sent too many requests within a given time period. This
+mechanism, known as "rate limiting," is employed by servers to prevent overload,
+ensure fair resource usage, and mitigate potential abuse or denial-of-service
+attacks. When dartantic gets a 429 response, it will retry automatically without
+you having to do anything:
 
 ```dart
 final agent = Agent('openai');
@@ -18,7 +25,8 @@ final result = await agent.send('Hello!');
 
 ## Timing Strategy
 
-Dartantic will use an incremental backoff algorithm along with a random "jitter" to see if it can get a response to go through.
+Dartantic will use an incremental backoff algorithm along with a random "jitter"
+to see if it can get a response to go through.
 
 ```
 Attempt 1: Immediate

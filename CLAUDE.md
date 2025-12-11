@@ -12,6 +12,7 @@ The project is organized as a monorepo with multiple packages:
 
 ## Documentation
 
+- **External Docs**: Full documentation at [docs.dartantic.ai](https://docs.dartantic.ai)
 - **Wiki Documentation**: The `wiki/` folder contains comprehensive architecture documentation. See `wiki/Home.md` for the complete index of design documents, specifications, and implementation guides.
 - **Design documents should NOT include code implementations** - Specifications in the `wiki/` folder should describe algorithms, data flow, and architecture without including actual code, as code in documentation immediately goes stale. Implementation details belong in the code itself, not in design docs.
 
@@ -47,6 +48,15 @@ cd packages/dartantic_ai && dart format --set-exit-if-changed .
 cd packages/dartantic_ai && dart run example/bin/single_turn_chat.dart
 cd packages/dartantic_ai && dart run example/bin/typed_output.dart
 cd packages/dartantic_ai && dart run example/bin/tool_calling.dart
+```
+
+### Debugging
+```bash
+# Enable detailed logging via environment variable
+DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+
+# Log levels: SEVERE, WARNING, INFO, FINE (most verbose)
+DARTANTIC_LOG_LEVEL=INFO dart test test/specific_test.dart
 ```
 
 ### Package Management
@@ -136,11 +146,24 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 ## Testing Strategy
 
 - **ALWAYS check for existing tests before creating new ones** - Search the test directory for related tests using grep/glob before creating new test files. Update existing tests rather than duplicating functionality.
-- Tests use `validateMessageHistory()` helper (in `test/test_utils.dart`) to ensure proper message alternation (user/model/user/model)
 - Integration tests connect to actual providers when API keys are available (from environment variables or `~/global_env.sh`)
 - Mock tools and utilities in `test/test_tools.dart` and `test/test_utils.dart`
-- Capability-based provider filtering ensures tests only run against providers that support required features
 - Focus on 80% cases; edge cases are documented but not exhaustively tested
+
+### Capability-Based Provider Filtering
+
+Tests use `requiredCaps` to filter providers by capability. This ensures tests only run against providers that support required features. The test infrastructure uses `ProviderTestCaps` (a test-only enum in `test/test_helpers/run_provider_test.dart`) to describe what capabilities each provider's default model supports:
+
+```dart
+// In test files, use runProviderTest with requiredCaps:
+runProviderTest(
+  'test description',
+  (provider) async { /* test code */ },
+  requiredCaps: {ProviderTestCaps.multiToolCalls},
+);
+```
+
+See `ProviderTestCaps` in `test/test_helpers/run_provider_test.dart` for test capabilities. For runtime capability discovery, use `Provider.listModels()`.
 
 ## Configuration
 
@@ -158,17 +181,17 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 ### Adding New Providers
 
 1. Create provider class in `lib/src/providers/` extending `Provider`
-2. Declare capabilities accurately (see `ProviderCaps` enum)
-3. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
-4. Create chat model in `lib/src/chat_models/<provider>_chat/`
-5. Implement message mappers in `<provider>_message_mappers.dart`
-6. Add provider to `Providers.get()` registry in `lib/src/providers/providers.dart`
+2. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
+3. Create chat model in `lib/src/chat_models/<provider>_chat/`
+4. Implement message mappers in `<provider>_message_mappers.dart`
+5. Register provider factory in `Agent.providerFactories` in `lib/src/agent/agent.dart`
+6. Add provider's test capabilities to `providerTestCaps` map in `test/test_helpers/run_provider_test.dart`
 7. Create tests following existing patterns in `test/`
 
 ### Provider Structure
 
 Each provider implementation includes:
-- Provider factory class with capability declarations
+- Provider factory class
 - Chat model with streaming support
 - Message mappers for bidirectional conversion
 - Options class for provider-specific configuration

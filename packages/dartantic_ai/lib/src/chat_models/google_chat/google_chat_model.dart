@@ -1,6 +1,7 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
+import 'package:google_cloud_protobuf/protobuf.dart' as pb;
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
@@ -9,9 +10,10 @@ import 'package:meta/meta.dart';
 import '../../custom_http_client.dart';
 import '../../providers/google_api_utils.dart';
 import '../../retry_http_client.dart';
-import '../helpers/google_schema_helpers.dart';
+import '../helpers/protobuf_value_helpers.dart';
 import 'google_chat_options.dart';
 import 'google_message_mappers.dart';
+import 'google_server_side_tools.dart';
 
 /// Wrapper around [Google AI for Developers](https://ai.google.dev/) API
 /// (aka Gemini API).
@@ -22,18 +24,22 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     required String apiKey,
     required Uri baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
     super.tools,
     super.temperature,
+    bool enableThinking = false,
     super.defaultOptions = const GoogleChatModelOptions(),
-  }) : _httpClient = CustomHttpClient(
+  }) : _enableThinking = enableThinking,
+       _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
          baseUrl: baseUrl,
-         headers: {'x-goog-api-key': apiKey},
+         headers: {'x-goog-api-key': apiKey, ...?headers},
          queryParams: const {},
        ) {
     _logger.info(
       'Creating Google model: $name '
-      'with ${super.tools?.length ?? 0} tools, temp: $temperature',
+      'with ${super.tools?.length ?? 0} tools, temp: $temperature, '
+      'thinking: $enableThinking',
     );
     _service = gl.GenerativeService(client: _httpClient);
   }
@@ -43,6 +49,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
 
   late final gl.GenerativeService _service;
   final CustomHttpClient _httpClient;
+  final bool _enableThinking;
 
   /// The resolved base URL.
   @visibleForTesting
@@ -83,10 +90,12 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
         (options?.safetySettings ?? defaultOptions.safetySettings)
             ?.toSafetySettings();
 
-    final enableCodeExecution =
-        options?.enableCodeExecution ??
-        defaultOptions.enableCodeExecution ??
-        false;
+    final serverSideTools =
+        options?.serverSideTools ?? defaultOptions.serverSideTools ?? const {};
+
+    final enableCodeExecution = serverSideTools.contains(
+      GoogleServerSideTool.codeExecution,
+    );
 
     final generationConfig = _buildGenerationConfig(
       options: options,
@@ -96,7 +105,7 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
     final contents = messages.toContentList();
 
     // Gemini API requires at least one non-empty content item
-    if (contents.isEmpty || contents.every((c) => c.parts?.isEmpty ?? true)) {
+    if (contents.isEmpty || contents.every((c) => c.parts.isEmpty)) {
       throw ArgumentError(
         'Cannot generate content with empty input. '
         'At least one message with non-empty content is required.',
@@ -109,13 +118,49 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
         ? const <Tool>[]
         : (tools ?? const <Tool>[]);
 
+    final toolConfig = _buildToolConfig(options);
+
     return gl.GenerateContentRequest(
       model: normalizedModel,
       systemInstruction: _extractSystemInstruction(messages),
       contents: contents,
-      safetySettings: safetySettings,
+      safetySettings: safetySettings ?? const [],
       generationConfig: generationConfig,
-      tools: toolsToSend.toToolList(enableCodeExecution: enableCodeExecution),
+      toolConfig: toolConfig,
+      tools:
+          toolsToSend.toToolList(
+            enableCodeExecution: enableCodeExecution,
+            enableGoogleSearch: serverSideTools.contains(
+              GoogleServerSideTool.googleSearch,
+            ),
+          ) ??
+          const [],
+    );
+  }
+
+  gl.ToolConfig? _buildToolConfig(GoogleChatModelOptions? options) {
+    final mode =
+        options?.functionCallingMode ?? defaultOptions.functionCallingMode;
+    final allowedNames =
+        options?.allowedFunctionNames ?? defaultOptions.allowedFunctionNames;
+
+    // If no mode specified and no allowed names, use default behavior
+    if (mode == null && allowedNames == null) return null;
+
+    final glMode = switch (mode) {
+      GoogleFunctionCallingMode.auto => gl.FunctionCallingConfig_Mode.auto,
+      GoogleFunctionCallingMode.any => gl.FunctionCallingConfig_Mode.any,
+      GoogleFunctionCallingMode.none => gl.FunctionCallingConfig_Mode.none,
+      GoogleFunctionCallingMode.validated =>
+        gl.FunctionCallingConfig_Mode.validated,
+      null => gl.FunctionCallingConfig_Mode.auto, // default
+    };
+
+    return gl.ToolConfig(
+      functionCallingConfig: gl.FunctionCallingConfig(
+        mode: glMode,
+        allowedFunctionNames: allowedNames ?? const [],
+      ),
     );
   }
 
@@ -132,35 +177,57 @@ class GoogleChatModel extends ChatModel<GoogleChatModelOptions> {
         ? 'application/json'
         : options?.responseMimeType ?? defaultOptions.responseMimeType;
 
-    final responseSchema = _resolveResponseSchema(
+    // Use native JSON Schema support via responseJsonSchema
+    final responseJsonSchema = _resolveResponseJsonSchema(
       outputSchema: outputSchema,
       responseSchema: options?.responseSchema ?? defaultOptions.responseSchema,
     );
 
+    final thinkingConfig = _buildThinkingConfig(options);
+
     return gl.GenerationConfig(
       candidateCount: options?.candidateCount ?? defaultOptions.candidateCount,
-      stopSequences: stopSequences.isEmpty ? null : stopSequences,
+      stopSequences: stopSequences,
       maxOutputTokens:
           options?.maxOutputTokens ?? defaultOptions.maxOutputTokens,
       temperature:
           temperature ?? options?.temperature ?? defaultOptions.temperature,
       topP: options?.topP ?? defaultOptions.topP,
       topK: options?.topK ?? defaultOptions.topK,
-      responseMimeType: responseMimeType,
-      responseSchema: responseSchema,
+      responseMimeType: responseMimeType ?? '',
+      responseJsonSchema: responseJsonSchema,
+      thinkingConfig: thinkingConfig,
     );
   }
 
-  gl.Schema? _resolveResponseSchema({
+  gl.ThinkingConfig? _buildThinkingConfig(GoogleChatModelOptions? options) {
+    if (!_enableThinking) return null;
+
+    // Default to dynamic thinking (-1) if no budget specified
+    final thinkingBudget =
+        options?.thinkingBudgetTokens ??
+        defaultOptions.thinkingBudgetTokens ??
+        -1;
+
+    return gl.ThinkingConfig(
+      includeThoughts: true,
+      thinkingBudget: thinkingBudget,
+    );
+  }
+
+  /// Converts JSON Schema to protobuf Value for native Gemini JSON Schema
+  /// support. This uses the new responseJsonSchema API which accepts standard
+  /// JSON Schema directly, eliminating the need for custom schema conversion.
+  pb.Value? _resolveResponseJsonSchema({
     JsonSchema? outputSchema,
     Map<String, dynamic>? responseSchema,
   }) {
     if (outputSchema != null) {
       final schemaMap = Map<String, dynamic>.from(outputSchema.schemaMap ?? {});
-      return GoogleSchemaHelpers.schemaFromJson(schemaMap);
+      return ProtobufValueHelpers.valueFromJson(schemaMap);
     }
     if (responseSchema != null) {
-      return GoogleSchemaHelpers.schemaFromJson(
+      return ProtobufValueHelpers.valueFromJson(
         Map<String, dynamic>.from(responseSchema),
       );
     }

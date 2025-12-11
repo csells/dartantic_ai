@@ -54,7 +54,7 @@ flowchart LR
     
     C --> G[Examples: OpenAI, Anthropic]
     E --> H[Examples: Google, Ollama]
-    F --> I[Example: Mistral]
+    F --> I[Providers without native typed output]
 ```
 
 ## Provider Capabilities
@@ -68,7 +68,7 @@ flowchart LR
 | OpenRouter | ✅          | Native (OpenAI-compatible) | ✅ |
 | Anthropic  | ✅          | return_result tool | ✅ |
 | Google     | ✅          | Native responseSchema + Double Agent | ✅ |
-| Ollama     | ✅          | Native format param | ❌ (TODO: add double agent) |
+| Ollama     | ✅          | Native format param (as of ollama_dart ^0.3.0) | ❌ (future: add double agent) |
 | Together   | ✅          | Native (OpenAI-compatible) | ✅ |
 | Cohere     | ✅          | Native (OpenAI-compatible) | ❌ (API limitation) |
 | Mistral    | ❌          | Not supported | ❌ |
@@ -133,7 +133,7 @@ This unified approach allows the Agent to support both native typed output (Open
 - **Final decoding**: APIs such as `Agent.send()` and `Agent.sendFor()` buffer the streamed chunks internally and decode once streaming completes. External consumers that want the final JSON document must follow the same pattern: concatenate the streamed chunks and parse once because the terminal assistant message does not repeat the streamed text.
 - **Provider responsibility**: Provider implementations should avoid emitting conflicting chunks; once a fragment is streamed it cannot be “taken back.” If a provider cannot supply coherent streaming deltas, it should suppress progressive JSON and emit only the final payload.
 
-**Still TODO**: Make Ollama work with the double agent pattern when both tools and typed output are needed.
+**Note**: Ollama now supports JSON schema natively as of `ollama_dart ^0.3.0`. However, like Google, Ollama does not support using tools and typed output simultaneously. A future enhancement will add the double agent pattern for Ollama.
 
 #### Google/Gemini
 ```dart
@@ -496,20 +496,21 @@ final result = await agent.runFor<Person>(
 );
 ```
 
-### Future Enhancement: Ollama with Double Agent
+### Ollama Support
 
-Currently, Ollama doesn't support simultaneous tools and typed output. The plan is to enhance it to use the same double agent pattern as Google:
+As of `ollama_dart ^0.3.0`, Ollama supports JSON schema natively through the `GenerateChatCompletionRequestFormat.schema()` API. Ollama supports typed output natively, making structured output work seamlessly:
 
 ```dart
-// Future: This will work just like Google
-final agent = Agent('ollama', tools: [weatherTool]);
-final result = await agent.runFor<Report>(
-  'Get weather and format as report',
-  outputSchema: reportSchema,
+final agent = Agent('ollama:qwen2.5:7b-instruct');
+final result = await agent.runFor<Person>(
+  'Generate a person named Jane who is 25 years old',
+  outputSchema: personSchema,
+  outputFromJson: Person.fromJson,
 );
-// Ollama will use double agent orchestrator
-// Phase 1: Execute tools, Phase 2: Get structured output
+// Ollama uses native JSON schema format parameter
 ```
+
+**Limitation**: Like Google, Ollama does not support using tools and typed output simultaneously. A future enhancement will add the double agent pattern for Ollama to enable this combination.
 
 ## Key Design Principles
 

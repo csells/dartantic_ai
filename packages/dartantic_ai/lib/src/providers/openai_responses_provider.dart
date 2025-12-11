@@ -3,33 +3,36 @@ import 'package:logging/logging.dart';
 
 import '../chat_models/openai_responses/openai_responses_chat_model.dart';
 import '../chat_models/openai_responses/openai_responses_chat_options.dart';
+import '../chat_models/openai_responses/openai_responses_server_side_tools.dart';
+import '../media_gen_models/openai_responses/openai_responses_media_gen_model.dart';
+import '../media_gen_models/openai_responses/openai_responses_media_gen_model_options.dart';
 import '../platform/platform.dart';
 import 'openai_provider_base.dart';
 
 /// Provider for the OpenAI Responses API.
 class OpenAIResponsesProvider
-    extends OpenAIProviderBase<OpenAIResponsesChatModelOptions> {
+    extends
+        OpenAIProviderBase<
+          OpenAIResponsesChatModelOptions,
+          OpenAIResponsesMediaGenerationModelOptions
+        > {
   /// Creates a new OpenAI Responses provider instance.
-  OpenAIResponsesProvider({String? apiKey, super.baseUrl, super.aliases})
-    : super(
-        name: providerName,
-        displayName: providerDisplayName,
-        defaultModelNames: const {
-          ModelKind.chat: defaultChatModel,
-          ModelKind.embeddings: defaultEmbeddingsModel,
-        },
-        caps: const {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.typedOutputWithTools,
-          ProviderCaps.thinking,
-          ProviderCaps.chatVision,
-        },
-        apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
-        apiKeyName: defaultApiKeyName,
-      );
+  OpenAIResponsesProvider({
+    String? apiKey,
+    super.baseUrl,
+    super.aliases,
+    super.headers,
+  }) : super(
+         name: providerName,
+         displayName: providerDisplayName,
+         defaultModelNames: const {
+           ModelKind.chat: defaultChatModel,
+           ModelKind.embeddings: defaultEmbeddingsModel,
+           ModelKind.media: defaultMediaModel,
+         },
+         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
+         apiKeyName: defaultApiKeyName,
+       );
 
   static final Logger _logger = Logger(
     'dartantic.chat.providers.openai_responses',
@@ -45,10 +48,13 @@ class OpenAIResponsesProvider
   static const providerDisplayName = 'OpenAI Responses';
 
   /// Default chat model identifier.
-  static const defaultChatModel = 'gpt-4o';
+  static const defaultChatModel = 'gpt-5';
 
   /// Default embeddings model identifier.
   static const defaultEmbeddingsModel = 'text-embedding-3-small';
+
+  /// Default media generation model identifier.
+  static const defaultMediaModel = defaultChatModel;
 
   /// Environment variable used to read the API key.
   static const defaultApiKeyName = 'OPENAI_API_KEY';
@@ -69,6 +75,7 @@ class OpenAIResponsesProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIResponsesChatModelOptions? options,
   }) {
     validateApiKeyPresence();
@@ -76,7 +83,8 @@ class OpenAIResponsesProvider
 
     _logger.info(
       'Creating OpenAI Responses chat model: $modelName '
-      'with ${(tools ?? const []).length} tools, temp: $temperature',
+      'with ${(tools ?? const []).length} tools, temp: $temperature, '
+      'thinking: $enableThinking',
     );
 
     return OpenAIResponsesChatModel(
@@ -85,39 +93,97 @@ class OpenAIResponsesProvider
       temperature: temperature,
       apiKey: apiKey,
       baseUrl: baseUrl ?? defaultResponsesBaseUrl,
-      defaultOptions: _mergeOptions(temperature, options),
+      headers: headers,
+      defaultOptions: _mergeOptions(temperature, enableThinking, options),
     );
   }
 
   /// Merges temperature and options into a single options object.
   OpenAIResponsesChatModelOptions _mergeOptions(
     double? temperature,
+    bool enableThinking,
     OpenAIResponsesChatModelOptions? options,
-  ) => OpenAIResponsesChatModelOptions(
-    temperature: temperature ?? options?.temperature,
-    topP: options?.topP,
-    maxOutputTokens: options?.maxOutputTokens,
-    store: options?.store ?? true,
-    metadata: options?.metadata,
-    include: options?.include,
-    parallelToolCalls: options?.parallelToolCalls,
-    toolChoice: options?.toolChoice,
-    reasoning: options?.reasoning,
-    reasoningEffort: options?.reasoningEffort,
-    reasoningSummary: options?.reasoningSummary,
-    responseFormat: options?.responseFormat,
-    truncationStrategy: options?.truncationStrategy,
-    user: options?.user,
-    imageDetail: options?.imageDetail,
-    serverSideTools: options?.serverSideTools,
-    fileSearchConfig: options?.fileSearchConfig,
-    webSearchConfig: options?.webSearchConfig,
-    codeInterpreterConfig: options?.codeInterpreterConfig,
-  );
+  ) {
+    // If thinking is enabled and no explicit reasoningSummary, use detailed
+    final reasoningSummary = enableThinking && options?.reasoningSummary == null
+        ? OpenAIReasoningSummary.detailed
+        : options?.reasoningSummary;
+
+    return OpenAIResponsesChatModelOptions(
+      temperature: temperature ?? options?.temperature,
+      topP: options?.topP,
+      maxOutputTokens: options?.maxOutputTokens,
+      store: options?.store ?? true,
+      metadata: options?.metadata,
+      include: options?.include,
+      parallelToolCalls: options?.parallelToolCalls,
+      reasoning: options?.reasoning,
+      reasoningEffort: options?.reasoningEffort,
+      reasoningSummary: reasoningSummary,
+      responseFormat: options?.responseFormat,
+      truncationStrategy: options?.truncationStrategy,
+      user: options?.user,
+      imageDetail: options?.imageDetail,
+      serverSideTools: options?.serverSideTools,
+      fileSearchConfig: options?.fileSearchConfig,
+      webSearchConfig: options?.webSearchConfig,
+      codeInterpreterConfig: options?.codeInterpreterConfig,
+    );
+  }
 
   @override
   Uri get embeddingsApiBaseUrl => _defaultApiBaseUrl;
 
   @override
   Uri get modelsApiBaseUrl => _defaultApiBaseUrl;
+
+  @override
+  MediaGenerationModel<OpenAIResponsesMediaGenerationModelOptions>
+  createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    OpenAIResponsesMediaGenerationModelOptions? options,
+  }) {
+    validateApiKeyPresence();
+    final modelName = name ?? defaultModelNames[ModelKind.media]!;
+    final resolvedOptions =
+        options ?? const OpenAIResponsesMediaGenerationModelOptions();
+
+    _logger.info(
+      'Creating OpenAI Responses media model: $modelName with '
+      '${(tools ?? const []).length} tools',
+    );
+
+    // Create chat options directly with image generation and code interpreter
+    final chatOptions = OpenAIResponsesChatModelOptions(
+      store: resolvedOptions.store,
+      metadata: resolvedOptions.metadata,
+      user: resolvedOptions.user,
+      serverSideTools: const {
+        OpenAIServerSideTool.imageGeneration,
+        OpenAIServerSideTool.codeInterpreter,
+      },
+      imageGenerationConfig: ImageGenerationConfig(
+        partialImages: resolvedOptions.partialImages ?? 0,
+        quality: resolvedOptions.quality ?? ImageGenerationQuality.auto,
+        size: resolvedOptions.size ?? ImageGenerationSize.auto,
+      ),
+    );
+
+    final chatModel = OpenAIResponsesChatModel(
+      name: modelName,
+      tools: tools,
+      apiKey: apiKey,
+      baseUrl: baseUrl ?? defaultResponsesBaseUrl,
+      headers: headers,
+      defaultOptions: chatOptions,
+    );
+
+    return OpenAIResponsesMediaGenerationModel(
+      name: modelName,
+      tools: tools,
+      defaultOptions: resolvedOptions,
+      chatModel: chatModel,
+    );
+  }
 }

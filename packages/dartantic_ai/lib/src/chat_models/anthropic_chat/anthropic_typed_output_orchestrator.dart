@@ -85,7 +85,11 @@ class AnthropicTypedOutputOrchestrator extends DefaultStreamingOrchestrator {
         return;
       }
 
-      yield* _executeReturnResultFlow(toolCalls, state);
+      // Add the model message with tool calls to history so Claude sees the
+      // pattern of using return_result for typed output.
+      state.addToHistory(consolidatedMessage);
+
+      yield* _executeReturnResultFlow(toolCalls, state, consolidatedMessage);
       return;
     }
 
@@ -101,7 +105,19 @@ class AnthropicTypedOutputOrchestrator extends DefaultStreamingOrchestrator {
   Stream<StreamingIterationResult> _executeReturnResultFlow(
     List<ToolPart> toolCalls,
     StreamingState state,
+    ChatMessage modelMessage,
   ) async* {
+    // Yield the model message with tool calls so the caller can accumulate it
+    // for multi-turn conversations
+    yield StreamingIterationResult(
+      output: '',
+      messages: [modelMessage],
+      shouldContinue: true,
+      finishReason: state.lastResult.finishReason,
+      metadata: const {},
+      usage: null,
+    );
+
     registerToolCalls(toolCalls, state);
     state.requestNextMessagePrefix();
 
@@ -120,15 +136,21 @@ class AnthropicTypedOutputOrchestrator extends DefaultStreamingOrchestrator {
       }
     }
 
-    if (otherResults.isNotEmpty) {
+    // Build tool results for all tools including return_result
+    // Anthropic requires every tool_use to have a corresponding tool_result
+    final allResultParts = executionResults.map((r) => r.resultPart).toList();
+
+    if (allResultParts.isNotEmpty) {
       final toolResultMessage = ChatMessage(
         role: ChatMessageRole.user,
-        parts: otherResults.map((r) => r.resultPart).toList(),
+        parts: allResultParts,
       );
 
       state.addToHistory(toolResultMessage);
       state.resetEmptyAfterToolsContinuation();
 
+      // Yield all tool results (including return_result) so the caller's
+      // history matches what Anthropic requires for subsequent turns
       yield StreamingIterationResult(
         output: '',
         messages: [toolResultMessage],
@@ -149,18 +171,17 @@ class AnthropicTypedOutputOrchestrator extends DefaultStreamingOrchestrator {
           'suppressedText': state.suppressedTextParts.map((p) => p.text).join(),
       };
 
-      final syntheticMessage = ChatMessage(
-        role: ChatMessageRole.model,
-        parts: [TextPart(jsonOutput)],
-        metadata: mergedMetadata,
-      );
-
+      // Don't yield a synthetic model message - that would teach Claude to
+      // respond with plain text instead of using return_result.
+      // The JSON output is available in result.output, and the tool interaction
+      // pattern is preserved in the yielded model message with tool calls and
+      // tool results.
       yield StreamingIterationResult(
         output: jsonOutput,
-        messages: [syntheticMessage],
+        messages: const [], // No synthetic message - preserve tool call pattern
         shouldContinue: false,
         finishReason: state.lastResult.finishReason,
-        metadata: state.lastResult.metadata,
+        metadata: mergedMetadata,
         usage: state.lastResult.usage,
       );
 

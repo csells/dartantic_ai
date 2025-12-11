@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 

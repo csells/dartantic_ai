@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -8,7 +9,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -30,7 +30,7 @@ void main() {
         // Test that agent has expected properties
         final agent = Agent(provider.name);
         expect(agent.providerName, equals(provider.name));
-        expect(agent.model, contains('${provider.name}:'));
+        expect(agent.model, startsWith(provider.name));
       });
 
       test('provider creation handles missing API keys', () {
@@ -53,7 +53,7 @@ void main() {
 
         // Agent should create and work correctly
         expect(agent.providerName, equals('openai'));
-        expect(agent.model, contains('openai:'));
+        expect(agent.model, startsWith('openai'));
       });
 
       test('multiple agents can coexist', () {
@@ -68,8 +68,13 @@ void main() {
         expect(agents[1].providerName, equals('google'));
 
         // All agents should be properly configured
-        expect(agents[0].model, contains('openai:'));
-        expect(agents[1].model, contains('google:'));
+        final openaiParser = ModelStringParser.parse(agents[0].model);
+        expect(openaiParser.providerName, equals('openai'));
+        expect(openaiParser.chatModelName, isNotEmpty);
+
+        final googleParser = ModelStringParser.parse(agents[1].model);
+        expect(googleParser.providerName, equals('google'));
+        expect(googleParser.chatModelName, isNotEmpty);
       });
 
       // Concurrent usage moved to edge cases
@@ -83,7 +88,7 @@ void main() {
           final result = await agent.send('Hello');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -104,7 +109,7 @@ void main() {
           expect(streamStarted, isTrue);
           expect(streamCompleted, isTrue);
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -119,7 +124,7 @@ void main() {
 
           expect(stopwatch.elapsedMilliseconds, lessThan(120000));
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -139,7 +144,7 @@ void main() {
           expect(results[0].output, isA<String>());
           expect(results[1].output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -154,7 +159,7 @@ void main() {
           expect(result.output, isA<String>());
           expect(result.messages, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         edgeCase: true,
       );
 
@@ -167,7 +172,7 @@ void main() {
           final result = await agent.send('Echo: $specialInput');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -180,7 +185,7 @@ void main() {
           final result = await agent.send('Repeat: $unicodeInput');
           expect(result.output, isA<String>());
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
 
@@ -193,7 +198,7 @@ void main() {
           expect(result.output, isA<String>());
           expect(result.output.isNotEmpty, isTrue);
         },
-        requiredCaps: {ProviderCaps.chat},
+        requiredCaps: {ProviderTestCaps.chat},
         edgeCase: true,
       );
     });

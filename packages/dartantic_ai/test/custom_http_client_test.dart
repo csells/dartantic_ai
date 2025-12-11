@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -8,7 +9,6 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:test/test.dart';
 
@@ -40,7 +40,7 @@ Future<void> _testProviderHttpClient(String providerName) async {
   final trackingClient = TrackingHttpClient();
 
   // Get the base provider
-  final baseProvider = Providers.get(providerName);
+  final baseProvider = Agent.getProvider(providerName);
 
   // Create a custom provider with tracking HTTP client
   Provider customProvider;
@@ -110,6 +110,7 @@ class CustomOpenAIProvider extends OpenAIProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) => OpenAIChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -131,6 +132,7 @@ class CustomGoogleProvider extends GoogleProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) => GoogleChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -139,6 +141,7 @@ class CustomGoogleProvider extends GoogleProvider {
     client: client,
     tools: tools,
     temperature: temperature,
+    enableThinking: enableThinking,
     defaultOptions: options ?? const GoogleChatModelOptions(),
   );
 }
@@ -153,6 +156,7 @@ class CustomAnthropicProvider extends AnthropicProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     AnthropicChatOptions? options,
   }) => AnthropicChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -160,6 +164,7 @@ class CustomAnthropicProvider extends AnthropicProvider {
     client: client,
     tools: tools,
     temperature: temperature,
+    enableThinking: enableThinking,
     defaultOptions: options ?? const AnthropicChatOptions(),
   );
 }
@@ -174,6 +179,7 @@ class CustomMistralProvider extends MistralProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     MistralChatModelOptions? options,
   }) => MistralChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -195,6 +201,7 @@ class CustomOllamaProvider extends OllamaProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OllamaChatOptions? options,
   }) => OllamaChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,

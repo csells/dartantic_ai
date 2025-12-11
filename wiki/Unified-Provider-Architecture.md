@@ -61,38 +61,47 @@ This enum is used in the `defaultModelNames` map to specify different default mo
 
 ## Provider Capabilities
 
-### ProviderCaps Enum
+### Model-Level Capability Discovery
 
-The `ProviderCaps` enum (see `lib/src/provider_caps.dart`) enables dynamic discovery and filtering of providers based on their features:
+Provider capabilities vary by model, not by provider. Different models from the same provider have different capabilities. Runtime capability discovery is done via `provider.listModels()` which returns `ModelInfo` objects containing capability metadata.
 
-- **chat**: Basic chat completion capability
-- **embeddings**: Text embeddings generation
-- **multiToolCalls**: Support for multiple function/tool calls in one response
-- **typedOutput**: Structured JSON output generation
-- **typedOutputWithTools**: Combination of typed output + tools
-- **vision**: Multi-modal input support (images, etc.)
+For application code, use `listModels()` to discover what models are available and their capabilities:
 
-Note: Streaming is not a capability because all chat providers support it by default.
+```dart
+final provider = Agent.getProvider('openai');
+await for (final model in provider.listModels()) {
+  print('${model.name}: ${model.kinds}');
+}
+```
 
-### Capability Declaration
+### Test-Only Capability Filtering
 
-Each provider explicitly declares its capabilities during instantiation. See provider implementations in `lib/src/providers/` for examples. Capabilities should accurately reflect what the provider's API actually supports, not what we wish it supported.
+For test infrastructure, `ProviderTestCaps` in `test/test_helpers/run_provider_test.dart` provides capability-based test filtering. This is test-only and describes what the **default model** of each provider supports - it is NOT a provider-wide guarantee and is NOT part of the public API.
 
-### Capability Querying
+### Important: No Provider-Level Capability Guarantees
 
-The Provider class offers static methods for capability-based discovery:
-- `Providers.allWith(Set<ProviderCaps>)` - Get providers with all specified capabilities
-- Direct capability checking via `provider.caps.contains(capability)`
-
-This enables test suites to run feature-specific tests only on supporting providers.
-
-### Important: Capabilities are Informational
-
-**Capabilities are informational metadata only**:
-- Developers can choose to use or ignore capabilities
-- No enforcement at the Agent or Provider level
-- Models themselves decide whether to throw errors
+**Capabilities are model-specific, not provider-wide**:
+- Different models from the same provider have different capabilities
+- Use `listModels()` and `ModelInfo` for runtime discovery
+- Models themselves decide whether to throw errors for unsupported features
 - Allows experimentation with undocumented features
+
+### Provider API Boundaries
+
+dartantic never re-exports raw SDK model types from the underlying vendor
+packages (OpenAI, Anthropic, Google, etc.). Provider configuration that is
+exposed through `dartantic_interface` must remain provider-agnostic or be
+expressed with our own neutral data structures. When a vendor requires
+additional parameters (for example OpenAI’s `tool_choice` payload), the
+provider implementation adapts our neutral options into the SDK-specific
+types internally and always passes vendor-specific handles (or `null`) on the
+wire. This ensures:
+- **Stable public API** – upstream SDK changes do not leak through the unified
+  interface.
+- **Pluggable providers** – callers do not need vendor dependency imports to
+  configure a provider.
+- **Testability** – fake or test providers can mirror the same neutral option
+  contracts without pulling transitively on third-party SDKs.
 
 ## Provider Registry
 
@@ -299,21 +308,23 @@ While Agent is the primary interface, direct model creation is supported for adv
 
 ### Provider Capability Matrix
 
-| Provider   | Chat  | Embeddings | Tools | Typed Output | Tools+Typed | Vision |
-| ---------- | :---: | :--------: | :---: | :----------: | :---------: | :----: |
-| OpenAI     |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |
-| Google     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ✅    |
-| Anthropic  |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
-| Mistral    |   ✅   |     ✅      |   ❌   |      ❌       |      ❌      |   ✅    |
-| Cohere     |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ❌    |
-| Ollama     |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |
-| OpenRouter |   ✅   |     ❌      |   ✅   |      ✅       |      ❌      |   ✅    |
-| Together   |   ✅   |     ❌      |   ❌   |      ✅       |      ❌      |   ✅    |
+| Provider         | Chat  | Embeddings | Tools | Typed Output | Tools+Typed | Vision | Media |
+| ---------------- | :---: | :--------: | :---: | :----------: | :---------: | :----: | :----: |
+| OpenAI           |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| OpenAI Responses |   ✅   |     ✅      |   ✅   |      ✅       |      ✅      |   ✅    |   ✅   |
+| Google           |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ✅    |   ❌   |
+| Anthropic        |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| Mistral          |   ✅   |     ✅      |   ❌   |      ❌       |      ❌      |   ✅    |   ❌   |
+| Cohere           |   ✅   |     ✅      |   ✅   |      ✅       |      ❌      |   ❌    |   ❌   |
+| Ollama           |   ✅   |     ❌      |   ✅   |      ✅       |      ✅      |   ✅    |   ❌   |
+| OpenRouter       |   ✅   |     ❌      |   ✅   |      ✅       |      ❌      |   ✅    |   ❌   |
+| Together         |   ✅   |     ❌      |   ❌   |      ✅       |      ❌      |   ✅    |   ❌   |
 
 **Legend:**
 - **Tools** = `multiToolCalls` capability
 - **Typed Output** = `typedOutput` capability  
 - **Tools+Typed** = `typedOutputWithTools` capability
+- **Media** = `mediaGeneration` capability
 
 ### Chat-Only Providers
 - **Anthropic**: No embeddings support
@@ -325,8 +336,10 @@ While Agent is the primary interface, direct model creation is supported for adv
 - **Cohere**: Cannot use typed output with tools simultaneously
 
 ### Full-Featured Providers
-- **OpenAI**: Supports all capabilities
-- **Google**: Supports all capabilities except `typedOutputWithTools`
+- **OpenAI Responses**: Supports all capabilities including media generation.
+- **OpenAI**: Supports all capabilities except `mediaGeneration`.
+- **Google**: Supports all capabilities except `typedOutputWithTools` and
+  `mediaGeneration`.
 
 ## Summary
 

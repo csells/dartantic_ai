@@ -7,7 +7,8 @@ Got an issue? Let's hear it. A feature request? Send it in! A PR? Even better!!
 
 ## How to Contribute an Issue
 
-If you have found a bug or have a feature request, please open an issue on the [GitHub repository](https://github.com/csells/dartantic_ai/issues).
+If you have found a bug or have a feature request, please open an issue on the
+[GitHub repository](https://github.com/csells/dartantic_ai/issues).
 
 ## How to Contribute a PR
 
@@ -33,7 +34,8 @@ dart pub get
 
 #### Set Up API Keys for Testing
 
-To run the full test suite, you'll need API keys for various providers. Set these environment variables:
+To run the full test suite, you'll need API keys for various providers. Set
+these environment variables:
 
 ```bash
 export OPENAI_API_KEY="your-openai-key"
@@ -86,8 +88,10 @@ All tests should pass before you make any changes.
 #### Testing Best Practices
 
 1. **No Exception Hiding**: Let exceptions bubble up for diagnosis
-2. **Provider Filtering**: Only filter by capabilities (e.g., `ProviderCaps`)
-3. **80/20 Rule**: Test common cases across all providers, edge cases on Google only
+2. **Provider Filtering**: Only filter by test capabilities (e.g.,
+   `ProviderTestCaps` in `run_provider_test.dart`)
+3. **80/20 Rule**: Test common cases across all providers, edge cases on Google
+   only
 4. **No Duplication**: Each functionality should be tested in ONE file only
 
 ### 6. Verify Your Changes

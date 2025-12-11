@@ -1,0 +1,92 @@
+---
+title: OpenAI Web Search
+description: "Stream curated search results directly from the provider and weave them into your responses."
+---
+
+The OpenAI Responses provider exposes a web search tool that allows you to
+search the web and weave the results into your responses.
+
+## Enable Web Search
+
+The web search tool can be enabled via the `chatModelOptions` parameter of the
+`Agent` constructor:
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {OpenAIServerSideTool.webSearch},
+  ),
+);
+
+await for (final chunk in agent.sendStream('Latest Dart language news?')) {
+  stdout.write(chunk.output);
+  dumpWebSearch(chunk.metadata);
+}
+
+void dumpWebSearch(Map<String, dynamic> metadata) {
+  final events = metadata['web_search'] as List?;
+  if (events == null) return;
+  for (final event in events) {
+    stdout.writeln('[web-search] ${event['type']}');
+  }
+}
+```
+
+Use `OpenAIServerSideTool.webSearch` to turn the tool on for a request. Each
+chunk includes the streaming progress events under `metadata['web_search']`.
+
+## Configure Context
+
+```dart
+final options = OpenAIResponsesChatModelOptions(
+  serverSideTools: const {OpenAIServerSideTool.webSearch},
+  webSearchConfig: const WebSearchConfig(
+    contextSize: WebSearchContextSize.high,
+    followupQuestions: true,
+    location: WebSearchLocation(city: 'Portland', region: 'OR'),
+  ),
+);
+
+final agent = Agent('openai-responses', chatModelOptions: options);
+```
+
+Configuration controls:
+- `contextSize` tunes how much context the provider should gather (low/medium/
+high/other)
+- `followupQuestions` requests suggested follow-ups in metadata where supported
+- `location` nudges the search toward a city/region/country/time zone
+
+## Metadata Structure
+
+The metadata list contains chronological events streamed by the provider. Each
+entry includes:
+
+- `type`: the event identifier (e.g. `response.web_search_call.started`)
+- `query`: text of the query that ran
+- `results`: snippets or URLs when the provider shares them
+
+```dart
+final events = chunk.metadata['web_search'] as List?;
+if (events != null) {
+  for (final event in events) {
+    if (event['results'] case final List<dynamic> results?) {
+      for (final result in results) {
+        stdout.writeln('- ${result['url']}');
+      }
+    }
+  }
+}
+```
+
+Use these events to show a progress panel or capture citations. Because they
+arrive in metadata, they never pollute the chat transcript.
+
+## Example
+
+- [Server-side web search demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools/server_side_web_search.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools)
+- [File Search](/server-side-tools/file-search)

@@ -1478,7 +1478,7 @@ void main() {
 void main() {
   group('Orchestration Integration', () {
     test('complete workflow with real providers', () async {
-      for (final provider in ChatProviders.allWith({ProviderCaps.multiToolCalls})) {
+      for (final provider in Agent.allProviders) {
         final agent = Agent('${provider.name}:${provider.defaultModel}', tools: [weatherTool]);
         
         final results = <String>[];

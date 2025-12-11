@@ -25,7 +25,7 @@ void main() {
       test('Falls back to Agent.environment', () {
         Agent.environment['OPENAI_API_KEY'] = 'sk-env-key';
 
-        final provider = Providers.openai;
+        final provider = Agent.getProvider('openai');
         final model = provider.createEmbeddingsModel();
 
         // Model should be created with env key
@@ -56,17 +56,29 @@ void main() {
         Agent.environment['COHERE_API_KEY'] = 'sk-cohere';
 
         // Create models with defaults
-        expect(Providers.openai.createEmbeddingsModel, returnsNormally);
-        expect(Providers.google.createEmbeddingsModel, returnsNormally);
-        expect(Providers.mistral.createEmbeddingsModel, returnsNormally);
-        expect(Providers.cohere.createEmbeddingsModel, returnsNormally);
+        expect(
+          Agent.getProvider('openai').createEmbeddingsModel,
+          returnsNormally,
+        );
+        expect(
+          Agent.getProvider('google').createEmbeddingsModel,
+          returnsNormally,
+        );
+        expect(
+          Agent.getProvider('mistral').createEmbeddingsModel,
+          returnsNormally,
+        );
+        expect(
+          Agent.getProvider('cohere').createEmbeddingsModel,
+          returnsNormally,
+        );
       });
     });
 
     group('Error Handling', () {
       test('Invalid provider name throws', () {
         expect(
-          () => Providers.get('invalid-provider'),
+          () => Agent.getProvider('invalid-provider'),
           throwsA(
             isA<Exception>().having(
               (e) => e.toString(),

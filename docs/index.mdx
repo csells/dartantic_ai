@@ -46,14 +46,28 @@ Enjoy!
 ## What is Dartantic AI?
 
 One API, multiple provider configurations out of the box:
-- **6 native implementations**: OpenAI, OpenAI Responses, Google (Gemini),
-  Anthropic (Claude), Mistral, Ollama
-- **5 OpenAI-compatible**: OpenRouter, Together AI, Cohere, Google-OpenAI,
-  Ollama-OpenAI
-- **Chat + Embeddings**: OpenAI, OpenAI Responses, Google, Mistral, Cohere all
-  support both
-- **Thinking metadata + server-side tools**: OpenAI Responses exposes reasoning
-  text and provider-hosted tools today
+- **Agentic behavior with multi-step tool calling:** Let your AI agents
+  autonomously chain tool calls together to solve multi-step problems without
+  human intervention.
+- **Multiple Providers Out of the Box** - OpenAI, OpenAI Responses, Google,
+  Anthropic, Mistral, Cohere, Ollama, and more
+- **OpenAI-Compatibility** - Access to literally thousands of providers via the
+  OpenAI API that nearly every single modern LLM provider implements
+- **Streaming Output** - Real-time response generation
+- **Typed Outputs and Tool Calling** - Uses Dart types and JSON serialization
+- **Multimedia Input** - Process text, images, and files
+- **Media Generation** - Stream images, PDFs, and other artifacts from OpenAI
+  Responses, Google Gemini (Nana Banana), and Anthropic code execution
+- **Embeddings** - Vector generation and semantic search
+- **Model Reasoning ("Thinking")** - Extended reasoning support across OpenAI
+  Responses, Anthropic, and Google
+- **Provider-Hosted Server-Side Tools** - Web search, file search, image
+  generation, and code interpreter via OpenAI Responses, Anthropic, and Google
+- **MCP Support** - Model Context Protocol server integration
+- **Provider Switching** - Switch between AI providers mid-conversation
+- **Production Ready**: Built-in logging, error handling, and retry handling
+- **Extensible**: Easy to add custom providers as well as tools of your own or
+  from your favorite MCP servers
 
 Switch providers with one line of code. All models. Single API. Enjoy!
 
@@ -119,17 +133,6 @@ final result2 = await claude.send('What\'s my name?', history: history);
 print(result2.output); // "Your name is Alice"
 ```
 
-## Key Features
-
-- **Unified API**: Same code for all providers
-- **Agent-Based**: Automatic tool execution and state management
-- **Multi-Provider**: Share conversations between providers
-- **Streaming**: Real-time responses
-- **Tools**: Extend with custom functions
-- **Typed Output**: Get structured data back
-- **Embeddings**: Vector operations with same Agent
-- **MCP Support**: Connect to external tools
-
 ## Examples
 
 See complete working examples:
@@ -148,5 +151,5 @@ See complete working examples:
 
 - [Quick Start Guide](/quick-start)
 - [Providers](/providers) - Available providers and capabilities
-- [Thinking Metadata](/thinking) - Surface provider reasoning streams
+- [Extended Thinking](/thinking) - Surface model reasoning alongside responses
 - [Server-Side Tools](/server-side-tools) - Built-in provider tools

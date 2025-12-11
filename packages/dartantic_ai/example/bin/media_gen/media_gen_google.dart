@@ -1,0 +1,53 @@
+import 'dart:io';
+
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:example/example.dart';
+
+void main() async {
+  const outputDir = 'tmp';
+
+  stdout.writeln('=== Google Media Generation Demo ===');
+  stdout.writeln('Assets will be written to: $outputDir\n');
+
+  final agent = Agent('google');
+
+  // Image generation using Nano Banana
+  stdout.writeln('## Google: Image via generateMedia() using Nano Banana');
+  final imageResult = await agent.generateMedia(
+    'Create a minimalist robot mascot for a developer conference. '
+    'Use high contrast black and white line art.',
+    mimeTypes: const ['image/png'],
+  );
+  dumpAssets(imageResult.assets, outputDir, fallbackPrefix: 'google_image');
+
+  // PDF generation
+  stdout.writeln('\n## Google: PDF via generateMedia()');
+  final pdfResult = await agent.generateMedia(
+    'Create a one-page PDF file called "status_report.pdf" with the title '
+    '"Project Status" and three bullet points summarizing a software project.',
+    mimeTypes: const ['application/pdf'],
+  );
+  dumpAssets(pdfResult.assets, outputDir, fallbackPrefix: 'google_report');
+
+  // CSV generation
+  stdout.writeln('\n## Google: CSV via generateMedia()');
+  final csvResult = await agent.generateMedia(
+    'Create a CSV file called "metrics.csv" with columns: date, users, '
+    'revenue. Add 5 rows of sample data for the past week.',
+    mimeTypes: const ['text/csv'],
+  );
+  dumpAssets(csvResult.assets, outputDir, fallbackPrefix: 'google_data');
+
+  // Image generation using Nano Banana Pro
+  final nbpAgent = Agent('google?media=gemini-3-pro-image-preview');
+  stdout.writeln(
+    '\n## Google: Image via generateMedia() using Nano Banana Pro!',
+  );
+  final nbpResult = await nbpAgent.generateMedia(
+    'Create a 3D model of a minimalist robot mascot for a developer conference',
+    mimeTypes: const ['image/png'],
+  );
+  dumpAssets(nbpResult.assets, outputDir, fallbackPrefix: 'google_nbp_image');
+
+  exit(0);
+}

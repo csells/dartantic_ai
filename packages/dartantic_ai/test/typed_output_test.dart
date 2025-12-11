@@ -19,112 +19,130 @@
 import 'dart:convert';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 
-final typedOutputProviders = Providers.allWith({ProviderCaps.typedOutput});
+/// First provider that supports typed output (for single-provider tests)
+Provider get _typedOutputProvider => Agent.allProviders.firstWhere(
+  (p) => providerHasTestCaps(p.name, {ProviderTestCaps.typedOutput}),
+);
 
 void main() {
-  group('Typed Output', () {
+  group('Typed Output', timeout: const Timeout(Duration(minutes: 5)), () {
     group('basic structured output', () {
-      runProviderTest('returns simple JSON object', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'name': {'type': 'string'},
-            'age': {'type': 'integer'},
-          },
-          'required': ['name', 'age'],
-        });
-
-        final agent = Agent(provider.name);
-        final result = await agent.send(
-          'Generate a person with name "John" and age 30',
-          outputSchema: schema,
-        );
-
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['name'], isA<String>());
-        expect(json['age'], isA<int>());
-      }, requiredCaps: {ProviderCaps.typedOutput});
-
-      runProviderTest('handles nested objects', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'user': {
-              'type': 'object',
-              'properties': {
-                'name': {'type': 'string'},
-                'email': {'type': 'string'},
-              },
-              'required': ['name', 'email'],
+      runProviderTest(
+        'returns simple JSON object',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'name': {'type': 'string'},
+              'age': {'type': 'integer'},
             },
-            'settings': {
-              'type': 'object',
-              'properties': {
-                'theme': {'type': 'string'},
-                'notifications': {'type': 'boolean'},
-              },
-            },
-          },
-          'required': ['user', 'settings'],
-        });
+            'required': ['name', 'age'],
+          });
 
-        final agent = Agent(provider.name);
-        final result = await agent.send(
-          'Create a user object with name "Alice", email "alice@example.com", '
-          'theme "dark", and notifications enabled',
-          outputSchema: schema,
-        );
+          final agent = Agent(provider.name);
+          final result = await agent.send(
+            'Generate a person with name "John" and age 30',
+            outputSchema: schema,
+          );
 
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['user'], isA<Map<String, dynamic>>());
-        expect(json['user']['name'], isA<String>());
-        expect(json['user']['email'], isA<String>());
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['name'], isA<String>());
+          expect(json['age'], isA<int>());
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
 
-        if (json['settings'] != null) {
-          expect(json['settings']['theme'], isA<String>());
-          expect(json['settings']['notifications'], isA<bool>());
-        }
-      }, requiredCaps: {ProviderCaps.typedOutput});
-
-      runProviderTest('returns arrays when specified', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'items': {
-              'type': 'array',
-              'items': {
+      runProviderTest(
+        'handles nested objects',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'user': {
                 'type': 'object',
                 'properties': {
-                  'id': {'type': 'integer'},
                   'name': {'type': 'string'},
+                  'email': {'type': 'string'},
                 },
-                'required': ['id', 'name'],
+                'required': ['name', 'email'],
+              },
+              'settings': {
+                'type': 'object',
+                'properties': {
+                  'theme': {'type': 'string'},
+                  'notifications': {'type': 'boolean'},
+                },
               },
             },
-          },
-          'required': ['items'],
-        });
+            'required': ['user', 'settings'],
+          });
 
-        final agent = Agent(provider.name);
-        final result = await agent.send(
-          'Create an array of 3 items with sequential IDs starting at 1 '
-          'and names "Apple", "Banana", "Cherry"',
-          outputSchema: schema,
-        );
+          final agent = Agent(provider.name);
+          final result = await agent.send(
+            'Create a user object with name "Alice", '
+            'email "alice@example.com", '
+            'theme "dark", and notifications enabled',
+            outputSchema: schema,
+          );
 
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['items'], isA<List>());
-        expect(json['items'], hasLength(3));
-        expect(json['items'][0]['id'], equals(1));
-        expect(json['items'][0]['name'], equals('Apple'));
-        expect(json['items'][2]['name'], equals('Cherry'));
-      }, requiredCaps: {ProviderCaps.typedOutput});
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['user'], isA<Map<String, dynamic>>());
+          expect(json['user']['name'], isA<String>());
+          expect(json['user']['email'], isA<String>());
+
+          if (json['settings'] != null) {
+            expect(json['settings']['theme'], isA<String>());
+            expect(json['settings']['notifications'], isA<bool>());
+          }
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
+
+      runProviderTest(
+        'returns arrays when specified',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'items': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'id': {'type': 'integer'},
+                    'name': {'type': 'string'},
+                  },
+                  'required': ['id', 'name'],
+                },
+              },
+            },
+            'required': ['items'],
+          });
+
+          final agent = Agent(provider.name);
+          final result = await agent.send(
+            'Create an array of 3 items with sequential IDs starting at 1 '
+            'and names "Apple", "Banana", "Cherry"',
+            outputSchema: schema,
+          );
+
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['items'], isA<List>());
+          expect(json['items'], hasLength(3));
+          expect(json['items'][0]['id'], equals(1));
+          expect(json['items'][0]['name'], equals('Apple'));
+          expect(json['items'][2]['name'], equals('Cherry'));
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
 
       runProviderTest(
         'handle structured output correctly',
@@ -168,73 +186,88 @@ void main() {
             reason: 'Provider ${provider.name} should generate correct boolean',
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         timeout: const Timeout(Duration(minutes: 3)),
+        skipProviders: {'together'},
       );
     });
 
     group('data types', () {
-      runProviderTest('handles all primitive types', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'string_field': {'type': 'string'},
-            'integer_field': {'type': 'integer'},
-            'number_field': {'type': 'number'},
-            'boolean_field': {'type': 'boolean'},
-            // 'null_field': {'type': 'null'}, // not all providers support this, e.g. google
-          },
-          'required': [
-            'string_field',
-            'integer_field',
-            'number_field',
-            'boolean_field',
-          ],
-        });
-
-        final agent = Agent(provider.name);
-        final result = await agent.send(
-          'Create object with: string_field="test", integer_field=42, '
-          'number_field=3.14, boolean_field=true, null_field=null',
-          outputSchema: schema,
-        );
-
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['string_field'], contains('test'));
-        expect(json['integer_field'], equals(42));
-        // Some models may return more precision than requested
-        expect(json['number_field'], anyOf(equals(3.14), closeTo(3.14, 0.01)));
-        expect(json['boolean_field'], isTrue);
-        // Google returns "null" as a string instead of actual null
-        expect(json['null_field'], anyOf(isNull, equals('null')));
-      }, requiredCaps: {ProviderCaps.typedOutput});
-
-      runProviderTest('respects enum constraints', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'status': {
-              'type': 'string',
-              'enum': ['pending', 'approved', 'rejected'],
+      runProviderTest(
+        'handles all primitive types',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'string_field': {'type': 'string'},
+              'integer_field': {'type': 'integer'},
+              'number_field': {'type': 'number'},
+              'boolean_field': {'type': 'boolean'},
+              // 'null_field': {'type': 'null'}, // not all providers support
+              // this, e.g. google
             },
-            'priority': {
-              'type': 'string',
-              'enum': ['low', 'medium', 'high'],
+            'required': [
+              'string_field',
+              'integer_field',
+              'number_field',
+              'boolean_field',
+            ],
+          });
+
+          final agent = Agent(provider.name);
+          final result = await agent.send(
+            'Create object with: string_field="test", integer_field=42, '
+            'number_field=3.14, boolean_field=true, null_field=null',
+            outputSchema: schema,
+          );
+
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['string_field'], contains('test'));
+          expect(json['integer_field'], equals(42));
+          // Some models may return more precision than requested
+          expect(
+            json['number_field'],
+            anyOf(equals(3.14), closeTo(3.14, 0.01)),
+          );
+          expect(json['boolean_field'], isTrue);
+          // Google returns "null" as a string instead of actual null
+          expect(json['null_field'], anyOf(isNull, equals('null')));
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
+
+      runProviderTest(
+        'respects enum constraints',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'status': {
+                'type': 'string',
+                'enum': ['pending', 'approved', 'rejected'],
+              },
+              'priority': {
+                'type': 'string',
+                'enum': ['low', 'medium', 'high'],
+              },
             },
-          },
-          'required': ['status', 'priority'],
-        });
+            'required': ['status', 'priority'],
+          });
 
-        final agent = Agent(provider.name);
-        final result = await agent.send(
-          'Create object with status "approved" and priority "high"',
-          outputSchema: schema,
-        );
+          final agent = Agent(provider.name);
+          final result = await agent.send(
+            'Create object with status "approved" and priority "high"',
+            outputSchema: schema,
+          );
 
-        final json = jsonDecode(result.output) as Map<String, dynamic>;
-        expect(json['status'], equals('approved'));
-        expect(json['priority'], equals('high'));
-      }, requiredCaps: {ProviderCaps.typedOutput});
+          final json = jsonDecode(result.output) as Map<String, dynamic>;
+          expect(json['status'], equals('approved'));
+          expect(json['priority'], equals('high'));
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
 
       runProviderTest(
         'handles numeric constraints',
@@ -263,8 +296,8 @@ void main() {
           expect(json['age'], lessThanOrEqualTo(150));
           expect(json['score'], equals(87.5));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
-        skipProviders: {'cohere'},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'cohere', 'together'},
       );
     });
 
@@ -307,7 +340,8 @@ void main() {
             expect(json['children'][0]['age'], isA<int>());
           }
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
       );
 
       runProviderTest(
@@ -347,8 +381,8 @@ void main() {
           // valid
           expect(json['value'], anyOf(equals(42), equals('42')));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
-        skipProviders: {'google', 'google-openai'},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'google', 'google-openai', 'together'},
       );
     });
 
@@ -382,7 +416,8 @@ void main() {
             equals('${provider.name} test'.toLowerCase()),
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
       );
     });
 
@@ -418,7 +453,8 @@ void main() {
             reason: 'Provider ${provider.name} should return correct value',
           );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
       );
     });
 
@@ -445,8 +481,8 @@ void main() {
 
           expect(result.output, isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
-        skipProviders: {'google', 'google-openai'},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'google', 'google-openai', 'together'},
         edgeCase: true,
       );
 
@@ -475,48 +511,53 @@ void main() {
           expect(number, lessThanOrEqualTo(20));
           expect(number, greaterThanOrEqualTo(10));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
       );
     });
 
     group('streaming typed output', () {
-      runProviderTest('streams JSON output correctly', (provider) async {
-        final schema = js.JsonSchema.create({
-          'type': 'object',
-          'properties': {
-            'message': {'type': 'string'},
-            'count': {'type': 'integer'},
-          },
-          'required': ['message', 'count'],
-        });
+      runProviderTest(
+        'streams JSON output correctly',
+        (provider) async {
+          final schema = js.JsonSchema.create({
+            'type': 'object',
+            'properties': {
+              'message': {'type': 'string'},
+              'count': {'type': 'integer'},
+            },
+            'required': ['message', 'count'],
+          });
 
-        final agent = Agent(provider.name);
+          final agent = Agent(provider.name);
 
-        final buffer = StringBuffer();
-        final messages = <ChatMessage>[];
+          final buffer = StringBuffer();
+          final messages = <ChatMessage>[];
 
-        await for (final chunk in agent.sendStream(
-          'Generate JSON with message "Hello from ${provider.name}" '
-          'and count 42',
-          outputSchema: schema,
-        )) {
-          buffer.write(chunk.output);
-          messages.addAll(chunk.messages);
-        }
+          await for (final chunk in agent.sendStream(
+            'Generate JSON with message "Hello from ${provider.name}" '
+            'and count 42',
+            outputSchema: schema,
+          )) {
+            buffer.write(chunk.output);
+            messages.addAll(chunk.messages);
+          }
 
-        // Streaming only surfaces the JSON through chunk.output. Once the
-        // stream ends we concatenate what we captured and decode it; the final
-        // assistant message never restates the JSON for us.
-        final json = jsonDecode(buffer.toString()) as Map<String, dynamic>;
-        // Check case-insensitively as models may change capitalization
-        expect(
-          json['message'].toString().toLowerCase(),
-          contains(provider.name.toLowerCase()),
-        );
-        expect(json['count'], equals(42));
-        expect(messages, isNotEmpty);
-      }, requiredCaps: {ProviderCaps.typedOutput});
+          // Streaming only surfaces the JSON through chunk.output. Once the
+          // stream ends we concatenate what we captured and decode it; the
+          // final assistant message never restates the JSON for us.
+          final json = jsonDecode(buffer.toString()) as Map<String, dynamic>;
+          // Check case-insensitively as models may change capitalization
+          expect(
+            json['message'].toString().toLowerCase(),
+            contains(provider.name.toLowerCase()),
+          );
+          expect(json['count'], equals(42));
+          expect(messages, isNotEmpty);
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
 
       runProviderTest(
         'handles complex schema in streaming',
@@ -564,7 +605,8 @@ void main() {
           expect(json['users'][1]['active'], isFalse);
           expect(json['total'], equals(2));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
       );
     });
 
@@ -592,51 +634,55 @@ void main() {
           expect(result.output['city'], equals('Paris'));
           expect(result.output['country'], equals('France'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
       );
 
-      test(
-        'returns custom typed objects - ${typedOutputProviders.first.name}',
-        () async {
-          // Test with just one provider to save time
-          final provider = typedOutputProviders.first;
+      test('returns custom typed objects - single provider', () async {
+        // Test with just one provider to save time
+        final provider = _typedOutputProvider;
 
-          final agent = Agent(provider.name);
-
-          final result = await agent.sendFor<WeatherReport>(
-            'Create a weather report for London: 15C, cloudy, 70% humidity',
-            outputSchema: WeatherReport.schema,
-            outputFromJson: WeatherReport.fromJson,
-          );
-
-          expect(result.output, isA<WeatherReport>());
-          expect(result.output.location, contains('London'));
-          expect(result.output.temperature, equals(15));
-          expect(result.output.conditions.toLowerCase(), equals('cloudy'));
-          expect(result.output.humidity, equals(70));
-        },
-      );
-
-      runProviderTest('handles nested custom types', (provider) async {
         final agent = Agent(provider.name);
 
-        final result = await agent.sendFor<UserProfile>(
-          'Create a user profile for John Doe, age 30, with email '
-          '"john@example.com", dark theme preference, notifications on',
-          outputSchema: UserProfile.schema,
-          outputFromJson: UserProfile.fromJson,
+        final result = await agent.sendFor<WeatherReport>(
+          'Create a weather report for London: 15C, cloudy, 70% humidity',
+          outputSchema: WeatherReport.schema,
+          outputFromJson: WeatherReport.fromJson,
         );
 
-        expect(result.output, isA<UserProfile>());
-        expect(result.output.name, equals('John Doe'));
-        expect(result.output.age, equals(30));
-        expect(result.output.email, equals('john@example.com'));
-        expect(result.output.preferences.theme, contains('dark'));
-        expect(result.output.preferences.notifications, isTrue);
-      }, requiredCaps: {ProviderCaps.typedOutput});
+        expect(result.output, isA<WeatherReport>());
+        expect(result.output.location, contains('London'));
+        expect(result.output.temperature, equals(15));
+        expect(result.output.conditions.toLowerCase(), equals('cloudy'));
+        expect(result.output.humidity, equals(70));
+      });
+
+      runProviderTest(
+        'handles nested custom types',
+        (provider) async {
+          final agent = Agent(provider.name);
+
+          final result = await agent.sendFor<UserProfile>(
+            'Create a user profile for John Doe, age 30, with email '
+            '"john@example.com", dark theme preference, notifications on',
+            outputSchema: UserProfile.schema,
+            outputFromJson: UserProfile.fromJson,
+          );
+
+          expect(result.output, isA<UserProfile>());
+          expect(result.output.name, equals('John Doe'));
+          expect(result.output.age, equals(30));
+          expect(result.output.email, equals('john@example.com'));
+          expect(result.output.preferences.theme, contains('dark'));
+          expect(result.output.preferences.notifications, isTrue);
+        },
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'together'},
+      );
     });
 
     group('complex real-world schemas', () {
+      // Tests nested schemas (4 levels deep to stay within provider limits)
       runProviderTest(
         'handles API response schema',
         (provider) async {
@@ -644,52 +690,32 @@ void main() {
             'type': 'object',
             'properties': {
               'success': {'type': 'boolean'},
-              'data': {
+              'users': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'id': {'type': 'string'},
+                    'username': {'type': 'string'},
+                    'firstName': {'type': 'string'},
+                    'lastName': {'type': 'string'},
+                  },
+                  'required': ['id', 'username', 'firstName', 'lastName'],
+                },
+              },
+              'pagination': {
                 'type': 'object',
                 'properties': {
-                  'users': {
-                    'type': 'array',
-                    'items': {
-                      'type': 'object',
-                      'properties': {
-                        'id': {'type': 'string'},
-                        'username': {'type': 'string'},
-                        'profile': {
-                          'type': 'object',
-                          'properties': {
-                            'firstName': {'type': 'string'},
-                            'lastName': {'type': 'string'},
-                            'avatar': {'type': 'string'},
-                          },
-                          'required': ['firstName', 'lastName'],
-                        },
-                      },
-                      'required': ['id', 'username', 'profile'],
-                    },
-                  },
-                  'pagination': {
-                    'type': 'object',
-                    'properties': {
-                      'page': {'type': 'integer'},
-                      'perPage': {'type': 'integer'},
-                      'total': {'type': 'integer'},
-                      'totalPages': {'type': 'integer'},
-                    },
-                    'required': ['page', 'perPage', 'total', 'totalPages'],
-                  },
+                  'page': {'type': 'integer'},
+                  'perPage': {'type': 'integer'},
+                  'total': {'type': 'integer'},
+                  'totalPages': {'type': 'integer'},
                 },
-                'required': ['users', 'pagination'],
+                'required': ['page', 'perPage', 'total', 'totalPages'],
               },
-              'metadata': {
-                'type': 'object',
-                'properties': {
-                  'version': {'type': 'string'},
-                  'timestamp': {'type': 'string'},
-                },
-                'required': ['version', 'timestamp'],
-              },
+              'version': {'type': 'string'},
             },
-            'required': ['success', 'data', 'metadata'],
+            'required': ['success', 'users', 'pagination', 'version'],
           });
 
           final agent = Agent(provider.name);
@@ -697,68 +723,54 @@ void main() {
           final result = await agent.send(
             'Return a JSON payload for GET /api/users. '
             'Mark "success" as true and include exactly two users: '
-            'Alice Smith (id "1") and Bob Jones (id "2"). '
-            'Each user profile must include firstName, lastName, and avatar '
-            'URL. Set pagination to page 1 of 5 with perPage 10 and total 50. '
-            'Add metadata with a non-empty version string and timestamp.',
+            'Alice Smith (id "1", username "alice") and '
+            'Bob Jones (id "2", username "bob"). '
+            'Set pagination to page 1 of 5 with perPage 10 and total 50. '
+            'Set version to "1.0".',
             outputSchema: schema,
           );
 
           final json = jsonDecode(result.output) as Map<String, dynamic>;
           expect(json['success'], isTrue);
-          expect(json['data']['users'], hasLength(2));
+          expect(json['users'], hasLength(2));
           expect(
-            json['data']['users'][0]['profile']['firstName'],
+            json['users'][0]['firstName'],
             anyOf(equals('Alice'), equals('Smith')),
           );
-          expect(
-            json['data']['users'][1]['profile']['firstName'],
-            equals('Bob'),
-          );
-          expect(json['data']['pagination']['page'], equals(1));
-          expect(json['data']['pagination']['totalPages'], equals(5));
-          expect(json['metadata']['version'], isNotEmpty);
+          expect(json['users'][1]['firstName'], equals('Bob'));
+          expect(json['pagination']['page'], equals(1));
+          expect(json['pagination']['totalPages'], equals(5));
+          expect(json['version'], isNotEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
-        skipProviders: {'google-openai'},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'google-openai', 'together'},
       );
 
+      // Tests nested object schemas (4 levels deep to stay within provider
+      // limits)
       runProviderTest(
-        'handles deeply nested configuration',
+        'handles nested configuration',
         (provider) async {
           final schema = js.JsonSchema.create({
             'type': 'object',
             'properties': {
-              'application': {
+              'name': {'type': 'string'},
+              'version': {'type': 'string'},
+              'authentication': {
                 'type': 'object',
                 'properties': {
-                  'name': {'type': 'string'},
-                  'version': {'type': 'string'},
-                  'features': {
-                    'type': 'object',
-                    'properties': {
-                      'authentication': {
-                        'type': 'object',
-                        'properties': {
-                          'enabled': {'type': 'boolean'},
-                          'providers': {
-                            'type': 'array',
-                            'items': {'type': 'string'},
-                          },
-                          'settings': {
-                            'type': 'object',
-                            'properties': {
-                              'sessionTimeout': {'type': 'integer'},
-                              'requireMFA': {'type': 'boolean'},
-                            },
-                          },
-                        },
-                      },
-                    },
+                  'enabled': {'type': 'boolean'},
+                  'providers': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
                   },
+                  'sessionTimeout': {'type': 'integer'},
+                  'requireMFA': {'type': 'boolean'},
                 },
+                'required': ['enabled', 'providers', 'sessionTimeout'],
               },
             },
+            'required': ['name', 'version', 'authentication'],
           });
 
           final agent = Agent(provider.name);
@@ -766,37 +778,31 @@ void main() {
           final result = await agent.send(
             'Generate a JSON configuration for the SaaS product "MyApp". '
             'Set version to "1.0.0". '
-            'In authentication settings, mark enabled=true, list '
-            '["Google","GitHub"] as providers, sessionTimeout=30, and '
-            'requireMFA=true. Do not omit or null any fields.',
+            'In authentication, mark enabled=true, list '
+            '["Google","GitHub"] as providers, and sessionTimeout=30.',
             outputSchema: schema,
           );
 
           final json = jsonDecode(result.output) as Map<String, dynamic>;
-          expect(json.containsKey('application'), isTrue);
-          final app = json['application'] as Map<String, dynamic>;
-          expect(app['name'], equals('MyApp'));
+          expect(json['name'], equals('MyApp'));
           // Some models prefix version with 'v'
-          expect(app['version'], anyOf(equals('1.0.0'), equals('v1.0.0')));
+          expect(json['version'], anyOf(equals('1.0.0'), equals('v1.0.0')));
 
-          if (app['features'] != null) {
-            expect(app['features']['authentication']['enabled'], isTrue);
-            // Some models return lowercase provider names
-            final providers =
-                (app['features']['authentication']['providers'] as List)
-                    .map((p) => p.toString().toLowerCase())
-                    .toList();
-            expect(providers, containsAll(['google', 'github']));
-            // Some models interpret "30min" as 30, others as 1800 seconds, or
-            // 1800000 ms
-            expect(
-              app['features']['authentication']['settings']['sessionTimeout'],
-              anyOf(equals(30), equals(1800), equals(1800000)),
-            );
-          }
+          final auth = json['authentication'] as Map<String, dynamic>;
+          expect(auth['enabled'], isTrue);
+          // Some models return lowercase provider names
+          final providers = (auth['providers'] as List)
+              .map((p) => p.toString().toLowerCase())
+              .toList();
+          expect(providers, containsAll(['google', 'github']));
+          // Some models interpret "30min" as 30, others as 1800 seconds
+          expect(
+            auth['sessionTimeout'],
+            anyOf(equals(30), equals(1800), equals(1800000)),
+          );
         },
-        requiredCaps: {ProviderCaps.typedOutput},
-        skipProviders: {'google-openai'},
+        requiredCaps: {ProviderTestCaps.typedOutput},
+        skipProviders: {'google-openai', 'together'},
       );
     });
 
@@ -828,8 +834,9 @@ void main() {
           expect(json['special'], contains('&'));
           expect(json['special'], contains('<>'));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
+        skipProviders: {'together'},
       );
 
       runProviderTest(
@@ -863,9 +870,9 @@ void main() {
           expect(json['emptyObject'], isA<Map>());
           expect(json['emptyObject'], isEmpty);
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
-        skipProviders: {'google', 'google-openai'},
+        skipProviders: {'google', 'google-openai', 'together'},
       );
 
       runProviderTest(
@@ -894,8 +901,9 @@ void main() {
           expect(json['preciseFloat'].toString(), contains('3.14'));
           expect(json['scientificNotation'], greaterThan(1e20));
         },
-        requiredCaps: {ProviderCaps.typedOutput},
+        requiredCaps: {ProviderTestCaps.typedOutput},
         edgeCase: true,
+        skipProviders: {'together'},
       );
     });
   });

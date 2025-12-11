@@ -1,14 +1,13 @@
 // ignore_for_file: avoid_print
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 import 'package:json_schema/json_schema.dart';
 
 /// An example of how to add and use a custom provider.
 void main() async {
   print('Adding the "echo" provider');
-  Providers.providerMap['echo'] = EchoProvider();
+  Agent.providerFactories['echo'] = EchoProvider.new;
 
   print('Using the echo provider');
   final agent = Agent('echo');
@@ -22,11 +21,11 @@ void main() async {
   print('');
   print('Successfully echoed the prompt!');
 
-  // Example: Getting a provider by name using Providers.get()
+  // Example: Getting a provider by name using Agent.createProvider()
   print('\n═══ Getting providers by name ═══');
 
   // Get a built-in provider
-  final openaiProvider = Providers.get('openai');
+  final openaiProvider = Agent.getProvider('openai');
   print('Got provider: ${openaiProvider.displayName}');
 
   // Create an agent using the provider directly
@@ -37,11 +36,11 @@ void main() async {
   print('Created agent with model: ${openaiAgent.model}');
 
   // Get our custom provider
-  final echoProvider = Providers.get('echo');
+  final echoProvider = Agent.getProvider('echo');
   print('Got custom provider: ${echoProvider.displayName}');
 
   // You can also use aliases
-  final googleProvider = Providers.get('gemini'); // alias for 'google'
+  final googleProvider = Agent.getProvider('gemini'); // alias for 'google'
   print('Got provider using alias: ${googleProvider.displayName}');
 }
 
@@ -75,20 +74,22 @@ class EchoChatModel extends ChatModel<ChatModelOptions> {
 }
 
 /// A chat provider that provides an [EchoChatModel].
-class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class EchoProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   EchoProvider()
     : super(
         name: 'echo',
         displayName: 'Echo',
         defaultModelNames: {ModelKind.chat: 'echo'},
-        caps: {ProviderCaps.chat},
       );
 
   @override
   String get name => 'echo';
-
-  @override
-  Set<ProviderCaps> get caps => {ProviderCaps.chat};
 
   @override
   Stream<ModelInfo> listModels() => Stream.fromIterable([
@@ -104,6 +105,7 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     List<Tool<Object>>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => EchoChatModel(
     name: name ?? defaultModelNames[ModelKind.chat]!,
@@ -115,4 +117,13 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     EmbeddingsModelOptions? options,
   }) => throw Exception('no support for embeddings models in this provider');
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError(
+    'no support for media generation in this provider',
+  );
 }

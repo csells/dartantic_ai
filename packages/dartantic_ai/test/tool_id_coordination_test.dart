@@ -15,7 +15,7 @@
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/chat_models/helpers/tool_id_helpers.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -328,7 +328,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
@@ -389,7 +389,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

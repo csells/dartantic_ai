@@ -7,9 +7,16 @@ import 'package:logging/logging.dart';
 
 import '../logging_options.dart';
 import '../platform/platform.dart';
+import '../providers/anthropic_provider.dart';
 import '../providers/chat_orchestrator_provider.dart';
-import '../providers/providers.dart';
+import '../providers/cohere_provider.dart';
+import '../providers/google_provider.dart';
+import '../providers/mistral_provider.dart';
+import '../providers/ollama_provider.dart';
+import '../providers/openai_provider.dart';
+import '../providers/openai_responses_provider.dart';
 import 'agent_response_accumulator.dart';
+import 'media_response_accumulator.dart';
 import 'model_string_parser.dart';
 import 'orchestrators/default_streaming_orchestrator.dart';
 import 'streaming_state.dart';
@@ -34,13 +41,19 @@ class Agent {
   /// Optional parameters:
   /// - [tools]: List of tools the agent can use
   /// - [temperature]: Model temperature (0.0 to 1.0)
+  /// - [enableThinking]: Enable extended thinking/reasoning (default: false)
+  /// - [chatModelOptions]: Provider-specific chat model configuration
+  /// - [embeddingsModelOptions]: Provider-specific embeddings configuration
+  /// - [mediaModelOptions]: Provider-specific media generation configuration
   Agent(
     String model, {
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
+    this.mediaModelOptions,
   }) {
     _checkLoggingEnvironment();
 
@@ -50,11 +63,13 @@ class Agent {
     final providerName = parser.providerName;
     final chatModelName = parser.chatModelName;
     final embeddingsModelName = parser.embeddingsModelName;
+    final mediaModelName = parser.mediaModelName;
 
     _logger.info(
       'Creating agent with model: $model (provider: $providerName, '
       'chat model: $chatModelName, '
-      'embeddings model: $embeddingsModelName)',
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName)',
     );
 
     // cache the provider name from the input; it could be an alias
@@ -62,17 +77,19 @@ class Agent {
     _displayName = displayName;
 
     // Store provider and model parameters
-    _provider = Providers.get(providerName);
+    _provider = Agent.getProvider(providerName);
 
     _chatModelName = chatModelName;
     _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
 
     _tools = tools;
     _temperature = temperature;
+    _enableThinking = enableThinking;
 
     _logger.fine(
       'Agent created successfully with ${tools?.length ?? 0} tools, '
-      'temperature: $temperature',
+      'temperature: $temperature, enableThinking: $enableThinking',
     );
   }
 
@@ -81,18 +98,22 @@ class Agent {
     Provider provider, {
     String? chatModelName,
     String? embeddingsModelName,
+    String? mediaModelName,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     String? displayName,
     this.chatModelOptions,
     this.embeddingsModelOptions,
+    this.mediaModelOptions,
   }) {
     _checkLoggingEnvironment();
 
     _logger.info(
       'Creating agent from provider: ${provider.name}, '
       'chat model: $chatModelName, '
-      'embeddings model: $embeddingsModelName',
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName',
     );
 
     _providerName = provider.name;
@@ -103,13 +124,15 @@ class Agent {
 
     _chatModelName = chatModelName;
     _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
 
     _tools = tools;
     _temperature = temperature;
+    _enableThinking = enableThinking;
 
     _logger.fine(
       'Agent created from provider with ${tools?.length ?? 0} tools, '
-      'temperature: $temperature',
+      'temperature: $temperature, enableThinking: $enableThinking',
     );
   }
 
@@ -122,6 +145,9 @@ class Agent {
   /// Gets the embeddings model name.
   String? get embeddingsModelName => _embeddingsModelName;
 
+  /// Gets the media model name.
+  String? get mediaModelName => _mediaModelName;
+
   /// Gets the fully qualified model name.
   String get model => ModelStringParser(
     providerName,
@@ -130,7 +156,16 @@ class Agent {
         (_provider.defaultModelNames.containsKey(ModelKind.chat)
             ? _provider.defaultModelNames[ModelKind.chat]
             : null),
-    embeddingsModelName: embeddingsModelName,
+    embeddingsModelName:
+        embeddingsModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.embeddings)
+            ? _provider.defaultModelNames[ModelKind.embeddings]
+            : null),
+    mediaModelName:
+        mediaModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.media)
+            ? _provider.defaultModelNames[ModelKind.media]
+            : null),
   ).toString();
 
   /// Gets the display name.
@@ -142,12 +177,17 @@ class Agent {
   /// Gets the embeddings model options.
   final EmbeddingsModelOptions? embeddingsModelOptions;
 
+  /// Gets the media model options.
+  final MediaGenerationModelOptions? mediaModelOptions;
+
   late final String _providerName;
   late final Provider _provider;
   late final String? _chatModelName;
   late final String? _embeddingsModelName;
+  late final String? _mediaModelName;
   late final List<Tool>? _tools;
   late final double? _temperature;
+  late final bool _enableThinking;
   late final String? _displayName;
 
   static final Logger _logger = Logger('dartantic.chat_agent');
@@ -252,6 +292,7 @@ class Agent {
       name: _chatModelName,
       tools: toolsToUse,
       temperature: _temperature,
+      enableThinking: _enableThinking,
       options: chatModelOptions,
     );
 
@@ -292,13 +333,16 @@ class Agent {
             outputSchema: outputSchema,
           )) {
             // Yield streaming text or metadata
-            if (result.output.isNotEmpty || result.metadata.isNotEmpty) {
+            if (result.output.isNotEmpty ||
+                result.metadata.isNotEmpty ||
+                result.thinking != null) {
               yield ChatResult<String>(
                 id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
                 output: result.output,
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: result.metadata,
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }
@@ -314,6 +358,7 @@ class Agent {
                 messages: result.messages,
                 finishReason: result.finishReason,
                 metadata: result.metadata,
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }
@@ -329,6 +374,7 @@ class Agent {
                 messages: const [],
                 finishReason: result.finishReason,
                 metadata: const {},
+                thinking: result.thinking,
                 usage: result.usage,
               );
             }
@@ -344,6 +390,94 @@ class Agent {
       }
     } finally {
       model.dispose();
+    }
+  }
+
+  /// Generates media content and returns the final aggregated result.
+  Future<MediaGenerationResult> generateMedia(
+    String prompt, {
+    required List<String> mimeTypes,
+    List<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    JsonSchema? outputSchema,
+  }) async {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _logger.info(
+      'Running media generation with ${history.length} history messages '
+      'and ${mimeTypes.length} requested MIME types',
+    );
+
+    final accumulator = MediaResponseAccumulator();
+
+    await generateMediaStream(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      attachments: attachments,
+      options: options,
+      outputSchema: outputSchema,
+    ).forEach(accumulator.add);
+
+    final finalResult = accumulator.buildFinal();
+
+    _logger.info(
+      'Media generation completed with ${finalResult.assets.length} assets '
+      'and ${finalResult.links.length} links',
+    );
+
+    return finalResult;
+  }
+
+  /// Generates media content and returns a stream of incremental results.
+  Stream<MediaGenerationResult> generateMediaStream(
+    String prompt, {
+    required List<String> mimeTypes,
+    List<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    JsonSchema? outputSchema,
+  }) async* {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _assertNoMultipleTextParts(history);
+
+    final model = _provider.createMediaModel(
+      name: _mediaModelName,
+      tools: _tools,
+      options: mediaModelOptions,
+    );
+
+    final newUserMessage = ChatMessage.user(prompt, parts: attachments);
+    _assertNoMultipleTextParts([newUserMessage]);
+
+    yield MediaGenerationResult(messages: [newUserMessage], id: '');
+
+    await for (final chunk in model.generateMediaStream(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      attachments: attachments,
+      options: options ?? mediaModelOptions,
+      outputSchema: outputSchema,
+    )) {
+      if (chunk.messages.isNotEmpty) {
+        _assertNoMultipleTextParts(chunk.messages);
+      }
+      yield chunk;
     }
   }
 
@@ -472,5 +606,96 @@ class Agent {
     if (level != null) loggingOptions = LoggingOptions(level: level);
 
     _loggingEnvironmentChecked = true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Provider Factory Registry
+  // -------------------------------------------------------------------------
+
+  /// Factory functions for creating provider instances.
+  ///
+  /// Maps provider names (and aliases) to factory functions that create fresh
+  /// provider instances. Add custom providers by assigning to this map.
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent.providerFactories['my-provider'] = () => MyProvider();
+  /// final agent = Agent('my-provider:my-model');
+  /// ```
+  static final Map<String, Provider Function()> providerFactories = {
+    // OpenAI
+    'openai': OpenAIProvider.new,
+
+    // OpenAI Responses
+    'openai-responses': OpenAIResponsesProvider.new,
+
+    // Anthropic
+    'anthropic': AnthropicProvider.new,
+    'claude': AnthropicProvider.new,
+
+    // Google
+    'google': GoogleProvider.new,
+    'gemini': GoogleProvider.new,
+    'googleai': GoogleProvider.new,
+    'google-gla': GoogleProvider.new,
+
+    // Mistral
+    'mistral': MistralProvider.new,
+    'mistralai': MistralProvider.new,
+
+    // Cohere
+    'cohere': CohereProvider.new,
+
+    // Ollama
+    'ollama': OllamaProvider.new,
+
+    // OpenRouter
+    'openrouter': _createOpenRouterProvider,
+  };
+
+  static Provider _createOpenRouterProvider() => OpenAIProvider(
+    name: 'openrouter',
+    displayName: 'OpenRouter',
+    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
+    baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
+    apiKeyName: 'OPENROUTER_API_KEY',
+  );
+
+  /// Creates a new provider instance by name or alias (case-insensitive).
+  ///
+  /// Each call creates a fresh provider instance - providers are not cached.
+  /// Throws [Exception] if the provider name is not found.
+  ///
+  /// Example:
+  /// ```dart
+  /// final openai = Agent.createProvider('openai');
+  /// final anthropic = Agent.createProvider('claude'); // alias
+  /// ```
+  static Provider getProvider(String name) {
+    final providerName = name.toLowerCase();
+    final factory = providerFactories[providerName];
+    if (factory == null) {
+      throw Exception(
+        'Provider "$providerName" not found. '
+        'Available providers: ${providerFactories.keys.join(', ')}',
+      );
+    }
+    return factory();
+  }
+
+  /// Returns a list of all available providers (creates fresh instances).
+  ///
+  /// NOTE: Filters out aliases to avoid duplicate providers in the list.
+  static List<Provider> get allProviders {
+    final seen = <String>{};
+    final providers = <Provider>[];
+    for (final entry in providerFactories.entries) {
+      final provider = entry.value();
+      if (!seen.contains(provider.name)) {
+        seen.add(provider.name);
+        providers.add(provider);
+      }
+    }
+    return providers;
   }
 }

@@ -19,6 +19,7 @@ class GoogleEmbeddingsModel
     required String apiKey,
     required Uri baseUrl,
     http.Client? client,
+    Map<String, String>? headers,
     String? name,
     super.dimensions,
     super.batchSize = 100,
@@ -26,7 +27,7 @@ class GoogleEmbeddingsModel
   }) : _httpClient = CustomHttpClient(
          baseHttpClient: client ?? RetryHttpClient(inner: http.Client()),
          baseUrl: baseUrl,
-         headers: {'x-goog-api-key': apiKey},
+         headers: {'x-goog-api-key': apiKey, ...?headers},
          queryParams: const {},
        ),
        super(
@@ -169,11 +170,9 @@ class GoogleEmbeddingsModel
       );
 
       final response = await _service.batchEmbedContents(request);
-      final batchEmbeddings =
-          response.embeddings
-              ?.map((embedding) => embedding.values ?? const <double>[])
-              .toList(growable: false) ??
-          const <List<double>>[];
+      final batchEmbeddings = response.embeddings
+          .map((embedding) => embedding.values)
+          .toList(growable: false);
       allEmbeddings.addAll(batchEmbeddings);
 
       _logger.fine(

@@ -24,12 +24,14 @@ class OpenAIResponsesChatModel
     this.baseUrl,
     this.apiKey,
     http.Client? httpClient,
+    Map<String, String>? headers,
   }) : _client = openai.OpenAIClient(
          apiKey: apiKey,
          // openai_core requires non-nullable baseUrl, use Responses endpoint
          // as default
          baseUrl: baseUrl?.toString() ?? 'https://api.openai.com/v1/responses',
          httpClient: RetryHttpClient(inner: httpClient ?? http.Client()),
+         headers: headers,
        );
 
   static final Logger _logger = Logger(
@@ -159,7 +161,7 @@ class OpenAIResponsesChatModel
       maxOutputTokens: invocation.parameters.maxOutputTokens,
       reasoning: invocation.parameters.reasoning,
       text: invocation.parameters.textFormat,
-      toolChoice: invocation.parameters.toolChoice,
+      toolChoice: null,
       tools: allTools.isEmpty ? null : allTools,
       parallelToolCalls: invocation.parameters.parallelToolCalls,
       metadata: invocation.parameters.metadata,

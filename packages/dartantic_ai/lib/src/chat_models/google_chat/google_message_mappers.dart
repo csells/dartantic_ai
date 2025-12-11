@@ -3,7 +3,6 @@ import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dar
     as gl;
 import 'package:logging/logging.dart';
 
-import '../helpers/google_schema_helpers.dart';
 import '../helpers/message_part_helpers.dart';
 import '../helpers/protobuf_value_helpers.dart';
 import '../helpers/tool_id_helpers.dart';
@@ -138,7 +137,7 @@ extension MessageListMapper on List<ChatMessage> {
             gl.Part(
               fileData: gl.FileData(
                 fileUri: url.toString(),
-                mimeType: mimeType,
+                mimeType: mimeType ?? 'application/octet-stream',
               ),
             ),
           );
@@ -202,7 +201,7 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
   /// Converts this [gl.GenerateContentResponse] to a [ChatResult].
   ChatResult<ChatMessage> toChatResult(String model) {
     final candidateList = candidates;
-    if (candidateList == null || candidateList.isEmpty) {
+    if (candidateList.isEmpty) {
       throw StateError('Google response did not contain any candidates.');
     }
 
@@ -210,6 +209,7 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
     final parts = <Part>[];
     final executableCodeParts = <gl.ExecutableCode>[];
     final executionResults = <gl.CodeExecutionResult>[];
+    final thinkingBuffer = StringBuffer();
 
     final contentParts = candidate.content?.parts ?? const <gl.Part>[];
     _logger.fine(
@@ -217,45 +217,45 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
     );
 
     for (final part in contentParts) {
+      // Check if this is a thinking part (thought=true)
+      final isThought = part.thought;
+
       final text = part.text;
       if (text != null && text.isNotEmpty) {
-        parts.add(TextPart(text));
+        if (isThought) {
+          // Accumulate thinking content, don't add to regular parts
+          thinkingBuffer.write(text);
+          _logger.fine('Accumulated thinking text: ${text.length} chars');
+        } else {
+          parts.add(TextPart(text));
+        }
       }
 
       final blob = part.inlineData;
       final blobData = blob?.data;
       if (blob != null && blobData != null) {
-        parts.add(
-          DataPart(
-            blobData,
-            mimeType: blob.mimeType ?? 'application/octet-stream',
-          ),
-        );
+        parts.add(DataPart(blobData, mimeType: blob.mimeType));
       }
 
       final fileData = part.fileData;
-      if (fileData != null && fileData.fileUri != null) {
+      if (fileData != null) {
         parts.add(
-          LinkPart(Uri.parse(fileData.fileUri!), mimeType: fileData.mimeType),
+          LinkPart(Uri.parse(fileData.fileUri), mimeType: fileData.mimeType),
         );
       }
 
       final functionCall = part.functionCall;
       if (functionCall != null) {
         final args = ProtobufValueHelpers.structToJson(functionCall.args);
-        final callId = (functionCall.id != null && functionCall.id!.isNotEmpty)
-            ? functionCall.id!
+        final callId = (functionCall.id.isNotEmpty)
+            ? functionCall.id
             : ToolIdHelpers.generateToolCallId(
-                toolName: functionCall.name ?? 'tool',
+                toolName: functionCall.name,
                 providerHint: 'google',
                 arguments: args,
               );
         parts.add(
-          ToolPart.call(
-            id: callId,
-            name: functionCall.name ?? 'tool',
-            arguments: args,
-          ),
+          ToolPart.call(id: callId, name: functionCall.name, arguments: args),
         );
       }
 
@@ -264,18 +264,17 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
         final responseMap = ProtobufValueHelpers.structToJson(
           functionResponse.response,
         );
-        final responseId =
-            (functionResponse.id != null && functionResponse.id!.isNotEmpty)
-            ? functionResponse.id!
+        final responseId = (functionResponse.id.isNotEmpty)
+            ? functionResponse.id
             : ToolIdHelpers.generateToolCallId(
-                toolName: functionResponse.name ?? 'tool',
+                toolName: functionResponse.name,
                 providerHint: 'google',
                 arguments: responseMap,
               );
         parts.add(
           ToolPart.result(
             id: responseId,
-            name: functionResponse.name ?? 'tool',
+            name: functionResponse.name,
             result: responseMap,
           ),
         );
@@ -296,28 +295,28 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
 
     final metadata = <String, dynamic>{
       'model': model,
-      if (modelVersion != null) 'model_version': modelVersion,
+      'model_version': modelVersion,
     };
 
-    final blockReason = promptFeedback?.blockReason?.value;
+    final blockReason = promptFeedback?.blockReason.value;
     if (blockReason != null) {
       metadata['block_reason'] = blockReason;
     }
 
     final safetyRatings = candidate.safetyRatings
-        ?.map(
+        .map(
           (rating) => {
-            'category': rating.category?.value,
-            'probability': rating.probability?.value,
+            'category': rating.category.value,
+            'probability': rating.probability.value,
           },
         )
         .toList(growable: false);
-    if (safetyRatings != null && safetyRatings.isNotEmpty) {
+    if (safetyRatings.isNotEmpty) {
       metadata['safety_ratings'] = safetyRatings;
     }
 
     final citations = candidate.citationMetadata?.citationSources
-        ?.map(
+        .map(
           (s) => {
             'start_index': s.startIndex,
             'end_index': s.endIndex,
@@ -345,9 +344,18 @@ extension GenerateContentResponseMapper on gl.GenerateContentResponse {
       (_, value) => value == null || (value is List && value.isEmpty),
     );
 
+    // Add thinking as first-class field
+    final thinking = thinkingBuffer.isNotEmpty
+        ? thinkingBuffer.toString()
+        : null;
+    if (thinking != null) {
+      _logger.fine('Added thinking: ${thinking.length} chars');
+    }
+
     return ChatResult<ChatMessage>(
       output: message,
       messages: [message],
+      thinking: thinking,
       finishReason: _mapFinishReason(candidate.finishReason),
       metadata: metadata,
       usage: usageMetadata != null
@@ -426,12 +434,16 @@ extension SafetySettingsMapper on List<ChatGoogleGenerativeAISafetySetting> {
 /// Extension on [List<Tool>?] to convert to Gemini tools.
 extension ChatToolListMapper on List<Tool>? {
   /// Converts this list of [Tool]s to a list of [gl.Tool]s, optionally enabling
-  /// code execution.
-  List<gl.Tool>? toToolList({required bool enableCodeExecution}) {
+  /// code execution and Google Search.
+  List<gl.Tool>? toToolList({
+    required bool enableCodeExecution,
+    required bool enableGoogleSearch,
+  }) {
     final hasTools = this != null && this!.isNotEmpty;
     _logger.fine(
       'Converting tools to Google format: hasTools=$hasTools, '
       'enableCodeExecution=$enableCodeExecution, '
+      'enableGoogleSearch=$enableGoogleSearch, '
       'toolCount=${this?.length ?? 0}',
     );
 
@@ -441,8 +453,9 @@ extension ChatToolListMapper on List<Tool>? {
                 (tool) => gl.FunctionDeclaration(
                   name: tool.name,
                   description: tool.description,
-                  parameters: tool.inputSchema.schemaMap != null
-                      ? GoogleSchemaHelpers.schemaFromJson(
+                  // Use native JSON Schema support via parametersJsonSchema
+                  parametersJsonSchema: tool.inputSchema.schemaMap != null
+                      ? ProtobufValueHelpers.valueFromJson(
                           Map<String, dynamic>.from(
                             tool.inputSchema.schemaMap!,
                           ),
@@ -454,24 +467,20 @@ extension ChatToolListMapper on List<Tool>? {
         : null;
 
     final codeExecution = enableCodeExecution ? gl.CodeExecution() : null;
+    final googleSearch = enableGoogleSearch ? gl.Tool_GoogleSearch() : null;
 
     if ((functionDeclarations == null || functionDeclarations.isEmpty) &&
-        codeExecution == null) {
+        codeExecution == null &&
+        googleSearch == null) {
       return null;
     }
 
     return [
       gl.Tool(
-        functionDeclarations: functionDeclarations,
+        functionDeclarations: functionDeclarations ?? const [],
         codeExecution: codeExecution,
+        googleSearch: googleSearch,
       ),
     ];
   }
-}
-
-/// Extension on [Map<String, dynamic>] to convert to a Gemini [gl.Schema].
-extension GoogleSchemaMapper on Map<String, dynamic> {
-  /// Converts this map to a [gl.Schema].
-  gl.Schema toGoogleSchema() =>
-      GoogleSchemaHelpers.schemaFromJson(Map<String, dynamic>.from(this));
 }

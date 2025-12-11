@@ -1,3 +1,210 @@
+## 2.0.0
+
+### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
+
+It's no longer necessary to manually include the dartantic_interface package.
+
+```dart
+// OLD - had to import both packages
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+
+// NEW - one import does it all
+import 'package:dartantic_ai/dartantic_ai.dart';
+```
+
+### Breaking Change: Provider Factory Registry
+
+Provider lookup has been moved from the `Providers` class to `Agent` static
+methods. Providers are now created via factory functions not cached instances.
+
+```dart
+// OLD
+final provider = Providers.get('openai');
+final allProviders = Providers.all;
+Providers.providerMap['custom'] = MyProvider();
+final provider2 = Providers.openai;
+
+// NEW
+final provider = Agent.getProvider('openai');
+final allProviders = Agent.allProviders;
+Agent.providerFactories['custom'] = MyProvider.new;
+final provider2 = OpenAIProvider();
+```
+
+### Breaking Change: Moved OpenAI-compat providers to example (except OpenRouter)
+
+Removed the following intrinsic providers from dartantic to the
+`openai_compat.dart` example:
+- `google-openai`
+- `together`
+- `ollama-openai`
+
+The `openrouter` OpenAI-compatible provider remains as an intrinsic provider.
+
+### Breaking Changes: Simplified Thinking API
+
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers that support
+thinking:
+
+```dart
+// OLD
+final agent = Agent(
+  'openai-responses:gpt5',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
+);
+final thinking = result.metadata['thinking'] as String?;
+
+// NEW
+final agent = Agent('openai-responses:gpt5', enableThinking: true);
+final thinking = result.thinking;
+```
+
+- Provider-specific fine-tuning options remain for advanced use cases:
+  - `GoogleChatModelOptions.thinkingBudgetTokens`
+  - `AnthropicChatOptions.thinkingBudgetTokens`
+  - `OpenAIResponsesChatModelOptions.reasoningSummary`
+
+### Breaking Change: Removed `ProviderCaps`
+
+The `ProviderCaps` type was removed from the provider implementation and moved
+to a helper function in the tests.
+
+```dart
+// OLD
+final visionProviders = Providers.allWith({ProviderCaps.chatVision});
+
+// NEW
+// use Provider.listModels() and choose via ModelInfo instead
+```
+
+### New: Custom Headers for Enterprise
+
+All providers now support custom HTTP headers for enterprise scenarios like
+authentication proxies, request tracing, or compliance logging:
+
+```dart
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
+```
+
+### Updated: Google Native JSON Schema Support
+
+Google's Gemini API now uses native JSON Schema support for both:
+
+- **Typed output** via `responseJsonSchema` - for structured responses
+- **Tool parameters** via `parametersJsonSchema` - for function calling
+
+This replaces the previous custom `Schema` object conversion, enabling better
+support for complex schemas including `anyOf`, `$ref`, and other JSON Schema
+features that were previously rejected.
+
+This is an internal change with no API surface changes for you except that now
+you can pass more complex JSON schemas to Google models for both typed output
+and tool definitions.
+
+### New: Google Function Calling Mode
+
+Added `functionCallingMode` and `allowedFunctionNames` options to
+`GoogleChatModelOptions` for controlling tool/function calling behavior:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    functionCallingMode: GoogleFunctionCallingMode.any, // Force tool calls
+    allowedFunctionNames: ['get_weather'], // Limit to specific functions
+  ),
+);
+```
+
+Available modes:
+- `auto` (default): Model decides when to call functions
+- `any`: Model always calls a function
+- `none`: Model never calls functions
+- `validated`: Like auto but validates calls with constrained decoding
+
+### New Model Type: Media Generation
+
+```dart
+final agent = Agent('google');
+
+// Image generation - uses Nano Banana by default (gemini-2.5-flash-image)
+final imageResult = await agent.generateMedia(
+  'Create a minimalist robot mascot for a developer conference.',
+  mimeTypes: const ['image/png'],
+);
+
+// Or specify the model explicitly (like Nano Banana Pro)
+final agent = Agent('google?media=gemini-3-pro-image-preview');
+```
+
+- Added media generation APIs to `Agent` (`generateMedia` and
+  `generateMediaStream`) with streaming aggregation helpers.
+
+- Added media generation support for the `OpenAIResponsesProvider`,
+  `GoogleProvider` and `AnthropicProvider` implementations `createMediaModel`.
+  All three of them support generating media with a prompt and a mime type,
+  using a combination of their intrinsic image generation and their server-side
+  code execution environments to generate files of all types.
+
+- Extended `ModelStringParser` with `media=` selectors and added media-specific
+  defaults in the provider registry.
+
+Check out the new media-gen examples to see them in action.
+
+### New: Server-Side Tools Across Providers
+
+Server-side tools are now supported across multiple providers:
+
+| Provider             | Tools Available                                             |
+| -------------------- | ----------------------------------------------------------- |
+| **OpenAI Responses** | Web Search, File Search, Image Generation, Code Interpreter |
+| **Google**           | Google Search (Grounding), Code Execution                   |
+| **Anthropic**        | Web Search, Web Fetch, Code Interpreter                     |
+
+```dart
+// Google server-side tools
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+// Anthropic server-side tools
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+```
+
+You can see how they all work in the new set of server-side tooling examples.
+
+## 1.3.0
+
+- **Anthropic Extended Thinking Support**: Added support for Anthropic's
+  extended thinking (chain-of-thought reasoning) exposed in the same way as the
+  OpenAI Responses provider does, so you can write your code to look for
+  thinking output regardless of the provider.
+- **Ollama Typed Output Support**: Ollama now supports JSON schema natively
+  through the updated `ollama_dart` package.
+- **Mistral Usage Tracking**: The updated `mistralai_dart` package now includes
+  the usage field natively in `ChatCompletionStreamResponse`, providing accurate
+  token counts for prompt, response, and totals.
+- **Cohere Multi-Tool Calling Disabled**: Removed `ProviderCaps.multiToolCalls`
+  from Cohere due to a bug in their OpenAI-compatible API wrt to toolcall IDs.
+
 ## 1.2.0
 
 Another big release!
@@ -116,28 +323,27 @@ This is a big release!
 
 ## 1.0.0
 
-### Dynamic => Static Provider instances
+### Dynamic => Static Provider factories
 
-Provider instances are now static, so you can use the `Providers` class to get
-them by name or alias:
+Provider access has moved to `Agent` static methods:
 
 ```dart
-// OLD
+// OLD (0.9.x)
 final provider = OpenAiProvider();
 final providerFactory = Agent.providers['google'];
 final providerFactoryByAlias = Agent.providers['gemini'];
 
-// NEW
-final provider1 = Providers.openai;
-final provider2 = Providers.get('google');
-final provider3 = Providers.get('gemini');
+// NEW (2.0.0)
+final provider1 = Agent.createProvider('openai');
+final provider2 = Agent.createProvider('google');
+final provider3 = Agent.createProvider('gemini');
 ```
 
 If you'd like to extend the list of providers dynamically at runtime, you can
-use the `providerMap` property of the `Providers` class:
+use the `providerFactories` map on the `Agent` class:
 
 ```dart
-Providers.providerMap['my-provider'] = MyProvider();
+Agent.providerFactories['my-provider'] = MyProvider.new;
 ```
 
 ### Agent.runXxx => Agent.sendXxx
@@ -182,7 +388,7 @@ clarity:
 final agent = Agent.provider(OpenAiProvider());
 
 // NEW
-final agent = Agent.forProvider(Providers.anthropic);
+final agent = Agent.forProvider(Agent.createProvider('anthropic'));
 ```
 
 ### Message => ChatMessage
@@ -384,7 +590,7 @@ The `Agent.sendForXxx` method now supports specifying the output type of the
 tool call:
 
 ```dart
-final provider = Providers.openai;
+final provider = Agent.createProvider('openai');
 assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
 
 // tools

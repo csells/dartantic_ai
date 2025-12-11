@@ -7,7 +7,8 @@ Your provider can expose a `ChatModel`, an `EmbeddingsModel` or both.
 
 ## Dependencies
 
-You do not need to depend on the `dartantic_ai` package to create a custom provider. The `dartantic_interface` package is all you need.
+You do not need to depend on the `dartantic_ai` package to create a custom
+provider. The `dartantic_interface` package is all you need.
 
 ```yaml
 dependencies:
@@ -19,13 +20,16 @@ dependencies:
 Here's a simple example of a custom provider that exposes a `ChatModel`:
 
 ```dart
-class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class EchoProvider extends Provider<
+  ChatModelOptions,
+  EmbeddingsModelOptions,
+  MediaGenerationModelOptions
+> {
   EchoProvider()
     : super(
         name: 'echo',
         displayName: 'Echo',
         defaultModelNames: {ModelKind.chat: 'echo'},
-        caps: {ProviderCaps.chat},
       );
 
   @override
@@ -38,6 +42,13 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     name: name ?? defaultModelNames[ModelKind.chat]!,
     defaultOptions: options,
   );
+  
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Media generation not supported');
   
   // ... other required methods
 }
@@ -80,11 +91,12 @@ print(result.output);
 
 ## Dynamic Provider Registration
 
-If you'd like to participate in the named lookup of providers, you can add your custom provider to the provider map:
+If you'd like to participate in the named lookup of providers, you can add your
+custom provider to the factory registry:
 
 ```dart
-// Add your custom provider to the registry
-Providers.providerMap['echo'] = EchoProvider();
+// Add your custom provider factory to the registry
+Agent.providerFactories['echo'] = EchoProvider.new;
 
 // Use it like any built-in provider
 final agent = Agent('echo');
@@ -92,9 +104,14 @@ final result = await agent.send('Hello!');
 print(result.output);
 ```
 
+Note: The registry maps provider names to factory functions (`Provider
+Function()`), not instances. Each time a provider is requested, a fresh instance
+is created.
+
 ## Examples
 
-- [Custom Provider](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
+- [Custom
+  Provider](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
 
 ## Next Steps
 

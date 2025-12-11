@@ -3,23 +3,25 @@ title: Providers
 description: "Providers for chat and embeddings models."
 ---
 
-Out of the box support for 11 providers, with more to come.
+Out of the box support for 8 built-in providers, with more available via the
+`openai_compat.dart` example.
 
 ## Provider Capabilities
 
 | Provider | Default Model | Default Embedding Model | Capabilities | Notes |
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
-| **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
-| **Anthropic** | `claude-sonnet-4-0` | - | Chat, Vision, Tools, Streaming | No embeddings |
-| **Google** | `gemini-2.0-flash-exp` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming | Native Gemini API |
+| **OpenAI Responses** | `gpt-5` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
+| **Anthropic** | `claude-sonnet-4-0` | - | Chat, Vision, Tools, Streaming, Thinking | Extended thinking with token budgets |
+| **Google** | `gemini-2.5-flash` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Extended thinking with dynamic budgets |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
 | **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
-| **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
-| **Together AI** | `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | - | Chat, Tools, Streaming | Open source models |
-| **Google-OpenAI** | `gemini-2.0-flash-exp` | - | Chat, Vision, Tools, Streaming | Gemini via OpenAI API |
-| **Ollama-OpenAI** | `llama3.2:latest` | - | Chat, Tools, Streaming | Ollama via OpenAI API |
+| **OpenRouter** | `google/gemini-2.5-flash` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
+
+**Note**: Together AI, Google-OpenAI, and Ollama-OpenAI have been moved to the
+`openai_compat.dart` example. You can still use them by registering them with
+`Agent.providerFactories`.
 
 ## Provider Configuration
 
@@ -33,9 +35,6 @@ Out of the box support for 11 providers, with more to come.
 | **Cohere** | `cohere` | - | `COHERE_API_KEY` | `CohereProvider` |
 | **Ollama** | `ollama` | - | None (local) | `OllamaProvider` |
 | **OpenRouter** | `openrouter` | - | `OPENROUTER_API_KEY` | `OpenAIProvider` |
-| **Together AI** | `togetherai` | `together` | `TOGETHER_API_KEY` | `OpenAIProvider` |
-| **Google-OpenAI** | `google-openai` | - | `GEMINI_API_KEY` | `OpenAIProvider` |
-| **Ollama-OpenAI** | `ollama-openai` | - | None (local) | `OpenAIProvider` |
 
 ## Setup
 
@@ -58,7 +57,10 @@ Agent('anthropic:claude-3-5-sonnet');
 // Chat + embeddings
 Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
 
-// Responses API features (thinking, server-side tools)
+// Extended thinking (OpenAI Responses, Anthropic, Google)
+Agent('anthropic:claude-sonnet-4-5', enableThinking: true);
+
+// Server-side tools (OpenAI Responses)
 Agent('openai-responses:gpt-5');
 ```
 
@@ -66,13 +68,16 @@ Agent('openai-responses:gpt-5');
 
 ```dart
 // All providers
-Providers.all
+Agent.allProviders
 
-// By capability
-Providers.allWith({ProviderCaps.chatVision})
+// By name (returns fresh instance)
+Agent.createProvider('claude') // → anthropic provider
 
-// By name
-Providers.get('claude') // → anthropic
+// For runtime capability discovery, use Provider.listModels()
+final provider = Agent.createProvider('openai');
+await for (final model in provider.listModels()) {
+  print('${model.name}: ${model.kinds}'); // Shows chat, embeddings, media, etc.
+}
 ```
 
 ## Custom Config
@@ -85,33 +90,57 @@ final provider = OpenAIProvider(
 Agent.forProvider(provider);
 ```
 
-## Check Capabilities
+## Custom Headers
+
+All providers support custom HTTP headers for enterprise scenarios like
+authentication proxies, request tracing, or compliance logging:
 
 ```dart
-// Check what a provider supports
-final agent = Agent('openrouter');
-print('Capabilities: ${provider.caps}');
-// Output: {chat, vision, toolCalls, streaming}
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
 
-// Check specific capability
-if (provider.caps.contains(ProviderCaps.embeddings)) {
+final agent = Agent.forProvider(provider);
+```
+
+Custom headers flow through to all API calls and can override internal headers
+when needed. This works consistently across OpenAI, Google, Anthropic, Mistral,
+and Ollama.
+
+## Check Capabilities
+
+Use `Provider.listModels()` for runtime capability discovery:
+
+```dart
+// List models and their capabilities
+final provider = Agent.createProvider('openai');
+await for (final model in provider.listModels()) {
+  print('${model.name}: ${model.kinds}');
+  // Output: gpt-4o: {chat}, text-embedding-3-small: {embeddings}
+}
+
+// Check if a specific model supports embeddings
+final models = await provider.listModels().toList();
+final hasEmbeddings = models.any((m) => m.kinds.contains(ModelKind.embeddings));
+if (hasEmbeddings) {
+  final agent = Agent('openai');
   final embed = await agent.embedQuery('test');
 } else {
   print('Provider does not support embeddings');
 }
 ```
 
-### Available Capabilities
+### Model Kinds
+
+Models are categorized by their kind via `ModelKind`:
 
 - **`chat`** - Chat conversations
 - **`embeddings`** - Vector embeddings
-- **`chatVision`** - Image/file processing handled by the chat model
-- **`toolCalls`** - Function calling
-- **`multiToolCalls`** - Multiple tool calls
-- **`streaming`** - Stream responses
-- **`typedOutput`** - Structured JSON output
-- **`typedOutputWithTools`** - Structured output combined with tool calls
-- **`thinking`** - Provider streams reasoning metadata (e.g. OpenAI Responses)
+- **`media`** - Media generation (images, documents, etc.)
 
 ### Typed Output With Tools
 
@@ -121,12 +150,15 @@ function calling and structured JSON output in the same request:
 | Provider | Support | Implementation |
 |----------|---------|----------------|
 | OpenAI | ✅ | Native `response_format` |
+| OpenAI Responses | ✅ | Native `response_format` |
 | Anthropic | ✅ | `return_result` tool |
 | Google | ✅ | Double agent orchestrator |
-| Together AI | ✅ | OpenAI-compatible |
 | OpenRouter | ✅ | OpenAI-compatible |
 | Ollama | ❌ | Coming soon |
 | Cohere | ❌ | API limitation |
+
+*Together AI, Google-OpenAI, and Ollama-OpenAI also support typed output with tools
+when registered via the `openai_compat.dart` example.*
 
 **Anthropic's approach** uses the `return_result` tool pattern. This is a
 special tool that allows the model to return a structured JSON response. This
@@ -140,7 +172,7 @@ Google provider.
 
 ```dart
 // List all models from a provider
-final provider = Providers.openai;
+final provider = Agent.createProvider('openai');
 await for (final model in provider.listModels()) {
   final status = model.stable ? 'stable' : 'preview';
   print('${model.name}: ${model.displayName} [$status]');

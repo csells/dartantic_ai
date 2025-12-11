@@ -6,12 +6,11 @@ import 'package:chatarang/commands.dart';
 import 'package:chatarang/history.dart';
 import 'package:cli_repl/cli_repl.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 const defaultModel = 'google';
 
 Future<void> main() async {
-  final providers = Providers.allWith({ProviderCaps.chat});
+  final providers = Agent.allProviders;
 
   final models = <String>[
     for (final provider in providers)

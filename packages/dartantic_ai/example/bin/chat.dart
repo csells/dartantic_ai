@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:example/example.dart';
 
 void main() async {
@@ -27,12 +26,10 @@ Future<void> multiTurnChat(String model) async {
   final result = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result.output.trim()}');
 
-  prompt = 'Is that typical for this time of year?';
+  prompt = 'Is that a good time for shorts?';
   stdout.writeln('User: $prompt');
   final result2 = await chat.send(prompt);
   stdout.writeln('${chat.displayName}: ${result2.output.trim()}');
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiTurnChatStream(String model) async {
@@ -49,13 +46,11 @@ Future<void> multiTurnChatStream(String model) async {
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
   stdout.writeln();
 
-  prompt = 'Is that typical for this time of year?';
+  prompt = 'Is that a good time for shorts?';
   stdout.writeln('User: $prompt');
   stdout.write('${chat.displayName}: ');
   await chat.sendStream(prompt).forEach((r) => stdout.write(r.output));
   stdout.writeln();
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiToolTypedChat(String model) async {
@@ -78,8 +73,6 @@ Future<void> multiToolTypedChat(String model) async {
   stdout.writeln(
     '${chat.displayName}: temperature= ${typedResult.output.temperature}°C',
   );
-
-  dumpMessages(chat.history);
 }
 
 Future<void> multiToolTypedChatStream(String model) async {
@@ -104,6 +97,4 @@ Future<void> multiToolTypedChatStream(String model) async {
   final tnt = TimeAndTemperature.fromJson(jsonDecode(jsonBuffer.toString()));
   stdout.writeln('${chat.displayName}: time= ${tnt.time}');
   stdout.writeln('${chat.displayName}: temperature= ${tnt.temperature}°C');
-
-  dumpMessages(chat.history);
 }

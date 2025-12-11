@@ -1,0 +1,158 @@
+---
+title: Media Generation
+description: "Generate images, PDFs, and files using a unified API across providers."
+---
+
+Dartantic provides a unified `generateMedia()` API that works across multiple
+providers. Each provider uses its own underlying mechanism (native image
+generation, code execution, etc.) but the API surface is consistent.
+
+## Provider Support
+
+| Provider | Images | PDFs | CSV/Files | Mechanism |
+|----------|--------|------|-----------|-----------|
+| **OpenAI Responses** | Native + Code | Code | Code | DALL-E + Code Interpreter |
+| **Google** | Native + Code | Code | Code | Nano Banana Pro (`gemini-3-pro-image-preview`) + Code Execution |
+| **Anthropic** | Code | Code | Code | Code Interpreter (matplotlib, reportlab) |
+
+When you request an image, Dartantic routes to the provider's native image model
+(DALL-E for OpenAI, Nano Banana Pro for Google). For other file types, it uses
+each provider's code execution environment.
+
+## Basic Usage
+
+```dart
+final agent = Agent('google'); // or 'openai-responses', 'anthropic'
+
+final result = await agent.generateMedia(
+  'Create a minimalist robot mascot for a developer conference.',
+  mimeTypes: const ['image/png'],
+);
+
+// Access generated assets
+for (final asset in result.assets) {
+  if (asset is DataPart) {
+    print('Generated: ${asset.name} (${asset.mimeType})');
+    File('output/${asset.name}').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+## Example MIME Types
+
+The `mimeTypes` parameter tells the provider what kind of output you want, e.g.
+
+- `image/png`, `image/jpeg` - Images
+- `application/pdf` - PDF documents
+- `text/csv` - CSV files
+- Other file types depend on provider code execution capabilities
+
+## Streaming Generation
+
+Use `generateMediaStream()` to receive incremental updates:
+
+```dart
+final agent = Agent('openai-responses');
+
+await for (final chunk in agent.generateMediaStream(
+  'Create a colorful abstract art piece.',
+  mimeTypes: const ['image/png'],
+)) {
+  // Check for partial/preview images in metadata
+  final previews = chunk.metadata['image_generation'] as List?;
+  if (previews != null) {
+    for (final preview in previews) {
+      final b64 = preview['partial_image_b64'] as String?;
+      if (b64 != null) {
+        print('Preview available at index ${preview['partial_image_index']}');
+      }
+    }
+  }
+
+  // Check for completed assets
+  if (chunk.isComplete) {
+    for (final asset in chunk.assets) {
+      if (asset is DataPart) {
+        File('final.png').writeAsBytesSync(asset.bytes);
+      }
+    }
+  }
+}
+```
+
+## Specifying Media Models
+
+Use the model string to specify which media model to use:
+
+```dart
+// Use Nano Banana Pro explicitly for Google image generation
+final agent = Agent('google?media=gemini-3-pro-image-preview');
+
+// Or combine with a chat model
+final agent = Agent('google?chat=gemini-3-pro-preview&media=gemini-3-pro-image-preview');
+```
+
+The model string is passed through to the provider's API, so you can use new
+models as soon as they're available without waiting for a Dartantic update.
+
+## Provider-Specific Options
+
+Each provider accepts options for customization:
+
+### OpenAI Responses
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  mediaModelOptions: OpenAIResponsesMediaGenerationModelOptions(
+    imageModel: 'gpt-image-1',  // Specific image model
+  ),
+);
+```
+
+### Google
+
+```dart
+final agent = Agent(
+  'google?media=gemini-3-pro-image-preview',  // Use Nano Banana Pro
+  mediaModelOptions: GoogleMediaGenerationModelOptions(
+    aspectRatio: '16:9',  // Image aspect ratio
+  ),
+);
+```
+
+### Anthropic
+
+```dart
+final agent = Agent(
+  'anthropic',
+  mediaModelOptions: AnthropicMediaGenerationModelOptions(
+    // Uses code interpreter for all generation
+  ),
+);
+```
+
+## Result Structure
+
+`MediaGenerationResult` contains:
+
+- `assets` - List of `Part` objects (typically `DataPart` with bytes)
+- `links` - List of `LinkPart` for hosted URLs (if applicable)
+- `messages` - Conversation messages generated during the run
+- `metadata` - Provider-specific metadata (previews, progress, etc.)
+- `isComplete` - Whether generation is finished (for streaming)
+
+## Examples
+
+- [OpenAI Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_openai.dart)
+- [Google Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_google.dart)
+- [Anthropic Media
+  Generation](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/media_gen/media_gen_anthropic.dart)
+
+## Related Topics
+
+- [Server-Side Tools](/server-side-tools) - Lower-level access to code
+  interpreters
+- [Multimedia Input](/attachments) - Send images and files to models

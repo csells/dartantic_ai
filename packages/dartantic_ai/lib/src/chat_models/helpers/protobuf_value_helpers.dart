@@ -11,7 +11,7 @@ class ProtobufValueHelpers {
   /// Converts a protobuf [pb.Struct] into a `Map<String, dynamic>`.
   static Map<String, dynamic> structToJson(pb.Struct? struct) {
     if (struct?.fields == null) return const <String, dynamic>{};
-    return struct!.fields!.map(
+    return struct!.fields.map(
       (key, value) => MapEntry(key, valueToJson(value)),
     );
   }
@@ -56,7 +56,7 @@ class ProtobufValueHelpers {
     }
     if (value.listValue != null) {
       final list = value.listValue!.values;
-      return list?.map(valueToJson).toList(growable: false) ?? const [];
+      return list.map(valueToJson).toList(growable: false);
     }
     if (value.stringValue != null) return value.stringValue;
     if (value.numberValue != null) {

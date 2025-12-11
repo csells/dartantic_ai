@@ -33,7 +33,8 @@
               "typed-output",
               "tool-calling",
               "system-messages",
-              "multi-media-input"
+              "multi-media-input",
+              "media-generation"
             ]
           },
           {
@@ -51,10 +52,30 @@
             "group": "Server Side Tools",
             "pages": [
               "server-side-tools/index",
-              "server-side-tools/web-search",
-              "server-side-tools/file-search",
-              "server-side-tools/code-interpreter",
-              "server-side-tools/image-generation"
+              {
+                "group": "OpenAI Responses",
+                "pages": [
+                  "server-side-tools/openai-web-search",
+                  "server-side-tools/openai-file-search",
+                  "server-side-tools/openai-code-interpreter",
+                  "server-side-tools/openai-image-generation"
+                ]
+              },
+              {
+                "group": "Google",
+                "pages": [
+                  "server-side-tools/google-search",
+                  "server-side-tools/google-code-execution"
+                ]
+              },
+              {
+                "group": "Anthropic",
+                "pages": [
+                  "server-side-tools/anthropic-web-search",
+                  "server-side-tools/anthropic-web-fetch",
+                  "server-side-tools/anthropic-code-interpreter"
+                ]
+              }
             ]
           },
           {

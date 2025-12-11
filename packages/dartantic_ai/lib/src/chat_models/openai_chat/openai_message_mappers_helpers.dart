@@ -31,7 +31,10 @@ LanguageModelUsage mapUsage(CompletionUsage? usage) {
 }
 
 /// Creates OpenAI ResponseFormat from JsonSchema
-ResponseFormat? _createResponseFormat(JsonSchema? outputSchema) {
+ResponseFormat? _createResponseFormat(
+  JsonSchema? outputSchema, {
+  bool strictSchema = true,
+}) {
   if (outputSchema == null) return null;
 
   return ResponseFormat.jsonSchema(
@@ -40,8 +43,9 @@ ResponseFormat? _createResponseFormat(JsonSchema? outputSchema) {
       description: 'Generated response following the provided schema',
       schema: OpenAIUtils.prepareSchemaForOpenAI(
         Map<String, dynamic>.from(outputSchema.schemaMap ?? {}),
+        strict: strictSchema,
       ),
-      strict: true,
+      strict: strictSchema,
     ),
   );
 }
@@ -55,6 +59,7 @@ CreateChatCompletionRequest createChatCompletionRequest(
   double? temperature,
   OpenAIChatOptions? options,
   JsonSchema? outputSchema,
+  bool strictSchema = true,
 }) => CreateChatCompletionRequest(
   model: ChatCompletionModel.modelId(modelName),
   messages: messages.toOpenAIMessages(),
@@ -71,9 +76,9 @@ CreateChatCompletionRequest createChatCompletionRequest(
         ),
       )
       .toList(),
-  toolChoice: options?.toolChoice ?? defaultOptions.toolChoice,
+  toolChoice: null,
   responseFormat:
-      _createResponseFormat(outputSchema) ??
+      _createResponseFormat(outputSchema, strictSchema: strictSchema) ??
       options?.responseFormat ??
       defaultOptions.responseFormat,
   maxTokens: options?.maxTokens ?? defaultOptions.maxTokens,
@@ -85,7 +90,7 @@ CreateChatCompletionRequest createChatCompletionRequest(
       ? ChatCompletionStop.listString(options?.stop ?? defaultOptions.stop!)
       : null,
   stream: true,
-  streamOptions: const ChatCompletionStreamOptions(includeUsage: true),
+  streamOptions: options?.streamOptions ?? defaultOptions.streamOptions,
   user: options?.user ?? defaultOptions.user,
   frequencyPenalty:
       options?.frequencyPenalty ?? defaultOptions.frequencyPenalty,

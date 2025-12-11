@@ -83,7 +83,28 @@ class OpenAIResponsesPartMapper {
       }
 
       if (item is openai.CodeInterpreterCall) {
-        // Events streamed in ChatResult.metadata
+        // Extract file outputs from code interpreter results
+        final containerId = item.containerId;
+        if (containerId != null && item.results != null) {
+          for (final result in item.results!) {
+            if (result is openai.CodeInterpreterFiles) {
+              for (final file in result.files) {
+                final fileId = file.fileId ?? file.id;
+                if (fileId != null) {
+                  _logger.info(
+                    'Found code interpreter file output: '
+                    'container_id=$containerId, file_id=$fileId',
+                  );
+                  attachments.trackContainerCitation(
+                    containerId: containerId,
+                    fileId: fileId,
+                  );
+                }
+              }
+            }
+          }
+        }
+        // Events also streamed in ChatResult.metadata
         continue;
       }
 
@@ -127,15 +148,6 @@ class OpenAIResponsesPartMapper {
         // Extract container file citations from annotations
         for (final annotation in entry.annotations) {
           if (annotation is openai.ContainerFileCitation) {
-            // Skip phantom citations where start_index == end_index
-            if (annotation.startIndex == annotation.endIndex) {
-              _logger.fine(
-                'Skipping zero-length container file citation: '
-                'file_id=${annotation.fileId}',
-              );
-              continue;
-            }
-
             _logger.info(
               'Found container file citation: '
               'container_id=${annotation.containerId}, '

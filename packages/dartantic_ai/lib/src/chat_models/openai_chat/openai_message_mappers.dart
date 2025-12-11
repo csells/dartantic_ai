@@ -36,13 +36,11 @@ CreateChatCompletionRequest createChatCompletionRequestFromMessages(
       )
       .toList();
 
-  final toolChoice = (toolsDtos?.isNotEmpty ?? false) ? null : null;
-
   return CreateChatCompletionRequest(
     model: ChatCompletionModel.modelId(modelName),
     messages: messagesDtos,
     tools: toolsDtos,
-    toolChoice: toolChoice,
+    toolChoice: null,
     frequencyPenalty:
         options?.frequencyPenalty ?? defaultOptions.frequencyPenalty,
     logitBias: options?.logitBias ?? defaultOptions.logitBias,

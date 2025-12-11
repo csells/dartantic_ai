@@ -92,17 +92,6 @@ class OpenAIResponsesMessageMapper {
     // No pending items in dartantic - tools are executed synchronously
     final items = <openai.ResponseItem>[];
 
-    // When using session continuation, we only send new messages
-    // So we should only validate the new portion of the conversation
-    if (sessionResolution.previousResponseId != null) {
-      // With a session, validate only the new messages being added
-      final newMessages = messages.sublist(sessionResolution.firstMessageIndex);
-      _validateNewMessages(newMessages);
-    } else {
-      // Without a session, validate the full conversation structure
-      _validateHistory(messages);
-    }
-
     for (
       var i = sessionResolution.firstMessageIndex;
       i < messages.length;
@@ -129,16 +118,6 @@ class OpenAIResponsesMessageMapper {
       previousResponseId: sessionResolution.previousResponseId,
       anchorIndex: sessionResolution.anchorIndex,
     );
-  }
-
-  /// Validates that new messages being added to an existing session are valid.
-  /// This is more lenient than _validateHistory since we're continuing a
-  /// session.
-  static void _validateNewMessages(List<ChatMessage> newMessages) {
-    // Allow any message types when continuing a session
-    // System messages are now supported mid-conversation
-    // We don't enforce strict alternation here because the orchestrator
-    // may add multiple messages in sequence during tool execution
   }
 
   /// Resolves session metadata from message history.
@@ -192,53 +171,6 @@ class OpenAIResponsesMessageMapper {
       anchorIndex: session?.index ?? -1,
       firstMessageIndex: firstMessageIndex,
     );
-  }
-
-  /// Ensures the conversation follows reasonable structure.
-  static void _validateHistory(List<ChatMessage> messages) {
-    if (messages.isEmpty) return;
-
-    // Find the first non-system message
-    var firstNonSystemIndex = -1;
-    for (var i = 0; i < messages.length; i++) {
-      if (messages[i].role != ChatMessageRole.system) {
-        firstNonSystemIndex = i;
-        break;
-      }
-    }
-
-    // If there are non-system messages, the first one should be from user
-    if (firstNonSystemIndex >= 0 &&
-        messages[firstNonSystemIndex].role != ChatMessageRole.user) {
-      throw ArgumentError(
-        'First non-system message must be from user. '
-        'Found ${messages[firstNonSystemIndex].role.name} '
-        'at index $firstNonSystemIndex.',
-      );
-    }
-
-    // Check for reasonable alternation between user and model messages
-    // (system messages can appear anywhere)
-    var expectingUser = true;
-    for (var i = firstNonSystemIndex; i < messages.length; i++) {
-      final message = messages[i];
-      if (message.role == ChatMessageRole.system) {
-        // System messages don't affect alternation
-        continue;
-      }
-
-      final expected = expectingUser
-          ? ChatMessageRole.user
-          : ChatMessageRole.model;
-      if (message.role != expected) {
-        throw ArgumentError(
-          'Conversation must alternate user/model '
-          '(system messages allowed anywhere). '
-          'Expected ${expected.name} at index $i, found ${message.role.name}.',
-        );
-      }
-      expectingUser = !expectingUser;
-    }
   }
 
   static _SessionMetadata? _findLatestSession(

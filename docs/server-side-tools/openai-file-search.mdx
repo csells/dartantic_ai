@@ -1,0 +1,76 @@
+---
+title: OpenAI File Search
+description: "Search provider-hosted files and vector stores without leaving the chat flow."
+---
+
+The OpenAI Responses provider exposes a file search tool that allows you to
+search through files and vector stores hosted by OpenAI.
+
+## Enable File Search
+
+The file search tool can be enabled via the `chatModelOptions` parameter of the
+`Agent` constructor.
+
+```dart
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    serverSideTools: const {OpenAIServerSideTool.fileSearch},
+    fileSearchConfig: const FileSearchConfig(
+      maxResults: 5,
+      vectorStoreIds: ['vs_123'],
+    ),
+  ),
+);
+```
+
+When `fileSearchConfig.vectorStoreIds` is supplied, the provider restricts
+searches to those stores. You can also omit the list and rely on the provider's
+defaults.
+
+## Streaming Events
+
+Results stream under the `file_search` metadata key:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  final events = chunk.metadata['file_search'] as List?;
+  if (events == null) continue;
+
+  for (final event in events) {
+    switch (event['type']) {
+      case 'response.file_search_call.started':
+        stdout.writeln('🔍 searching ${event['query']}');
+      case 'response.file_search_call.result':
+        stdout.writeln('- ${event['document']['filename']}');
+    }
+  }
+}
+```
+
+Typical fields include `query`, `document`, `score`, and provider-specific
+metadata that you can surface in your UI.
+
+## Vector Store Bootstrap
+
+The OpenAI Responses example repo includes a helper that uploads wiki docs and
+creates a reusable vector store:
+
+```dart
+final vectorStoreId = await setupVectorStore([
+  '../../../wiki/Server-Side-Tools-Tech-Design.md',
+  '../../../wiki/Message-Handling-Architecture.md',
+]);
+```
+
+See the sample below for the full workflow, including caching the vector store
+ID on disk so you do not re-upload files every run.
+
+## Example
+
+- [Server-side vector search demo](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/server_side_tools/server_side_vector_search.dart)
+
+## Related Topics
+
+- [Web Search](/server-side-tools/web-search)
+- [Image Generation](/server-side-tools/image-generation)

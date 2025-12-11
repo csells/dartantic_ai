@@ -21,7 +21,6 @@ class OpenAIChatOptions extends ChatModelOptions {
     this.serviceTier,
     this.user,
     this.streamOptions,
-    this.toolChoice,
     this.logprobs,
     this.topLogprobs,
   });
@@ -139,9 +138,6 @@ class OpenAIChatOptions extends ChatModelOptions {
   /// Ref:
   /// https://platform.openai.com/docs/guides/safety-best-practices/end-user-ids
   final String? user;
-
-  /// Controls which (if any) tool is called by the model.
-  final dynamic toolChoice;
 
   /// Whether to return log probabilities of the output tokens or not.
   final bool? logprobs;

@@ -47,6 +47,24 @@ void main() {
       expect(parser.providerName, 'providername');
       expect(parser.chatModelName, 'chatModelName');
       expect(parser.embeddingsModelName, 'embeddingsModelName');
+      expect(parser.mediaModelName, null);
+    });
+
+    test('providerName?media=mediaModelName', () {
+      final parser = ModelStringParser.parse(
+        'providerName?media=mediaModelName',
+      );
+      expect(parser.providerName, 'providername');
+      expect(parser.chatModelName, null);
+      expect(parser.embeddingsModelName, null);
+      expect(parser.mediaModelName, 'mediaModelName');
+      expect(
+        ModelStringParser(
+          'providername',
+          mediaModelName: 'mediaModelName',
+        ).toString(),
+        'providername?media=mediaModelName',
+      );
     });
   });
 
@@ -144,20 +162,28 @@ void main() {
       expect(parser.embeddingsModelName, null);
     });
 
-    test('OpenAI other model with query parameter', () {
-      final parser = ModelStringParser.parse('openai?other=unknown');
+    test('OpenAI media model with query parameter', () {
+      final parser = ModelStringParser.parse('openai?media=unknown');
       expect(parser.providerName, 'openai');
       expect(parser.chatModelName, null);
       expect(parser.embeddingsModelName, null);
-      expect(parser.otherModelName, 'unknown');
+      expect(parser.mediaModelName, 'unknown');
+    });
+
+    test('OpenAI legacy other parameter maps to media', () {
+      final parser = ModelStringParser.parse('openai?other=legacy');
+      expect(parser.providerName, 'openai');
+      expect(parser.chatModelName, null);
+      expect(parser.embeddingsModelName, null);
+      expect(parser.mediaModelName, 'legacy');
     });
 
     test('OpenAI chat model with multiple query parameters', () {
-      final parser = ModelStringParser.parse('openai?chat=gpt-4o&other=custom');
+      final parser = ModelStringParser.parse('openai?chat=gpt-4o&media=custom');
       expect(parser.providerName, 'openai');
       expect(parser.chatModelName, 'gpt-4o');
       expect(parser.embeddingsModelName, null);
-      expect(parser.otherModelName, 'custom');
+      expect(parser.mediaModelName, 'custom');
     });
   });
 
@@ -299,10 +325,10 @@ void main() {
     });
 
     test('Multiple query parameters', () {
-      final parser = ModelStringParser.parse('providerName?chat=one&other=two');
+      final parser = ModelStringParser.parse('providerName?chat=one&media=two');
       expect(parser.providerName, 'providername');
       expect(parser.chatModelName, 'one');
-      expect(parser.otherModelName, 'two');
+      expect(parser.mediaModelName, 'two');
       expect(parser.embeddingsModelName, null);
     });
   });

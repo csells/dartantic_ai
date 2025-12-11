@@ -35,33 +35,29 @@ class AgentResponseAccumulator {
     _finalResult = result;
 
     // Accumulate thinking from streaming chunks
-    final thinking = result.metadata['thinking'] as String?;
-    if (thinking != null && thinking.isNotEmpty) {
-      _thinkingBuffer.write(thinking);
+    if (result.thinking != null && result.thinking!.isNotEmpty) {
+      _thinkingBuffer.write(result.thinking);
     }
 
-    // Merge other metadata (preserving response-level info from final chunk)
+    // Merge metadata (preserving response-level info from final chunk)
     for (final entry in result.metadata.entries) {
-      if (entry.key != 'thinking') {
-        _accumulatedMetadata[entry.key] = entry.value;
-      }
+      _accumulatedMetadata[entry.key] = entry.value;
     }
   }
 
   /// Builds the final accumulated ChatResult.
   ChatResult<String> buildFinal() {
-    // Build final metadata with accumulated thinking
-    final mergedMetadata = <String, dynamic>{
-      ..._accumulatedMetadata,
-      if (_thinkingBuffer.isNotEmpty) 'thinking': _thinkingBuffer.toString(),
-    };
+    final thinking = _thinkingBuffer.isNotEmpty
+        ? _thinkingBuffer.toString()
+        : null;
 
     return ChatResult<String>(
       id: _finalResult.id,
       output: _finalOutputBuffer.toString(),
       messages: _allNewMessages,
+      thinking: thinking,
       finishReason: _finalResult.finishReason,
-      metadata: mergedMetadata,
+      metadata: _accumulatedMetadata,
       usage: _finalResult.usage,
     );
   }

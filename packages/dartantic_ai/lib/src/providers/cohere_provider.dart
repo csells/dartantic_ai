@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import '../chat_models/cohere_chat/cohere_chat_model.dart';
 import '../chat_models/cohere_chat/cohere_chat_options.dart';
 import '../platform/platform.dart';
+import '../retry_http_client.dart';
 import 'openai_provider.dart';
 
 /// Provider for Cohere OpenAI-compatible API.
@@ -14,7 +15,7 @@ class CohereProvider extends OpenAIProvider {
   /// Creates a new Cohere OpenAI provider instance.
   ///
   /// [apiKey]: The API key for the Cohere provider.
-  CohereProvider({String? apiKey})
+  CohereProvider({String? apiKey, super.headers})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
@@ -23,12 +24,6 @@ class CohereProvider extends OpenAIProvider {
         defaultModelNames: {
           ModelKind.chat: 'command-r-08-2024',
           ModelKind.embeddings: 'embed-v4.0',
-        },
-        caps: {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
         },
         baseUrl: cohereDefaultBaseUrl,
       );
@@ -49,8 +44,18 @@ class CohereProvider extends OpenAIProvider {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     CohereChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError(
+        'Extended thinking is not supported by the $displayName provider. '
+        'Only OpenAI Responses, Anthropic, and Google providers support '
+        'thinking. Set enableThinking=false or use a provider that supports '
+        'this feature.',
+      );
+    }
+
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
     _logger.info(
       'Creating Cohere model: $modelName with ${tools?.length ?? 0} tools, '
@@ -67,6 +72,7 @@ class CohereProvider extends OpenAIProvider {
       temperature: temperature,
       apiKey: apiKey ?? tryGetEnv(apiKeyName),
       baseUrl: baseUrl,
+      headers: headers,
       defaultOptions: CohereChatOptions(
         frequencyPenalty: options?.frequencyPenalty,
         logitBias: options?.logitBias,
@@ -81,7 +87,6 @@ class CohereProvider extends OpenAIProvider {
         parallelToolCalls: options?.parallelToolCalls,
         serviceTier: options?.serviceTier,
         user: options?.user,
-        streamOptions: null, // Cohere requires streamOptions to be null
       ),
     );
   }
@@ -90,29 +95,34 @@ class CohereProvider extends OpenAIProvider {
   Stream<ModelInfo> listModels() async* {
     final url = Uri.parse('https://docs.cohere.com/docs/models');
     _logger.info('Fetching models from Cohere docs: $url');
-    final response = await http.get(url);
-    if (response.statusCode != 200) {
-      _logger.warning(
-        'Failed to fetch models: HTTP ${response.statusCode}, '
-        'body: ${response.body}',
-      );
-      throw Exception('Failed to fetch Cohere models docs: ${response.body}');
-    }
-    final doc = html_parser.parse(response.body);
-    _logger.info('Successfully fetched Cohere models documentation');
-    // Find all tables whose first header cell is 'Model Name'
-    for (final table in doc.querySelectorAll('table')) {
-      final headerCells = table.querySelectorAll('th');
-      if (headerCells.isEmpty) continue;
-      final firstHeader = headerCells.first.text.trim().toLowerCase();
-      if (firstHeader == 'model name') {
-        // Try to determine kind from headers or parse as chat/embedding/other
-        final headers = headerCells
-            .map((th) => th.text.trim().toLowerCase())
-            .toList();
-        // Parse the table, passing headers for classification
-        yield* _parseCohereTableWithHeaders(table, headers);
+    final client = RetryHttpClient(inner: http.Client());
+    try {
+      final response = await client.get(url);
+      if (response.statusCode != 200) {
+        _logger.warning(
+          'Failed to fetch models: HTTP ${response.statusCode}, '
+          'body: ${response.body}',
+        );
+        throw Exception('Failed to fetch Cohere models docs: ${response.body}');
       }
+      final doc = html_parser.parse(response.body);
+      _logger.info('Successfully fetched Cohere models documentation');
+      // Find all tables whose first header cell is 'Model Name'
+      for (final table in doc.querySelectorAll('table')) {
+        final headerCells = table.querySelectorAll('th');
+        if (headerCells.isEmpty) continue;
+        final firstHeader = headerCells.first.text.trim().toLowerCase();
+        if (firstHeader == 'model name') {
+          // Try to determine kind from headers or parse as chat/embedding/other
+          final headers = headerCells
+              .map((th) => th.text.trim().toLowerCase())
+              .toList();
+          // Parse the table, passing headers for classification
+          yield* _parseCohereTableWithHeaders(table, headers);
+        }
+      }
+    } finally {
+      client.close();
     }
   }
 

@@ -4,7 +4,7 @@
 import 'dart:convert';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:json_schema/json_schema.dart' as js;
 import 'package:test/test.dart';
 
@@ -50,26 +50,26 @@ void main() {
       expect(result.output['name'], isNotNull);
       expect(result.output['ingredients'], isA<List>());
 
-      // Find the message with JSON output
-      ChatMessage? jsonMessage;
-      for (final msg in result.messages) {
-        if (msg.role == ChatMessageRole.model && msg.text.contains('{')) {
-          jsonMessage = msg;
-          break;
+      // Anthropic typed output returns JSON in result.output, not in a model
+      // message. Metadata (including suppressed content) is merged into the
+      // result and not necessarily attached to individual messages.
+      void checkMetadata(Map<String, dynamic> metadata, String source) {
+        if (metadata.isEmpty) return;
+        print('Found metadata on $source:');
+        print(const JsonEncoder.withIndent('  ').convert(metadata));
+
+        // Metadata may contain suppressed text if the model produced any
+        if (metadata.containsKey('suppressed_text')) {
+          expect(metadata['suppressed_text'], isA<String>());
+        }
+        if (metadata.containsKey('suppressedText')) {
+          expect(metadata['suppressedText'], isA<String>());
         }
       }
 
-      expect(jsonMessage, isNotNull, reason: 'Should have a message with JSON');
-
-      // Check for metadata
-      if (jsonMessage!.metadata.isNotEmpty) {
-        print('Found metadata on JSON message:');
-        print(const JsonEncoder.withIndent('  ').convert(jsonMessage.metadata));
-
-        // Metadata should contain suppressed_text if LLM added any
-        if (jsonMessage.metadata.containsKey('suppressed_text')) {
-          expect(jsonMessage.metadata['suppressed_text'], isA<String>());
-        }
+      checkMetadata(result.metadata, 'result');
+      for (final msg in result.messages) {
+        checkMetadata(msg.metadata, 'message (${msg.role})');
       }
     });
 

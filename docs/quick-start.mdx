@@ -64,7 +64,7 @@ provider directly:
 void main() async {
   // Create an agent with a provider
   final agent = Agent.forProvider(
-    Providers.openai,
+    Agent.createProvider('openai'),
   );
 
   // Run the agent with a prompt and system message

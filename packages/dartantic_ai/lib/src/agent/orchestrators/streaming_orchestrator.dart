@@ -14,6 +14,7 @@ class StreamingIterationResult {
     required this.shouldContinue,
     required this.finishReason,
     this.metadata = const {},
+    this.thinking,
     this.usage,
   });
 
@@ -32,6 +33,9 @@ class StreamingIterationResult {
   /// Metadata from the iteration
   final Map<String, dynamic> metadata;
 
+  /// Extended thinking content
+  final String? thinking;
+
   /// Usage information
   final LanguageModelUsage? usage;
 }
@@ -39,6 +43,9 @@ class StreamingIterationResult {
 /// Orchestrates the streaming process, coordinating between model calls,
 /// tool execution, and message accumulation
 abstract class StreamingOrchestrator {
+  /// Creates a StreamingOrchestrator
+  const StreamingOrchestrator();
+
   /// Processes a single iteration of the streaming loop
   ///
   /// This method:

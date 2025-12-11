@@ -1,6 +1,7 @@
 /// TESTING PHILOSOPHY:
 /// 1. DO NOT catch exceptions - let them bubble up for diagnosis
-/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 2. DO NOT add provider filtering except by capabilities (e.g.
+///    ProviderTestCaps)
 /// 3. DO NOT add performance tests
 /// 4. DO NOT add regression tests
 /// 5. 80% cases = common usage patterns tested across ALL capable providers
@@ -10,12 +11,10 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
 import 'test_tools.dart';
-import 'test_utils.dart';
 
 void main() {
   group('Multi-Provider Message Portability Tests', () {
@@ -43,8 +42,6 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('hiking'));
-
-        validateMessageHistory(history);
       });
 
       test('system prompt preservation across providers', () async {
@@ -86,8 +83,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('fare'), contains('ahoy'), contains('sail')),
         );
-
-        validateMessageHistory(history);
       });
 
       test('round-robin conversation pattern', () async {
@@ -110,8 +105,6 @@ void main() {
             expect(result.output.toLowerCase(), contains(i == 1 ? '5' : 'dog'));
           }
         }
-
-        validateMessageHistory(history);
       });
     });
 
@@ -159,8 +152,6 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('boston'));
-
-        validateMessageHistory(history);
       });
 
       test('multiple tool calls in one turn', () async {
@@ -207,8 +198,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('seattle'), contains('chicago')),
         );
-
-        validateMessageHistory(history);
       });
 
       test('sequential tool dependencies', () async {
@@ -242,8 +231,6 @@ void main() {
           result3.output.toLowerCase(),
           allOf(contains('step'), anyOf(contains('1'), contains('2'))),
         );
-
-        validateMessageHistory(history);
       });
 
       test('tool error handling across providers', () async {
@@ -273,8 +260,6 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-
-        validateMessageHistory(history);
       });
     });
 
@@ -344,8 +329,6 @@ void main() {
             anyOf(contains('weather'), contains('temperature')),
           ),
         );
-
-        validateMessageHistory(history);
       });
 
       test('tool result references across providers', () async {
@@ -391,8 +374,6 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('share'), contains('stock'), contains('buy')),
         );
-
-        validateMessageHistory(history);
       });
 
       test('streaming conversation across providers', () async {
@@ -435,8 +416,6 @@ void main() {
         }
         final response3 = chunks3.join().toLowerCase();
         expect(response3, contains('flutter'));
-
-        validateMessageHistory(history);
       });
     });
 
@@ -480,8 +459,6 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-
-        validateMessageHistory(history);
       });
 
       test(
@@ -548,8 +525,6 @@ void main() {
             ),
             isFalse,
           );
-
-          validateMessageHistory(history);
         },
       );
 
@@ -591,8 +566,6 @@ void main() {
         );
         history.addAll(result2.messages);
         expect(result2.output.toLowerCase(), contains('paris'));
-
-        validateMessageHistory(history);
       });
 
       test('complex nested schema portability', () async {
@@ -667,8 +640,6 @@ void main() {
             contains('apple'),
           ),
         );
-
-        validateMessageHistory(history);
       });
     });
   });

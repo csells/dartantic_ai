@@ -3,18 +3,24 @@
 import 'dart:io';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
 
 Future<void> main() async {
   var totalProviders = 0;
   var totalChatModels = 0;
   var totalEmbeddingModels = 0;
+  var totalMediaModels = 0;
   var totalOtherModels = 0;
 
-  for (final provider in Providers.all) {
+  for (final provider in Agent.allProviders) {
     totalProviders++;
     print('\n# ${provider.displayName} (${provider.name})');
-    final models = await provider.listModels().toList();
+    List<ModelInfo> models;
+    try {
+      models = await provider.listModels().toList();
+    } on Object catch (e) {
+      print('  Error listing models: $e');
+      continue;
+    }
     final modelList = models.toList();
 
     // Categorize models by type
@@ -24,16 +30,21 @@ Future<void> main() async {
     final embeddingModels = modelList
         .where((m) => m.kinds.contains(ModelKind.embeddings))
         .toList();
+    final mediaModels = modelList
+        .where((m) => m.kinds.contains(ModelKind.media))
+        .toList();
     final otherModels = modelList
         .where(
           (m) =>
               !m.kinds.contains(ModelKind.chat) &&
-              !m.kinds.contains(ModelKind.embeddings),
+              !m.kinds.contains(ModelKind.embeddings) &&
+              !m.kinds.contains(ModelKind.media),
         )
         .toList();
 
     totalChatModels += chatModels.length;
     totalEmbeddingModels += embeddingModels.length;
+    totalMediaModels += mediaModels.length;
     totalOtherModels += otherModels.length;
 
     // Print chat models
@@ -44,7 +55,9 @@ Future<void> main() async {
           provider.name,
           chatModelName: chatModel.name,
         ).toString();
-        final kinds = chatModel.kinds.map((k) => k.name).join(', ');
+        final kinds = chatModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = chatModel.displayName != null
             ? '"${chatModel.displayName}"'
             : '';
@@ -60,9 +73,29 @@ Future<void> main() async {
           provider.name,
           embeddingsModelName: embeddingsModel.name,
         ).toString();
-        final kinds = embeddingsModel.kinds.map((k) => k.name).join(', ');
+        final kinds = embeddingsModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = embeddingsModel.displayName != null
             ? '"${embeddingsModel.displayName}"'
+            : '';
+        print('- $model $displayName ($kinds)');
+      }
+    }
+
+    // Print media models
+    if (mediaModels.isNotEmpty) {
+      print('\n## Media Models (${mediaModels.length})');
+      for (final mediaModel in mediaModels) {
+        final model = ModelStringParser(
+          provider.name,
+          mediaModelName: mediaModel.name,
+        ).toString();
+        final kinds = mediaModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
+        final displayName = mediaModel.displayName != null
+            ? '"${mediaModel.displayName}"'
             : '';
         print('- $model $displayName ($kinds)');
       }
@@ -72,11 +105,10 @@ Future<void> main() async {
     if (otherModels.isNotEmpty) {
       print('\n## Other Models (${otherModels.length})');
       for (final otherModel in otherModels) {
-        final model = ModelStringParser(
-          provider.name,
-          otherModelName: otherModel.name,
-        ).toString();
-        final kinds = otherModel.kinds.map((k) => k.name).join(', ');
+        final model = '${provider.name}?model=${otherModel.name}';
+        final kinds = otherModel.kinds
+            .map((k) => k.toString().split('.').last)
+            .join(', ');
         final displayName = otherModel.displayName != null
             ? '"${otherModel.displayName}"'
             : '';
@@ -91,11 +123,15 @@ Future<void> main() async {
   print('Total providers: $totalProviders');
   print('Total chat models: $totalChatModels');
   print('Total embedding models: $totalEmbeddingModels');
+  print('Total media models: $totalMediaModels');
   print('Total other models: $totalOtherModels');
-  print(
-    'Grand total: '
-    '${totalChatModels + totalEmbeddingModels + totalOtherModels} models',
-  );
+  final grandTotal =
+      totalChatModels +
+      totalEmbeddingModels +
+      totalMediaModels +
+      totalOtherModels;
+  print('Grand total: $grandTotal models');
+  exit(0);
 }
 
 // ignore: unused_element

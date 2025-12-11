@@ -5,12 +5,21 @@ description: "Use provider-hosted capabilities such as web search, code executio
 
 Server-side tools run entirely on the provider's infrastructure. They stream
 progress events, produce final deliverables, and keep your application logic
-focused on orchestration instead of implementation. Currently, **OpenAI
-Responses** is the only built-in provider that implements server-side tools.
-When other providers adopt similar features, they'll be exposed from the
-providers as appropriate.
+focused on orchestration instead of implementation.
+
+## Provider Support
+
+| Provider | Tools Available |
+|----------|-----------------|
+| **OpenAI Responses** | Web Search, File Search, Image Generation, Code Interpreter |
+| **Google** | Google Search, Code Execution |
+| **Anthropic** | Web Search, Web Fetch, Code Interpreter |
 
 ## Enabling Tools
+
+Each provider uses its own options class and tool enum:
+
+### OpenAI Responses
 
 ```dart
 final agent = Agent(
@@ -18,7 +27,35 @@ final agent = Agent(
   chatModelOptions: const OpenAIResponsesChatModelOptions(
     serverSideTools: {
       OpenAIServerSideTool.webSearch,
-      OpenAIServerSideTool.fileSearch,
+      OpenAIServerSideTool.codeInterpreter,
+    },
+  ),
+);
+```
+
+### Google
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {
+      GoogleServerSideTool.googleSearch,
+      GoogleServerSideTool.codeExecution,
+    },
+  ),
+);
+```
+
+### Anthropic
+
+```dart
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {
+      AnthropicServerSideTool.webSearch,
+      AnthropicServerSideTool.codeInterpreter,
     },
   ),
 );
@@ -59,9 +96,11 @@ normal message parts so you can handle them with the usual `ChatMessage` APIs.
 
 ## Configuration Blocks
 
-Each tool exposes an optional configuration object:
+Each tool exposes an optional configuration object. Configuration objects are
+provider-specific:
 
 ```dart
+// OpenAI Responses
 final agent = Agent(
   'openai-responses',
   chatModelOptions: OpenAIResponsesChatModelOptions(
@@ -74,21 +113,45 @@ final agent = Agent(
 );
 ```
 
-Configuration objects are provider-specific today but live under the generic
-API surface, so additional providers can add their own implementations later.
+## OpenAI Responses Tools
 
-## Pages
+- [Web Search](/server-side-tools/web-search) - Search the web and weave results
+  into responses
+- [File Search](/server-side-tools/file-search) - Search provider-hosted files
+  and vector stores
+- [Image Generation](/server-side-tools/image-generation) - Generate images with
+  streaming previews
+- [Code Interpreter](/server-side-tools/code-interpreter) - Execute Python code
+  in a sandbox
 
-- [Web Search](/server-side-tools/web-search)
-- [File Search](/server-side-tools/file-search)
-- [Image Generation](/server-side-tools/image-generation)
-- [Code Interpreter](/server-side-tools/code-interpreter)
+## Google Tools
+
+- [Google Search](/server-side-tools/google-search) - Search with Google
+  Grounding
+- [Code Execution](/server-side-tools/google-code-execution) - Execute Python in
+  Google's sandbox
+
+## Anthropic Tools
+
+- [Web Search](/server-side-tools/anthropic-web-search) - Search the web via
+  Anthropic
+- [Web Fetch](/server-side-tools/anthropic-web-fetch) - Fetch and process web
+  pages
+- [Code Interpreter](/server-side-tools/anthropic-code-interpreter) - Execute
+  Python via Anthropic
 
 ## Examples
 
-- [Server-side tool demos](https://github.com/csells/dartantic_ai/tree/main/packages/dartantic_ai/example/bin/server_side_tools)
+- [OpenAI server-side
+  tools](https://github.com/csells/dartantic_ai/tree/main/packages/dartantic_ai/example/bin/server_side_tools)
+- [Google server-side
+  tools](https://github.com/csells/dartantic_ai/tree/main/packages/dartantic_ai/example/bin/server_side_tools_google)
+- [Anthropic server-side
+  tools](https://github.com/csells/dartantic_ai/tree/main/packages/dartantic_ai/example/bin/server_side_tools_anthropic)
 
 ## Related Topics
 
-- [Thinking Metadata](/thinking) – Combine reasoning output with tool progress
-- [Tool Calling](/tool-calling) – Define your own local tools
+- [Media Generation](/media-generation) - Generate images, PDFs, and files
+  across providers
+- [Thinking Metadata](/thinking) - Combine reasoning output with tool progress
+- [Tool Calling](/tool-calling) - Define your own local tools
