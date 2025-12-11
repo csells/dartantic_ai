@@ -129,9 +129,14 @@ class OllamaProvider
       final modelCount = (data['models'] as List).length;
       _logger.info('Successfully fetched $modelCount models from Ollama API');
 
-      // Defensive: ensure 'name' is a String, fallback to '' if not.
       for (final m in (data['models'] as List).cast<Map<String, dynamic>>()) {
         final nameField = m['name'];
+        if (nameField is! String) {
+          _logger.warning(
+            'Ollama model has invalid name field (expected String, '
+            'got ${nameField.runtimeType}): $m',
+          );
+        }
         final id = nameField is String ? nameField : '';
         final name = nameField is String ? nameField : null;
         final detailsField = m['details'];

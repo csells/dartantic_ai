@@ -136,7 +136,14 @@ class AnthropicProvider
       }
 
       for (final m in modelsList.cast<Map<String, dynamic>>()) {
-        final id = m['id'] as String? ?? '';
+        final idField = m['id'];
+        if (idField is! String || idField.isEmpty) {
+          _logger.warning(
+            'Anthropic model has missing or invalid id field '
+            '(expected non-empty String): $m',
+          );
+        }
+        final id = idField is String ? idField : '';
         final displayName = m['display_name'] as String?;
         final kind = id.startsWith('claude') ? ModelKind.chat : ModelKind.other;
         // Only include extra fields not mapped to ModelInfo

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:mistralai_dart/mistralai_dart.dart';
 
+import '../chunk_list.dart';
 import 'mistral_embeddings_model_options.dart';
 
 /// Mistral AI embeddings model implementation.
@@ -70,16 +71,10 @@ class MistralEmbeddingsModel
     List<String> texts, {
     MistralEmbeddingsModelOptions? options,
   }) async {
-    final chunks = <List<String>>[];
     final actualBatchSize = options?.batchSize ?? batchSize ?? 100;
     final totalTexts = texts.length;
     final totalCharacters = texts.map((t) => t.length).reduce((a, b) => a + b);
-
-    for (var i = 0; i < texts.length; i += actualBatchSize) {
-      chunks.add(
-        texts.sublist(i, (i + actualBatchSize).clamp(0, texts.length)),
-      );
-    }
+    final chunks = chunkList(texts, chunkSize: actualBatchSize);
 
     _logger.info(
       'Embedding $totalTexts documents with Mistral model "$name" '

@@ -131,7 +131,14 @@ class MistralProvider
       final modelCount = (data['data'] as List).length;
       _logger.info('Successfully fetched $modelCount models from Mistral API');
       for (final m in (data['data'] as List).cast<Map<String, dynamic>>()) {
-        final id = m['id'] as String? ?? '';
+        final idField = m['id'];
+        if (idField is! String || idField.isEmpty) {
+          _logger.warning(
+            'Mistral model has missing or invalid id field '
+            '(expected non-empty String): $m',
+          );
+        }
+        final id = idField is String ? idField : '';
         final desc = m['description'] as String? ?? '';
         final kinds = <ModelKind>{};
         // Embedding models

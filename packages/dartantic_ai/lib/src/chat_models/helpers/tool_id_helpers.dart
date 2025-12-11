@@ -33,12 +33,6 @@ class ToolIdHelpers {
   /// providers, ensuring consistency.
   static String generateResultId() => _uuid.v4();
 
-  /// Extracts the tool name from a generated tool call ID.
-  ///
-  /// Since we now use pure UUIDs, this method can't extract tool names.
-  /// Returns null as tool names must be tracked separately.
-  static String? extractToolNameFromId(String toolCallId) => null;
-
   /// Fixes empty or invalid tool call IDs in a message.
   ///
   /// This is used by providers that receive empty IDs (like Google's OpenAI

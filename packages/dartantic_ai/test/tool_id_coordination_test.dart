@@ -92,23 +92,6 @@ void main() {
         expect(ToolIdHelpers.isValidToolCallId(''), isFalse);
       });
 
-      test('extractToolNameFromId returns null (IDs are opaque)', () {
-        // Tool IDs are opaque - we don't extract info from them
-        expect(ToolIdHelpers.extractToolNameFromId('any-id-format'), isNull);
-        expect(
-          ToolIdHelpers.extractToolNameFromId(
-            'tool_openai_weather_tool_abc123',
-          ),
-          isNull,
-        );
-        expect(
-          ToolIdHelpers.extractToolNameFromId(
-            'a2e46fb8-4c8e-4200-a995-ceb84b9f812d',
-          ),
-          isNull,
-        );
-      });
-
       test('assigns IDs to tool calls without them', () {
         final parts = [
           const TextPart('Hello'),

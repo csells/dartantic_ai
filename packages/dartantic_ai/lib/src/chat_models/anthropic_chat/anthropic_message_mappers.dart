@@ -676,8 +676,9 @@ class MessageStreamEventTransformer
           return containerId;
         }
       }
-    } on Object catch (_) {
-      // Ignore JSON conversion issues; container ID is optional metadata.
+    } on Object catch (e) {
+      // Container ID is optional metadata, so we log and continue
+      _logger.fine('Failed to extract container ID from delta: $e');
     }
     return null;
   }
