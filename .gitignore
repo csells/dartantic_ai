@@ -11,4 +11,4 @@ packages/dartantic_ai/example/.env
 
 # IDE files
 .idea/
-# *.iml
+*.iml
