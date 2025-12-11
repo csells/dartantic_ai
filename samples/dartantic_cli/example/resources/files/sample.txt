@@ -1,0 +1,4 @@
+Dartantic is an agentic AI framework for Dart.
+It provides easy integration with multiple AI providers
+including OpenAI, Google, Anthropic, Mistral, Cohere, and Ollama.
+Key features include streaming output, typed responses, and tool calling.

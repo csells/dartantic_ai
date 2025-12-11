@@ -1,0 +1,4 @@
+#!/bin/bash
+# See model's reasoning process
+echo "Thinking mode (shows reasoning with Gemini):"
+dart run bin/dartantic.dart -a google:gemini-2.5-flash -p "Think step by step: what is 15 * 23?"

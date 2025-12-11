@@ -1,0 +1,7 @@
+---
+model: google
+input:
+  default:
+    number: 42
+---
+What is {{number}} plus 1? Reply with just the number.
