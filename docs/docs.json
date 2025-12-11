@@ -55,10 +55,10 @@
               {
                 "group": "OpenAI Responses",
                 "pages": [
-                  "server-side-tools/web-search",
-                  "server-side-tools/file-search",
-                  "server-side-tools/code-interpreter",
-                  "server-side-tools/image-generation"
+                  "server-side-tools/openai-web-search",
+                  "server-side-tools/openai-file-search",
+                  "server-side-tools/openai-code-interpreter",
+                  "server-side-tools/openai-image-generation"
                 ]
               },
               {

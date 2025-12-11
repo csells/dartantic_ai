@@ -4,197 +4,85 @@ title: Migration Guide
 
 ## Migrating from 1.x to 2.0.0
 
-### Dartantic Interface Re-export
+### Exposing dartantic_interface directly from dartantic_ai
 
-The `dartantic_interface` package types are now re-exported from `dartantic_ai`,
-so you only need one import:
+It's no longer necessary to manually include the dartantic_interface package.
 
-#### Old Code
 ```dart
+// OLD - had to import both packages
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
-```
 
-#### New Code
-```dart
+// NEW - one import does it all
 import 'package:dartantic_ai/dartantic_ai.dart';
 ```
-
-### Custom Headers Support
-
-All providers now support custom HTTP headers for enterprise scenarios:
-
-```dart
-final provider = GoogleProvider(
-  apiKey: apiKey,
-  headers: {
-    'X-Request-ID': requestId,
-    'X-Tenant-ID': tenantId,
-  },
-);
-```
-
-### Streamlined Provider List
-
-Together AI, Google-OpenAI, and Ollama-OpenAI have been moved from built-in
-providers to the `openai_compat.dart` example. You can still use them by
-registering them with `Agent.providerFactories`. OpenRouter remains built-in.
 
 ### Provider Factory Registry
 
 Provider lookup has been moved from the `Providers` class to `Agent` static
-methods. Providers are now created via factory functions (not cached instances).
+methods. Providers are now created via factory functions not cached instances.
 
-#### Old Code
 ```dart
-// Get provider by name
+// OLD
 final provider = Providers.get('openai');
-
-// Get all providers
 final allProviders = Providers.all;
-
-// No longer available - use Provider.listModels() for runtime capability discovery
-
-// Register custom provider
 Providers.providerMap['custom'] = MyProvider();
-```
+final provider2 = Providers.openai;
 
-#### New Code
-```dart
-// Get provider by name (creates fresh instance)
-final provider = Agent.createProvider('openai');
-
-// Get all providers
+// NEW
+final provider = Agent.getProvider('openai');
 final allProviders = Agent.allProviders;
-
-// Filter by capability - use Provider.listModels() for runtime capability discovery
-// ProviderCaps removed - capabilities are now model-specific, not provider-wide
-
-// Register custom provider factory
 Agent.providerFactories['custom'] = MyProvider.new;
+final provider2 = OpenAIProvider();
 ```
 
-### Google JSON Schema Support
+### Moved OpenAI-compat providers to example (except OpenRouter)
 
-Google's Gemini API now uses native JSON Schema support via `responseJsonSchema`
-instead of the custom Schema object conversion. This enables better support for
-complex schemas including `anyOf`, `$ref`, and other JSON Schema features.
+Removed the following intrinsic providers from dartantic to the
+`openai_compat.dart` example:
+- `google-openai`
+- `together`
+- `ollama-openai`
 
-This is an internal change - no code changes required for users.
+The `openrouter` OpenAI-compatible provider remains as an intrinsic provider.
 
-### Google Function Calling Mode
+### Simplified Thinking API
 
-Added `functionCallingMode` and `allowedFunctionNames` options to
-`GoogleChatModelOptions` for controlling tool/function calling behavior.
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers that support
+thinking:
 
 ```dart
+// OLD
 final agent = Agent(
-  'google',
-  chatModelOptions: GoogleChatModelOptions(
-    functionCallingMode: GoogleFunctionCallingMode.any, // Force tool calls
-    allowedFunctionNames: ['get_weather'], // Limit to specific functions
-  ),
-);
-```
-
-### Google Chat Options: Server-Side Tools
-
-The `enableCodeExecution` option has been replaced by a unified
-`serverSideTools` configuration to align with other providers.
-
-#### Old Code
-```dart
-final agent = Agent(
-  'google',
-  chatModelOptions: GoogleChatModelOptions(
-    enableCodeExecution: true,
-  ),
-);
-```
-
-#### New Code
-```dart
-final agent = Agent(
-  'google',
-  chatModelOptions: GoogleChatModelOptions(
-    serverSideTools: {GoogleServerSideTool.codeExecution},
-  ),
-);
-```
-
-### Google Media Generation Options
-
-The Google media generation implementation has been migrated to the official
-SDK. Several unsupported options have been removed to match the official API
-surface.
-
-#### Old Code
-```dart
-final options = GoogleMediaGenerationModelOptions(
-  imagenModel: 'imagen-3.0-generate-001',
-  negativePrompt: 'blurry',
-  addWatermark: true,
-  aspectRatio: '1:1',
-);
-```
-
-#### New Code
-```dart
-final options = GoogleMediaGenerationModelOptions(
-  // imagenModel is now handled internally
-  // negativePrompt and addWatermark are no longer supported
-  aspectRatio: '1:1',
-);
-```
-
-### Thinking API
-
-Thinking content is now a first-class field on `ChatResult` and configuration is
-simplified across all providers.
-
-#### Old Code
-```dart
-// OpenAI Responses specific configuration
-final agent = Agent(
-  'openai-responses',
+  'openai-responses:gpt5',
   chatModelOptions: OpenAIResponsesChatModelOptions(
     reasoningSummary: OpenAIReasoningSummary.detailed,
   ),
 );
+final thinking = result.metadata['thinking'] as String?;
 
-final result = await agent.send('...');
-// Accessing thinking via metadata
-final thinking = result.metadata['thinking'];
-```
-
-#### New Code
-```dart
-// Unified configuration for all providers
-final agent = Agent(
-  'openai-responses', // or 'google', 'anthropic'
-  enableThinking: true,
-);
-
-final result = await agent.send('...');
-// Accessing thinking via first-class field
+// NEW
+final agent = Agent('openai-responses:gpt5', enableThinking: true);
 final thinking = result.thinking;
 ```
 
-### Default Google Model
+- Provider-specific fine-tuning options remain for advanced use cases:
+  - `GoogleChatModelOptions.thinkingBudgetTokens`
+  - `AnthropicChatOptions.thinkingBudgetTokens`
+  - `OpenAIResponsesChatModelOptions.reasoningSummary`
 
-The default model for the `google` provider has been updated to
-`gemini-2.5-flash`.
+### Removed `ProviderCaps`
 
-#### Old Code
+The `ProviderCaps` type was removed from the provider implementation and moved
+to a helper function in the tests.
+
 ```dart
-// Used gemini-1.5-flash
-final agent = Agent('google');
-```
+// OLD
+final visionProviders = Providers.allWith({ProviderCaps.chatVision});
 
-#### New Code
-```dart
-// Now uses gemini-2.5-flash
-final agent = Agent('google');
+// NEW
+// use Provider.listModels() and choose via ModelInfo instead
 ```
 
 ## Migrating from 0.9.7 to 1.0.0

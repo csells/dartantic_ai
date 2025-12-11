@@ -80,6 +80,7 @@ final visionProviders = Providers.allWith({ProviderCaps.chatVision});
 // NEW
 // use Provider.listModels() and choose via ModelInfo instead
 ```
+
 ### New: Custom Headers for Enterprise
 
 All providers now support custom HTTP headers for enterprise scenarios like

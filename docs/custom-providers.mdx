@@ -7,7 +7,8 @@ Your provider can expose a `ChatModel`, an `EmbeddingsModel` or both.
 
 ## Dependencies
 
-You do not need to depend on the `dartantic_ai` package to create a custom provider. The `dartantic_interface` package is all you need.
+You do not need to depend on the `dartantic_ai` package to create a custom
+provider. The `dartantic_interface` package is all you need.
 
 ```yaml
 dependencies:
@@ -90,7 +91,8 @@ print(result.output);
 
 ## Dynamic Provider Registration
 
-If you'd like to participate in the named lookup of providers, you can add your custom provider to the factory registry:
+If you'd like to participate in the named lookup of providers, you can add your
+custom provider to the factory registry:
 
 ```dart
 // Add your custom provider factory to the registry
@@ -102,11 +104,14 @@ final result = await agent.send('Hello!');
 print(result.output);
 ```
 
-Note: The registry maps provider names to factory functions (`Provider Function()`), not instances. Each time a provider is requested, a fresh instance is created.
+Note: The registry maps provider names to factory functions (`Provider
+Function()`), not instances. Each time a provider is requested, a fresh instance
+is created.
 
 ## Examples
 
-- [Custom Provider](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
+- [Custom
+  Provider](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/custom_provider.dart)
 
 ## Next Steps
 

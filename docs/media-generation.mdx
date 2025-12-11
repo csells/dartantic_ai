@@ -38,73 +38,14 @@ for (final asset in result.assets) {
 }
 ```
 
-## Supported MIME Types
+## Example MIME Types
 
-The `mimeTypes` parameter tells the provider what kind of output you want:
+The `mimeTypes` parameter tells the provider what kind of output you want, e.g.
 
 - `image/png`, `image/jpeg` - Images
 - `application/pdf` - PDF documents
 - `text/csv` - CSV files
 - Other file types depend on provider code execution capabilities
-
-## Image Generation
-
-All three providers support image generation:
-
-```dart
-final agent = Agent('openai-responses');
-
-final result = await agent.generateMedia(
-  'A serene mountain landscape at sunset with a lake in the foreground.',
-  mimeTypes: const ['image/png'],
-);
-
-for (final asset in result.assets) {
-  if (asset is DataPart && asset.mimeType.startsWith('image/')) {
-    File('landscape.png').writeAsBytesSync(asset.bytes);
-  }
-}
-```
-
-## PDF Generation
-
-Generate PDF documents using provider code execution:
-
-```dart
-final agent = Agent('anthropic');
-
-final result = await agent.generateMedia(
-  'Create a one-page PDF with the title "Project Status" '
-  'and three bullet points summarizing a software project.',
-  mimeTypes: const ['application/pdf'],
-);
-
-for (final asset in result.assets) {
-  if (asset is DataPart && asset.mimeType == 'application/pdf') {
-    File('status_report.pdf').writeAsBytesSync(asset.bytes);
-  }
-}
-```
-
-## CSV and Data Files
-
-Generate structured data files:
-
-```dart
-final agent = Agent('google');
-
-final result = await agent.generateMedia(
-  'Create a CSV file called "metrics.csv" with columns: date, users, revenue. '
-  'Add 5 rows of sample data for the past week.',
-  mimeTypes: const ['text/csv'],
-);
-
-for (final asset in result.assets) {
-  if (asset is DataPart) {
-    File(asset.name ?? 'data.csv').writeAsBytesSync(asset.bytes);
-  }
-}
-```
 
 ## Streaming Generation
 
