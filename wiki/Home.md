@@ -2,7 +2,7 @@ This document provides a comprehensive overview of the dartantic_ai package arch
 
 ## System Purpose
 
-The dartantic_ai package provides a unified interface to 15+ LLM providers through a single import, implementing a clean abstraction layer that supports:
+The dartantic_ai package provides a unified interface to 8 built-in LLM providers through a single import (extensible via `Agent.providerFactories`), implementing a clean abstraction layer that supports:
 - Chat conversations with streaming
 - Text embeddings generation
 - Tool/function calling 
@@ -112,7 +112,7 @@ sequenceDiagram
     rect rgb(255, 230, 230)
         note over Agent: API Layer
         Agent->>Agent: Parse model string
-        Agent->>Provider: Providers.get()
+        Agent->>Provider: Agent.createProvider()
         Agent->>Provider: createChatModel()
         Agent->>Orchestrator: Select orchestrator
     end

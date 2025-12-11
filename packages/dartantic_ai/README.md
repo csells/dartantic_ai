@@ -18,7 +18,7 @@ with generative AI easier and more fun!
   Responses, Google Gemini (Nana Banana), and Anthropic code execution
 - **Embeddings** - Vector generation and semantic search
 - **Model Reasoning ("Thinking")** - Extended reasoning support across OpenAI
-  Responses, Anthropic, and Google (Gemini 2.5)
+  Responses, Anthropic, and Google
 - **Provider-Hosted Server-Side Tools** - Web search, file search, image
   generation, and code interpreter via OpenAI Responses, Anthropic, and Google
 - **MCP Support** - Model Context Protocol server integration
@@ -67,30 +67,6 @@ void main() async {
 
 **[Read the full documentation at
 docs.dartantic.ai](https://docs.dartantic.ai)**
-
-The documentation includes:
-- **Getting Started Guide** - Installation and basic usage
-- **Core Features** - JSON output, typed responses, and streaming
-- **Advanced Features** - Tool calling, agentic behavior, and embeddings
-- **Thinking Metadata & Server-Side Tools** - Reasoning streams and built-in
-  provider tools across OpenAI Responses, Google, and Anthropic
-- **Integration** - Logging, MCP servers, and custom providers
-- **Provider Reference** - Detailed info on all supported providers
-- **Examples** - Complete working examples for every feature, including:
-  - `dart run example/bin/media_gen/media_gen_google.dart` to generate images,
-    PDFs, and other media assets
-
-## Installation
-
-Add to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  dartantic_ai: ^VERSION
-```
-
-Note: `dartantic_interface` types are re-exported from `dartantic_ai`, so you
-only need one import.
 
 ## Contributing & Community
 

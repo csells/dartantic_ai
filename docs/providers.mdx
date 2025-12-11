@@ -11,13 +11,13 @@ Out of the box support for 8 built-in providers, with more available via the
 | Provider | Default Model | Default Embedding Model | Capabilities | Notes |
 |----------|---------------|------------------------|--------------|-------|
 | **OpenAI** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming | Full feature support |
-| **OpenAI Responses** | `gpt-4o` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
+| **OpenAI Responses** | `gpt-5` | `text-embedding-3-small` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Includes built-in server-side tools |
 | **Anthropic** | `claude-sonnet-4-0` | - | Chat, Vision, Tools, Streaming, Thinking | Extended thinking with token budgets |
 | **Google** | `gemini-2.5-flash` | `text-embedding-004` | Chat, Embeddings, Vision, Tools, Streaming, Thinking | Extended thinking with dynamic budgets |
 | **Mistral** | `mistral-large-latest` | `mistral-embed` | Chat, Embeddings, Tools, Streaming | European servers |
 | **Cohere** | `command-r-plus` | `embed-english-v3.0` | Chat, Embeddings, Tools, Streaming | RAG-optimized |
 | **Ollama** | `llama3.2:latest` | - | Chat, Tools, Streaming | Local models only |
-| **OpenRouter** | `openai/gpt-4o` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
+| **OpenRouter** | `google/gemini-2.5-flash` | - | Chat, Vision, Tools, Streaming | Multi-model gateway |
 
 **Note**: Together AI, Google-OpenAI, and Ollama-OpenAI have been moved to the
 `openai_compat.dart` example. You can still use them by registering them with
@@ -150,12 +150,15 @@ function calling and structured JSON output in the same request:
 | Provider | Support | Implementation |
 |----------|---------|----------------|
 | OpenAI | ✅ | Native `response_format` |
+| OpenAI Responses | ✅ | Native `response_format` |
 | Anthropic | ✅ | `return_result` tool |
 | Google | ✅ | Double agent orchestrator |
-| Together AI | ✅ | OpenAI-compatible |
 | OpenRouter | ✅ | OpenAI-compatible |
 | Ollama | ❌ | Coming soon |
 | Cohere | ❌ | API limitation |
+
+*Together AI, Google-OpenAI, and Ollama-OpenAI also support typed output with tools
+when registered via the `openai_compat.dart` example.*
 
 **Anthropic's approach** uses the `return_result` tool pattern. This is a
 special tool that allows the model to return a structured JSON response. This

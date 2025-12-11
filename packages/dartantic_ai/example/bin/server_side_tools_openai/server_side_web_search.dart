@@ -7,12 +7,12 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 void main(List<String> args) async {
   stdout.writeln('Open AI Responses: Web Search Demo\n');
 
-  final agent = Agent(
-    'openai-responses',
-    chatModelOptions: const OpenAIResponsesChatModelOptions(
-      serverSideTools: {OpenAIServerSideTool.webSearch},
-    ),
-  );
+final agent = Agent(
+  'openai-responses',
+  chatModelOptions: const OpenAIResponsesChatModelOptions(
+    serverSideTools: {OpenAIServerSideTool.webSearch},
+  ),
+);
 
   const prompt =
       'What are the top 3 more recent news headlines about '

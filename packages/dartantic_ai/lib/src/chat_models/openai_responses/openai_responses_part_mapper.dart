@@ -148,15 +148,6 @@ class OpenAIResponsesPartMapper {
         // Extract container file citations from annotations
         for (final annotation in entry.annotations) {
           if (annotation is openai.ContainerFileCitation) {
-            // Skip phantom citations where start_index == end_index
-            if (annotation.startIndex == annotation.endIndex) {
-              _logger.fine(
-                'Skipping zero-length container file citation: '
-                'file_id=${annotation.fileId}',
-              );
-              continue;
-            }
-
             _logger.info(
               'Found container file citation: '
               'container_id=${annotation.containerId}, '

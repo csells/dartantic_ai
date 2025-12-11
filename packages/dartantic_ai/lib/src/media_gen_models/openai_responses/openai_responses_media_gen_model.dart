@@ -72,6 +72,15 @@ class OpenAIResponsesMediaGenerationModel
     );
 
     final messages = <ChatMessage>[
+      // Add system instruction for code interpreter to improve file citation
+      // reliability. The model sometimes omits container_file_citation
+      // annotations; this instruction encourages proper file referencing.
+      if (wantsOtherFiles)
+        ChatMessage.system(
+          'When you create files using code interpreter, always provide a '
+          'clear download link referencing the exact file path. Format file '
+          'references as clickable links.',
+        ),
       ...history,
       ChatMessage.user(prompt, parts: attachments),
     ];
