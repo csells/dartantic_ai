@@ -40,7 +40,7 @@ class GoogleChatModelOptions extends ChatModelOptions {
   final int? topK;
 
   /// Number of generated responses to return. This value must be between
-  /// [1, 8], inclusive. If unset, this will default to 1.
+  /// 1 and 8, inclusive. If unset, this will default to 1.
   final int? candidateCount;
 
   /// The maximum number of tokens to include in a candidate. If unset,

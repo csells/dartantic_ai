@@ -43,6 +43,9 @@ class StreamingIterationResult {
 /// Orchestrates the streaming process, coordinating between model calls,
 /// tool execution, and message accumulation
 abstract class StreamingOrchestrator {
+  /// Creates a StreamingOrchestrator
+  const StreamingOrchestrator();
+
   /// Processes a single iteration of the streaming loop
   ///
   /// This method:
