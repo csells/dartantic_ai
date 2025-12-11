@@ -8,4 +8,5 @@ workspace:
   - packages/dartantic_interface
   - packages/dartantic_ai/example
   - samples/chatarang
+  - samples/dartantic_cli
 melos: 

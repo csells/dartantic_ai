@@ -1,0 +1,21 @@
+name: dartantic_cli
+description: CLI for the Dartantic AI framework
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  args: ^2.4.0
+  cross_file: ^0.3.4+2
+  dartantic_ai: ^2.0.0
+  dotprompt_dart: ^0.5.0
+  json_schema: ^5.2.0
+  mcp_dart: ^1.0.2
+  mime: ^2.0.0
+  path: ^1.8.0
+  yaml: ^3.1.0
+
+dev_dependencies:
+  test: ^1.24.0
