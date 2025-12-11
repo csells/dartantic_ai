@@ -95,6 +95,11 @@ class DartanticCommandRunner {
       'temperature',
       abbr: 't',
       help: 'Model temperature (0.0-1.0)',
+    )
+    // Generate command options
+    ..addMultiOption(
+      'mime',
+      help: 'MIME type to generate (required for generate command, repeatable)',
     );
 
   Future<int> run(List<String> args) async {
@@ -135,8 +140,7 @@ class DartanticCommandRunner {
         case 'chat':
           return _runChat(results, settings);
         case 'generate':
-          stderr.writeln('Error: generate command not yet implemented');
-          return ExitCodes.generalError;
+          return _runGenerate(results, settings);
         case 'embed':
           stderr.writeln('Error: embed command not yet implemented');
           return ExitCodes.generalError;
@@ -347,6 +351,107 @@ class DartanticCommandRunner {
     mcpToolCollector.dispose();
 
     return ExitCodes.success;
+  }
+
+  Future<int> _runGenerate(ArgResults results, Settings settings) async {
+    // Parse --mime (required for generate command)
+    final mimeTypes = results['mime'] as List<String>;
+    if (mimeTypes.isEmpty) {
+      stderr.writeln('Error: --mime is required for generate command');
+      return ExitCodes.invalidArguments;
+    }
+
+    // Determine agent name: CLI arg > env var > settings default > 'google'
+    final agentName = results['agent'] as String? ??
+        Platform.environment['DARTANTIC_AGENT'] ??
+        settings.defaultAgent ??
+        'google';
+
+    var rawPrompt = results['prompt'] as String?;
+
+    // If no prompt provided, read from stdin
+    if (rawPrompt == null || rawPrompt.isEmpty) {
+      rawPrompt = await _readStdin();
+      if (rawPrompt.isEmpty) {
+        stderr.writeln(
+          'Error: No prompt provided. Use -p or pipe input via stdin.',
+        );
+        return ExitCodes.invalidArguments;
+      }
+    }
+
+    // Get working directory
+    final workingDirectory = results['cwd'] as String?;
+
+    // Process prompt (handle @files, etc.)
+    final promptProcessor = PromptProcessor(workingDirectory: workingDirectory);
+    final processed = await promptProcessor.process(rawPrompt);
+
+    // Resolve agent: look up in settings, otherwise pass directly to Agent
+    final agentSettings = settings.agents[agentName];
+    final modelString = agentSettings?.model ?? agentName;
+
+    // Create agent
+    final agent = Agent(modelString);
+
+    // Get output directory
+    final outputDir = results['output-dir'] as String? ?? '.';
+
+    // Ensure output directory exists
+    final outputDirObj = Directory(outputDir);
+    if (!await outputDirObj.exists()) {
+      await outputDirObj.create(recursive: true);
+    }
+
+    // Call generateMedia
+    final result = await agent.generateMedia(
+      processed.prompt,
+      mimeTypes: mimeTypes,
+      attachments: processed.attachments,
+    );
+
+    // Write assets to output directory
+    var assetCount = 0;
+    for (final asset in result.assets) {
+      if (asset is DataPart) {
+        final filename = asset.name ?? _generateFilename(asset.mimeType);
+        final file = File('$outputDir/$filename');
+        await file.writeAsBytes(asset.bytes);
+        stdout.writeln('Generated: ${file.path}');
+        assetCount++;
+      } else if (asset is LinkPart) {
+        stdout.writeln('Link: ${asset.url}');
+        assetCount++;
+      }
+    }
+
+    // Also handle any links
+    for (final link in result.links) {
+      stdout.writeln('Link: ${link.url}');
+      assetCount++;
+    }
+
+    if (assetCount == 0) {
+      stderr.writeln('Warning: No assets were generated');
+    }
+
+    return ExitCodes.success;
+  }
+
+  /// Generate a filename based on MIME type
+  String _generateFilename(String mimeType) {
+    final ext = switch (mimeType) {
+      'image/png' => 'png',
+      'image/jpeg' || 'image/jpg' => 'jpg',
+      'image/gif' => 'gif',
+      'image/webp' => 'webp',
+      'application/pdf' => 'pdf',
+      'text/csv' => 'csv',
+      'text/plain' => 'txt',
+      'application/json' => 'json',
+      _ => 'bin',
+    };
+    return 'generated_${DateTime.now().millisecondsSinceEpoch}.$ext';
   }
 
   Future<String> _readStdin() async {

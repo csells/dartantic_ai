@@ -498,4 +498,58 @@ agents:
       );
     });
   });
+
+  group('Phase 7: Generate Command', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('SC-035: Generate image', () async {
+      final result = await runCli([
+        'generate',
+        '--mime',
+        'image/png',
+        '-p',
+        'A simple red circle on white background',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // Should output the generated file path
+      expect(result.stdout.toString(), contains('Generated:'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-036: Generate with output directory', () async {
+      final result = await runCli([
+        'generate',
+        '--mime',
+        'image/png',
+        '-o',
+        tempDir.path,
+        '-p',
+        'A simple blue square',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // Should output file in the specified directory
+      expect(result.stdout.toString(), contains(tempDir.path));
+
+      // Verify a file was created
+      final files = await tempDir.list().toList();
+      expect(files.whereType<File>().isNotEmpty, isTrue);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-057: Missing --mime error (exit code 2)', () async {
+      final result = await runCli([
+        'generate',
+        '-p',
+        'Generate something',
+      ]);
+      expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
+      expect(result.stderr.toString().toLowerCase(), contains('--mime'));
+    });
+  });
 }
