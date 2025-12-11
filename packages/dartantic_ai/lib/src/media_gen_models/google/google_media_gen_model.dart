@@ -324,12 +324,12 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
     for (final candidate in response.candidates) {
       if (candidate.content != null) {
         for (final part in candidate.content!.parts) {
-          if (part.inlineData != null && part.inlineData!.data != null) {
+          if (part.inlineData != null) {
             final data = part.inlineData!;
             _logger.info('Received inlineData: ${data.mimeType}');
             assets.add(
               DataPart(
-                Uint8List.fromList(data.data!),
+                Uint8List.fromList(data.data),
                 mimeType: data.mimeType,
                 name: _suggestName(data.mimeType, assets.length),
               ),

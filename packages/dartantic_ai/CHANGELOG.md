@@ -1,3 +1,7 @@
+## 2.0.1
+
+- updated dependencies
+
 ## 2.0.0
 
 ### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
