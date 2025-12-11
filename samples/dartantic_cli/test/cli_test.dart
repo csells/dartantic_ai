@@ -427,4 +427,75 @@ What is {{number}} plus 1? Reply with just the number.
       expect(result.stderr.toString().toLowerCase(), contains('invalid'));
     });
   });
+
+  group('Phase 6: Server Tools & MCP', () {
+    late Directory tempDir;
+    late String settingsPath;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+      settingsPath = '${tempDir.path}/settings.yaml';
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('SC-028: Agent with server_tools disabled in settings', () async {
+      // Create a settings file with server_tools: false
+      await File(settingsPath).writeAsString('''
+agents:
+  simple:
+    model: google
+    server_tools: false
+    system: Reply with just "NO_SERVER_TOOLS"
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'simple',
+        '-p',
+        'Hello',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('NO_SERVER_TOOLS'));
+    });
+
+    test('SC-029: MCP server tools from settings', () async {
+      // Create a settings file with MCP server configuration
+      // Using Context7 as an example (requires CONTEXT7_API_KEY in env)
+      await File(settingsPath).writeAsString(r'''
+agents:
+  research:
+    model: google
+    system: You have access to MCP tools. Reply with "MCP_CONFIGURED" to confirm.
+    mcp_servers:
+      - name: context7
+        url: https://mcp.context7.com/mcp
+        headers:
+          CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+''');
+
+      // This test verifies that MCP servers are parsed and configured
+      // The actual tool call would require a valid API key
+      // For now, just verify the configuration is parsed without error
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'research',
+        '-p',
+        'Hello',
+      ]);
+      // May fail if CONTEXT7_API_KEY not set, but should at least parse config
+      // Exit code 0 or 4 (API error if key missing) are acceptable
+      expect(
+        result.exitCode,
+        anyOf(0, 4),
+        reason: 'stderr: ${result.stderr}',
+      );
+    });
+  });
 }

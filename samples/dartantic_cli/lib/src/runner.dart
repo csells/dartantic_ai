@@ -6,6 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:yaml/yaml.dart';
 
+import 'mcp/mcp_tool_collector.dart';
 import 'prompt/prompt_processor.dart';
 import 'settings/settings.dart';
 import 'settings/settings_loader.dart';
@@ -238,9 +239,30 @@ class DartanticCommandRunner {
       outputSchema = JsonSchema.create(agentSettings!.outputSchema!);
     }
 
-    // Create agent
+    // Collect MCP tools if configured
+    final mcpToolCollector = McpToolCollector();
+    var tools = <Tool>[];
+
+    if (agentSettings?.mcpServers.isNotEmpty ?? false) {
+      tools = await mcpToolCollector.collectTools(agentSettings!.mcpServers);
+    }
+
+    // Parse --no-server-tool flag and filter out disabled tools
+    final noServerTools = results['no-server-tool'] as List<String>;
+    final disabledTools = <String>{};
+    for (final entry in noServerTools) {
+      // Support comma-separated list
+      disabledTools.addAll(entry.split(',').map((s) => s.trim()));
+    }
+
+    if (disabledTools.isNotEmpty) {
+      tools = tools.where((t) => !disabledTools.contains(t.name)).toList();
+    }
+
+    // Create agent with tools
     final agent = Agent(
       modelString,
+      tools: tools.isNotEmpty ? tools : null,
       enableThinking: enableThinking,
       temperature: temperature,
     );
@@ -320,6 +342,9 @@ class DartanticCommandRunner {
         }
       }
     }
+
+    // Clean up MCP clients
+    mcpToolCollector.dispose();
 
     return ExitCodes.success;
   }
