@@ -704,4 +704,73 @@ agents:
       expect(result.stderr.toString(), contains('subcommand'));
     });
   });
+
+  group('Phase 9: Models Command', () {
+    late Directory tempDir;
+    late String settingsPath;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+      settingsPath = '${tempDir.path}/settings.yaml';
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('SC-048: List default provider models (google)', () async {
+      final result = await runCli(['models']);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Should show Google provider
+      final output = result.stdout.toString();
+      expect(output, contains('Provider:'));
+      expect(output.toLowerCase(), contains('google'));
+      // Should show some models (at least chat models)
+      expect(output, contains('Chat Models:'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-049: List specific provider models (openai)', () async {
+      final result = await runCli(['models', '-a', 'openai']);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Should show OpenAI provider
+      final output = result.stdout.toString();
+      expect(output, contains('Provider:'));
+      expect(output.toLowerCase(), contains('openai'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-050: Provider alias (gemini -> google)', () async {
+      final result = await runCli(['models', '-a', 'gemini']);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // gemini is an alias for google
+      final output = result.stdout.toString();
+      expect(output, contains('Provider:'));
+      expect(output.toLowerCase(), contains('google'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-051: Agent from settings', () async {
+      // Create a settings file with a custom agent
+      await File(settingsPath).writeAsString('''
+agents:
+  myagent:
+    model: anthropic
+''');
+
+      final result = await runCli([
+        'models',
+        '-s',
+        settingsPath,
+        '-a',
+        'myagent',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Should list Anthropic models (from agent's model)
+      final output = result.stdout.toString();
+      expect(output, contains('Provider:'));
+      expect(output.toLowerCase(), contains('anthropic'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  });
 }

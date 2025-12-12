@@ -159,8 +159,7 @@ class DartanticCommandRunner {
         case 'embed':
           return _runEmbed(results, settings);
         case 'models':
-          stderr.writeln('Error: models command not yet implemented');
-          return ExitCodes.generalError;
+          return _runModels(results, settings);
         default:
           // Not a command, treat as part of prompt or error
           break;
@@ -686,6 +685,86 @@ class DartanticCommandRunner {
     };
 
     stdout.writeln(const JsonEncoder.withIndent('  ').convert(output));
+
+    return ExitCodes.success;
+  }
+
+  Future<int> _runModels(ArgResults results, Settings settings) async {
+    // Determine provider: CLI -a arg > env var > settings default > 'google'
+    final agentName = results['agent'] as String? ??
+        Platform.environment['DARTANTIC_AGENT'] ??
+        settings.defaultAgent ??
+        'google';
+
+    // Resolve to provider (via settings lookup or direct)
+    final agentSettings = settings.agents[agentName];
+    final modelString = agentSettings?.model ?? agentName;
+
+    // Extract provider name from model string (before : or /)
+    final parsed = ModelStringParser.parse(modelString);
+    final providerName = parsed.providerName;
+
+    // Get provider instance
+    final provider = Agent.getProvider(providerName);
+
+    // List models
+    final models = await provider.listModels().toList();
+
+    // Group by kind for display
+    final chatModels =
+        models.where((m) => m.kinds.contains(ModelKind.chat)).toList();
+    final embeddingsModels =
+        models.where((m) => m.kinds.contains(ModelKind.embeddings)).toList();
+    final mediaModels =
+        models.where((m) => m.kinds.contains(ModelKind.media)).toList();
+    final otherModels = models
+        .where(
+          (m) =>
+              !m.kinds.contains(ModelKind.chat) &&
+              !m.kinds.contains(ModelKind.embeddings) &&
+              !m.kinds.contains(ModelKind.media),
+        )
+        .toList();
+
+    // Output formatted list
+    stdout.writeln('Provider: ${provider.displayName} (${provider.name})');
+    stdout.writeln('');
+
+    if (chatModels.isNotEmpty) {
+      stdout.writeln('Chat Models:');
+      for (final m in chatModels) {
+        stdout.writeln('  ${m.name}');
+      }
+      stdout.writeln('');
+    }
+
+    if (embeddingsModels.isNotEmpty) {
+      stdout.writeln('Embeddings Models:');
+      for (final m in embeddingsModels) {
+        stdout.writeln('  ${m.name}');
+      }
+      stdout.writeln('');
+    }
+
+    if (mediaModels.isNotEmpty) {
+      stdout.writeln('Media Models:');
+      for (final m in mediaModels) {
+        stdout.writeln('  ${m.name}');
+      }
+      stdout.writeln('');
+    }
+
+    if (otherModels.isNotEmpty) {
+      stdout.writeln('Other Models:');
+      for (final m in otherModels) {
+        stdout.writeln('  ${m.name}');
+      }
+      stdout.writeln('');
+    }
+
+    if (models.isEmpty) {
+      stdout.writeln('No models available.');
+    }
 
     return ExitCodes.success;
   }
