@@ -190,8 +190,13 @@ class DartanticCommandRunner {
       }
     }
 
-    // Get working directory
+    // Get working directory and validate it exists
     final workingDirectory = results['cwd'] as String?;
+    if (workingDirectory != null &&
+        !await Directory(workingDirectory).exists()) {
+      stderr.writeln('Error: Working directory not found: $workingDirectory');
+      return ExitCodes.invalidArguments;
+    }
 
     // Process prompt (handle @files, .prompt files, etc.)
     final promptProcessor = PromptProcessor(workingDirectory: workingDirectory);
@@ -205,6 +210,12 @@ class DartanticCommandRunner {
       rawPrompt,
       templateVariables: templateVariables,
     );
+
+    // Check for prompt processing errors (file not found, etc.)
+    if (!processed.isSuccess) {
+      stderr.writeln('Error: ${processed.error}');
+      return ExitCodes.invalidArguments;
+    }
 
     // .prompt file model override takes precedence over settings default
     // but CLI -a flag still takes highest precedence
@@ -393,12 +404,23 @@ class DartanticCommandRunner {
       }
     }
 
-    // Get working directory
+    // Get working directory and validate it exists
     final workingDirectory = results['cwd'] as String?;
+    if (workingDirectory != null &&
+        !await Directory(workingDirectory).exists()) {
+      stderr.writeln('Error: Working directory not found: $workingDirectory');
+      return ExitCodes.invalidArguments;
+    }
 
     // Process prompt (handle @files, etc.)
     final promptProcessor = PromptProcessor(workingDirectory: workingDirectory);
     final processed = await promptProcessor.process(rawPrompt);
+
+    // Check for prompt processing errors (file not found, etc.)
+    if (!processed.isSuccess) {
+      stderr.writeln('Error: ${processed.error}');
+      return ExitCodes.invalidArguments;
+    }
 
     // Resolve agent: look up in settings, otherwise pass directly to Agent
     final agentSettings = settings.agents[agentName];
@@ -608,30 +630,63 @@ class DartanticCommandRunner {
       return ExitCodes.invalidArguments;
     }
 
-    // Load embeddings file
+    // Load embeddings file(s)
     final workingDirectory = results['cwd'] as String?;
     final cwd = workingDirectory ?? Directory.current.path;
-    final embeddingsPath =
+    var embeddingsPath =
         files.first.startsWith('/') ? files.first : '$cwd/${files.first}';
-    final embeddingsFile = File(embeddingsPath);
 
-    if (!await embeddingsFile.exists()) {
+    // Remove trailing slash for directory check
+    if (embeddingsPath.endsWith('/')) {
+      embeddingsPath = embeddingsPath.substring(0, embeddingsPath.length - 1);
+    }
+
+    // Check if it's a directory
+    final dir = Directory(embeddingsPath);
+    final file = File(embeddingsPath);
+
+    final embeddingsFiles = <File>[];
+    if (await dir.exists()) {
+      // Find all .json files in directory
+      await for (final entity in dir.list()) {
+        if (entity is File && entity.path.endsWith('.json')) {
+          embeddingsFiles.add(entity);
+        }
+      }
+      if (embeddingsFiles.isEmpty) {
+        stderr.writeln('Error: No embeddings JSON files found in directory: ${files.first}');
+        return ExitCodes.invalidArguments;
+      }
+    } else if (await file.exists()) {
+      embeddingsFiles.add(file);
+    } else {
       stderr.writeln('Error: Embeddings file not found: ${files.first}');
       return ExitCodes.invalidArguments;
     }
 
-    final embeddingsJson = await embeddingsFile.readAsString();
-    final Map<String, dynamic> embeddingsData;
-    try {
-      embeddingsData = jsonDecode(embeddingsJson) as Map<String, dynamic>;
-    } on FormatException catch (e) {
-      stderr.writeln('Error: Invalid embeddings JSON: ${e.message}');
-      return ExitCodes.invalidArguments;
+    // Load and merge all embeddings files
+    final allDocuments = <dynamic>[];
+    String? modelFromFile;
+
+    for (final embeddingsFile in embeddingsFiles) {
+      final embeddingsJson = await embeddingsFile.readAsString();
+      final Map<String, dynamic> embeddingsData;
+      try {
+        embeddingsData = jsonDecode(embeddingsJson) as Map<String, dynamic>;
+      } on FormatException catch (e) {
+        stderr.writeln('Error: Invalid embeddings JSON in ${embeddingsFile.path}: ${e.message}');
+        return ExitCodes.invalidArguments;
+      }
+      modelFromFile ??= embeddingsData['model'] as String?;
+      final docs = embeddingsData['documents'] as List<dynamic>?;
+      if (docs != null) {
+        allDocuments.addAll(docs);
+      }
     }
 
     // Determine agent name (use same model as embeddings file if possible)
     final agentName = results['agent'] as String? ??
-        embeddingsData['model'] as String? ??
+        modelFromFile ??
         Platform.environment['DARTANTIC_AGENT'] ??
         settings.defaultAgent ??
         'google';
@@ -648,7 +703,7 @@ class DartanticCommandRunner {
 
     // Calculate similarities for all chunks
     final results2 = <Map<String, dynamic>>[];
-    final documents = embeddingsData['documents'] as List<dynamic>;
+    final documents = allDocuments;
 
     for (final doc in documents) {
       final docMap = doc as Map<String, dynamic>;

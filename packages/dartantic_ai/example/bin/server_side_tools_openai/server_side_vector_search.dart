@@ -9,10 +9,11 @@ void main(List<String> args) async {
   stdout.writeln('Open AI Responses: Vector Search Demo\n');
 
   // Setup vector store with documentation files
+  // Paths relative to packages/dartantic_ai/ (where run_all_examples.sh runs)
   final vectorStoreId = await setupVectorStore([
-    '../../../wiki/Server-Side-Tools-Tech-Design.md',
-    '../../../wiki/Message-Handling-Architecture.md',
-    '../../../wiki/Streaming-Tool-Call-Architecture.md',
+    '../../wiki/Server-Side-Tools-Tech-Design.md',
+    '../../wiki/Message-Handling-Architecture.md',
+    '../../wiki/Streaming-Tool-Call-Architecture.md',
   ]);
 
   stdout.writeln();
@@ -89,8 +90,9 @@ Future<String> setupVectorStore(List<String> filePaths) async {
     if (!file.existsSync()) {
       throw Exception(
         'File not found: $filePath\n'
-        'Make sure to run this from: packages/dartantic_ai/example\n'
-        'Command: dart run bin/server_side_tools/server_side_vector_search.dart',
+        'Make sure to run this from: packages/dartantic_ai\n'
+        'Command: dart run '
+        'example/bin/server_side_tools_openai/server_side_vector_search.dart',
       );
     }
 

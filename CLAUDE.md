@@ -9,6 +9,7 @@ Dartantic is an agentic AI framework for Dart that provides easy integration wit
 The project is organized as a monorepo with multiple packages:
 - `packages/dartantic_interface/` - Core interfaces and types shared across all Dartantic packages
 - `packages/dartantic_ai/` - Main implementation with provider integrations (primary development focus)
+- `samples/dartantic_cli/` - Command-line interface for the Dartantic framework
 
 ## Documentation
 
@@ -66,6 +67,24 @@ cd packages/dartantic_ai && dart pub get
 
 # Upgrade dependencies
 cd packages/dartantic_ai && dart pub upgrade
+```
+
+### Dartantic CLI Development
+```bash
+# Run the CLI (from samples/dartantic_cli directory)
+cd samples/dartantic_cli && dart run bin/dartantic.dart -p "Hello"
+
+# Run CLI tests
+cd samples/dartantic_cli && dart test
+
+# Run a single CLI test
+cd samples/dartantic_cli && dart test test/cli_test.dart
+
+# Run all CLI example scripts
+cd samples/dartantic_cli && bash example/run_all.sh
+
+# Run a single example
+cd samples/dartantic_cli && bash example/basic/simple_chat.sh
 ```
 
 ## Architecture
@@ -142,6 +161,25 @@ The Agent accepts flexible model string formats:
 - `"openai?chat=gpt-4o&embeddings=text-embedding-3-small"` - URI with query parameters
 
 Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
+
+### Dartantic CLI Architecture
+
+The CLI (`samples/dartantic_cli/`) exposes Dartantic framework functionality via command line:
+
+- **Commands**: `chat` (default), `generate`, `embed`, `models`
+- **Entry Point**: `bin/dartantic.dart` → `DartanticCommandRunner` in `lib/src/runner.dart`
+- **Key Components**:
+  - `SettingsLoader` - Loads and validates `~/.dartantic/settings.yaml`
+  - `PromptProcessor` - Handles `@filename` attachments and `.prompt` dotprompt templates
+  - `Chunker` - Text chunking for embeddings
+  - `McpToolCollector` - MCP server tool integration
+
+**Agent Resolution**: CLI agent names can be:
+1. Built-in provider names (e.g., `google`, `anthropic`, `openai`)
+2. Custom agents defined in `~/.dartantic/settings.yaml`
+3. Model strings (e.g., `openai:gpt-4o`, `anthropic/claude-sonnet-4-20250514`)
+
+See `wiki/CLI-Spec.md` for complete specification including exit codes, settings schema, and test scenarios.
 
 ## Testing Strategy
 

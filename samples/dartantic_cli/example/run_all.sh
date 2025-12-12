@@ -1,15 +1,13 @@
 #!/bin/bash
 # Run all dartantic CLI examples
 set -e
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
 
 echo "=== Dartantic CLI Examples ==="
 echo
 
-for dir in basic attachments templates structured_output advanced; do
+for dir in basic attachments templates structured_output advanced generate embed server_tools environment; do
     if [ -d "example/$dir" ]; then
-        echo "=== ${dir^^} ==="
+        echo "=== $(echo "$dir" | tr '[:lower:]' '[:upper:]') ==="
         for script in "example/$dir"/*.sh; do
             if [ -f "$script" ]; then
                 echo "--- $(basename "$script" .sh) ---"

@@ -11,11 +11,24 @@ class ProcessedPrompt {
     required this.prompt,
     required this.attachments,
     this.modelOverride,
+    this.error,
   });
+
+  /// Creates an error result
+  ProcessedPrompt.error(this.error)
+      : prompt = '',
+        attachments = [],
+        modelOverride = null;
 
   final String prompt;
   final List<Part> attachments;
   final String? modelOverride;
+
+  /// Error message if processing failed (e.g., file not found)
+  final String? error;
+
+  /// Whether processing succeeded
+  bool get isSuccess => error == null;
 }
 
 /// Processes prompts, handling @file patterns and .prompt files
@@ -44,7 +57,14 @@ class PromptProcessor {
     List<String> templateVariables,
   ) async {
     final resolvedPath = _resolvePath(filePath);
-    final content = await File(resolvedPath).readAsString();
+    final file = File(resolvedPath);
+
+    // Validate file exists before reading
+    if (!await file.exists()) {
+      return ProcessedPrompt.error('File not found: $filePath');
+    }
+
+    final content = await file.readAsString();
 
     // Check if .prompt file (dotprompt)
     if (filePath.endsWith('.prompt')) {
@@ -111,19 +131,22 @@ class PromptProcessor {
       final resolvedPath = _resolvePath(filePath);
       final file = File(resolvedPath);
 
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        // XFile with path will auto-detect MIME type via DataPart.fromFile
-        final xFile = XFile.fromData(bytes, path: resolvedPath);
-        attachments.add(await DataPart.fromFile(xFile));
-
-        // Remove the @file pattern from the prompt
-        processedPrompt = processedPrompt.replaceRange(
-          match.start,
-          match.end,
-          '',
-        );
+      // Validate file exists - error instead of silently skipping
+      if (!await file.exists()) {
+        return ProcessedPrompt.error('File not found: $filePath');
       }
+
+      final bytes = await file.readAsBytes();
+      // XFile with path will auto-detect MIME type via DataPart.fromFile
+      final xFile = XFile.fromData(bytes, path: resolvedPath);
+      attachments.add(await DataPart.fromFile(xFile));
+
+      // Remove the @file pattern from the prompt
+      processedPrompt = processedPrompt.replaceRange(
+        match.start,
+        match.end,
+        '',
+      );
     }
 
     // Clean up extra whitespace

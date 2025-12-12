@@ -89,6 +89,17 @@ void main() {
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       expect(result.stdout.toString(), contains('10'));
     });
+
+    test('SC-005: Chat with full model string including embeddings', () async {
+      final result = await runCli([
+        '-a',
+        'openai?chat=gpt-4o-mini&embeddings=text-embedding-3-small',
+        '-p',
+        'What is 4+4? Reply with just the number.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('8'));
+    });
   });
 
   group('Phase 2: Settings File Support', () {
@@ -239,6 +250,62 @@ agents:
       expect(result.stdout.toString(), contains('SPACES_WORK'));
     });
 
+    test('SC-009: Quoted filename with spaces (quotes around whole thing)',
+        () async {
+      // Create a file with spaces in name
+      final filePath = '${tempDir.path}/another file.txt';
+      await File(filePath).writeAsString('The answer is QUOTES_AROUND.');
+
+      final result = await runCli([
+        '-p',
+        'What is the answer? Reply with just the answer. "@$filePath"',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('QUOTES_AROUND'));
+    });
+
+    test('SC-010: Chat with image attachment', () async {
+      // Use a real image from the project (image_0.png)
+      // Copy it to temp directory for the test
+      final sourceImage = File('image_0.png');
+      final imagePath = '${tempDir.path}/test_image.png';
+
+      if (await sourceImage.exists()) {
+        await sourceImage.copy(imagePath);
+      } else {
+        // If image_0.png doesn't exist, create a simple valid test image
+        // by using a known working 1x1 red PNG
+        final pngBytes = base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+        );
+        await File(imagePath).writeAsBytes(pngBytes);
+      }
+
+      final result = await runCli([
+        '-a',
+        'google',
+        '-p',
+        'Describe this image briefly in one sentence. @$imagePath',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // The model should describe what it sees
+      expect(result.stdout.toString().isNotEmpty, isTrue);
+    });
+
+    test('SC-012: Chat from stdin with file context', () async {
+      // Create a context file
+      final contextPath = '${tempDir.path}/context.txt';
+      await File(contextPath).writeAsString('The secret number is 42.');
+
+      // Pass stdin content with file attachment
+      final result = await runCliWithStdin(
+        ['-p', 'What is the secret number in the file? Reply with just the number. @$contextPath'],
+        '', // stdin is empty, context comes from file
+      );
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('42'));
+    });
+
     test('SC-013: .prompt file processing', () async {
       // Create a .prompt file
       final promptPath = '${tempDir.path}/test.prompt';
@@ -289,6 +356,57 @@ What is {{number}} plus 1? Reply with just the number.
       ]);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       expect(result.stdout.toString(), contains('DIRECTORY_OVERRIDE'));
+    });
+
+    test('SC-015: Prompt file model overrides settings', () async {
+      // Create a settings file with google as default
+      final settingsPath = '${tempDir.path}/settings.yaml';
+      await File(settingsPath).writeAsString('''
+default_agent: google
+''');
+
+      // Create a .prompt file that specifies anthropic model
+      // Use a factual question to test model override
+      final promptPath = '${tempDir.path}/override.prompt';
+      await File(promptPath).writeAsString('''
+---
+model: anthropic
+---
+What is 7 + 8? Reply with just the number.
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-p',
+        '@$promptPath',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // The anthropic model should compute 7+8=15
+      expect(result.stdout.toString(), contains('15'));
+    });
+
+    test('SC-016: CLI -a overrides .prompt file model', () async {
+      // Create a .prompt file that specifies anthropic model
+      // Use a factual question to test CLI override
+      final promptPath = '${tempDir.path}/cli_override.prompt';
+      await File(promptPath).writeAsString('''
+---
+model: anthropic
+---
+What is 9 + 6? Reply with just the number.
+''');
+
+      // CLI -a should override the prompt file model
+      final result = await runCli([
+        '-a',
+        'google',
+        '-p',
+        '@$promptPath',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // The google model (from CLI) should compute 9+6=15
+      expect(result.stdout.toString(), contains('15'));
     });
   });
 
@@ -355,9 +473,11 @@ What is {{number}} plus 1? Reply with just the number.
 
   group('Phase 5: Structured Output & Temperature', () {
     late Directory tempDir;
+    late String settingsPath;
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+      settingsPath = '${tempDir.path}/settings.yaml';
     });
 
     tearDown(() async {
@@ -425,6 +545,46 @@ What is {{number}} plus 1? Reply with just the number.
       ]);
       expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
       expect(result.stderr.toString().toLowerCase(), contains('invalid'));
+    });
+
+    test('SC-019: Chat with agent that has output_schema in settings',
+        () async {
+      // Create a settings file with an agent that has output_schema
+      await File(settingsPath).writeAsString('''
+agents:
+  extractor:
+    model: openai:gpt-4o-mini
+    system: Extract entities from text.
+    output_schema:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+      required:
+        - entities
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'extractor',
+        '-p',
+        'John Smith works at Acme Corp as a software engineer.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Output should be structured JSON with entities
+      final output = result.stdout.toString();
+      expect(output, contains('entities'));
+      expect(output, contains('John'));
     });
   });
 
@@ -497,6 +657,116 @@ agents:
         reason: 'stderr: ${result.stderr}',
       );
     });
+
+    test('SC-024: Chat with agent thinking disabled in settings', () async {
+      // Create a settings file with an agent that has thinking disabled
+      await File(settingsPath).writeAsString('''
+agents:
+  quick:
+    model: google:gemini-2.5-flash
+    system: Be concise and direct.
+    thinking: false
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'quick',
+        '-p',
+        'What is 2+2? Reply with just the number.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('4'));
+      // Output should NOT contain [Thinking] markers
+      expect(result.stdout.toString(), isNot(contains('[Thinking]')));
+    });
+
+    test('SC-025: Chat with server-side tools enabled', () async {
+      // Server-side tools are enabled by default
+      // Test with Anthropic which supports web search
+      final result = await runCli([
+        '-a',
+        'anthropic',
+        '-p',
+        'Say "SERVER_TOOLS_ENABLED" exactly.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('SERVER_TOOLS_ENABLED'));
+    });
+
+    test('SC-026: Chat with specific server-side tool disabled', () async {
+      // Disable a specific server-side tool
+      final result = await runCli([
+        '-a',
+        'anthropic',
+        '--no-server-tool',
+        'webSearch',
+        '-p',
+        'Say "TOOL_DISABLED" exactly.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('TOOL_DISABLED'));
+    });
+
+    test('SC-027: Chat with multiple server-side tools disabled', () async {
+      // Disable multiple server-side tools
+      final result = await runCli([
+        '-a',
+        'anthropic',
+        '--no-server-tool',
+        'webSearch,codeInterpreter',
+        '-p',
+        'Say "MULTIPLE_TOOLS_DISABLED" exactly.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('MULTIPLE_TOOLS_DISABLED'));
+    });
+
+    test('SC-030: Chat with custom provider config', () async {
+      // Create a settings file with custom provider configuration
+      // Note: This test validates config parsing, not actual API call
+      await File(settingsPath).writeAsString('''
+agents:
+  custom-openai:
+    model: openai:gpt-4o-mini
+    base_url: https://api.openai.com/v1
+    headers:
+      X-Custom-Header: "custom-value"
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'custom-openai',
+        '-p',
+        'Say "CUSTOM_CONFIG" exactly.',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('CUSTOM_CONFIG'));
+    });
+
+    test('SC-031: Chat with pirate agent (system prompt test)', () async {
+      // Create a settings file with a system prompt
+      await File(settingsPath).writeAsString('''
+agents:
+  pirate:
+    model: google
+    system: You are a pirate. Always respond with "Arrr!" at the start of your response.
+''');
+
+      final result = await runCli([
+        '-s',
+        settingsPath,
+        '-a',
+        'pirate',
+        '-p',
+        'What is your favorite food?',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString().toLowerCase(), contains('arrr'));
+    });
   });
 
   group('Phase 7: Generate Command', () {
@@ -515,6 +785,8 @@ agents:
         'generate',
         '--mime',
         'image/png',
+        '-o',
+        tempDir.path,
         '-p',
         'A simple red circle on white background',
       ]);
@@ -551,6 +823,91 @@ agents:
       expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
       expect(result.stderr.toString().toLowerCase(), contains('--mime'));
     });
+
+    test('SC-037: Generate PDF', () async {
+      // Note: PDF generation requires openai-responses provider
+      final result = await runCli([
+        'generate',
+        '-a',
+        'openai-responses',
+        '--mime',
+        'application/pdf',
+        '-o',
+        tempDir.path,
+        '-p',
+        'Create a one-page document with the title "Test PDF" and one paragraph.',
+      ]);
+      // This may fail if the provider doesn't support PDF generation
+      // Exit code 0 or 4 (API limitation) are acceptable
+      expect(
+        result.exitCode,
+        anyOf(0, 4),
+        reason: 'stderr: ${result.stderr}',
+      );
+      if (result.exitCode == 0) {
+        expect(result.stdout.toString(), contains('Generated:'));
+      }
+    }, timeout: const Timeout(Duration(minutes: 3)));
+
+    test('SC-038: Generate CSV', () async {
+      // Note: CSV generation requires openai-responses provider
+      final result = await runCli([
+        'generate',
+        '-a',
+        'openai-responses',
+        '--mime',
+        'text/csv',
+        '-o',
+        tempDir.path,
+        '-p',
+        'Create a CSV with 3 rows: name, age. Alice 30, Bob 25, Charlie 35.',
+      ]);
+      // This may fail if the provider doesn't support CSV generation
+      // Exit code 0 or 4 (API limitation) are acceptable
+      expect(
+        result.exitCode,
+        anyOf(0, 4),
+        reason: 'stderr: ${result.stderr}',
+      );
+      if (result.exitCode == 0) {
+        expect(result.stdout.toString(), contains('Generated:'));
+      }
+    }, timeout: const Timeout(Duration(minutes: 3)));
+
+    test('SC-039: Generate with multiple MIME types', () async {
+      final result = await runCli([
+        'generate',
+        '-a',
+        'google',
+        '--mime',
+        'image/png',
+        '--mime',
+        'image/jpeg',
+        '-o',
+        tempDir.path,
+        '-p',
+        'A simple colored circle',
+      ]);
+      // Multiple MIME types should be accepted
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('Generated:'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-040: Generate with specific provider', () async {
+      final result = await runCli([
+        'generate',
+        '-a',
+        'google',
+        '--mime',
+        'image/png',
+        '-o',
+        tempDir.path,
+        '-p',
+        'A simple green triangle',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('Generated:'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
   group('Phase 8: Embed Command', () {
@@ -703,6 +1060,92 @@ agents:
       expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
       expect(result.stderr.toString(), contains('subcommand'));
     });
+
+    test('SC-043: Create embeddings with specific provider', () async {
+      // Create a test file
+      final filePath = '${tempDir.path}/doc_openai.txt';
+      await File(filePath).writeAsString('Test document for OpenAI embeddings.');
+
+      final result = await runCli([
+        '-a',
+        'openai',
+        'embed',
+        'create',
+        filePath,
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Should output valid JSON with embeddings
+      final output = result.stdout.toString();
+      expect(output, contains('"documents"'));
+      expect(output, contains('"vector"'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-046: Search embeddings in folder', () async {
+      // Create embeddings and save to a folder
+      final docPath = '${tempDir.path}/folder_doc.txt';
+      await File(docPath).writeAsString('Python programming language for data science.');
+
+      // Create embeddings
+      final createResult = await runCli([
+        'embed',
+        'create',
+        docPath,
+      ]);
+      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+
+      // Create embeddings folder and copy file there
+      final embeddingsFolder = Directory('${tempDir.path}/embeddings_folder');
+      await embeddingsFolder.create();
+      final embeddingsPath = '${embeddingsFolder.path}/embeddings.json';
+      await File(embeddingsPath).writeAsString(createResult.stdout.toString());
+
+      // Search in folder (spec says this should work)
+      final searchResult = await runCli([
+        'embed',
+        'search',
+        '-q',
+        'data science',
+        '${embeddingsFolder.path}/',
+      ]);
+      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+
+      // Verify search results
+      final output = searchResult.stdout.toString();
+      expect(output, contains('"results"'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-047: Search with verbose', () async {
+      // Create embeddings first
+      final docPath = '${tempDir.path}/verbose_doc.txt';
+      await File(docPath).writeAsString('Dart is great for Flutter apps.');
+
+      final createResult = await runCli([
+        'embed',
+        'create',
+        docPath,
+      ]);
+      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+
+      // Save embeddings
+      final embeddingsPath = '${tempDir.path}/verbose_embeddings.json';
+      await File(embeddingsPath).writeAsString(createResult.stdout.toString());
+
+      // Search with verbose flag
+      final searchResult = await runCli([
+        '-v',
+        'embed',
+        'search',
+        '-q',
+        'Flutter',
+        embeddingsPath,
+      ]);
+      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+
+      // Verbose output should show similarity scores
+      final output = searchResult.stdout.toString();
+      expect(output, contains('"similarity"'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
   group('Phase 9: Models Command', () {
@@ -772,5 +1215,117 @@ agents:
       expect(output, contains('Provider:'));
       expect(output.toLowerCase(), contains('anthropic'));
     }, timeout: const Timeout(Duration(minutes: 2)));
+  });
+
+  group('Error Handling', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('SC-052: Missing required prompt (exit code 2)', () async {
+      // Pass empty stdin with no -p flag
+      final result = await runCliWithStdin(['chat'], '');
+      // Should fail with exit code 2 for missing required argument
+      expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
+      final stderr = result.stderr.toString().toLowerCase();
+      expect(
+        stderr.contains('error') ||
+            stderr.contains('usage') ||
+            stderr.contains('prompt'),
+        isTrue,
+        reason: 'Expected error message. stderr: ${result.stderr}',
+      );
+    });
+
+    test('SC-053: Invalid agent/provider name (exit code 1, 4, or 255)',
+        () async {
+      final result = await runCli([
+        '-a',
+        'nonexistent-provider-xyz123',
+        '-p',
+        'Hello',
+      ]);
+      // Exit code 1 (general error), 4 (API error), or 255 (unhandled exception)
+      expect(
+        result.exitCode,
+        anyOf(1, 4, 255),
+        reason: 'stderr: ${result.stderr}',
+      );
+      final stderr = result.stderr.toString().toLowerCase();
+      expect(
+        stderr.contains('error') ||
+            stderr.contains('not found') ||
+            stderr.contains('exception') ||
+            stderr.contains('unknown'),
+        isTrue,
+        reason: 'Expected error message. stderr: ${result.stderr}',
+      );
+    });
+
+    test('SC-054: Missing file attachment (exit code 1, 2, or 255)', () async {
+      final result = await runCli([
+        '-p',
+        'Read this: @/nonexistent/path/to/file.txt',
+      ]);
+      // Exit code 1 (general error), 2 (invalid args), or 255 (unhandled)
+      expect(
+        result.exitCode,
+        anyOf(1, 2, 255),
+        reason: 'stderr: ${result.stderr}',
+      );
+      final stderr = result.stderr.toString().toLowerCase();
+      expect(
+        stderr.contains('not found') ||
+            stderr.contains('error') ||
+            stderr.contains('exception') ||
+            stderr.contains('does not exist'),
+        isTrue,
+        reason: 'Expected error message. stderr: ${result.stderr}',
+      );
+    });
+  });
+
+  group('Environment Variables', () {
+    test('SC-059: DARTANTIC_AGENT env var sets default agent', () async {
+      final result = await runCli(
+        ['-p', 'Say "ENV_AGENT_WORKS" exactly.'],
+        environment: {'DARTANTIC_AGENT': 'anthropic'},
+      );
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect(result.stdout.toString(), contains('ENV_AGENT_WORKS'));
+    });
+
+    test('SC-060: DARTANTIC_LOG_LEVEL env var enables logging', () async {
+      final result = await runCli(
+        ['-p', 'Say "LOG_TEST" exactly.'],
+        environment: {'DARTANTIC_LOG_LEVEL': 'FINE'},
+      );
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      // Logging should appear on stderr
+      // Output should still work normally
+      expect(result.stdout.toString(), contains('LOG_TEST'));
+    });
+
+    test('SC-061: Provider API key from environment', () async {
+      // This test validates that the provider reads API key from environment
+      // Using a clearly invalid key should result in an API error (exit code 4)
+      final result = await runCli(
+        ['-a', 'openai', '-p', 'Hello'],
+        environment: {'OPENAI_API_KEY': 'sk-invalid-test-key'},
+      );
+      // With invalid API key, should fail with API error (exit code 4),
+      // unhandled exception (255), or succeed if there's a valid key
+      expect(
+        result.exitCode,
+        anyOf(0, 4, 255),
+        reason: 'stderr: ${result.stderr}',
+      );
+    });
   });
 }

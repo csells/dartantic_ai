@@ -1,7 +1,5 @@
 #!/bin/bash
 # Using different AI providers
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/../.."
 echo "Using Google (default):"
 echo '$ dartantic -p "Name a color."'
 dart run bin/dartantic.dart -p "Name a color."
