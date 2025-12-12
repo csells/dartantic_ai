@@ -6,6 +6,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:yaml/yaml.dart';
 
+import 'embeddings/chunker.dart';
 import 'mcp/mcp_tool_collector.dart';
 import 'prompt/prompt_processor.dart';
 import 'settings/settings.dart';
@@ -100,6 +101,20 @@ class DartanticCommandRunner {
     ..addMultiOption(
       'mime',
       help: 'MIME type to generate (required for generate command, repeatable)',
+    )
+    // Embed command options
+    ..addOption(
+      'query',
+      abbr: 'q',
+      help: 'Search query for embed search',
+    )
+    ..addOption(
+      'chunk-size',
+      help: 'Chunk size in characters (default: 512)',
+    )
+    ..addOption(
+      'chunk-overlap',
+      help: 'Chunk overlap in characters (default: 100)',
     );
 
   Future<int> run(List<String> args) async {
@@ -142,8 +157,7 @@ class DartanticCommandRunner {
         case 'generate':
           return _runGenerate(results, settings);
         case 'embed':
-          stderr.writeln('Error: embed command not yet implemented');
-          return ExitCodes.generalError;
+          return _runEmbed(results, settings);
         case 'models':
           stderr.writeln('Error: models command not yet implemented');
           return ExitCodes.generalError;
@@ -434,6 +448,244 @@ class DartanticCommandRunner {
     if (assetCount == 0) {
       stderr.writeln('Warning: No assets were generated');
     }
+
+    return ExitCodes.success;
+  }
+
+  Future<int> _runEmbed(ArgResults results, Settings settings) async {
+    // Check for subcommand: embed create or embed search
+    final rest = results.rest;
+
+    // Find the subcommand after 'embed'
+    final embedIndex = rest.indexOf('embed');
+    final subcommandArgs =
+        embedIndex >= 0 ? rest.sublist(embedIndex + 1) : rest.sublist(1);
+
+    if (subcommandArgs.isEmpty) {
+      stderr.writeln('Error: embed command requires a subcommand (create or search)');
+      stderr.writeln('Usage: dartantic embed create <files...>');
+      stderr.writeln('       dartantic embed search -q <query> <embeddings.json>');
+      return ExitCodes.invalidArguments;
+    }
+
+    final subcommand = subcommandArgs.first;
+    final files = subcommandArgs.skip(1).toList();
+
+    switch (subcommand) {
+      case 'create':
+        return _runEmbedCreate(results, settings, files);
+      case 'search':
+        return _runEmbedSearch(results, settings, files);
+      default:
+        stderr.writeln('Error: Unknown embed subcommand "$subcommand"');
+        stderr.writeln('Valid subcommands: create, search');
+        return ExitCodes.invalidArguments;
+    }
+  }
+
+  Future<int> _runEmbedCreate(
+    ArgResults results,
+    Settings settings,
+    List<String> files,
+  ) async {
+    if (files.isEmpty) {
+      stderr.writeln('Error: No files provided for embed create');
+      stderr.writeln('Usage: dartantic embed create <files...>');
+      return ExitCodes.invalidArguments;
+    }
+
+    // Determine agent name
+    final agentName = results['agent'] as String? ??
+        Platform.environment['DARTANTIC_AGENT'] ??
+        settings.defaultAgent ??
+        'google';
+
+    // Resolve agent
+    final agentSettings = settings.agents[agentName];
+    final modelString = agentSettings?.model ?? agentName;
+
+    // Parse chunk options
+    final chunkSizeStr = results['chunk-size'] as String?;
+    final chunkOverlapStr = results['chunk-overlap'] as String?;
+
+    final chunkSize = chunkSizeStr != null
+        ? int.tryParse(chunkSizeStr) ?? settings.chunkSize
+        : settings.chunkSize;
+    final chunkOverlap = chunkOverlapStr != null
+        ? int.tryParse(chunkOverlapStr) ?? settings.chunkOverlap
+        : settings.chunkOverlap;
+
+    final chunker = TextChunker(chunkSize: chunkSize, overlap: chunkOverlap);
+
+    // Create agent
+    final agent = Agent(modelString);
+
+    // Process each file
+    final documents = <Map<String, dynamic>>[];
+    final allChunks = <String>[];
+    final chunkMeta = <({String file, int offset})>[];
+
+    // Get working directory
+    final workingDirectory = results['cwd'] as String?;
+    final cwd = workingDirectory ?? Directory.current.path;
+
+    for (final filePath in files) {
+      final resolvedPath =
+          filePath.startsWith('/') ? filePath : '$cwd/$filePath';
+      final file = File(resolvedPath);
+
+      if (!await file.exists()) {
+        stderr.writeln('Error: File not found: $filePath');
+        return ExitCodes.invalidArguments;
+      }
+
+      final content = await file.readAsString();
+      final chunks = chunker.chunk(content);
+
+      for (final chunk in chunks) {
+        allChunks.add(chunk.text);
+        chunkMeta.add((file: filePath, offset: chunk.offset));
+      }
+    }
+
+    if (allChunks.isEmpty) {
+      stderr.writeln('Error: No content to embed (files may be empty)');
+      return ExitCodes.invalidArguments;
+    }
+
+    // Embed all chunks
+    final batchResult = await agent.embedDocuments(allChunks);
+    final embeddings = batchResult.embeddings;
+
+    // Build output structure
+    final fileChunks = <String, List<Map<String, dynamic>>>{};
+    for (var i = 0; i < allChunks.length; i++) {
+      final meta = chunkMeta[i];
+      fileChunks.putIfAbsent(meta.file, () => []);
+      fileChunks[meta.file]!.add({
+        'text': allChunks[i],
+        'vector': embeddings[i],
+        'offset': meta.offset,
+      });
+    }
+
+    for (final entry in fileChunks.entries) {
+      documents.add({
+        'file': entry.key,
+        'chunks': entry.value,
+      });
+    }
+
+    final output = {
+      'model': modelString,
+      'created': DateTime.now().toUtc().toIso8601String(),
+      'chunk_size': chunkSize,
+      'chunk_overlap': chunkOverlap,
+      'documents': documents,
+    };
+
+    // Output JSON to stdout
+    stdout.writeln(const JsonEncoder.withIndent('  ').convert(output));
+
+    return ExitCodes.success;
+  }
+
+  Future<int> _runEmbedSearch(
+    ArgResults results,
+    Settings settings,
+    List<String> files,
+  ) async {
+    // Require -q query
+    final query = results['query'] as String?;
+    if (query == null || query.isEmpty) {
+      stderr.writeln('Error: -q/--query is required for embed search');
+      stderr.writeln('Usage: dartantic embed search -q <query> <embeddings.json>');
+      return ExitCodes.invalidArguments;
+    }
+
+    if (files.isEmpty) {
+      stderr.writeln('Error: No embeddings file provided');
+      stderr.writeln('Usage: dartantic embed search -q <query> <embeddings.json>');
+      return ExitCodes.invalidArguments;
+    }
+
+    // Load embeddings file
+    final workingDirectory = results['cwd'] as String?;
+    final cwd = workingDirectory ?? Directory.current.path;
+    final embeddingsPath =
+        files.first.startsWith('/') ? files.first : '$cwd/${files.first}';
+    final embeddingsFile = File(embeddingsPath);
+
+    if (!await embeddingsFile.exists()) {
+      stderr.writeln('Error: Embeddings file not found: ${files.first}');
+      return ExitCodes.invalidArguments;
+    }
+
+    final embeddingsJson = await embeddingsFile.readAsString();
+    final Map<String, dynamic> embeddingsData;
+    try {
+      embeddingsData = jsonDecode(embeddingsJson) as Map<String, dynamic>;
+    } on FormatException catch (e) {
+      stderr.writeln('Error: Invalid embeddings JSON: ${e.message}');
+      return ExitCodes.invalidArguments;
+    }
+
+    // Determine agent name (use same model as embeddings file if possible)
+    final agentName = results['agent'] as String? ??
+        embeddingsData['model'] as String? ??
+        Platform.environment['DARTANTIC_AGENT'] ??
+        settings.defaultAgent ??
+        'google';
+
+    final agentSettings = settings.agents[agentName];
+    final modelString = agentSettings?.model ?? agentName;
+
+    // Create agent
+    final agent = Agent(modelString);
+
+    // Embed the query
+    final queryResult = await agent.embedQuery(query);
+    final queryEmbedding = queryResult.embeddings;
+
+    // Calculate similarities for all chunks
+    final results2 = <Map<String, dynamic>>[];
+    final documents = embeddingsData['documents'] as List<dynamic>;
+
+    for (final doc in documents) {
+      final docMap = doc as Map<String, dynamic>;
+      final file = docMap['file'] as String;
+      final chunks = docMap['chunks'] as List<dynamic>;
+
+      for (final chunk in chunks) {
+        final chunkMap = chunk as Map<String, dynamic>;
+        final vector = (chunkMap['vector'] as List<dynamic>)
+            .map((e) => (e as num).toDouble())
+            .toList();
+        final similarity =
+            EmbeddingsModel.cosineSimilarity(queryEmbedding, vector);
+
+        results2.add({
+          'file': file,
+          'text': chunkMap['text'],
+          'offset': chunkMap['offset'],
+          'similarity': similarity,
+        });
+      }
+    }
+
+    // Sort by similarity (descending)
+    results2.sort(
+      (a, b) =>
+          (b['similarity'] as double).compareTo(a['similarity'] as double),
+    );
+
+    // Output results
+    final output = {
+      'query': query,
+      'results': results2.take(10).toList(), // Top 10 results
+    };
+
+    stdout.writeln(const JsonEncoder.withIndent('  ').convert(output));
 
     return ExitCodes.success;
   }

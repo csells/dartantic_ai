@@ -552,4 +552,156 @@ agents:
       expect(result.stderr.toString().toLowerCase(), contains('--mime'));
     });
   });
+
+  group('Phase 8: Embed Command', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('dartantic_test_');
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('SC-041: Embed single file', () async {
+      // Create a test file
+      final filePath = '${tempDir.path}/test.txt';
+      await File(filePath).writeAsString(
+        'Dartantic is an agentic AI framework for Dart. '
+        'It provides easy integration with multiple AI providers.',
+      );
+
+      final result = await runCli([
+        'embed',
+        'create',
+        filePath,
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Output should be valid JSON with embeddings structure
+      final output = result.stdout.toString();
+      expect(output, contains('"model"'));
+      expect(output, contains('"documents"'));
+      expect(output, contains('"chunks"'));
+      expect(output, contains('"vector"'));
+
+      // Parse and verify structure
+      final data = jsonDecode(output) as Map<String, dynamic>;
+      expect(data['documents'], isA<List>());
+      final docs = data['documents'] as List;
+      expect(docs.length, 1);
+      final doc = docs.first as Map<String, dynamic>;
+      expect(doc['chunks'], isA<List>());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-042: Embed multiple files', () async {
+      // Create two test files
+      final file1Path = '${tempDir.path}/doc1.txt';
+      final file2Path = '${tempDir.path}/doc2.txt';
+      await File(file1Path).writeAsString('First document about Python.');
+      await File(file2Path).writeAsString('Second document about JavaScript.');
+
+      final result = await runCli([
+        'embed',
+        'create',
+        file1Path,
+        file2Path,
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Verify both documents are in output
+      final output = result.stdout.toString();
+      final data = jsonDecode(output) as Map<String, dynamic>;
+      final docs = data['documents'] as List;
+      expect(docs.length, 2);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-044: Custom chunk size/overlap', () async {
+      // Create a test file
+      final filePath = '${tempDir.path}/test.txt';
+      await File(filePath).writeAsString(
+        'This is a test document with some content for chunking. ' * 20,
+      );
+
+      final result = await runCli([
+        'embed',
+        'create',
+        '--chunk-size',
+        '256',
+        '--chunk-overlap',
+        '50',
+        filePath,
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Verify chunk options are in output
+      final output = result.stdout.toString();
+      final data = jsonDecode(output) as Map<String, dynamic>;
+      expect(data['chunk_size'], 256);
+      expect(data['chunk_overlap'], 50);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-045: Search with query', () async {
+      // First create embeddings
+      final docPath = '${tempDir.path}/doc.txt';
+      await File(docPath).writeAsString(
+        'Python is a programming language. '
+        'JavaScript is used for web development. '
+        'Dart is great for building apps.',
+      );
+
+      // Create embeddings
+      final createResult = await runCli([
+        'embed',
+        'create',
+        docPath,
+      ]);
+      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+
+      // Save embeddings to file
+      final embeddingsPath = '${tempDir.path}/embeddings.json';
+      await File(embeddingsPath).writeAsString(createResult.stdout.toString());
+
+      // Search
+      final searchResult = await runCli([
+        'embed',
+        'search',
+        '-q',
+        'programming languages',
+        embeddingsPath,
+      ]);
+      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+
+      // Verify search results
+      final output = searchResult.stdout.toString();
+      expect(output, contains('"query"'));
+      expect(output, contains('"results"'));
+      expect(output, contains('"similarity"'));
+
+      final data = jsonDecode(output) as Map<String, dynamic>;
+      expect(data['query'], 'programming languages');
+      expect(data['results'], isA<List>());
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-058: Missing -q error for search (exit code 2)', () async {
+      // Create a dummy embeddings file
+      final embeddingsPath = '${tempDir.path}/embeddings.json';
+      await File(embeddingsPath).writeAsString('{}');
+
+      final result = await runCli([
+        'embed',
+        'search',
+        embeddingsPath,
+      ]);
+      expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
+      expect(result.stderr.toString(), contains('-q'));
+    });
+
+    test('Embed command requires subcommand', () async {
+      final result = await runCli(['embed']);
+      expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
+      expect(result.stderr.toString(), contains('subcommand'));
+    });
+  });
 }
