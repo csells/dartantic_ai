@@ -18,7 +18,7 @@ Future<void> summarizeTextFile(String model) async {
   final agent = Agent(model);
   print('\n${agent.displayName} Summarize Text File\n');
 
-  const path = 'bin/files/bio.txt';
+  const path = 'example/bin/files/bio.txt';
   final file = XFile.fromData(await File(path).readAsBytes(), path: path);
 
   await agent
@@ -35,13 +35,13 @@ Future<void> analyzeImages(String model) async {
   final agent = Agent(model);
   print('\n${agent.displayName} Analyze Multiple Images');
 
-  const fridgePath = 'bin/files/fridge.png';
+  const fridgePath = 'example/bin/files/fridge.png';
   final fridgeFile = XFile.fromData(
     await File(fridgePath).readAsBytes(),
     path: fridgePath,
   );
 
-  const cupboardPath = 'bin/files/cupboard.png';
+  const cupboardPath = 'example/bin/files/cupboard.png';
   final cupboardFile = XFile.fromData(
     await File(cupboardPath).readAsBytes(),
     path: cupboardPath,
@@ -65,13 +65,13 @@ Future<void> processTextWithImages(String model) async {
   final agent = Agent(model);
   print('\n${agent.displayName} Combine Text File and Image Analysis');
 
-  const bioPath = 'bin/files/bio.txt';
+  const bioPath = 'example/bin/files/bio.txt';
   final bioFile = XFile.fromData(
     await File(bioPath).readAsBytes(),
     path: bioPath,
   );
 
-  const fridgePath = 'bin/files/fridge.png';
+  const fridgePath = 'example/bin/files/fridge.png';
   final fridgeFile = XFile.fromData(
     await File(fridgePath).readAsBytes(),
     path: fridgePath,
@@ -94,7 +94,7 @@ Future<void> multiModalConversation(String model) async {
   final agent = Agent(model);
   print('\n${agent.displayName} Multi-modal Conversation');
 
-  const fridgePath = 'bin/files/fridge.png';
+  const fridgePath = 'example/bin/files/fridge.png';
   final fridgeFile = XFile.fromData(
     await File(fridgePath).readAsBytes(),
     path: fridgePath,

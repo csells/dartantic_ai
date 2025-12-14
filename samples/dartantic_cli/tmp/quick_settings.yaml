@@ -1,0 +1,5 @@
+agents:
+  quick:
+    model: google:gemini-2.5-flash
+    system: Be concise.
+    thinking: false

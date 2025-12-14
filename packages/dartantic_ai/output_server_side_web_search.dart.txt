@@ -1,0 +1,9 @@
+Open AI Responses: Web Search Demo
+
+User: What are the top 3 more recent news headlines about Dart the programming language?
+OpenAI Responses: As of December 12, 2025, the three most recent Dart news posts are:
+- Announcing Dart 3.10 — November 12, 2025. ([blog.dart.dev](https://blog.dart.dev/announcing-dart-3-10-ea8b952b6088))
+- Announcing Dart 3.9 — August 14, 2025. ([blog.dart.dev](https://blog.dart.dev/announcing-dart-3-9-ba49e8f38298))
+- Announcing Dart 3.8 — May 20, 2025. ([blog.dart.dev](https://blog.dart.dev/announcing-dart-3-8-724eaaec9f47))
+
+Want brief summaries of what changed in each?
