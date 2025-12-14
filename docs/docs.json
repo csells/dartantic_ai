@@ -20,6 +20,14 @@
               "quick-start",
               "agentic-behavior",
               "providers",
+              {
+                "group": "Samples",
+                "pages": [
+                  "samples",
+                  "dartantic-cli",
+                  "chatarang"
+                ]
+              },
               "migration-guide",
               "notes-on-ai-codegen",
               "contributing"

@@ -1,0 +1,63 @@
+---
+title: Sample Applications
+description: "Real apps built with Dartantic."
+---
+
+The `samples/` folder contains complete applications demonstrating Dartantic in
+action. These aren't toy examples; they're functional tools you can use and
+extend.
+
+## [Dartantic CLI](/dartantic-cli)
+
+A full-featured command-line interface for the Dartantic framework. Think of it
+as `curl` for AI: scriptable, composable, and ready for shell pipelines.
+
+**Key features:**
+- Multiple commands: chat, generate, embed, models
+- Custom agents via settings file
+- DotPrompt templates with variable substitution
+- MCP server integration
+- Structured JSON output with schemas
+
+```bash
+dartantic -p "What is 2+2?"
+dartantic -a anthropic -p "Explain recursion"
+dartantic generate --mime image/png -p "A robot logo"
+dartantic embed create docs/*.txt > index.json
+```
+
+## [Chatarang](/chatarang)
+
+An interactive REPL chat application with multi-provider support and tool
+calling. Perfect for exploring what AI can do when given real capabilities.
+
+**Key features:**
+- Switch providers mid-conversation
+- Built-in tools: weather, location, web fetch
+- Slash commands for app control
+- Conversation history with tool visibility
+
+```
+You: what's the weather at the moda center?
+Tool.call: location-lookup({"location": "Moda Center, Portland"})
+Tool.call: weather({"zipcode": "97240"})
+google:gemini-2.0-flash: It's currently 55°F with light rain.
+```
+
+## Patterns
+
+These samples show two different patterns:
+
+- **Dartantic CLI**: Non-interactive, scriptable, single-turn. Great for
+  automation, shell scripts, and CI/CD pipelines.
+- **Chatarang**: Interactive REPL with multi-turn conversations. Great for
+  exploration and debugging.
+
+Both use the same underlying Dartantic framework, so the skills transfer
+directly to building your own applications.
+
+## Next Steps
+
+- [Quick Start](/quick-start) - Get the framework running
+- [Tool Calling](/tool-calling) - Build your own tools
+- [MCP Support](/mcp-support) - Connect to external tool servers

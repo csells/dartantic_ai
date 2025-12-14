@@ -1,0 +1,351 @@
+---
+title: Chatarang
+description: "Interactive REPL chat application with tool calling."
+---
+
+An interactive REPL chat application with multi-provider support and tool
+calling. Perfect for exploring what AI can do when given real capabilities.
+
+## Installation
+
+```bash
+cd samples/chatarang
+dart pub get
+```
+
+## Quick Start
+
+```bash
+dart run
+```
+
+## Features
+
+- **Multi-Provider**: Switch between Google, OpenAI, and OpenRouter mid-conversation
+- **Tool Calling**: Built-in tools the AI can use to answer questions
+- **Conversation Memory**: Context persists across provider switches
+- **Slash Commands**: Control the app without leaving the chat
+
+## Slash Commands
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `/help` | | Show available commands |
+| `/model` | `[name]` | View current model or switch to new model |
+| `/models` | `[filter]` | List available models (optionally filtered) |
+| `/tools` | | Show all available tools |
+| `/messages` | | Display full conversation history |
+| `/clear` | | Clear conversation and reset to system prompt |
+| `/exit` | | Quit the application |
+
+### Model Switching
+
+Switch providers or models at any time:
+
+```
+You: /model openai:gpt-4o
+Model set to: openai:gpt-4o
+
+You: /model google:gemini-2.0-flash
+Model set to: google:gemini-2.0-flash
+
+You: /model anthropic
+Model set to: anthropic
+```
+
+Model formats:
+- `provider` - Uses provider's default model
+- `provider:model` - Specific model
+- `provider/model` - Alternative notation
+
+### Filtering Models
+
+```
+You: /models gpt
+openai:gpt-4o
+openai:gpt-4o-mini
+openai:gpt-4
+
+You: /models gemini flash
+google:gemini-2.0-flash
+google:gemini-1.5-flash
+```
+
+### Viewing History
+
+The `/messages` command shows the full conversation including tool interactions:
+
+```
+You: /messages
+
+SYSTEM: You are a helpful assistant...
+
+You: What's the weather in Portland?
+
+google:gemini-2.0-flash:
+Tool.call: location-lookup({"location": "Portland, OR"})
+Tool.result: location-lookup: {"postcode": "97240", ...}
+Tool.call: weather({"zipcode": "97240"})
+Tool.result: weather: {"FeelsLikeF": "53", ...}
+The weather in Portland is currently 55°F with light rain.
+```
+
+## Built-in Tools
+
+The AI can autonomously use these tools to answer your questions:
+
+### current-time
+
+Get the current time.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| *(none)* | | | |
+
+**Returns:** ISO 8601 timestamp
+
+```
+You: What time is it?
+Tool.call: current-time({})
+Tool.result: current-time: 2024-12-14T15:30:00.000Z
+google:gemini-2.0-flash: It's currently 3:30 PM.
+```
+
+### current-date
+
+Get the current date.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| *(none)* | | | |
+
+**Returns:** ISO 8601 timestamp
+
+```
+You: What's today's date?
+Tool.call: current-date({})
+Tool.result: current-date: 2024-12-14T00:00:00.000Z
+google:gemini-2.0-flash: Today is December 14th, 2024.
+```
+
+### weather
+
+Get weather information for a US zipcode.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `zipcode` | string | Yes | US zipcode |
+
+**Returns:** JSON with current conditions, temperature, humidity, wind, UV index
+
+**Data source:** wttr.in API
+
+```
+You: What's the weather in 97201?
+Tool.call: weather({"zipcode": "97201"})
+Tool.result: weather: {"current_condition": [{"FeelsLikeF": "53", "humidity": "89", ...}]}
+google:gemini-2.0-flash: In Portland (97201), it's currently 55°F and feels like 53°F with 89% humidity.
+```
+
+### location-lookup
+
+Get geographic data for any location query.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `location` | string | Yes | Location to search for |
+
+**Returns:** Array of location objects with coordinates, address details, place IDs
+
+**Data source:** OpenStreetMap Nominatim API
+
+```
+You: Where is the Eiffel Tower?
+Tool.call: location-lookup({"location": "Eiffel Tower, Paris"})
+Tool.result: location-lookup: [{"lat": "48.8584", "lon": "2.2945", "display_name": "..."}]
+google:gemini-2.0-flash: The Eiffel Tower is located at coordinates 48.8584°N, 2.2945°E in Paris, France.
+```
+
+### surf-web
+
+Fetch the content of a web page.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `link` | string | Yes | URL of the web page |
+
+**Returns:** HTML content of the page
+
+```
+You: What's on example.com?
+Tool.call: surf-web({"link": "https://example.com"})
+Tool.result: surf-web: <!DOCTYPE html>...
+google:gemini-2.0-flash: Example.com is a simple domain used for documentation examples...
+```
+
+## Multi-Step Tool Calling
+
+Watch the AI chain tools together to solve complex questions:
+
+```
+You: what's the weather at the moda center in portland, or?
+
+Tool.call: location-lookup({
+  "location": "Moda Center, Portland, OR"
+})
+Tool.result: { "postcode": "97240", ... }
+
+Tool.call: weather({
+  "zipcode": "97240"
+})
+Tool.result: { "FeelsLikeF": "53", "humidity": "89", ... }
+
+google:gemini-2.0-flash: The weather at the Moda Center is currently
+55°F with light rain. Wind from the south at 9 mph.
+```
+
+The AI figured out it needed to:
+1. Look up the Moda Center's location to get a zipcode
+2. Use that zipcode to fetch the weather
+3. Synthesize the results into a natural response
+
+That's agentic behavior in action.
+
+## Conversation Memory
+
+Context persists across the entire session, including model switches:
+
+```
+You: my name is chris
+google:gemini-2.0-flash: Okay, Chris. How can I help you today?
+
+You: /model openai:gpt-4o
+Model set to: openai:gpt-4o
+
+You: say my name
+openai:gpt-4o: Your name is Chris. How can I assist you further?
+```
+
+## Environment Setup
+
+Create a `.env` file in the chatarang directory or set environment variables:
+
+```bash
+GEMINI_API_KEY=your_google_api_key
+OPENAI_API_KEY=your_openai_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
+```
+
+### Required Keys
+
+| Provider | Environment Variable | Required |
+|----------|---------------------|----------|
+| Google | `GEMINI_API_KEY` | For Google models |
+| OpenAI | `OPENAI_API_KEY` | For OpenAI models |
+| OpenRouter | `OPENROUTER_API_KEY` | For OpenRouter models |
+
+You only need keys for the providers you plan to use.
+
+## Supported Providers
+
+### Google (Gemini)
+
+Default provider. Models include:
+- `google:gemini-2.0-flash` (default)
+- `google:gemini-1.5-pro`
+- `google:gemini-1.5-flash`
+
+### OpenAI
+
+GPT models:
+- `openai:gpt-4o`
+- `openai:gpt-4o-mini`
+- `openai:gpt-4`
+
+### OpenRouter
+
+Access to various models through OpenRouter:
+- `openrouter:anthropic/claude-3-opus`
+- `openrouter:meta-llama/llama-3-70b`
+- And many more
+
+## Output Colors
+
+Chatarang uses colors to distinguish message types:
+
+| Color | Meaning |
+|-------|---------|
+| Blue | Your input (`You:`) |
+| Yellow | Model response |
+| Magenta | Tool calls |
+| Cyan | Tool results |
+| Red | System messages |
+
+## Sample Session
+
+```
+$ dart run
+Welcome to Chatarang!
+Type /help for available commands.
+Found 42 models across 3 providers.
+
+You: /models gemini
+google:gemini-2.0-flash
+google:gemini-1.5-pro
+google:gemini-1.5-flash
+
+You: What can you help me with?
+google:gemini-2.0-flash: I can help you with a variety of tasks! I have access
+to several tools that let me:
+
+- Tell you the current time and date
+- Look up weather for any US location
+- Find geographic information about places
+- Fetch and read web pages
+
+What would you like to know?
+
+You: What's the weather like in Seattle right now?
+Tool.call: location-lookup({"location": "Seattle, WA"})
+Tool.result: location-lookup: {"postcode": "98101", ...}
+Tool.call: weather({"zipcode": "98101"})
+Tool.result: weather: {"current_condition": [...]}
+google:gemini-2.0-flash: In Seattle (98101), it's currently 48°F with
+overcast skies and a light drizzle. Humidity is at 82%.
+
+You: /model openai:gpt-4o
+Model set to: openai:gpt-4o
+
+You: What about Portland?
+Tool.call: location-lookup({"location": "Portland, OR"})
+Tool.result: location-lookup: {"postcode": "97201", ...}
+Tool.call: weather({"zipcode": "97201"})
+Tool.result: weather: {"current_condition": [...]}
+openai:gpt-4o: Portland is a bit warmer at 52°F, also with overcast
+conditions but no rain at the moment.
+
+You: /exit
+Goodbye!
+```
+
+## Adding Custom Tools
+
+To add your own tools, edit `lib/tools.dart`:
+
+```dart
+final myTool = Tool(
+  name: 'my-tool',
+  description: 'Description of what the tool does',
+  inputSchema: JsonSchema.object({
+    'param1': JsonSchema.string(description: 'First parameter'),
+    'param2': JsonSchema.integer(description: 'Optional param'),
+  }, required: ['param1']),
+  onCall: (args) async {
+    final param1 = args['param1'] as String;
+    // Do something...
+    return 'Result';
+  },
+);
+```
+
+Then add it to the `tools` list in the same file.

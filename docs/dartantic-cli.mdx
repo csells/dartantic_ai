@@ -1,0 +1,470 @@
+---
+title: Dartantic CLI
+description: "Command-line interface for the Dartantic framework."
+---
+
+A full-featured command-line interface for the Dartantic framework. Think of it
+as `curl` for AI: scriptable, composable, and ready for shell pipelines.
+
+## Installation
+
+```bash
+cd samples/dartantic_cli
+dart pub get
+```
+
+## Quick Start
+
+```bash
+# Simple question
+dartantic -p "What is 2+2?"
+
+# Use a specific provider
+dartantic -a anthropic -p "Explain recursion in one sentence"
+
+# Pipe input
+echo "Summarize this: Dart is a client-optimized language" | dartantic
+
+# Attach files
+dartantic -p "Describe this image: @photo.jpg"
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `chat` | Send a chat prompt (default) |
+| `generate` | Generate media (images, PDFs, CSVs) |
+| `embed create` | Create embeddings from documents |
+| `embed search` | Semantic search over embeddings |
+| `models` | List available models for a provider |
+
+## Global Options
+
+Global options must be placed **before** the command name:
+
+```bash
+dartantic [global-options] [command] [command-options]
+```
+
+| Option | Short | Type | Default | Description |
+|--------|-------|------|---------|-------------|
+| `--agent` | `-a` | string | google | Agent name or model string |
+| `--settings` | `-s` | string | ~/.dartantic/settings.yaml | Path to settings file |
+| `--cwd` | `-d` | string | current directory | Working directory for relative paths |
+| `--output-dir` | `-o` | string | cwd | Output directory for generated files |
+| `--verbose` | `-v` | flag | false | Show token usage stats |
+| `--no-thinking` | | flag | false | Disable extended thinking |
+| `--no-server-tool` | | multi | | Disable server-side tools by name |
+| `--no-color` | | flag | false | Disable colored output |
+| `--version` | | flag | | Show CLI version |
+| `--help` | `-h` | flag | | Show help text |
+
+**Important**: Global options must come before the command:
+
+```bash
+# Correct
+dartantic -a openai -p "Hello"
+dartantic -v chat -p "Hello"
+
+# Incorrect - causes errors
+dartantic chat -a openai -p "Hello"
+```
+
+## Chat Command
+
+Send a prompt to an AI agent and receive a streaming response. This is the
+default command.
+
+### Options
+
+| Option | Short | Type | Description |
+|--------|-------|------|-------------|
+| `--prompt` | `-p` | string | Prompt text or @filename |
+| `--output-schema` | | string | JSON Schema for structured output |
+| `--temperature` | `-t` | float | Model temperature (0.0-1.0) |
+
+### Examples
+
+```bash
+# Basic chat (google is the default provider)
+dartantic -p "What is the capital of France?"
+
+# Different providers
+dartantic -a openai -p "Hello from GPT-4o"
+dartantic -a anthropic -p "Hello from Claude"
+dartantic -a ollama -p "Hello from local Llama"
+
+# Model strings for specific models
+dartantic -a "google:gemini-2.5-flash" -p "Quick response please"
+dartantic -a "openai?chat=gpt-4o&embeddings=text-embedding-3-small" -p "Hi"
+
+# File attachments
+dartantic -p "Summarize this: @document.txt"
+dartantic -p "Compare these: @file1.txt and @file2.txt"
+dartantic -p "What's in this image? @screenshot.png"
+
+# Structured JSON output
+dartantic -p "List 3 colors" --output-schema '{"type":"array","items":{"type":"string"}}'
+
+# Control temperature
+dartantic -t 0.9 -p "Write a creative story opening"
+
+# Verbose mode (shows token usage)
+dartantic -v -p "Hello"
+
+# From stdin
+echo "Your prompt" | dartantic
+cat prompt.txt | dartantic
+```
+
+## Generate Command
+
+Generate media content (images, PDFs) based on a prompt.
+
+### Options
+
+| Option | Short | Type | Required | Description |
+|--------|-------|------|----------|-------------|
+| `--prompt` | `-p` | string | No | Prompt text or @filename |
+| `--mime` | | multi | Yes | MIME type to generate (repeatable) |
+
+### Examples
+
+```bash
+# Generate an image
+dartantic generate --mime image/png -p "A minimalist robot logo"
+
+# Generate to a specific directory
+dartantic generate --mime image/png -p "A sunset" -o ./images/
+
+# Generate a PDF
+dartantic generate -a openai-responses --mime application/pdf \
+  -p "Create a one-page report about AI trends"
+
+# Generate CSV data
+dartantic generate -a openai-responses --mime text/csv \
+  -p "Sample user data with name, email, age columns"
+
+# Generate multiple formats
+dartantic generate -p @prompt.txt --mime image/jpeg --mime image/png
+```
+
+## Embeddings Commands
+
+### embed create
+
+Create embeddings from text files.
+
+```bash
+dartantic embed create [options] <files...>
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--chunk-size` | int | 512 | Chunk size in characters |
+| `--chunk-overlap` | int | 100 | Overlap between chunks |
+
+```bash
+# Create embeddings
+dartantic embed create doc1.txt doc2.txt > embeddings.json
+
+# Custom chunk settings
+dartantic embed create --chunk-size 256 --chunk-overlap 50 *.txt > small-chunks.json
+```
+
+**Output format:**
+
+```json
+{
+  "model": "google",
+  "created": "2024-12-14T15:30:00Z",
+  "chunk_size": 512,
+  "chunk_overlap": 100,
+  "documents": [
+    {
+      "file": "doc.txt",
+      "chunks": [
+        {
+          "text": "chunk content",
+          "vector": [0.1, 0.2, ...],
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
+### embed search
+
+Semantic search over embeddings.
+
+```bash
+dartantic embed search -q <query> <embeddings.json>
+```
+
+| Option | Short | Type | Required | Description |
+|--------|-------|------|----------|-------------|
+| `--query` | `-q` | string | Yes | Search query |
+
+```bash
+# Semantic search
+dartantic embed search -q "machine learning concepts" embeddings.json
+
+# Search with scores
+dartantic -v embed search -q "neural networks" embeddings.json
+
+# Search directory of JSON files
+dartantic embed search -q "API usage" ./embeddings/
+```
+
+**Output format:**
+
+```json
+{
+  "query": "search term",
+  "results": [
+    {
+      "file": "doc.txt",
+      "text": "matching text...",
+      "offset": 125,
+      "similarity": 0.87
+    }
+  ]
+}
+```
+
+## Models Command
+
+List available models for a provider.
+
+```bash
+# Default provider (google)
+dartantic models
+
+# Specific provider
+dartantic -a openai models
+dartantic -a anthropic models
+```
+
+**Output:**
+
+```
+Provider: Google (google)
+
+Chat Models:
+  gemini-2.5-flash
+  gemini-1.5-pro
+
+Embeddings Models:
+  text-embedding-004
+
+Media Models:
+  imagen-3
+```
+
+## Settings File
+
+Create `~/.dartantic/settings.yaml` to define custom agents and defaults.
+
+### Schema
+
+**Root level:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `default_agent` | string | google | Default agent if none specified |
+| `thinking` | boolean | false | Enable extended thinking globally |
+| `server_tools` | boolean | true | Enable server-side tools |
+| `chunk_size` | int | 512 | Default chunk size for embeddings |
+| `chunk_overlap` | int | 100 | Default overlap between chunks |
+| `agents` | map | {} | Agent configurations |
+
+**Agent configuration (agents.\<name\>):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `model` | string | Yes | Model string (e.g., `openai:gpt-4o`) |
+| `system` | string | No | System prompt |
+| `thinking` | boolean | No | Enable extended thinking |
+| `server_tools` | boolean | No | Enable server-side tools |
+| `output_schema` | object | No | JSON Schema for structured output |
+| `api_key_name` | string | No | Environment variable for API key |
+| `base_url` | string | No | Override provider's base URL |
+| `headers` | map | No | Custom HTTP headers |
+| `mcp_servers` | list | No | MCP server configurations |
+
+**MCP server configuration:**
+
+| Field | Type | Use | Description |
+|-------|------|-----|-------------|
+| `name` | string | Both | Server identifier |
+| `url` | string | Remote | HTTP server URL |
+| `headers` | map | Remote | Custom HTTP headers |
+| `command` | string | Local | Command to execute |
+| `args` | list | Local | Command arguments |
+| `environment` | map | Local | Environment variables |
+| `working_directory` | string | Local | Working directory |
+
+### Full Example
+
+```yaml
+# Global defaults
+default_agent: coder
+thinking: true
+server_tools: true
+chunk_size: 512
+chunk_overlap: 100
+
+agents:
+  # Simple agent with just model
+  default:
+    model: google
+
+  # Coding assistant
+  coder:
+    model: anthropic:claude-sonnet-4-20250514
+    system: |
+      You are an expert software engineer.
+      Write clean, well-documented code.
+
+  # Fast responses
+  quick:
+    model: google:gemini-2.5-flash
+    thinking: false
+
+  # Entity extraction with structured output
+  extractor:
+    model: openai:gpt-4o
+    output_schema:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              type: { type: string }
+      required: [entities]
+
+  # Research agent with MCP tools (remote)
+  research:
+    model: anthropic:claude-sonnet-4-20250514
+    mcp_servers:
+      - name: context7
+        url: https://mcp.context7.com/mcp
+        headers:
+          CONTEXT7_API_KEY: "${CONTEXT7_API_KEY}"
+
+  # Agent with local MCP server
+  filesystem:
+    model: google
+    mcp_servers:
+      - name: filesystem
+        command: npx
+        args: ["-y", "@anthropic/mcp-server-filesystem", "/tmp"]
+
+  # Custom provider endpoint
+  custom:
+    model: openai:gpt-4o-mini
+    base_url: https://api.custom-provider.com/v1
+    headers:
+      X-Custom-Header: value
+```
+
+Then use them:
+
+```bash
+dartantic -a coder -p "Write a binary search in Rust"
+dartantic -a extractor -p "John Smith works at Acme Corp"
+dartantic -a research -p "Find documentation about hooks"
+```
+
+### Environment Variable Substitution
+
+Use `${VAR_NAME}` syntax for environment variables:
+
+```yaml
+agents:
+  custom:
+    model: openai
+    headers:
+      Authorization: "Bearer ${MY_API_KEY}"
+```
+
+## Model String Formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Provider only | `openai` | Uses provider's default model |
+| Provider:model | `openai:gpt-4o` | Legacy colon notation |
+| Provider/model | `openai/gpt-4o` | Slash notation |
+| URI params | `openai?chat=gpt-4o&embeddings=text-embedding-3-small` | Multiple models |
+| Agent name | `coder` | Lookup in settings file |
+
+## DotPrompt Templates
+
+Use `.prompt` files for reusable templates with variable substitution:
+
+```yaml
+# math.prompt
+---
+model: google
+input:
+  default:
+    operation: add
+---
+Calculate: What is 5 {{operation}} 3?
+```
+
+```bash
+# Uses default (add)
+dartantic -p @math.prompt
+
+# Override variable
+dartantic -p @math.prompt operation=multiply
+```
+
+### Template Features
+
+- YAML frontmatter with `---` delimiters
+- `model:` field overrides the agent's model
+- `input:` section defines variable defaults
+- `{{variable}}` placeholders use Mustache syntax
+- Variables passed via CLI: `name=value`
+
+## Exit Codes
+
+| Code | Name | Meaning |
+|------|------|---------|
+| 0 | success | Command executed successfully |
+| 1 | generalError | General execution error |
+| 2 | invalidArguments | Invalid arguments or missing options |
+| 3 | configurationError | Settings file error |
+| 4 | apiError | Provider API error |
+| 5 | networkError | Network connectivity error |
+
+## Environment Variables
+
+```bash
+# Set default agent
+export DARTANTIC_AGENT=anthropic
+
+# Enable debug logging
+export DARTANTIC_LOG_LEVEL=FINE
+
+# API keys (standard pattern)
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GEMINI_API_KEY="..."
+```
+
+## Agent Resolution Order
+
+1. CLI `--agent` flag (highest priority)
+2. Environment variable `DARTANTIC_AGENT`
+3. Settings file `default_agent` field
+4. Direct provider name (google, openai, etc.)
+5. 'google' (final default)

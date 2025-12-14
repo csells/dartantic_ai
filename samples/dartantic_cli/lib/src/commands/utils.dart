@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:json_schema/json_schema.dart';
+import 'package:mime/mime.dart';
 
 /// Result of parsing an output schema.
 class SchemaParseResult {
@@ -34,16 +35,9 @@ Future<SchemaParseResult> parseOutputSchema(String schemaStr) async {
 
 /// Generate a filename based on MIME type.
 String generateFilename(String mimeType) {
-  final ext = switch (mimeType) {
-    'image/png' => 'png',
-    'image/jpeg' || 'image/jpg' => 'jpg',
-    'image/gif' => 'gif',
-    'image/webp' => 'webp',
-    'application/pdf' => 'pdf',
-    'text/csv' => 'csv',
-    'text/plain' => 'txt',
-    'application/json' => 'json',
-    _ => 'bin',
-  };
+  // Override text/plain to use .txt (mime package returns 'text')
+  final ext = mimeType == 'text/plain'
+      ? 'txt'
+      : extensionFromMime(mimeType) ?? 'bin';
   return 'generated_${DateTime.now().millisecondsSinceEpoch}.$ext';
 }
