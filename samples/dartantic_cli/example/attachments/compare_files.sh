@@ -1,5 +1,5 @@
 #!/bin/bash
-# Compare multiple files
+# SC-007: Compare multiple files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Comparing two files:"
 echo '$ dartantic -p "What are the key differences between these two files? @resources/files/sample.txt @resources/files/notes.txt"'

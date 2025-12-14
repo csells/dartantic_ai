@@ -1,0 +1,18 @@
+agents:
+  extractor:
+    model: openai:gpt-4o-mini
+    system: Extract entities from text.
+    output_schema:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+      required:
+        - entities

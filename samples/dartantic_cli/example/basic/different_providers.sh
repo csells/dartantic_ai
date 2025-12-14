@@ -1,5 +1,5 @@
 #!/bin/bash
-# Using different AI providers
+# SC-002: Using different AI providers
 echo "Using Google (default):"
 echo '$ dartantic -p "Name a color."'
 dart run bin/dartantic.dart -p "Name a color."

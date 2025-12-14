@@ -1,0 +1,5 @@
+agents:
+  test:
+    model: google
+    headers:
+      Authorization: "Bearer ${TEST_TOKEN}"

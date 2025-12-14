@@ -1,5 +1,5 @@
 #!/bin/bash
-# Using a schema file
+# SC-018: Using a schema file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Using schema file for structured output:"
 echo '$ dartantic -p "Tell me about Tokyo." --output-schema "@resources/schemas/city.json"'

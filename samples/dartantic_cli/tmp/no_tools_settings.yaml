@@ -1,0 +1,4 @@
+agents:
+  simple:
+    model: google
+    server_tools: false

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Override template variables
+# SC-014: Override template variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "Running template with custom variable:"
 echo '$ dartantic -p "@resources/prompts/math.prompt" number=99'
