@@ -1,0 +1,6 @@
+agents:
+  custom-openai:
+    model: openai:gpt-4o-mini
+    base_url: https://api.openai.com/v1
+    headers:
+      X-Custom-Header: "custom-value"

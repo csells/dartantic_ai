@@ -1,0 +1,6 @@
+CLI Features:
+- Multiple AI providers supported
+- File attachments with @path syntax
+- Template files with .prompt extension
+- Structured JSON output
+- Verbose mode for debugging

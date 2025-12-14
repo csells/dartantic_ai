@@ -1,0 +1,7 @@
+agents:
+  coder:
+    model: openai:gpt-4o-mini
+    system: You are a concise coding assistant. Provide brief, working code examples.
+  writer:
+    model: anthropic
+    system: You are a creative writer. Keep responses short and engaging.
