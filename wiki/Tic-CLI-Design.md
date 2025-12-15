@@ -373,6 +373,230 @@ $ tic generate
 [generate] You: Create a brand guidelines document
 ```
 
+## Open Questions
+
+### 1. `/embed` One-Shot Ambiguity
+
+`/embed @doc.txt` (add to vault) vs `/embed query` (search) are different operations with same syntax.
+
+**Options**:
+- **A**: Separate commands: `/search <query>` for search, `/index @file` for adding to vault. Keep `/embed` for mode switching only.
+- **B**: Detect `@` prefix to distinguish operations.
+- **C**: `/embed` always searches; use `/vault add @file` to index.
+
+---
+
+### 2. Generate Mode Feature Parity
+
+Generate mode lacks features that chat has:
+- Temperature
+- System prompt (for style guidance)
+- File attachments (reference images)
+- Thinking display
+- Multi-turn iteration
+
+**Questions**:
+- Should generate support temperature? (`-t` batch, `/temperature` REPL)
+- Should generate have system prompts? (e.g., "Always use minimalist style")
+- Should generate support `@file` attachments? (e.g., `@sketch.png` as reference)
+- Does multi-turn generation make sense? ("Make it more blue")
+
+---
+
+### 3. Missing REPL Commands for Batch Options
+
+Batch has options that can't be changed in REPL:
+- Temperature (`-t`)
+- Output schema (`--output-schema`)
+- Output directory (`-o`)
+
+**Proposed commands**:
+```
+/temperature [n]          # show or set (chat/generate)
+/schema [json|@file]      # show or set output schema (chat)
+/output [dir]             # show or set output directory (generate)
+```
+
+---
+
+### 4. `/model` vs `/agent` Relationship
+
+Agents have models, but `/model` exists separately. Confusion about what `/model` overrides.
+
+**Options**:
+- **A**: Remove `/model`. Only `/agent` exists. To use a raw model, use `-a model:string` syntax which creates an anonymous agent.
+- **B**: `/model` temporarily overrides the current agent's model for the current mode.
+- **C**: Keep both but clarify: `/agent` switches config bundle, `/model` switches just the LLM.
+
+---
+
+### 5. Batch Embed Operations
+
+Only `sync` shown for batch embed. Missing operations:
+
+**Proposed batch commands**:
+```
+tic embed sync --db <vault>              # sync vault
+tic embed search <query> --db <vault>    # search vault
+tic embed status --db <vault>            # show vault status
+tic embed create --db <name> --sources <paths> [--output <path>]
+tic embed delete --db <vault>            # delete vault
+tic embed files --db <vault>             # list indexed files
+```
+
+---
+
+### 6. Vault Search in Generate Mode
+
+Doc claims vault available as tool in generate, but generation typically doesn't do tool calls.
+
+**Options**:
+- **A**: Pre-flight injection via `/context <query>` command that searches vault and injects into next prompt.
+- **B**: Remove the claim if model doesn't support tools during generation.
+- **C**: For models that support it, allow tool use during generation.
+
+---
+
+### 7. `/clear` Meaning Per Mode
+
+`/clear` in embed mode is meaningless (no conversation) or dangerous (clear vault?).
+
+**Options**:
+- **A**: Mode-specific behavior: chat=conversation, generate=generation history, embed=search history
+- **B**: Disable `/clear` in embed mode
+- **C**: `/clear` always means conversation/prompt history, never vault data
+
+---
+
+### 8. File Attachment in Embed Mode
+
+What does `@file` mean in embed mode?
+
+**Options**:
+- **A**: `@file` in embed mode = add file to vault and index it
+- **B**: `@file` in embed mode = error ("use /index @file instead")
+- **C**: `@file` in embed mode = search contents of file (not index it)
+
+---
+
+### 9. Multi-Vault Handling
+
+Agents can have multiple vaults but interaction unclear.
+
+**Questions**:
+- Does `search_vault` tool search all agent vaults or just active one?
+- Should tool accept vault name parameter?
+- What does `/vault` show/switch when agent has multiple?
+
+**Proposed settings**:
+```yaml
+agents:
+  coder:
+    vaults: [codebase, docs]  # all available
+    default_vault: codebase   # active by default
+```
+
+---
+
+### 10. Missing `/config` Command
+
+No unified view of current state.
+
+**Proposed output**:
+```
+[chat] You: /config
+Agent: coder (anthropic:claude-sonnet-4-20250514)
+Mode: chat
+Vault: codebase (3,247 chunks, synced 2 min ago)
+MCP: filesystem (3 tools)
+Verbose: off
+Thinking: on
+Temperature: 0.7
+```
+
+---
+
+### 11. Embed Search Output Format
+
+What format for raw search results?
+
+**Options**:
+- **A**: Human-readable table by default, `/format json` to switch
+- **B**: JSON by default (machine-friendly)
+- **C**: Human-readable always in REPL, JSON in batch
+
+**Proposed REPL output**:
+```
+[embed] You: authentication
+Score  File                      Preview
+0.89   src/auth/handler.dart     "The authentication handler validates..."
+0.84   src/auth/middleware.dart  "JWT tokens are verified in..."
+```
+
+---
+
+### 12. Batch Mode Default Vault
+
+If no `--db` specified in batch mode, what happens?
+
+**Options**:
+- **A**: Use `default_vault` from settings, error if none
+- **B**: No vault (tool not available), proceed without
+- **C**: Error always if vault-dependent operation
+
+---
+
+### 13. Generate MIME Default
+
+Must specify MIME every time?
+
+**Options**:
+- **A**: Default to `image/png` (most common)
+- **B**: No default, require explicit
+- **C**: Remember last MIME type in session
+
+---
+
+### 14. Command Aliases
+
+Should common commands have short aliases?
+
+**Proposed**:
+```
+/q  → /quit
+/h  → /help
+/v  → /vault (or /verbose?)
+/s  → /search
+/?  → /help
+```
+
+**Conflict**: `/v` could be `/vault` or `/verbose`. Worth having aliases?
+
+---
+
+### 15. Feature Completeness Matrix
+
+Current state showing gaps:
+
+| Feature | Chat Batch | Chat REPL | Gen Batch | Gen REPL | Embed Batch | Embed REPL |
+|---------|:----------:|:---------:|:---------:|:--------:|:-----------:|:----------:|
+| Prompt | `-p` | direct | `-p` | direct | N/A | direct |
+| Agent | `-a` | `/agent` | `-a` | `/agent` | `-a` | `/agent` |
+| Vault | `--db` | `/vault` | `--db` | `/vault` | `--db` | `/vault` |
+| Temperature | `-t` | ❓ | ❓ | ❓ | N/A | N/A |
+| Output Schema | `--output-schema` | ❓ | N/A | N/A | N/A | N/A |
+| MIME | N/A | N/A | `--mime` | `/mime` | N/A | N/A |
+| System | config | `/system` | ❓ | ❓ | N/A | N/A |
+| Thinking | `--no-thinking` | `/thinking` | ❓ | ❓ | N/A | N/A |
+| Verbose | `-v` | `/verbose` | `-v` | `/verbose` | `-v` | `/verbose` |
+| Output Dir | `-o` | ❓ | `-o` | ❓ | N/A | N/A |
+| File Attach | `@file` | `@file` | ❓ | ❓ | ❓ | ❓ |
+| Sync | N/A | N/A | N/A | N/A | `sync` | `/sync` |
+| Search | tool | tool | ❓ | ❓ | ❓ | direct |
+| Status | N/A | N/A | N/A | N/A | ❓ | `/status` |
+
+---
+
 ## Implementation Notes
 
 ### Dependencies
