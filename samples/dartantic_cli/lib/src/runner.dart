@@ -8,6 +8,7 @@ import 'commands/chat_command.dart';
 import 'commands/embed_command.dart';
 import 'commands/generate_command.dart';
 import 'commands/models_command.dart';
+import 'commands/repl_command.dart';
 import 'exit_codes.dart';
 import 'settings/settings.dart';
 import 'settings/settings_loader.dart';
@@ -72,6 +73,7 @@ class DartanticCommandRunner extends CommandRunner<int> {
     addCommand(GenerateCommand(_settingsLoader));
     addCommand(EmbedCommand(_settingsLoader));
     addCommand(ModelsCommand(_settingsLoader));
+    addCommand(ReplCommand(_settingsLoader));
   }
 
   final SettingsLoader _settingsLoader;
@@ -286,6 +288,7 @@ class DartanticCommandRunner extends CommandRunner<int> {
       ..writeln('Examples:')
       ..writeln('  dartantic -p "What is 2+2?"')
       ..writeln('  dartantic chat -a anthropic -p "Hello"')
+      ..writeln('  dartantic repl -a coder')
       ..writeln('  dartantic -a openai models')
       ..writeln('  dartantic embed create doc.txt > embeddings.json');
 
