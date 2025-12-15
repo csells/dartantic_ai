@@ -33,13 +33,9 @@ This document specifies the design for the `dartantic` command-line interface
 
 ### Non-Goals (v1)
 
-1. **Interactive REPL mode** - Multi-turn conversations deferred to future
-   version
-2. **Custom Dart tools** - CLI cannot execute arbitrary Dart code; MCP servers
+1. **Custom Dart tools** - CLI cannot execute arbitrary Dart code; MCP servers
    provide extensibility
-3. **Container/session persistence** - Code interpreter container reuse requires
-   REPL
-4. **GUI or TUI** - This is a command-line tool only
+2. **GUI or TUI** - This is a command-line tool only
 
 ---
 
@@ -77,6 +73,7 @@ COMMANDS:
   generate    Generate media content
   embed       Embedding operations (create, search)
   models      List available models for a provider
+  repl        Start an interactive chat session
 
 GLOBAL OPTIONS:
   -a, --agent <name|model>     Agent name or model string (default: google)
@@ -122,6 +119,28 @@ MODELS COMMAND:
   dartantic models [options]
 
   Lists available models for a provider.
+
+REPL COMMAND:
+  dartantic repl [options]
+
+  Start an interactive chat session with multi-turn conversation support.
+
+  Slash commands available in REPL:
+    /exit, /quit    Exit the REPL
+    /help           Show available commands
+    /model [name]   View or switch the current agent
+    /models [filter] List available models
+    /tools          Show available MCP tools
+    /messages       Display conversation history
+    /clear          Clear conversation history
+    /system [text]  View or set system prompt
+    /verbose        Toggle verbose output (token usage)
+    /thinking       Toggle thinking output display
+
+  File attachments: Use @filename in your message to attach files.
+
+  MCP Tools: Only tools from MCP servers configured for the selected agent
+  are available. No built-in tools are provided.
 
 ENVIRONMENT VARIABLES:
   DARTANTIC_AGENT              Default agent (overrides built-in default)
@@ -828,6 +847,48 @@ agents:
 EOF
 dartantic -s /tmp/env-settings.yaml -a test -p "Hello"
 
+echo "=== REPL COMMAND SCENARIOS ==="
+
+# SR-001: Start REPL with default agent
+echo "SR-001: Start REPL with default agent"
+# Interactive - requires manual testing
+# dartantic repl
+
+# SR-002: Start REPL with specific agent
+echo "SR-002: Start REPL with specific agent"
+# Interactive - requires manual testing
+# dartantic repl -a coder
+
+# SR-003: REPL with MCP tools agent
+echo "SR-003: REPL with MCP tools"
+# Interactive - requires manual testing
+# dartantic repl -a research
+
+# SR-004: REPL with verbose mode
+echo "SR-004: REPL with verbose"
+# Interactive - requires manual testing
+# dartantic repl -v
+
+# SR-005: REPL with thinking disabled
+echo "SR-005: REPL with no thinking"
+# Interactive - requires manual testing
+# dartantic repl --no-thinking
+
+# SR-006: REPL with working directory
+echo "SR-006: REPL with working directory"
+# Interactive - requires manual testing
+# dartantic repl -d /tmp/dartantic-test
+
+# SR-007: REPL with custom settings
+echo "SR-007: REPL with custom settings"
+# Interactive - requires manual testing
+# dartantic repl -s /tmp/custom-settings.yaml
+
+# SR-008: REPL with no-color
+echo "SR-008: REPL with no color"
+# Interactive - requires manual testing
+# dartantic repl --no-color
+
 echo "=== ALL SCENARIOS COMPLETE ==="
 ```
 
@@ -838,9 +899,9 @@ The following table maps Dartantic examples to CLI commands:
 | Example | CLI Command | Status |
 |---------|-------------|--------|
 | single_turn_chat.dart | `dartantic -p "What is the capital of England?"` | ✅ Covered |
-| multi_turn_chat.dart | N/A | ⏳ Deferred (REPL) |
+| multi_turn_chat.dart | `dartantic repl -a google` | ✅ Covered |
 | system_message.dart | `dartantic -a pirate -p "What is 7 * 8?"` | ✅ Covered |
-| chat.dart | N/A | ⏳ Deferred (REPL) |
+| chat.dart | `dartantic repl` | ✅ Covered |
 | typed_output.dart | `dartantic -p "..." --output-schema '{...}'` | ✅ Covered |
 | single_tool_call.dart | Via MCP servers in settings | ✅ Covered |
 | multi_tool_call.dart | Via MCP servers in settings | ✅ Covered |
@@ -853,7 +914,7 @@ The following table maps Dartantic examples to CLI commands:
 | media_gen_openai.dart | `dartantic generate -a openai-responses --mime image/png -p "..."` | ✅ Covered |
 | media_gen_google.dart | `dartantic generate -a google --mime image/png -p "..."` | ✅ Covered |
 | server_side_web_search.dart | Server tools enabled by default | ✅ Covered |
-| server_side_code_execution.dart | Single turn works; container reuse needs REPL | ⚠️ Partial |
+| server_side_code_execution.dart | `dartantic repl` with container reuse | ✅ Covered |
 | logging.dart | `DARTANTIC_LOG_LEVEL=FINE dartantic -p "..."` | ✅ Covered |
 | usage_tracking.dart | `dartantic -v -p "..."` | ✅ Covered |
 | custom_provider.dart | Via settings: `base_url`, `api_key_name`, `headers` | ✅ Covered |
