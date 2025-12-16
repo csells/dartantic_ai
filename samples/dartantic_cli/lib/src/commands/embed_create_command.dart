@@ -5,12 +5,11 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../embeddings/chunker.dart';
 import '../exit_codes.dart';
-import '../settings/settings_loader.dart';
 import 'base_command.dart';
 
 /// Command to create embeddings from text files.
 class EmbedCreateCommand extends DartanticCommand {
-  EmbedCreateCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
+  EmbedCreateCommand(super.settingsLoader) {
     argParser
       ..addOption(
         'chunk-size',

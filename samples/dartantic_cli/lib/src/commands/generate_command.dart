@@ -4,13 +4,12 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../exit_codes.dart';
 import '../prompt/prompt_processor.dart';
-import '../settings/settings_loader.dart';
 import 'base_command.dart';
 import 'utils.dart';
 
 /// Command to generate media content.
 class GenerateCommand extends DartanticCommand with PromptCommandMixin {
-  GenerateCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
+  GenerateCommand(super.settingsLoader) {
     argParser
       ..addOption(
         'prompt',

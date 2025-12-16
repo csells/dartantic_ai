@@ -129,7 +129,7 @@ class McpClient {
     if (!isConnected) await _connect();
 
     final result = await _client!.callTool(
-      mcp.CallToolRequestParams(name: toolName, arguments: arguments),
+      mcp.CallToolRequest(name: toolName, arguments: arguments ?? {}),
     );
 
     // Convert MCP result to simple format

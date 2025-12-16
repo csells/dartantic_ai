@@ -3,12 +3,11 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../exit_codes.dart';
-import '../settings/settings_loader.dart';
 import 'base_command.dart';
 
 /// Command to list available models for a provider.
 class ModelsCommand extends DartanticCommand {
-  ModelsCommand(SettingsLoader settingsLoader) : super(settingsLoader);
+  ModelsCommand(super.settingsLoader);
 
   @override
   final String name = 'models';

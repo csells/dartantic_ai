@@ -4,12 +4,11 @@ import 'dart:io';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../exit_codes.dart';
-import '../settings/settings_loader.dart';
 import 'base_command.dart';
 
 /// Command to search embeddings with a query.
 class EmbedSearchCommand extends DartanticCommand {
-  EmbedSearchCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
+  EmbedSearchCommand(super.settingsLoader) {
     argParser.addOption(
       'query',
       abbr: 'q',

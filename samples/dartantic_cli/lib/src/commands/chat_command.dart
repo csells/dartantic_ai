@@ -8,13 +8,12 @@ import '../exit_codes.dart';
 import '../mcp/mcp_tool_collector.dart';
 import '../prompt/prompt_processor.dart';
 import '../settings/settings.dart';
-import '../settings/settings_loader.dart';
 import 'base_command.dart';
 import 'utils.dart';
 
 /// Command to send a chat prompt to an AI agent.
 class ChatCommand extends DartanticCommand with PromptCommandMixin {
-  ChatCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
+  ChatCommand(super.settingsLoader) {
     argParser
       ..addOption(
         'prompt',
