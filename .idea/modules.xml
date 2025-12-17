@@ -4,6 +4,7 @@
     <modules>
 <module fileurl="file://$PROJECT_DIR$/samples/chatarang/melos_chatarang.iml" filepath="$PROJECT_DIR$/samples/chatarang/melos_chatarang.iml"/>
 <module fileurl="file://$PROJECT_DIR$/packages/dartantic_ai/melos_dartantic_ai.iml" filepath="$PROJECT_DIR$/packages/dartantic_ai/melos_dartantic_ai.iml"/>
+<module fileurl="file://$PROJECT_DIR$/samples/dartantic_cli/melos_dartantic_cli.iml" filepath="$PROJECT_DIR$/samples/dartantic_cli/melos_dartantic_cli.iml"/>
 <module fileurl="file://$PROJECT_DIR$/packages/dartantic_interface/melos_dartantic_interface.iml" filepath="$PROJECT_DIR$/packages/dartantic_interface/melos_dartantic_interface.iml"/>
 <module fileurl="file://$PROJECT_DIR$/packages/dartantic_ai/example/melos_example.iml" filepath="$PROJECT_DIR$/packages/dartantic_ai/example/melos_example.iml"/>
 <module fileurl="file://$PROJECT_DIR$/melos_dartantic.iml" filepath="$PROJECT_DIR$/melos_dartantic.iml"/>
