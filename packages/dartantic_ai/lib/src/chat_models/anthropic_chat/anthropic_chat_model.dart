@@ -125,9 +125,6 @@ class AnthropicChatModel extends ChatModel<AnthropicChatOptions> {
     var chunkCount = 0;
     ChatResult<ChatMessage>? lastResult;
 
-    // TODO(https://github.com/davidmigloz/langchain_dart/issues/811): revert to
-    // `_client.createMessageStream(...).transform(transformer)` once
-    // `anthropic_sdk_dart` understands the `signature_delta` union variant.
     await for (final result in _createMessageEventStream(
       request,
       transformer,

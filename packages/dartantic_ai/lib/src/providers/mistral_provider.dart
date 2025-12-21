@@ -1,15 +1,11 @@
-import 'dart:convert';
-
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:mistralai_dart/mistralai_dart.dart' as m;
 
-import '../chat_models/chat_utils.dart';
 import '../chat_models/mistral_chat/mistral_chat_model.dart';
 import '../chat_models/mistral_chat/mistral_chat_options.dart';
 import '../embeddings_models/mistral_embeddings/mistral_embeddings.dart';
 import '../platform/platform.dart';
-import '../retry_http_client.dart';
 
 /// Provider for Mistral AI (OpenAI-compatible).
 class MistralProvider
@@ -111,87 +107,79 @@ class MistralProvider
 
   @override
   Stream<ModelInfo> listModels() async* {
-    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
-    final url = appendPath(resolvedBaseUrl, 'models');
-    _logger.info('Fetching models from Mistral API: $url');
-    final client = RetryHttpClient(inner: http.Client());
-    try {
-      final response = await client.get(
-        url,
-        headers: {'Authorization': 'Bearer $apiKey', ...headers},
-      );
-      if (response.statusCode != 200) {
-        _logger.warning(
-          'Failed to fetch models: HTTP ${response.statusCode}, '
-          'body: ${response.body}',
-        );
-        throw Exception('Failed to fetch Mistral models: ${response.body}');
-      }
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final modelCount = (data['data'] as List).length;
-      _logger.info('Successfully fetched $modelCount models from Mistral API');
-      for (final m in (data['data'] as List).cast<Map<String, dynamic>>()) {
-        final idField = m['id'];
-        if (idField is! String || idField.isEmpty) {
-          _logger.warning(
-            'Mistral model has missing or invalid id field '
-            '(expected non-empty String): $m',
-          );
-        }
-        final id = idField is String ? idField : '';
-        final desc = m['description'] as String? ?? '';
-        final kinds = <ModelKind>{};
-        // Embedding models
-        if (id.contains('embed') || desc.contains('embed')) {
-          kinds.add(ModelKind.embeddings);
-        }
-        // Magistral: always chat unless embedding
-        if (id.contains('magistral') && !kinds.contains(ModelKind.embeddings)) {
-          kinds.add(ModelKind.chat);
-        }
-        // Mistral, Mixtral, Codestral: chat unless embedding
-        if ((id.contains('mistral') ||
-                id.contains('mixtral') ||
-                id.contains('codestral')) &&
-            !id.contains('embed') &&
-            !kinds.contains(ModelKind.embeddings)) {
-          kinds.add(ModelKind.chat);
-        }
-        // Moderation and OCR: treat as chat
-        if (id.contains('moderation') || id.contains('ocr')) {
-          kinds.add(ModelKind.chat);
-        }
-        // Ministral: not officially documented, mark as other
-        if (id.contains('ministral')) {
-          kinds
-            ..clear()
-            ..add(ModelKind.other);
-        }
+    _logger.info('Fetching models from Mistral API using SDK');
+    final client = m.MistralAIClient(
+      apiKey: apiKey ?? '',
+      baseUrl: baseUrl?.toString(),
+      headers: headers,
+    );
 
-        // Pixtral: not officially documented, mark as other
-        if (id.contains('pixtral')) {
-          kinds
-            ..clear()
-            ..add(ModelKind.other);
-        }
-        if (kinds.isEmpty) kinds.add(ModelKind.other);
-        assert(kinds.isNotEmpty, 'Model $id returned with empty kinds set');
+    try {
+      final response = await client.listModels();
+      final modelCount = response.data.length;
+      _logger.info('Successfully fetched $modelCount models from Mistral');
+
+      for (final model in response.data) {
+        final id = model.id;
+        final kinds = _detectModelKind(id);
         yield ModelInfo(
           name: id,
           providerName: name,
           kinds: kinds,
-          displayName: m['name'] as String?,
-          description: desc.isNotEmpty ? desc : null,
-          extra: {
-            ...m,
-            if (m.containsKey('context_length'))
-              'contextWindow': m['context_length'],
-          }..removeWhere((k, _) => ['id', 'name', 'description'].contains(k)),
+          displayName: null,
+          description: null,
+          extra: {'created': model.created, 'ownedBy': model.ownedBy},
         );
       }
     } finally {
-      client.close();
+      client.endSession();
     }
+  }
+
+  /// Detects the model kind(s) based on the model ID.
+  Set<ModelKind> _detectModelKind(String id) {
+    final kinds = <ModelKind>{};
+
+    // Embedding models
+    if (id.contains('embed')) {
+      kinds.add(ModelKind.embeddings);
+    }
+
+    // Magistral: always chat unless embedding
+    if (id.contains('magistral') && !kinds.contains(ModelKind.embeddings)) {
+      kinds.add(ModelKind.chat);
+    }
+
+    // Mistral, Mixtral, Codestral: chat unless embedding
+    if ((id.contains('mistral') ||
+            id.contains('mixtral') ||
+            id.contains('codestral')) &&
+        !id.contains('embed') &&
+        !kinds.contains(ModelKind.embeddings)) {
+      kinds.add(ModelKind.chat);
+    }
+
+    // Moderation and OCR: treat as chat
+    if (id.contains('moderation') || id.contains('ocr')) {
+      kinds.add(ModelKind.chat);
+    }
+
+    // Ministral: not officially documented, mark as other
+    if (id.contains('ministral')) {
+      kinds
+        ..clear()
+        ..add(ModelKind.other);
+    }
+
+    // Pixtral: vision model, mark as other
+    if (id.contains('pixtral')) {
+      kinds
+        ..clear()
+        ..add(ModelKind.other);
+    }
+
+    if (kinds.isEmpty) kinds.add(ModelKind.other);
+    return kinds;
   }
 
   @override

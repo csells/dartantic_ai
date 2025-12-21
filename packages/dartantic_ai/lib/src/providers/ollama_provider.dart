@@ -1,12 +1,8 @@
-import 'dart:convert';
-
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:ollama_dart/ollama_dart.dart' as o;
 
-import '../chat_models/chat_utils.dart';
 import '../chat_models/ollama_chat/ollama_chat_model.dart';
-import '../retry_http_client.dart';
 
 /// Provider for native Ollama API (local, not OpenAI-compatible).
 class OllamaProvider
@@ -112,46 +108,36 @@ class OllamaProvider
 
   @override
   Stream<ModelInfo> listModels() async* {
+    _logger.info('Fetching models from Ollama API using SDK');
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
-    final url = appendPath(resolvedBaseUrl, 'tags');
-    _logger.info('Fetching models from Ollama API: $url');
-    final client = RetryHttpClient(inner: http.Client());
-    try {
-      final response = await client.get(url, headers: headers);
-      if (response.statusCode != 200) {
-        _logger.warning(
-          'Failed to fetch models: HTTP ${response.statusCode}, '
-          'body: ${response.body}',
-        );
-        throw Exception('Failed to fetch Ollama models: ${response.body}');
-      }
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final modelCount = (data['models'] as List).length;
-      _logger.info('Successfully fetched $modelCount models from Ollama API');
+    // SDK expects base URL with /api suffix (e.g., http://localhost:11434/api)
+    final client = o.OllamaClient(
+      baseUrl: resolvedBaseUrl.toString(),
+      headers: headers,
+    );
 
-      for (final m in (data['models'] as List).cast<Map<String, dynamic>>()) {
-        final nameField = m['name'];
-        if (nameField is! String) {
-          _logger.warning(
-            'Ollama model has invalid name field (expected String, '
-            'got ${nameField.runtimeType}): $m',
-          );
-        }
-        final id = nameField is String ? nameField : '';
-        final name = nameField is String ? nameField : null;
-        final detailsField = m['details'];
-        final description = detailsField is String ? detailsField : null;
+    try {
+      final response = await client.listModels();
+      final models = response.models ?? [];
+      _logger.info('Successfully fetched ${models.length} models from Ollama');
+
+      for (final m in models) {
+        final modelName = m.model ?? '';
         yield ModelInfo(
-          name: id,
-          providerName: this.name,
+          name: modelName,
+          providerName: name,
           kinds: {ModelKind.chat},
-          displayName: name,
-          description: description,
-          extra: {...m}..removeWhere((k, _) => ['name', 'details'].contains(k)),
+          displayName: modelName,
+          description: null,
+          extra: {
+            if (m.modifiedAt != null) 'modifiedAt': m.modifiedAt,
+            if (m.size != null) 'size': m.size,
+            if (m.digest != null) 'digest': m.digest,
+          },
         );
       }
     } finally {
-      client.close();
+      client.endSession();
     }
   }
 
