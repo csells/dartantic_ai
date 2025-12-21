@@ -66,7 +66,7 @@ extension ChatResultMapper on ChatCompletionResponse {
   /// Converts this [ChatCompletionResponse] to a [ChatResult].
   ChatResult<ChatMessage> toChatResult() {
     final choice = choices.first;
-    final content = choice.message?.content ?? '';
+    final content = choice.message.content ?? '';
     _logger.fine(
       'Converting Mistral response to ChatResult: id=$id, '
       'content=${content.length} characters',
@@ -145,6 +145,8 @@ FinishReason _mapFinishReason(ChatCompletionFinishReason? reason) {
     ChatCompletionFinishReason.stop => FinishReason.stop,
     ChatCompletionFinishReason.length => FinishReason.length,
     ChatCompletionFinishReason.modelLength => FinishReason.length,
+    ChatCompletionFinishReason.error => FinishReason.unspecified,
+    ChatCompletionFinishReason.toolCalls => FinishReason.toolCalls,
     null => FinishReason.unspecified,
   };
   _logger.fine('Mapped finish reason: $reason -> $mapped');

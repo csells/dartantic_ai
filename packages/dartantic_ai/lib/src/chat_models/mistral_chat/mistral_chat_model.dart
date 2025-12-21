@@ -2,7 +2,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
-import 'package:mistralai_dart/mistralai_dart.dart';
+import 'package:mistralai_dart/mistralai_dart.dart' hide JsonSchema, Tool;
 
 import 'mistral_chat_options.dart';
 import 'mistral_message_mappers.dart';

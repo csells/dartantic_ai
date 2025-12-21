@@ -288,13 +288,13 @@ extension MessageListMapper on List<ChatMessage> {
     if (dataPart.mimeType.startsWith('image/')) {
       // Images: Use native image blocks for better quality
       return a.Block.image(
-        source: a.ImageBlockSource(
-          type: a.ImageBlockSourceType.base64,
+        source: a.ImageBlockSource.base64ImageSource(
+          type: 'base64',
           mediaType: switch (dataPart.mimeType) {
-            'image/jpeg' => a.ImageBlockSourceMediaType.imageJpeg,
-            'image/png' => a.ImageBlockSourceMediaType.imagePng,
-            'image/gif' => a.ImageBlockSourceMediaType.imageGif,
-            'image/webp' => a.ImageBlockSourceMediaType.imageWebp,
+            'image/jpeg' => a.Base64ImageSourceMediaType.imageJpeg,
+            'image/png' => a.Base64ImageSourceMediaType.imagePng,
+            'image/gif' => a.Base64ImageSourceMediaType.imageGif,
+            'image/webp' => a.Base64ImageSourceMediaType.imageWebp,
             _ => throw AssertionError(
               'Unsupported image MIME type: ${dataPart.mimeType}',
             ),
@@ -1000,14 +1000,6 @@ class MessageStreamEventTransformer
   }
 }
 
-String _imageMediaTypeToString(a.ImageBlockSourceMediaType mediaType) =>
-    switch (mediaType) {
-      a.ImageBlockSourceMediaType.imageJpeg => 'image/jpeg',
-      a.ImageBlockSourceMediaType.imagePng => 'image/png',
-      a.ImageBlockSourceMediaType.imageGif => 'image/gif',
-      a.ImageBlockSourceMediaType.imageWebp => 'image/webp',
-    };
-
 /// Maps an Anthropic [a.MessageContent] to message parts.
 List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
   final a.MessageContentText t => [TextPart(t.value)],
@@ -1018,17 +1010,34 @@ List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
   ],
 };
 
+/// Maps an Anthropic [a.ImageBlock] to message parts.
+List<Part> _mapImageBlock(a.ImageBlock imageBlock) {
+  final source = imageBlock.source;
+  return switch (source) {
+    final a.Base64ImageSource base64Source => [
+      DataPart(
+        base64Decode(base64Source.data),
+        mimeType: switch (base64Source.mediaType) {
+          a.Base64ImageSourceMediaType.imageJpeg => 'image/jpeg',
+          a.Base64ImageSourceMediaType.imagePng => 'image/png',
+          a.Base64ImageSourceMediaType.imageGif => 'image/gif',
+          a.Base64ImageSourceMediaType.imageWebp => 'image/webp',
+        },
+      ),
+    ],
+    // URL image sources are not supported as DataPart - return empty.
+    a.UrlImageSource() => const [],
+  };
+}
+
 /// Maps an Anthropic [a.Block] to message parts.
 List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   final a.TextBlock t => [TextPart(t.text)],
-  final a.ImageBlock i => [
-    DataPart(
-      base64Decode(i.source.data),
-      mimeType: _imageMediaTypeToString(i.source.mediaType),
-    ),
-  ],
+  final a.ImageBlock i => _mapImageBlock(i),
   // Do not emit tool use blocks at start; emit at stop with full args.
   final a.ToolUseBlock _ => const [],
+  // Server tool use blocks are handled separately via metadata.
+  a.ServerToolUseBlock() => const [],
   final a.ToolResultBlock tr => tr.content.map<List<Part>>(
     blocks: (value) =>
         value.value.expand(_mapContentBlock).toList(growable: false),
@@ -1036,6 +1045,13 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   ),
   // Thinking blocks are filtered from message parts (metadata only).
   a.ThinkingBlock() => const [],
+  // Redacted thinking blocks are not mapped to parts.
+  a.RedactedThinkingBlock() => const [],
+  // Document blocks are not mapped to parts.
+  a.DocumentBlock() => const [],
+  // Other block types (WebSearchToolResultBlock, MCPToolUseBlock, etc.)
+  // are handled separately via metadata or not mapped to parts.
+  _ => const [],
 };
 
 /// Maps an Anthropic [a.BlockDelta] to message parts.
@@ -1045,6 +1061,10 @@ List<Part> _mapContentBlockDelta(String? lastToolId, a.BlockDelta blockDelta) =>
       final a.InputJsonBlockDelta _ => const [],
       // Thinking deltas handled in _mapContentBlockDeltaEvent (metadata only).
       a.ThinkingBlockDelta() => const [],
+      // Signature deltas are handled separately for thinking block integrity.
+      a.SignatureBlockDelta() => const [],
+      // Other delta types (CitationsBlockDelta, etc.) are not mapped to parts.
+      _ => const [],
     };
 
 /// Extension on [List<Tool>] to convert tool specs to Anthropic SDK tools.
@@ -1068,6 +1088,8 @@ FinishReason _mapFinishReason(a.StopReason? reason) => switch (reason) {
   a.StopReason.maxTokens => FinishReason.length,
   a.StopReason.stopSequence => FinishReason.stop,
   a.StopReason.toolUse => FinishReason.toolCalls,
+  a.StopReason.pauseTurn => FinishReason.stop,
+  a.StopReason.refusal => FinishReason.stop,
   null => FinishReason.unspecified,
 };
 
