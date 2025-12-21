@@ -1,3 +1,15 @@
+## 2.0.3
+
+- Updated Anthropic SDK compatibility for `anthropic_sdk_dart` 0.3.1:
+  - `ImageBlockSource` now uses sealed class API with `base64ImageSource()` factory
+  - Added support for new block types: `DocumentBlock`, `RedactedThinkingBlock`,
+    `ServerToolUseBlock`, `WebSearchToolResultBlock`, `MCPToolUseBlock`
+  - Added support for new delta types: `SignatureBlockDelta`, `CitationsBlockDelta`
+  - Added `pauseTurn` and `refusal` stop reasons
+- Updated Mistral SDK compatibility for `mistralai_dart` 0.1.1:
+  - Fixed ambiguous imports for `JsonSchema` and `Tool`
+  - Added `error` and `toolCalls` finish reasons
+
 ## 2.0.2
 
 - updated dependencies
