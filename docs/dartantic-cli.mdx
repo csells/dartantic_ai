@@ -120,7 +120,8 @@ cat prompt.txt | dartantic
 
 ## Generate Command
 
-Generate media content (images, PDFs) based on a prompt.
+Generate media content (images, PDFs) based on a prompt. Supports native image
+editing by passing existing images as attachments.
 
 ### Options
 
@@ -138,6 +139,10 @@ dartantic generate --mime image/png -p "A minimalist robot logo"
 # Generate to a specific directory
 dartantic generate --mime image/png -p "A sunset" -o ./images/
 
+# Edit an existing image (native image editing with Google Imagen)
+dartantic generate -a google --mime image/png \
+  -p "Colorize this black and white drawing. Make it vibrant. @robot_bw.png"
+
 # Generate a PDF
 dartantic generate -a openai-responses --mime application/pdf \
   -p "Create a one-page report about AI trends"
@@ -149,6 +154,10 @@ dartantic generate -a openai-responses --mime text/csv \
 # Generate multiple formats
 dartantic generate -p @prompt.txt --mime image/jpeg --mime image/png
 ```
+
+**Note:** Image editing works by attaching an existing image to the prompt using
+`@filename` syntax. Google uses native Imagen editing, while OpenAI and Anthropic
+use code execution to process the image.
 
 ## Embeddings Commands
 
