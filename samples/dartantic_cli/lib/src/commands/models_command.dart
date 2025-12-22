@@ -18,19 +18,23 @@ class ModelsCommand extends DartanticCommand {
 
   @override
   List<String> get examples => [
-        'dartantic models',
-        'dartantic -a openai models',
-        'dartantic -a anthropic models',
-      ];
+    'dartantic models',
+    'dartantic -a openai models',
+    'dartantic -a anthropic models',
+  ];
 
   @override
   Future<int> run() async {
     // Models command doesn't accept positional arguments
     // This catches typos like "models list-a openai" instead of "models -a openai"
     if (argResults!.rest.isNotEmpty) {
-      stderr.writeln('Error: Unexpected arguments: ${argResults!.rest.join(' ')}');
+      stderr.writeln(
+        'Error: Unexpected arguments: ${argResults!.rest.join(' ')}',
+      );
       stderr.writeln();
-      stderr.writeln('The models command does not accept positional arguments.');
+      stderr.writeln(
+        'The models command does not accept positional arguments.',
+      );
       stderr.writeln('To specify a provider, use the -a flag:');
       stderr.writeln('  dartantic -a openai models');
       stderr.writeln('  dartantic models -a anthropic');
@@ -59,12 +63,15 @@ class ModelsCommand extends DartanticCommand {
     final models = await provider.listModels().toList();
 
     // Group by kind for display
-    final chatModels =
-        models.where((m) => m.kinds.contains(ModelKind.chat)).toList();
-    final embeddingsModels =
-        models.where((m) => m.kinds.contains(ModelKind.embeddings)).toList();
-    final mediaModels =
-        models.where((m) => m.kinds.contains(ModelKind.media)).toList();
+    final chatModels = models
+        .where((m) => m.kinds.contains(ModelKind.chat))
+        .toList();
+    final embeddingsModels = models
+        .where((m) => m.kinds.contains(ModelKind.embeddings))
+        .toList();
+    final mediaModels = models
+        .where((m) => m.kinds.contains(ModelKind.media))
+        .toList();
     final otherModels = models
         .where(
           (m) =>

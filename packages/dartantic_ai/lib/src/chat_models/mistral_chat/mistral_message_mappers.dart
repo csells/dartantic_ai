@@ -155,7 +155,7 @@ extension ChatResultMapper on mistral.ChatCompletionResponse {
                 name: tc.function!.name!,
                 arguments: tc.function!.arguments != null
                     ? json.decode(tc.function!.arguments!)
-                        as Map<String, dynamic>
+                          as Map<String, dynamic>
                     : {},
               ),
             )
@@ -210,15 +210,16 @@ extension CreateChatCompletionStreamResponseMapper
         choice.delta.toolCalls
             ?.where((tc) => tc.id != null && tc.function?.name != null)
             .map((tc) {
-          final args = tc.function?.arguments;
-          return ToolPart.call(
-            id: tc.id!,
-            name: tc.function!.name!,
-            arguments: args != null && args.isNotEmpty
-                ? json.decode(args) as Map<String, dynamic>
-                : {},
-          );
-        }).toList() ??
+              final args = tc.function?.arguments;
+              return ToolPart.call(
+                id: tc.id!,
+                name: tc.function!.name!,
+                arguments: args != null && args.isNotEmpty
+                    ? json.decode(args) as Map<String, dynamic>
+                    : {},
+              );
+            })
+            .toList() ??
         [];
 
     final parts = <Part>[

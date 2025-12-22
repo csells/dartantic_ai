@@ -16,9 +16,9 @@ class ProcessedPrompt {
 
   /// Creates an error result
   ProcessedPrompt.error(this.error)
-      : prompt = '',
-        attachments = [],
-        modelOverride = null;
+    : prompt = '',
+      attachments = [],
+      modelOverride = null;
 
   final String prompt;
   final List<Part> attachments;
@@ -34,7 +34,7 @@ class ProcessedPrompt {
 /// Processes prompts, handling @file patterns and .prompt files
 class PromptProcessor {
   PromptProcessor({String? workingDirectory})
-      : _workingDirectory = workingDirectory ?? Directory.current.path;
+    : _workingDirectory = workingDirectory ?? Directory.current.path;
 
   final String _workingDirectory;
 
@@ -91,8 +91,9 @@ class PromptProcessor {
     }
 
     // Render the prompt with variables (empty map uses defaults from frontmatter)
-    final renderedPrompt =
-        variables.isEmpty ? dotPrompt.render() : dotPrompt.render(input: variables);
+    final renderedPrompt = variables.isEmpty
+        ? dotPrompt.render()
+        : dotPrompt.render(input: variables);
 
     // Get model override from frontmatter if present
     final modelOverride = dotPrompt.frontMatter.model;

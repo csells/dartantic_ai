@@ -17,8 +17,8 @@ export 'exit_codes.dart';
 /// Main command runner for the Dartantic CLI.
 class DartanticCommandRunner extends CommandRunner<int> {
   DartanticCommandRunner({Map<String, String>? environment})
-      : _settingsLoader = SettingsLoader(environment: environment),
-        super('dartantic', 'AI-powered CLI using the Dartantic framework') {
+    : _settingsLoader = SettingsLoader(environment: environment),
+      super('dartantic', 'AI-powered CLI using the Dartantic framework') {
     // Global options
     argParser
       ..addOption(
@@ -56,16 +56,8 @@ class DartanticCommandRunner extends CommandRunner<int> {
         'no-server-tool',
         help: 'Disable server-side tools (comma-separated)',
       )
-      ..addFlag(
-        'no-color',
-        help: 'Disable colored output',
-        negatable: false,
-      )
-      ..addFlag(
-        'version',
-        help: 'Show version',
-        negatable: false,
-      );
+      ..addFlag('no-color', help: 'Disable colored output', negatable: false)
+      ..addFlag('version', help: 'Show version', negatable: false);
 
     // Add commands
     addCommand(ChatCommand(_settingsLoader));
@@ -115,8 +107,16 @@ class DartanticCommandRunner extends CommandRunner<int> {
 
   /// Check if the parse error is due to a chat-specific option.
   bool _isChatOptionError(String message, List<String> args) {
-    const chatOptions = ['-p', '--prompt', '-t', '--temperature', '--output-schema'];
-    return chatOptions.any((opt) => message.contains('"$opt"') || args.contains(opt));
+    const chatOptions = [
+      '-p',
+      '--prompt',
+      '-t',
+      '--temperature',
+      '--output-schema',
+    ];
+    return chatOptions.any(
+      (opt) => message.contains('"$opt"') || args.contains(opt),
+    );
   }
 
   /// Run implicit chat command with full arg parsing.
@@ -151,10 +151,14 @@ class DartanticCommandRunner extends CommandRunner<int> {
     var i = 0;
     while (i < args.length) {
       final arg = args[i];
-      if (arg == '-s' || arg == '--settings' ||
-          arg == '-a' || arg == '--agent' ||
-          arg == '-d' || arg == '--cwd' ||
-          arg == '-o' || arg == '--output-dir') {
+      if (arg == '-s' ||
+          arg == '--settings' ||
+          arg == '-a' ||
+          arg == '--agent' ||
+          arg == '-d' ||
+          arg == '--cwd' ||
+          arg == '-o' ||
+          arg == '--output-dir') {
         globalArgs.add(arg);
         if (i + 1 < args.length) {
           globalArgs.add(args[i + 1]);
@@ -162,9 +166,13 @@ class DartanticCommandRunner extends CommandRunner<int> {
         } else {
           i++;
         }
-      } else if (arg == '-v' || arg == '--verbose' ||
-                 arg == '--no-thinking' || arg == '--no-color' ||
-                 arg == '-h' || arg == '--help' || arg == '--version') {
+      } else if (arg == '-v' ||
+          arg == '--verbose' ||
+          arg == '--no-thinking' ||
+          arg == '--no-color' ||
+          arg == '-h' ||
+          arg == '--help' ||
+          arg == '--version') {
         globalArgs.add(arg);
         i++;
       } else if (arg == '--no-server-tool') {
@@ -195,8 +203,7 @@ class DartanticCommandRunner extends CommandRunner<int> {
     }
 
     // Handle --help at top level (no command specified)
-    if (topLevelResults.command == null &&
-        topLevelResults.wasParsed('help')) {
+    if (topLevelResults.command == null && topLevelResults.wasParsed('help')) {
       printUsage();
       return ExitCodes.success;
     }
@@ -234,12 +241,18 @@ class DartanticCommandRunner extends CommandRunner<int> {
           .toList();
       if (unexpectedFlags.isNotEmpty) {
         final flagList = unexpectedFlags.join(', ');
-        stderr.writeln('Error: Unknown option(s) for "${cmdResults.name}": $flagList');
+        stderr.writeln(
+          'Error: Unknown option(s) for "${cmdResults.name}": $flagList',
+        );
         stderr.writeln();
-        stderr.writeln('Note: Global options like -a/--agent must come BEFORE the command name.');
+        stderr.writeln(
+          'Note: Global options like -a/--agent must come BEFORE the command name.',
+        );
         stderr.writeln('Example: dartantic -a openai ${cmdResults.name}');
         stderr.writeln();
-        stderr.writeln('Run "dartantic ${cmdResults.name} --help" for usage information.');
+        stderr.writeln(
+          'Run "dartantic ${cmdResults.name} --help" for usage information.',
+        );
         return ExitCodes.invalidArguments;
       }
     }
@@ -297,7 +310,9 @@ class DartanticCommandRunner extends CommandRunner<int> {
       ..writeln('Global Options:')
       ..writeln(argParser.usage)
       ..writeln()
-      ..writeln('Run "dartantic help <command>" for more information about a command.')
+      ..writeln(
+        'Run "dartantic help <command>" for more information about a command.',
+      )
       ..writeln()
       ..writeln('Examples:')
       ..writeln('  dartantic -p "What is 2+2?"')

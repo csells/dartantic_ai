@@ -500,7 +500,9 @@ void main() {
         // Mistral supports tools but not typed output + tools simultaneously
         final schema = JsonSchema.create({
           'type': 'object',
-          'properties': {'result': {'type': 'string'}},
+          'properties': {
+            'result': {'type': 'string'},
+          },
         });
 
         expect(

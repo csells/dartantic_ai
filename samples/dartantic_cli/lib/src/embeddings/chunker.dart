@@ -7,10 +7,7 @@ class TextChunker {
   ///
   /// - [chunkSize]: Target size in characters (not tokens, for simplicity)
   /// - [overlap]: Number of overlapping characters between chunks
-  TextChunker({
-    this.chunkSize = 512,
-    this.overlap = 100,
-  });
+  TextChunker({this.chunkSize = 512, this.overlap = 100});
 
   /// Target chunk size in characters.
   final int chunkSize;
@@ -73,10 +70,9 @@ class TextChunker {
           // Start new chunk
           if (trimmedSentence.length > chunkSize) {
             // Single sentence too long, split with overlap
-            chunks.addAll(_splitWithOverlap(
-              trimmedSentence,
-              startOffset + sentenceOffset,
-            ));
+            chunks.addAll(
+              _splitWithOverlap(trimmedSentence, startOffset + sentenceOffset),
+            );
           } else {
             currentChunk.write(trimmedSentence);
             chunkStartOffset = startOffset + sentenceOffset;
@@ -89,16 +85,14 @@ class TextChunker {
             ..write(trimmedSentence);
         } else {
           // Finalize current chunk, start new one
-          chunks.add(Chunk(
-            text: currentChunk.toString(),
-            offset: chunkStartOffset,
-          ));
+          chunks.add(
+            Chunk(text: currentChunk.toString(), offset: chunkStartOffset),
+          );
 
           if (trimmedSentence.length > chunkSize) {
-            chunks.addAll(_splitWithOverlap(
-              trimmedSentence,
-              startOffset + sentenceOffset,
-            ));
+            chunks.addAll(
+              _splitWithOverlap(trimmedSentence, startOffset + sentenceOffset),
+            );
             currentChunk.clear();
           } else {
             currentChunk
@@ -113,10 +107,9 @@ class TextChunker {
 
       // Don't forget remaining content
       if (currentChunk.isNotEmpty) {
-        chunks.add(Chunk(
-          text: currentChunk.toString(),
-          offset: chunkStartOffset,
-        ));
+        chunks.add(
+          Chunk(text: currentChunk.toString(), offset: chunkStartOffset),
+        );
       }
     }
 
@@ -166,8 +159,6 @@ class Chunk {
   final int offset;
 
   @override
-  String toString() => 'Chunk(offset: $offset, text: "${text.substring(
-        0,
-        text.length > 50 ? 50 : text.length,
-      )}...")';
+  String toString() =>
+      'Chunk(offset: $offset, text: "${text.substring(0, text.length > 50 ? 50 : text.length)}...")';
 }

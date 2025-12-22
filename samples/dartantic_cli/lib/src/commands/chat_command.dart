@@ -36,17 +36,18 @@ class ChatCommand extends DartanticCommand with PromptCommandMixin {
   final String name = 'chat';
 
   @override
-  final String description = 'Send a chat prompt to an AI agent (default command)';
+  final String description =
+      'Send a chat prompt to an AI agent (default command)';
 
   @override
   List<String> get examples => [
-        'dartantic -p "What is 2+2?"',
-        'dartantic chat -p "Hello" -a anthropic',
-        'echo "Question" | dartantic',
-        'dartantic -p @prompt.txt',
-        r"dartantic -p @template.prompt name=Alice",
-        "dartantic -p 'Summarize' --output-schema '{\"type\":\"object\"}'",
-      ];
+    'dartantic -p "What is 2+2?"',
+    'dartantic chat -p "Hello" -a anthropic',
+    'echo "Question" | dartantic',
+    'dartantic -p @prompt.txt',
+    r"dartantic -p @template.prompt name=Alice",
+    "dartantic -p 'Summarize' --output-schema '{\"type\":\"object\"}'",
+  ];
 
   @override
   String get usage {
@@ -127,7 +128,8 @@ class ChatCommand extends DartanticCommand with PromptCommandMixin {
   Settings? _preloadedSettings;
 
   @override
-  ArgResults? get globalResults => _overrideGlobalResults ?? super.globalResults;
+  ArgResults? get globalResults =>
+      _overrideGlobalResults ?? super.globalResults;
 
   ArgResults get _argResults => _overrideArgResults ?? argResults!;
 

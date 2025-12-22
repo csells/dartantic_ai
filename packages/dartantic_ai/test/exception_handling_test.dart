@@ -31,7 +31,9 @@ void main() {
         );
         final schema = JsonSchema.create({
           'type': 'object',
-          'properties': {'result': {'type': 'string'}},
+          'properties': {
+            'result': {'type': 'string'},
+          },
         });
         final agent = Agent('mistral', tools: [testTool]);
 

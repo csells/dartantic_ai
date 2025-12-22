@@ -12,6 +12,7 @@ class Settings {
   factory Settings.empty() => Settings();
 
   final String? defaultAgent;
+
   /// Global thinking setting. Null means use provider defaults.
   final bool? thinking;
   final bool serverTools;

@@ -10,11 +10,7 @@ import 'base_command.dart';
 /// Command to search embeddings with a query.
 class EmbedSearchCommand extends DartanticCommand {
   EmbedSearchCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
-    argParser.addOption(
-      'query',
-      abbr: 'q',
-      help: 'Search query (required)',
-    );
+    argParser.addOption('query', abbr: 'q', help: 'Search query (required)');
   }
 
   @override
@@ -28,10 +24,10 @@ class EmbedSearchCommand extends DartanticCommand {
 
   @override
   List<String> get examples => [
-        'dartantic embed search -q "how to install" embeddings.json',
-        'dartantic embed search -q "API usage" ./embeddings/',
-        'dartantic -a openai embed search -q "auth" docs.json',
-      ];
+    'dartantic embed search -q "how to install" embeddings.json',
+    'dartantic embed search -q "API usage" ./embeddings/',
+    'dartantic -a openai embed search -q "auth" docs.json',
+  ];
 
   @override
   Future<int> run() async {
@@ -39,22 +35,27 @@ class EmbedSearchCommand extends DartanticCommand {
     final query = argResults!['query'] as String?;
     if (query == null || query.isEmpty) {
       stderr.writeln('Error: -q/--query is required for embed search');
-      stderr.writeln('Usage: dartantic embed search -q <query> <embeddings.json>');
+      stderr.writeln(
+        'Usage: dartantic embed search -q <query> <embeddings.json>',
+      );
       return ExitCodes.invalidArguments;
     }
 
     final files = argResults!.rest;
     if (files.isEmpty) {
       stderr.writeln('Error: No embeddings file provided');
-      stderr.writeln('Usage: dartantic embed search -q <query> <embeddings.json>');
+      stderr.writeln(
+        'Usage: dartantic embed search -q <query> <embeddings.json>',
+      );
       return ExitCodes.invalidArguments;
     }
 
     final settings = await loadSettings();
     final cwd = getEffectiveWorkingDirectory();
 
-    var embeddingsPath =
-        files.first.startsWith('/') ? files.first : '$cwd/${files.first}';
+    var embeddingsPath = files.first.startsWith('/')
+        ? files.first
+        : '$cwd/${files.first}';
 
     // Remove trailing slash for directory check
     if (embeddingsPath.endsWith('/')) {
@@ -102,7 +103,8 @@ class EmbedSearchCommand extends DartanticCommand {
     }
 
     // Determine agent name (use same model as embeddings file if possible)
-    final agentName = agent ??
+    final agentName =
+        agent ??
         modelFromFile ??
         Platform.environment['DARTANTIC_AGENT'] ??
         settings.defaultAgent ??
@@ -132,8 +134,10 @@ class EmbedSearchCommand extends DartanticCommand {
         final vector = (chunkMap['vector'] as List<dynamic>)
             .map((e) => (e as num).toDouble())
             .toList();
-        final similarity =
-            EmbeddingsModel.cosineSimilarity(queryEmbedding, vector);
+        final similarity = EmbeddingsModel.cosineSimilarity(
+          queryEmbedding,
+          vector,
+        );
 
         results.add({
           'file': filePath,

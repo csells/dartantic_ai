@@ -54,7 +54,10 @@ Future<ProcessResult> runCliWithStdin(
 void main() {
   group('Phase 1: Basic Chat Command', () {
     test('SC-001: Basic chat with default agent (google)', () async {
-      final result = await runCli(['-p', 'What is 2+2? Reply with just the number.']);
+      final result = await runCli([
+        '-p',
+        'What is 2+2? Reply with just the number.',
+      ]);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       expect(result.stdout.toString(), contains('4'));
     });
@@ -146,12 +149,7 @@ agents:
     system: Always respond with exactly "CUSTOM_SETTINGS_LOADED" and nothing else.
 ''');
 
-      final result = await runCli([
-        '-s',
-        settingsPath,
-        '-p',
-        'Hello',
-      ]);
+      final result = await runCli(['-s', settingsPath, '-p', 'Hello']);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       expect(result.stdout.toString(), contains('CUSTOM_SETTINGS_LOADED'));
     });
@@ -160,12 +158,7 @@ agents:
       // Create an invalid YAML file
       await File(settingsPath).writeAsString('invalid: yaml: {{');
 
-      final result = await runCli([
-        '-s',
-        settingsPath,
-        '-p',
-        'Hello',
-      ]);
+      final result = await runCli(['-s', settingsPath, '-p', 'Hello']);
       expect(result.exitCode, 3, reason: 'stderr: ${result.stderr}');
     });
 
@@ -179,14 +172,7 @@ agents:
 ''');
 
       final result = await runCli(
-        [
-          '-s',
-          settingsPath,
-          '-a',
-          'envtest',
-          '-p',
-          'Hello',
-        ],
+        ['-s', settingsPath, '-a', 'envtest', '-p', 'Hello'],
         environment: {'TEST_MODEL_VAR': 'google'},
       );
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
@@ -208,9 +194,7 @@ agents:
     test('SC-006: File attachment (@/path/file.txt)', () async {
       // Create a text file to attach
       final filePath = '${tempDir.path}/test.txt';
-      await File(filePath).writeAsString(
-        'The secret code is PINEAPPLE123.',
-      );
+      await File(filePath).writeAsString('The secret code is PINEAPPLE123.');
 
       final result = await runCli([
         '-p',
@@ -250,19 +234,21 @@ agents:
       expect(result.stdout.toString(), contains('SPACES_WORK'));
     });
 
-    test('SC-009: Quoted filename with spaces (quotes around whole thing)',
-        () async {
-      // Create a file with spaces in name
-      final filePath = '${tempDir.path}/another file.txt';
-      await File(filePath).writeAsString('The answer is QUOTES_AROUND.');
+    test(
+      'SC-009: Quoted filename with spaces (quotes around whole thing)',
+      () async {
+        // Create a file with spaces in name
+        final filePath = '${tempDir.path}/another file.txt';
+        await File(filePath).writeAsString('The answer is QUOTES_AROUND.');
 
-      final result = await runCli([
-        '-p',
-        'What is the answer? Reply with just the answer. "@$filePath"',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
-      expect(result.stdout.toString(), contains('QUOTES_AROUND'));
-    });
+        final result = await runCli([
+          '-p',
+          'What is the answer? Reply with just the answer. "@$filePath"',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        expect(result.stdout.toString(), contains('QUOTES_AROUND'));
+      },
+    );
 
     test('SC-010: Chat with image attachment', () async {
       // Use a real image from the project (image_0.png)
@@ -299,7 +285,10 @@ agents:
 
       // Pass stdin content with file attachment
       final result = await runCliWithStdin(
-        ['-p', 'What is the secret number in the file? Reply with just the number. @$contextPath'],
+        [
+          '-p',
+          'What is the secret number in the file? Reply with just the number. @$contextPath',
+        ],
         '', // stdin is empty, context comes from file
       );
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
@@ -344,9 +333,9 @@ What is {{number}} plus 1? Reply with just the number.
 
     test('SC-032: Working directory override (-d)', () async {
       // Create a file in temp directory
-      await File('${tempDir.path}/local.txt').writeAsString(
-        'Local file says DIRECTORY_OVERRIDE.',
-      );
+      await File(
+        '${tempDir.path}/local.txt',
+      ).writeAsString('Local file says DIRECTORY_OVERRIDE.');
 
       final result = await runCli([
         '-d',
@@ -375,12 +364,7 @@ model: anthropic
 What is 7 + 8? Reply with just the number.
 ''');
 
-      final result = await runCli([
-        '-s',
-        settingsPath,
-        '-p',
-        '@$promptPath',
-      ]);
+      final result = await runCli(['-s', settingsPath, '-p', '@$promptPath']);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       // The anthropic model should compute 7+8=15
       expect(result.stdout.toString(), contains('15'));
@@ -398,12 +382,7 @@ What is 9 + 6? Reply with just the number.
 ''');
 
       // CLI -a should override the prompt file model
-      final result = await runCli([
-        '-a',
-        'google',
-        '-p',
-        '@$promptPath',
-      ]);
+      final result = await runCli(['-a', 'google', '-p', '@$promptPath']);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
       // The google model (from CLI) should compute 9+6=15
       expect(result.stdout.toString(), contains('15'));
@@ -411,59 +390,70 @@ What is 9 + 6? Reply with just the number.
   });
 
   group('Phase 3B: Audio Transcription', () {
-    test('SC-070: Audio transcription to text', () async {
-      // Use the welcome audio file from the project
-      final audioPath =
-          '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
+    test(
+      'SC-070: Audio transcription to text',
+      () async {
+        // Use the welcome audio file from the project
+        final audioPath =
+            '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
 
-      final result = await runCli([
-        '-a',
-        'google',
-        'chat',
-        '-p',
-        'Transcribe this audio file word for word: @$audioPath',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
-      final output = result.stdout.toString();
-      // Should contain key words from the audio
-      expect(output.toLowerCase(), anyOf(contains('hello'), contains('welcome')));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        final result = await runCli([
+          '-a',
+          'google',
+          'chat',
+          '-p',
+          'Transcribe this audio file word for word: @$audioPath',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        final output = result.stdout.toString();
+        // Should contain key words from the audio
+        expect(
+          output.toLowerCase(),
+          anyOf(contains('hello'), contains('welcome')),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-    test('SC-071: Audio transcription with JSON timestamps', () async {
-      // Use the welcome audio file from the project
-      final audioPath =
-          '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
+    test(
+      'SC-071: Audio transcription with JSON timestamps',
+      () async {
+        // Use the welcome audio file from the project
+        final audioPath =
+            '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
 
-      final result = await runCli([
-        '-a',
-        'google',
-        'chat',
-        '--output-schema',
-        '{"type":"object","properties":{"transcript":{"type":"string"},"words":{"type":"array","items":{"type":"object","properties":{"word":{"type":"string"},"start_time":{"type":"number"},"end_time":{"type":"number"}}}}}}',
-        '-p',
-        'Transcribe this audio file with word-level timestamps (in seconds): @$audioPath',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        final result = await runCli([
+          '-a',
+          'google',
+          'chat',
+          '--output-schema',
+          '{"type":"object","properties":{"transcript":{"type":"string"},"words":{"type":"array","items":{"type":"object","properties":{"word":{"type":"string"},"start_time":{"type":"number"},"end_time":{"type":"number"}}}}}}',
+          '-p',
+          'Transcribe this audio file with word-level timestamps (in seconds): @$audioPath',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Should return valid JSON with transcript and words array
-      final output = result.stdout.toString();
-      expect(output, contains('transcript'));
-      expect(output, contains('words'));
-      expect(output, contains('start_time'));
-      expect(output, contains('end_time'));
+        // Should return valid JSON with transcript and words array
+        final output = result.stdout.toString();
+        expect(output, contains('transcript'));
+        expect(output, contains('words'));
+        expect(output, contains('start_time'));
+        expect(output, contains('end_time'));
 
-      // Parse and verify structure
-      final data = jsonDecode(output) as Map<String, dynamic>;
-      expect(data['transcript'], isA<String>());
-      expect(data['words'], isA<List>());
-      final words = data['words'] as List;
-      if (words.isNotEmpty) {
-        final word = words.first as Map<String, dynamic>;
-        expect(word['word'], isA<String>());
-        expect(word['start_time'], isA<num>());
-        expect(word['end_time'], isA<num>());
-      }
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Parse and verify structure
+        final data = jsonDecode(output) as Map<String, dynamic>;
+        expect(data['transcript'], isA<String>());
+        expect(data['words'], isA<List>());
+        final words = data['words'] as List;
+        if (words.isNotEmpty) {
+          final word = words.first as Map<String, dynamic>;
+          expect(word['word'], isA<String>());
+          expect(word['start_time'], isA<num>());
+          expect(word['end_time'], isA<num>());
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Phase 4: Output Features', () {
@@ -603,10 +593,11 @@ What is 9 + 6? Reply with just the number.
       expect(result.stderr.toString().toLowerCase(), contains('invalid'));
     });
 
-    test('SC-019: Chat with agent that has output_schema in settings',
-        () async {
-      // Create a settings file with an agent that has output_schema
-      await File(settingsPath).writeAsString('''
+    test(
+      'SC-019: Chat with agent that has output_schema in settings',
+      () async {
+        // Create a settings file with an agent that has output_schema
+        await File(settingsPath).writeAsString('''
 agents:
   extractor:
     model: openai:gpt-4o-mini
@@ -627,21 +618,22 @@ agents:
         - entities
 ''');
 
-      final result = await runCli([
-        '-s',
-        settingsPath,
-        '-a',
-        'extractor',
-        '-p',
-        'John Smith works at Acme Corp as a software engineer.',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        final result = await runCli([
+          '-s',
+          settingsPath,
+          '-a',
+          'extractor',
+          '-p',
+          'John Smith works at Acme Corp as a software engineer.',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Output should be structured JSON with entities
-      final output = result.stdout.toString();
-      expect(output, contains('entities'));
-      expect(output, contains('John'));
-    });
+        // Output should be structured JSON with entities
+        final output = result.stdout.toString();
+        expect(output, contains('entities'));
+        expect(output, contains('John'));
+      },
+    );
   });
 
   group('Phase 6: Server Tools & MCP', () {
@@ -707,11 +699,7 @@ agents:
       ]);
       // May fail if CONTEXT7_API_KEY not set, but should at least parse config
       // Exit code 0 or 4 (API error if key missing) are acceptable
-      expect(
-        result.exitCode,
-        anyOf(0, 4),
-        reason: 'stderr: ${result.stderr}',
-      );
+      expect(result.exitCode, anyOf(0, 4), reason: 'stderr: ${result.stderr}');
     });
 
     test('SC-024: Chat with agent thinking disabled in settings', () async {
@@ -851,31 +839,31 @@ agents:
       expect(result.stdout.toString(), contains('Generated:'));
     }, timeout: const Timeout(Duration(minutes: 2)));
 
-    test('SC-036: Generate with output directory', () async {
-      final result = await runCli([
-        'generate',
-        '--mime',
-        'image/png',
-        '-o',
-        tempDir.path,
-        '-p',
-        'A simple blue square',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
-      // Should output file in the specified directory
-      expect(result.stdout.toString(), contains(tempDir.path));
+    test(
+      'SC-036: Generate with output directory',
+      () async {
+        final result = await runCli([
+          'generate',
+          '--mime',
+          'image/png',
+          '-o',
+          tempDir.path,
+          '-p',
+          'A simple blue square',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        // Should output file in the specified directory
+        expect(result.stdout.toString(), contains(tempDir.path));
 
-      // Verify a file was created
-      final files = await tempDir.list().toList();
-      expect(files.whereType<File>().isNotEmpty, isTrue);
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Verify a file was created
+        final files = await tempDir.list().toList();
+        expect(files.whereType<File>().isNotEmpty, isTrue);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('SC-057: Missing --mime error (exit code 2)', () async {
-      final result = await runCli([
-        'generate',
-        '-p',
-        'Generate something',
-      ]);
+      final result = await runCli(['generate', '-p', 'Generate something']);
       expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
       expect(result.stderr.toString().toLowerCase(), contains('--mime'));
     });
@@ -895,11 +883,7 @@ agents:
       ]);
       // This may fail if the provider doesn't support PDF generation
       // Exit code 0 or 4 (API limitation) are acceptable
-      expect(
-        result.exitCode,
-        anyOf(0, 4),
-        reason: 'stderr: ${result.stderr}',
-      );
+      expect(result.exitCode, anyOf(0, 4), reason: 'stderr: ${result.stderr}');
       if (result.exitCode == 0) {
         expect(result.stdout.toString(), contains('Generated:'));
       }
@@ -920,50 +904,54 @@ agents:
       ]);
       // This may fail if the provider doesn't support CSV generation
       // Exit code 0 or 4 (API limitation) are acceptable
-      expect(
-        result.exitCode,
-        anyOf(0, 4),
-        reason: 'stderr: ${result.stderr}',
-      );
+      expect(result.exitCode, anyOf(0, 4), reason: 'stderr: ${result.stderr}');
       if (result.exitCode == 0) {
         expect(result.stdout.toString(), contains('Generated:'));
       }
     }, timeout: const Timeout(Duration(minutes: 3)));
 
-    test('SC-039: Generate with multiple MIME types', () async {
-      final result = await runCli([
-        'generate',
-        '-a',
-        'google',
-        '--mime',
-        'image/png',
-        '--mime',
-        'image/jpeg',
-        '-o',
-        tempDir.path,
-        '-p',
-        'A simple colored circle',
-      ]);
-      // Multiple MIME types should be accepted
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
-      expect(result.stdout.toString(), contains('Generated:'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+    test(
+      'SC-039: Generate with multiple MIME types',
+      () async {
+        final result = await runCli([
+          'generate',
+          '-a',
+          'google',
+          '--mime',
+          'image/png',
+          '--mime',
+          'image/jpeg',
+          '-o',
+          tempDir.path,
+          '-p',
+          'A simple colored circle',
+        ]);
+        // Multiple MIME types should be accepted
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        expect(result.stdout.toString(), contains('Generated:'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-    test('SC-040: Generate with specific provider', () async {
-      final result = await runCli([
-        'generate',
-        '-a',
-        'google',
-        '--mime',
-        'image/png',
-        '-o',
-        tempDir.path,
-        '-p',
-        'A simple green triangle',
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
-      expect(result.stdout.toString(), contains('Generated:'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+    test(
+      'SC-040: Generate with specific provider',
+      () async {
+        final result = await runCli([
+          'generate',
+          '-a',
+          'google',
+          '--mime',
+          'image/png',
+          '-o',
+          tempDir.path,
+          '-p',
+          'A simple green triangle',
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        expect(result.stdout.toString(), contains('Generated:'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   group('Phase 8: Embed Command', () {
@@ -985,11 +973,7 @@ agents:
         'It provides easy integration with multiple AI providers.',
       );
 
-      final result = await runCli([
-        'embed',
-        'create',
-        filePath,
-      ]);
+      final result = await runCli(['embed', 'create', filePath]);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
       // Output should be valid JSON with embeddings structure
@@ -1015,12 +999,7 @@ agents:
       await File(file1Path).writeAsString('First document about Python.');
       await File(file2Path).writeAsString('Second document about JavaScript.');
 
-      final result = await runCli([
-        'embed',
-        'create',
-        file1Path,
-        file2Path,
-      ]);
+      final result = await runCli(['embed', 'create', file1Path, file2Path]);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
       // Verify both documents are in output
@@ -1030,30 +1009,34 @@ agents:
       expect(docs.length, 2);
     }, timeout: const Timeout(Duration(minutes: 2)));
 
-    test('SC-044: Custom chunk size/overlap', () async {
-      // Create a test file
-      final filePath = '${tempDir.path}/test.txt';
-      await File(filePath).writeAsString(
-        'This is a test document with some content for chunking. ' * 20,
-      );
+    test(
+      'SC-044: Custom chunk size/overlap',
+      () async {
+        // Create a test file
+        final filePath = '${tempDir.path}/test.txt';
+        await File(filePath).writeAsString(
+          'This is a test document with some content for chunking. ' * 20,
+        );
 
-      final result = await runCli([
-        'embed',
-        'create',
-        '--chunk-size',
-        '256',
-        '--chunk-overlap',
-        '50',
-        filePath,
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        final result = await runCli([
+          'embed',
+          'create',
+          '--chunk-size',
+          '256',
+          '--chunk-overlap',
+          '50',
+          filePath,
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Verify chunk options are in output
-      final output = result.stdout.toString();
-      final data = jsonDecode(output) as Map<String, dynamic>;
-      expect(data['chunk_size'], 256);
-      expect(data['chunk_overlap'], 50);
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Verify chunk options are in output
+        final output = result.stdout.toString();
+        final data = jsonDecode(output) as Map<String, dynamic>;
+        expect(data['chunk_size'], 256);
+        expect(data['chunk_overlap'], 50);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('SC-045: Search with query', () async {
       // First create embeddings
@@ -1065,12 +1048,12 @@ agents:
       );
 
       // Create embeddings
-      final createResult = await runCli([
-        'embed',
-        'create',
-        docPath,
-      ]);
-      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+      final createResult = await runCli(['embed', 'create', docPath]);
+      expect(
+        createResult.exitCode,
+        0,
+        reason: 'stderr: ${createResult.stderr}',
+      );
 
       // Save embeddings to file
       final embeddingsPath = '${tempDir.path}/embeddings.json';
@@ -1084,7 +1067,11 @@ agents:
         'programming languages',
         embeddingsPath,
       ]);
-      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+      expect(
+        searchResult.exitCode,
+        0,
+        reason: 'stderr: ${searchResult.stderr}',
+      );
 
       // Verify search results
       final output = searchResult.stdout.toString();
@@ -1102,11 +1089,7 @@ agents:
       final embeddingsPath = '${tempDir.path}/embeddings.json';
       await File(embeddingsPath).writeAsString('{}');
 
-      final result = await runCli([
-        'embed',
-        'search',
-        embeddingsPath,
-      ]);
+      final result = await runCli(['embed', 'search', embeddingsPath]);
       expect(result.exitCode, 2, reason: 'stderr: ${result.stderr}');
       expect(result.stderr.toString(), contains('-q'));
     });
@@ -1117,71 +1100,89 @@ agents:
       expect(result.stderr.toString(), contains('subcommand'));
     });
 
-    test('SC-043: Create embeddings with specific provider', () async {
-      // Create a test file
-      final filePath = '${tempDir.path}/doc_openai.txt';
-      await File(filePath).writeAsString('Test document for OpenAI embeddings.');
+    test(
+      'SC-043: Create embeddings with specific provider',
+      () async {
+        // Create a test file
+        final filePath = '${tempDir.path}/doc_openai.txt';
+        await File(
+          filePath,
+        ).writeAsString('Test document for OpenAI embeddings.');
 
-      final result = await runCli([
-        '-a',
-        'openai',
-        'embed',
-        'create',
-        filePath,
-      ]);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        final result = await runCli([
+          '-a',
+          'openai',
+          'embed',
+          'create',
+          filePath,
+        ]);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Should output valid JSON with embeddings
-      final output = result.stdout.toString();
-      expect(output, contains('"documents"'));
-      expect(output, contains('"vector"'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Should output valid JSON with embeddings
+        final output = result.stdout.toString();
+        expect(output, contains('"documents"'));
+        expect(output, contains('"vector"'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-    test('SC-046: Search embeddings in folder', () async {
-      // Create embeddings and save to a folder
-      final docPath = '${tempDir.path}/folder_doc.txt';
-      await File(docPath).writeAsString('Python programming language for data science.');
+    test(
+      'SC-046: Search embeddings in folder',
+      () async {
+        // Create embeddings and save to a folder
+        final docPath = '${tempDir.path}/folder_doc.txt';
+        await File(
+          docPath,
+        ).writeAsString('Python programming language for data science.');
 
-      // Create embeddings
-      final createResult = await runCli([
-        'embed',
-        'create',
-        docPath,
-      ]);
-      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+        // Create embeddings
+        final createResult = await runCli(['embed', 'create', docPath]);
+        expect(
+          createResult.exitCode,
+          0,
+          reason: 'stderr: ${createResult.stderr}',
+        );
 
-      // Create embeddings folder and copy file there
-      final embeddingsFolder = Directory('${tempDir.path}/embeddings_folder');
-      await embeddingsFolder.create();
-      final embeddingsPath = '${embeddingsFolder.path}/embeddings.json';
-      await File(embeddingsPath).writeAsString(createResult.stdout.toString());
+        // Create embeddings folder and copy file there
+        final embeddingsFolder = Directory('${tempDir.path}/embeddings_folder');
+        await embeddingsFolder.create();
+        final embeddingsPath = '${embeddingsFolder.path}/embeddings.json';
+        await File(
+          embeddingsPath,
+        ).writeAsString(createResult.stdout.toString());
 
-      // Search in folder (spec says this should work)
-      final searchResult = await runCli([
-        'embed',
-        'search',
-        '-q',
-        'data science',
-        '${embeddingsFolder.path}/',
-      ]);
-      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+        // Search in folder (spec says this should work)
+        final searchResult = await runCli([
+          'embed',
+          'search',
+          '-q',
+          'data science',
+          '${embeddingsFolder.path}/',
+        ]);
+        expect(
+          searchResult.exitCode,
+          0,
+          reason: 'stderr: ${searchResult.stderr}',
+        );
 
-      // Verify search results
-      final output = searchResult.stdout.toString();
-      expect(output, contains('"results"'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Verify search results
+        final output = searchResult.stdout.toString();
+        expect(output, contains('"results"'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('SC-047: Search with verbose', () async {
       // Create embeddings first
       final docPath = '${tempDir.path}/verbose_doc.txt';
       await File(docPath).writeAsString('Dart is great for Flutter apps.');
 
-      final createResult = await runCli([
-        'embed',
-        'create',
-        docPath,
-      ]);
-      expect(createResult.exitCode, 0, reason: 'stderr: ${createResult.stderr}');
+      final createResult = await runCli(['embed', 'create', docPath]);
+      expect(
+        createResult.exitCode,
+        0,
+        reason: 'stderr: ${createResult.stderr}',
+      );
 
       // Save embeddings
       final embeddingsPath = '${tempDir.path}/verbose_embeddings.json';
@@ -1196,7 +1197,11 @@ agents:
         'Flutter',
         embeddingsPath,
       ]);
-      expect(searchResult.exitCode, 0, reason: 'stderr: ${searchResult.stderr}');
+      expect(
+        searchResult.exitCode,
+        0,
+        reason: 'stderr: ${searchResult.stderr}',
+      );
 
       // Verbose output should show similarity scores
       final output = searchResult.stdout.toString();
@@ -1217,37 +1222,49 @@ agents:
       await tempDir.delete(recursive: true);
     });
 
-    test('SC-048: List default provider models (google)', () async {
-      final result = await runCli(['models']);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+    test(
+      'SC-048: List default provider models (google)',
+      () async {
+        final result = await runCli(['models']);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Should show Google provider
-      final output = result.stdout.toString();
-      expect(output, contains('Provider:'));
-      expect(output.toLowerCase(), contains('google'));
-      // Should show some models (at least chat models)
-      expect(output, contains('Chat Models:'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Should show Google provider
+        final output = result.stdout.toString();
+        expect(output, contains('Provider:'));
+        expect(output.toLowerCase(), contains('google'));
+        // Should show some models (at least chat models)
+        expect(output, contains('Chat Models:'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-    test('SC-049: List specific provider models (openai)', () async {
-      final result = await runCli(['models', '-a', 'openai']);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+    test(
+      'SC-049: List specific provider models (openai)',
+      () async {
+        final result = await runCli(['models', '-a', 'openai']);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // Should show OpenAI provider
-      final output = result.stdout.toString();
-      expect(output, contains('Provider:'));
-      expect(output.toLowerCase(), contains('openai'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Should show OpenAI provider
+        final output = result.stdout.toString();
+        expect(output, contains('Provider:'));
+        expect(output.toLowerCase(), contains('openai'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-    test('SC-050: Provider alias (gemini -> google)', () async {
-      final result = await runCli(['models', '-a', 'gemini']);
-      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+    test(
+      'SC-050: Provider alias (gemini -> google)',
+      () async {
+        final result = await runCli(['models', '-a', 'gemini']);
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
 
-      // gemini is an alias for google
-      final output = result.stdout.toString();
-      expect(output, contains('Provider:'));
-      expect(output.toLowerCase(), contains('google'));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // gemini is an alias for google
+        final output = result.stdout.toString();
+        expect(output, contains('Provider:'));
+        expect(output.toLowerCase(), contains('google'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('SC-051: Agent from settings', () async {
       // Create a settings file with a custom agent
@@ -1299,30 +1316,32 @@ agents:
       );
     });
 
-    test('SC-053: Invalid agent/provider name (exit code 1, 4, or 255)',
-        () async {
-      final result = await runCli([
-        '-a',
-        'nonexistent-provider-xyz123',
-        '-p',
-        'Hello',
-      ]);
-      // Exit code 1 (general error), 4 (API error), or 255 (unhandled exception)
-      expect(
-        result.exitCode,
-        anyOf(1, 4, 255),
-        reason: 'stderr: ${result.stderr}',
-      );
-      final stderr = result.stderr.toString().toLowerCase();
-      expect(
-        stderr.contains('error') ||
-            stderr.contains('not found') ||
-            stderr.contains('exception') ||
-            stderr.contains('unknown'),
-        isTrue,
-        reason: 'Expected error message. stderr: ${result.stderr}',
-      );
-    });
+    test(
+      'SC-053: Invalid agent/provider name (exit code 1, 4, or 255)',
+      () async {
+        final result = await runCli([
+          '-a',
+          'nonexistent-provider-xyz123',
+          '-p',
+          'Hello',
+        ]);
+        // Exit code 1 (general error), 4 (API error), or 255 (unhandled exception)
+        expect(
+          result.exitCode,
+          anyOf(1, 4, 255),
+          reason: 'stderr: ${result.stderr}',
+        );
+        final stderr = result.stderr.toString().toLowerCase();
+        expect(
+          stderr.contains('error') ||
+              stderr.contains('not found') ||
+              stderr.contains('exception') ||
+              stderr.contains('unknown'),
+          isTrue,
+          reason: 'Expected error message. stderr: ${result.stderr}',
+        );
+      },
+    );
 
     test('SC-054: Missing file attachment (exit code 1, 2, or 255)', () async {
       final result = await runCli([

@@ -7,7 +7,7 @@ import 'settings.dart';
 /// Loads and parses settings from YAML file
 class SettingsLoader {
   SettingsLoader({Map<String, String>? environment})
-      : _environment = environment ?? Platform.environment;
+    : _environment = environment ?? Platform.environment;
 
   final Map<String, String> _environment;
 
@@ -44,13 +44,10 @@ class SettingsLoader {
 
   /// Substitute ${VAR_NAME} patterns with environment variable values
   String _substituteEnvVars(String content) {
-    return content.replaceAllMapped(
-      RegExp(r'\$\{([^}]+)\}'),
-      (match) {
-        final varName = match.group(1)!;
-        return _environment[varName] ?? '';
-      },
-    );
+    return content.replaceAllMapped(RegExp(r'\$\{([^}]+)\}'), (match) {
+      final varName = match.group(1)!;
+      return _environment[varName] ?? '';
+    });
   }
 
   Settings _parseSettings(YamlMap yaml) {
@@ -158,8 +155,7 @@ class SettingsLoader {
     }
 
     final argsYaml = yaml['args'] as YamlList?;
-    final args =
-        argsYaml?.map((arg) => arg as String).toList() ?? <String>[];
+    final args = argsYaml?.map((arg) => arg as String).toList() ?? <String>[];
 
     return McpServerSettings(
       name: yaml['name'] as String,

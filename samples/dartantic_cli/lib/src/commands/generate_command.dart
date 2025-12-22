@@ -12,11 +12,7 @@ import 'utils.dart';
 class GenerateCommand extends DartanticCommand with PromptCommandMixin {
   GenerateCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
     argParser
-      ..addOption(
-        'prompt',
-        abbr: 'p',
-        help: 'Prompt text or @filename',
-      )
+      ..addOption('prompt', abbr: 'p', help: 'Prompt text or @filename')
       ..addMultiOption(
         'mime',
         help: 'MIME type to generate (required, repeatable)',
@@ -31,10 +27,10 @@ class GenerateCommand extends DartanticCommand with PromptCommandMixin {
 
   @override
   List<String> get examples => [
-        'dartantic generate -p "A sunset over mountains" --mime image/png',
-        'dartantic generate -p @prompt.txt --mime image/jpeg --mime image/png',
-        'echo "A cat" | dartantic generate --mime image/webp',
-      ];
+    'dartantic generate -p "A sunset over mountains" --mime image/png',
+    'dartantic generate -p @prompt.txt --mime image/jpeg --mime image/png',
+    'echo "A cat" | dartantic generate --mime image/webp',
+  ];
 
   @override
   Future<int> run() async {

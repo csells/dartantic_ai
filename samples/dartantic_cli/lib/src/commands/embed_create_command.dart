@@ -12,10 +12,7 @@ import 'base_command.dart';
 class EmbedCreateCommand extends DartanticCommand {
   EmbedCreateCommand(SettingsLoader settingsLoader) : super(settingsLoader) {
     argParser
-      ..addOption(
-        'chunk-size',
-        help: 'Chunk size in characters (default: 512)',
-      )
+      ..addOption('chunk-size', help: 'Chunk size in characters (default: 512)')
       ..addOption(
         'chunk-overlap',
         help: 'Chunk overlap in characters (default: 100)',
@@ -33,10 +30,10 @@ class EmbedCreateCommand extends DartanticCommand {
 
   @override
   List<String> get examples => [
-        'dartantic embed create doc.txt',
-        'dartantic embed create *.txt > embeddings.json',
-        'dartantic -a openai embed create --chunk-size 256 doc.txt',
-      ];
+    'dartantic embed create doc.txt',
+    'dartantic embed create *.txt > embeddings.json',
+    'dartantic -a openai embed create --chunk-size 256 doc.txt',
+  ];
 
   @override
   Future<int> run() async {
@@ -79,8 +76,9 @@ class EmbedCreateCommand extends DartanticCommand {
     final cwd = getEffectiveWorkingDirectory();
 
     for (final filePath in files) {
-      final resolvedPath =
-          filePath.startsWith('/') ? filePath : '$cwd/$filePath';
+      final resolvedPath = filePath.startsWith('/')
+          ? filePath
+          : '$cwd/$filePath';
       final file = File(resolvedPath);
 
       if (!await file.exists()) {
@@ -119,10 +117,7 @@ class EmbedCreateCommand extends DartanticCommand {
     }
 
     for (final entry in fileChunks.entries) {
-      documents.add({
-        'file': entry.key,
-        'chunks': entry.value,
-      });
+      documents.add({'file': entry.key, 'chunks': entry.value});
     }
 
     final output = {
