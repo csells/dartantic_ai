@@ -202,9 +202,59 @@ for (final word in transcription['words'] as List) {
 
 Note: Only Google Gemini models currently support audio transcription through the chat interface.
 
+## OCR (Optical Character Recognition)
+
+Google Gemini models support OCR for extracting text from images. Simply attach an image containing text and request extraction in your prompt.
+
+### Text Extraction
+
+Extract text from images while preserving formatting and structure:
+
+```dart
+import 'dart:io';
+import 'package:cross_file/cross_file.dart';
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent('google');
+
+const imagePath = 'document.png';
+final imageFile = XFile.fromData(
+  await File(imagePath).readAsBytes(),
+  path: imagePath,
+);
+
+final result = await agent.send(
+  'Extract all text from this image. Preserve the formatting and structure.',
+  attachments: [await DataPart.fromFile(imageFile)],
+  history: [ChatMessage.system('Be precise and preserve formatting.')],
+);
+
+print(result.output);
+// Extracted text with formatting preserved
+```
+
+### Use Cases
+
+OCR is useful for:
+- Extracting text from scanned documents
+- Reading text from screenshots
+- Processing forms and receipts
+- Analyzing documents with complex layouts
+- Converting images of text to editable format
+
+### Provider Support
+
+| Provider | OCR Support | Complex Layouts |
+|----------|-------------|-----------------|
+| Google | ✅ Native support | ✅ Tables, multi-column |
+| OpenAI Responses | ✅ Vision models | ✅ General layout |
+| Anthropic | ✅ Vision models | ✅ General layout |
+
+Note: For specialized OCR tasks requiring extremely high accuracy or specific document types, consider using dedicated OCR services. Mistral also offers a specialized OCR model (`mistral-ocr-3-25-12`) for document processing, which will be supported once the SDK adds vision capabilities.
+
 ## Examples
 
-- [Multimedia chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multimedia_input.dart) - includes audio transcription examples
+- [Multimedia chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multimedia_input.dart) - includes audio transcription and OCR examples
 
 ## Next Steps
 

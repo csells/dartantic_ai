@@ -9,6 +9,7 @@
 /// 7. Each functionality should only be tested in ONE file - no duplication
 
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -22,11 +23,27 @@ void main() {
       });
 
       test('throws on unsupported capability', () async {
-        // Mistral doesn't support tools
-        final agent = Agent('mistral:mistral-small-latest', tools: []);
+        // Mistral doesn't support typed output + tools simultaneously
+        final testTool = Tool<Map<String, dynamic>>(
+          name: 'test_tool',
+          description: 'A test tool',
+          onCall: (input) => 'result',
+        );
+        final schema = JsonSchema.create({
+          'type': 'object',
+          'properties': {'result': {'type': 'string'}},
+        });
+        final agent = Agent('mistral', tools: [testTool]);
 
         // The exception is thrown when the model is created (on first use)
-        await expectLater(() => agent.send('test'), throwsUnsupportedError);
+        await expectLater(
+          () => agent.sendFor<Map<String, dynamic>>(
+            'test',
+            outputSchema: schema,
+            outputFromJson: (json) => json,
+          ),
+          throwsUnsupportedError,
+        );
       });
 
       test('handles malformed model strings', () {

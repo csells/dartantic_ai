@@ -15,6 +15,7 @@ void main() async {
   await useLinkAttachment(model);
   await transcribeAudioText(model);
   await transcribeAudioJson(model);
+  await performOCR(model);
   exit(0);
 }
 
@@ -238,4 +239,25 @@ Future<void> transcribeAudioJson(String model) async {
       '${w['end_time']?.toStringAsFixed(2)}s: ${w['word']}',
     );
   }
+}
+
+Future<void> performOCR(String model) async {
+  final agent = Agent(model);
+  print('\n${agent.displayName} Optical Character Recognition (OCR)');
+
+  const imagePath = 'example/bin/files/why-dartantic.png';
+  final imageFile = XFile.fromData(
+    await File(imagePath).readAsBytes(),
+    path: imagePath,
+  );
+
+  await agent
+      .sendStream(
+        'Extract all text from this image. '
+        'Preserve the formatting and structure.',
+        attachments: [await DataPart.fromFile(imageFile)],
+        history: [ChatMessage.system('Be precise and preserve formatting.')],
+      )
+      .forEach((r) => stdout.write(r.output));
+  stdout.writeln();
 }

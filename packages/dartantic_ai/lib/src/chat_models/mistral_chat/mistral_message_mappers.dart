@@ -106,7 +106,7 @@ extension MessageListMapper on List<ChatMessage> {
             .map(
               (p) => mistral.ToolCall(
                 id: p.id,
-                type: mistral.ToolType.function,
+                type: mistral.ToolCallType.function,
                 function: mistral.FunctionCall(
                   name: p.name,
                   arguments: json.encode(p.arguments ?? {}),
@@ -148,12 +148,15 @@ extension ChatResultMapper on mistral.ChatCompletionResponse {
     // Extract tool calls from the response
     final toolCallParts =
         choice.message.toolCalls
-            ?.map(
+            ?.where((tc) => tc.id != null && tc.function?.name != null)
+            .map(
               (tc) => ToolPart.call(
-                id: tc.id,
-                name: tc.function.name,
-                arguments:
-                    json.decode(tc.function.arguments) as Map<String, dynamic>,
+                id: tc.id!,
+                name: tc.function!.name!,
+                arguments: tc.function!.arguments != null
+                    ? json.decode(tc.function!.arguments!)
+                        as Map<String, dynamic>
+                    : {},
               ),
             )
             .toList() ??
@@ -204,12 +207,14 @@ extension CreateChatCompletionStreamResponseMapper
     // Extract tool calls from streaming delta
     // Note: Mistral sends complete tool calls, not incremental deltas
     final toolCallParts =
-        choice.delta.toolCalls?.map((tc) {
-          final args = tc.function.arguments;
+        choice.delta.toolCalls
+            ?.where((tc) => tc.id != null && tc.function?.name != null)
+            .map((tc) {
+          final args = tc.function?.arguments;
           return ToolPart.call(
-            id: tc.id,
-            name: tc.function.name,
-            arguments: args.isNotEmpty
+            id: tc.id!,
+            name: tc.function!.name!,
+            arguments: args != null && args.isNotEmpty
                 ? json.decode(args) as Map<String, dynamic>
                 : {},
           );

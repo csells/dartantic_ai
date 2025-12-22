@@ -17,6 +17,7 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -489,15 +490,27 @@ void main() {
       // Moved to edge cases section
 
       test('rejects tools on unsupported providers', () async {
-        // Per design, Agent does NOT validate provider capabilities
-        // Providers themselves should throw if they don't support tools
+        // All providers now support basic tools, but not all support
+        // typed output + tools simultaneously (e.g., Mistral)
         final agent = Agent(
           'mistral:mistral-small-latest',
           tools: [stringTool],
         );
 
-        // The error will come when trying to use the agent, not at creation
-        expect(() => agent.send('Use the string_tool'), throwsUnsupportedError);
+        // Mistral supports tools but not typed output + tools simultaneously
+        final schema = JsonSchema.create({
+          'type': 'object',
+          'properties': {'result': {'type': 'string'}},
+        });
+
+        expect(
+          () => agent.sendFor<Map<String, dynamic>>(
+            'Use the string_tool',
+            outputSchema: schema,
+            outputFromJson: (json) => json,
+          ),
+          throwsUnsupportedError,
+        );
       });
 
       runProviderTest(

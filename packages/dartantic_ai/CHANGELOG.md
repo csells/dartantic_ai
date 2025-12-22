@@ -1,3 +1,18 @@
+## 2.2.0
+
+- **Mistral Tool Calling Support**: Enhanced Mistral provider with robust tool
+  calling capabilities:
+  - Updated `mistralai_dart` dependency to 0.1.1+1 which fixes streaming tool
+    call issues
+  - Improved message mappers with null-safe tool call handling
+  - Added filtering for incomplete tool calls in streaming responses
+  - Enabled `multiToolCalls` capability for Mistral provider
+  - Updated tests to verify tool calling works correctly with streaming
+- **Enhanced Cohere & Ollama Capabilities**: Both providers now support
+  `multiToolCalls` capability for parallel tool execution
+- Added OCR (Optical Character Recognition) example to `multimedia_input.dart`
+  demonstrating text extraction from images using Gemini's vision capabilities
+
 ## 2.1.1
 
 - Added custom dimensions support for Mistral embeddings:

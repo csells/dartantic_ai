@@ -172,6 +172,36 @@ dartantic -a google chat \
 
 **Note:** Audio transcription is currently only supported by Google Gemini models.
 
+### OCR (Optical Character Recognition)
+
+Google agents support OCR for extracting text from images. Attach an image containing text with `@filename` syntax and request text extraction in your prompt.
+
+**Text extraction from images:**
+
+```bash
+# Extract text from an image
+dartantic -a google chat \
+  -p "Extract all text from this image. Preserve the formatting: @document.png"
+```
+
+**Example output:**
+
+```
+Dartantic Overview
+
+Welcome to Dartantic!
+
+The dartantic_ai package is an agent framework inspired by pydantic-ai...
+```
+
+**Use cases:**
+- Extract text from scanned documents
+- Read text from screenshots
+- Process forms and receipts
+- Analyze documents with complex layouts
+
+**Note:** OCR is supported by Google Gemini, OpenAI, and Anthropic vision models. For specialized OCR with extremely high accuracy, Mistral offers a dedicated OCR model (`mistral-ocr-3-25-12`) which will be supported once the SDK adds vision capabilities.
+
 ## Generate Command
 
 Generate media content (images, PDFs) based on a prompt. Supports native image

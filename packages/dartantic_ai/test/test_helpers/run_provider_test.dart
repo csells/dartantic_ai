@@ -74,20 +74,19 @@ const providerTestCaps = <String, Set<ProviderTestCaps>>{
   'mistral': {
     ProviderTestCaps.chat,
     ProviderTestCaps.embeddings,
-    // TODO: Re-enable multiToolCalls when mistralai_dart fixes streaming bug
-    // https://github.com/davidmigloz/langchain_dart/issues/913
-    // When fixed: 1) Update mistralai_dart dependency to fixed version
-    //             2) Add ProviderTestCaps.multiToolCalls back to this set
-    //             3) Run tool calling tests to verify: dart test test/tool_calling_test.dart -n "mistral"
+    ProviderTestCaps.multiToolCalls,
   },
   'cohere': {
     ProviderTestCaps.chat,
     ProviderTestCaps.embeddings,
-    // Note: multiToolCalls disabled due to Cohere API bug with non-unique
-    // tool IDs
+    ProviderTestCaps.multiToolCalls,
     ProviderTestCaps.typedOutput,
   },
-  'ollama': {ProviderTestCaps.chat, ProviderTestCaps.typedOutput},
+  'ollama': {
+    ProviderTestCaps.chat,
+    ProviderTestCaps.multiToolCalls,
+    ProviderTestCaps.typedOutput,
+  },
   'openrouter': {
     ProviderTestCaps.chat,
     ProviderTestCaps.multiToolCalls,
