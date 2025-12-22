@@ -84,7 +84,9 @@ const providerTestCaps = <String, Set<ProviderTestCaps>>{
     ProviderTestCaps.chat,
     ProviderTestCaps.multiToolCalls,
     ProviderTestCaps.typedOutput,
-    ProviderTestCaps.typedOutputWithTools,
+    // Note: typedOutputWithTools removed - OpenRouter/Gemini tries to pass
+    // function calls as string parameters instead of making sequential tool
+    // calls: validate_code(code="(default_api.get_secret_code())")
     ProviderTestCaps.chatVision,
   },
 };
