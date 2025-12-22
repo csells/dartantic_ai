@@ -15,6 +15,79 @@ import 'google_chat.dart'
 /// Logger for Google message mapping operations.
 final Logger _logger = Logger('dartantic.chat.mappers.google');
 
+/// Maps Dartantic Parts to Google gl.Parts (public helper for reuse).
+List<gl.Part> mapPartsToGoogle(
+  Iterable<Part> parts, {
+  bool includeToolCalls = false,
+  bool includeToolResults = false,
+}) {
+  final mappedParts = <gl.Part>[];
+
+  for (final part in parts) {
+    switch (part) {
+      case TextPart(:final text):
+        if (text.isNotEmpty) mappedParts.add(gl.Part(text: text));
+      case DataPart(:final bytes, :final mimeType):
+        mappedParts.add(
+          gl.Part(
+            inlineData: gl.Blob(mimeType: mimeType, data: bytes),
+          ),
+        );
+      case LinkPart(:final url, :final mimeType):
+        mappedParts.add(
+          gl.Part(
+            fileData: gl.FileData(
+              fileUri: url.toString(),
+              mimeType: mimeType ?? 'application/octet-stream',
+            ),
+          ),
+        );
+      case ToolPart(:final kind):
+        if (includeToolCalls && kind == ToolPartKind.call) {
+          mappedParts.add(_mapToolCallPart(part));
+        } else if (includeToolResults && kind == ToolPartKind.result) {
+          mappedParts.add(_mapToolResultPart(part));
+        }
+      default:
+        break;
+    }
+  }
+
+  return mappedParts;
+}
+
+gl.Part _mapToolCallPart(ToolPart part) {
+  final arguments = part.arguments ?? const <String, dynamic>{};
+  final callId = part.id.isNotEmpty
+      ? part.id
+      : ToolIdHelpers.generateToolCallId(
+          toolName: part.name,
+          providerHint: 'google',
+          arguments: arguments,
+        );
+
+  return gl.Part(
+    functionCall: gl.FunctionCall(
+      id: callId,
+      name: part.name,
+      args: ProtobufValueHelpers.structFromJson(arguments),
+    ),
+  );
+}
+
+gl.Part _mapToolResultPart(ToolPart part) {
+  final responseMap = ToolResultHelpers.ensureMap(part.result);
+  _logger.fine('Creating function response for tool: ${part.name}');
+
+  return gl.Part(
+    functionResponse: gl.FunctionResponse(
+      id: part.id,
+      name: part.name,
+      response: ProtobufValueHelpers.structFromJson(responseMap),
+    ),
+  );
+}
+
 /// Extension on [List<ChatMessage>] to convert messages to Gemini content.
 extension MessageListMapper on List<ChatMessage> {
   /// Converts this list of [ChatMessage]s to a list of [gl.Content]s.
@@ -119,81 +192,12 @@ extension MessageListMapper on List<ChatMessage> {
     Iterable<Part> parts, {
     required bool includeToolCalls,
     required bool includeToolResults,
-  }) {
-    final mappedParts = <gl.Part>[];
-
-    for (final part in parts) {
-      switch (part) {
-        case TextPart(:final text):
-          if (text.isNotEmpty) mappedParts.add(gl.Part(text: text));
-        case DataPart(:final bytes, :final mimeType):
-          mappedParts.add(
-            gl.Part(
-              inlineData: gl.Blob(mimeType: mimeType, data: bytes),
-            ),
-          );
-        case LinkPart(:final url, :final mimeType):
-          mappedParts.add(
-            gl.Part(
-              fileData: gl.FileData(
-                fileUri: url.toString(),
-                mimeType: mimeType ?? 'application/octet-stream',
-              ),
-            ),
-          );
-        case ToolPart(:final kind):
-          if (includeToolCalls && kind == ToolPartKind.call) {
-            mappedParts.add(_mapToolCallPart(part));
-          } else if (includeToolResults && kind == ToolPartKind.result) {
-            mappedParts.add(_mapToolResultPart(part));
-          }
-        default:
-          break;
-      }
-    }
-
-    return mappedParts;
-  }
-
-  gl.Part _mapToolCallPart(ToolPart part) {
-    final arguments = part.arguments ?? const <String, dynamic>{};
-    final callId = part.id.isNotEmpty
-        ? part.id
-        : ToolIdHelpers.generateToolCallId(
-            toolName: part.name,
-            providerHint: 'google',
-            arguments: arguments,
-          );
-
-    return gl.Part(
-      functionCall: gl.FunctionCall(
-        id: callId,
-        name: part.name,
-        args: ProtobufValueHelpers.structFromJson(arguments),
-      ),
-    );
-  }
-
-  gl.Part _mapToolResultPart(ToolPart part) {
-    final responseMap = ToolResultHelpers.ensureMap(part.result);
-    _logger.fine('Creating function response for tool: ${part.name}');
-
-    final responseId = part.id.isNotEmpty
-        ? part.id
-        : ToolIdHelpers.generateToolCallId(
-            toolName: part.name,
-            providerHint: 'google',
-            arguments: responseMap,
-          );
-
-    return gl.Part(
-      functionResponse: gl.FunctionResponse(
-        id: responseId,
-        name: part.name,
-        response: ProtobufValueHelpers.structFromJson(responseMap),
-      ),
-    );
-  }
+  }) =>
+      mapPartsToGoogle(
+        parts,
+        includeToolCalls: includeToolCalls,
+        includeToolResults: includeToolResults,
+      );
 }
 
 /// Extension on [gl.GenerateContentResponse] to convert to [ChatResult].

@@ -18,7 +18,25 @@ void main() async {
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, outputDir, fallbackPrefix: 'google_image');
+  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'google_robot');
+
+  // Image editing with attachment (uses native Imagen)
+  stdout.writeln('\n## Google: Image Editing via generateMedia() with Imagen');
+  final robotAsset = imageResult.assets.firstOrNull;
+  if (robotAsset is DataPart) {
+    final editResult = await agent.generateMedia(
+      'Colorize this black and white robot drawing. Make the robot body '
+      'blue, the eyes bright green, and add orange/yellow accents. '
+      'Keep all the original black lines.',
+      mimeTypes: const ['image/png'],
+      attachments: [robotAsset],
+    );
+    dumpAssets(
+      editResult.assets,
+      '$outputDir/color',
+      fallbackPrefix: 'google_robot_colorized',
+    );
+  }
 
   // PDF generation
   stdout.writeln('\n## Google: PDF via generateMedia()');

@@ -38,6 +38,50 @@ for (final asset in result.assets) {
 }
 ```
 
+## Image Editing with Attachments
+
+All providers support image editing by providing an input image as an attachment.
+Google uses native Imagen for high-quality editing, while OpenAI and Anthropic use
+code execution (PIL/Pillow):
+
+```dart
+import 'package:cross_file/cross_file.dart';
+
+final agent = Agent('google'); // or 'openai-responses', 'anthropic'
+
+// Load the input image
+const imagePath = 'input/robot_bw.png';
+final imageFile = XFile.fromData(
+  await File(imagePath).readAsBytes(),
+  path: imagePath,
+  mimeType: 'image/png',
+);
+final imagePart = await DataPart.fromFile(imageFile);
+
+// Edit the image
+final result = await agent.generateMedia(
+  'Colorize this black and white robot drawing. '
+  'Make the robot body blue, the eyes bright green, and add '
+  'orange/yellow accents.',
+  mimeTypes: const ['image/png'],
+  attachments: [imagePart],
+);
+
+// Save the edited image
+for (final asset in result.assets) {
+  if (asset is DataPart) {
+    File('output/${asset.name}').writeAsBytesSync(asset.bytes);
+  }
+}
+```
+
+**Common image editing use cases:**
+- **Colorization**: Add color to black and white images
+- **Style Transfer**: Apply artistic styles to existing images
+- **Object Removal**: Remove unwanted objects (inpainting)
+- **Background Replacement**: Change backgrounds while preserving subjects
+- **Enhancement**: Improve quality, lighting, or resolution
+
 ## Example MIME Types
 
 The `mimeTypes` parameter tells the provider what kind of output you want, e.g.

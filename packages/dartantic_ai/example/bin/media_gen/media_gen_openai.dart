@@ -18,7 +18,25 @@ void main() async {
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, outputDir, fallbackPrefix: 'openai_image');
+  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'openai_robot');
+
+  // Image editing with attachment (uses code execution)
+  stdout.writeln('\n## OpenAI: Image Editing via generateMedia()');
+  final robotAsset = imageResult.assets.firstOrNull;
+  if (robotAsset is DataPart) {
+    final editResult = await agent.generateMedia(
+      'Colorize this black and white robot drawing. Make the robot body '
+      'blue, the eyes bright green, and add orange/yellow accents. '
+      'Preserve all the original black lines.',
+      mimeTypes: const ['image/png'],
+      attachments: [robotAsset],
+    );
+    dumpAssets(
+      editResult.assets,
+      '$outputDir/color',
+      fallbackPrefix: 'openai_robot_colorized',
+    );
+  }
 
   // PDF generation
   stdout.writeln('\n## OpenAI: PDF via generateMedia()');

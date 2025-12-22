@@ -1,3 +1,22 @@
+## 2.0.4
+
+- Added image editing support to media generation across all providers
+  - Fixed `GoogleMediaGenerationModel` to accept attachments with image requests
+  - Attachments (DataPart, LinkPart, TextPart) are now properly converted to
+    Google API format (inlineData, fileData, text)
+  - Enables image editing use cases: colorization, style transfer, inpainting
+  - Added e2e tests for image editing with attachments for Google, OpenAI, and
+    Anthropic providers
+  - Updated all media generation examples to include image editing demonstrations
+  - Refactored Google Part mapping to use shared `mapPartsToGoogle()` helper
+- Refactored provider `listModels()` implementations to use SDK methods instead
+  of raw HTTP:
+  - Anthropic: Uses `client.listModels()` from `anthropic_sdk_dart`
+  - Ollama: Uses `client.listModels()` from `ollama_dart`
+  - Mistral: Uses `client.listModels()` from `mistralai_dart`
+- Removed Anthropic `signature_delta` work-around (fixed in `anthropic_sdk_dart`
+  0.3.1)
+
 ## 2.0.3
 
 - Updated Anthropic SDK compatibility for `anthropic_sdk_dart` 0.3.1:

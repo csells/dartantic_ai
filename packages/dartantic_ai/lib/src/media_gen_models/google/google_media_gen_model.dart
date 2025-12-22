@@ -89,6 +89,7 @@ class GoogleMediaGenerationModel
         prompt,
         mimeTypes: imageMimes,
         history: history,
+        attachments: attachments,
         options: resolvedOptions,
       );
 
@@ -107,17 +108,11 @@ class GoogleMediaGenerationModel
     }
 
     // Pure image request → use native Imagen
-    if (attachments.isNotEmpty) {
-      throw UnsupportedError(
-        'Google native image generation does not support attachments. '
-        'Request non-image types to use code execution with attachments.',
-      );
-    }
-
     yield* _generateViaImagen(
       prompt,
       mimeTypes: mimeTypes,
       history: history,
+      attachments: attachments,
       options: resolvedOptions,
     );
   }
@@ -127,6 +122,7 @@ class GoogleMediaGenerationModel
     String prompt, {
     required List<String> mimeTypes,
     required List<ChatMessage> history,
+    required List<Part> attachments,
     required GoogleMediaGenerationModelOptions options,
   }) async* {
     final resolvedMimeType = resolveGoogleMediaMimeType(
@@ -137,6 +133,7 @@ class GoogleMediaGenerationModel
     final request = _buildRequest(
       prompt: prompt,
       history: history,
+      attachments: attachments,
       mimeType: resolvedMimeType,
       options: options,
       autoIncludeImageModality: true,
@@ -227,6 +224,7 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
 ''';
   }
 
+
   /// Resolves response modalities, auto-including IMAGE when needed.
   List<String>? _resolveModalities(
     List<String>? explicit, {
@@ -250,15 +248,22 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
   gl.GenerateContentRequest _buildRequest({
     required String prompt,
     required List<ChatMessage> history,
+    required List<Part> attachments,
     required String mimeType,
     required GoogleMediaGenerationModelOptions options,
     bool autoIncludeImageModality = false,
   }) {
+    // Build the user message parts: attachments first, then text prompt
+    final userParts = <gl.Part>[
+      ...mapPartsToGoogle(attachments),
+      gl.Part(text: prompt),
+    ];
+
     final contents = <gl.Content>[
       ...history.toContentList(),
       gl.Content(
         role: 'user',
-        parts: [gl.Part(text: prompt)],
+        parts: userParts,
       ),
     ];
 

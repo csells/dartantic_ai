@@ -17,7 +17,8 @@ with generative AI easier and more fun!
 - **Typed Outputs and Tool Calling** - Uses Dart types and JSON serialization
 - **Multimedia Input** - Process text, images, and files
 - **Media Generation** - Stream images, PDFs, and other artifacts from OpenAI
-  Responses, Google Gemini (Nana Banana), and Anthropic code execution
+  Responses, Google Gemini (Nano Banana), and Anthropic code execution. Supports
+  image editing with native Imagen API for colorization, style transfer, and more
 - **Embeddings** - Vector generation and semantic search
 - **Model Reasoning ("Thinking")** - Extended reasoning support across OpenAI
   Responses, Anthropic, and Google

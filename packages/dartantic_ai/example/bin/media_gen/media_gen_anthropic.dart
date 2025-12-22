@@ -14,11 +14,29 @@ void main() async {
   // Image generation (uses matplotlib via code execution)
   stdout.writeln('## Anthropic: Image via generateMedia()');
   final imageResult = await agent.generateMedia(
-    'Create a simple logo image: a blue circle with the text "AI" '
-    'in white in the center.',
+    'Create a minimalist robot mascot for a developer conference. '
+    'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, outputDir, fallbackPrefix: 'anthropic_logo');
+  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'anthropic_robot');
+
+  // Image editing with attachment (uses PIL/Pillow via code execution)
+  stdout.writeln('\n## Anthropic: Image Editing via generateMedia()');
+  final robotAsset = imageResult.assets.firstOrNull;
+  if (robotAsset is DataPart) {
+    final editResult = await agent.generateMedia(
+      'Colorize this black and white robot drawing. Make the robot body '
+      'blue, the eyes bright green, and add orange/yellow accents. '
+      'Use PIL/Pillow to preserve all the original black lines.',
+      mimeTypes: const ['image/png'],
+      attachments: [robotAsset],
+    );
+    dumpAssets(
+      editResult.assets,
+      '$outputDir/color',
+      fallbackPrefix: 'anthropic_robot_colorized',
+    );
+  }
 
   // PDF generation (uses reportlab via code execution)
   stdout.writeln('\n## Anthropic: PDF via generateMedia()');
