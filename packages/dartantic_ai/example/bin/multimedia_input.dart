@@ -1,8 +1,10 @@
-// ignore_for_file: avoid_print, unreachable_from_main
+// ignore_for_file: avoid_print, unreachable_from_main, avoid_dynamic_calls
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:json_schema/json_schema.dart';
 
 void main() async {
   const model = 'gemini';
@@ -11,6 +13,8 @@ void main() async {
   await processTextWithImages(model);
   await multiModalConversation(model);
   await useLinkAttachment(model);
+  await transcribeAudioText(model);
+  await transcribeAudioJson(model);
   exit(0);
 }
 
@@ -146,6 +150,92 @@ Future<void> useLinkAttachment(String model) async {
       'Error: $e\n'
       'NOTE: some providers require an upload to their associated servers '
       'before they can be used (e.g. google).',
+    );
+  }
+}
+
+Future<void> transcribeAudioText(String model) async {
+  final agent = Agent(model);
+  print('\n${agent.displayName} Transcribe Audio to Text');
+
+  final audioBytes = await File(
+    'example/bin/files/welcome-to-dartantic.mp3',
+  ).readAsBytes();
+  await agent
+      .sendStream(
+        'Transcribe this audio file word for word.',
+        attachments: [
+          DataPart(
+            audioBytes,
+            mimeType: 'audio/mp4',
+            name: 'welcome-to-dartantic.mp3',
+          ),
+        ],
+      )
+      .forEach((r) => stdout.write(r.output));
+  stdout.writeln();
+}
+
+Future<void> transcribeAudioJson(String model) async {
+  final agent = Agent(model);
+  print('\n${agent.displayName} Transcribe Audio with Timestamps (JSON)');
+
+  final audioBytes = await File(
+    'example/bin/files/welcome-to-dartantic.mp3',
+  ).readAsBytes();
+  final schema = JsonSchema.create({
+    'type': 'object',
+    'properties': {
+      'transcript': {'type': 'string'},
+      'words': {
+        'type': 'array',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'word': {'type': 'string'},
+            'start_time': {'type': 'number'},
+            'end_time': {'type': 'number'},
+          },
+        },
+      },
+    },
+  });
+
+  // Stream JSON output
+  final buffer = StringBuffer();
+  await agent
+      .sendStream(
+        'Transcribe this audio file with word-level timestamps (in seconds).',
+        outputSchema: schema,
+        attachments: [
+          DataPart(
+            audioBytes,
+            mimeType: 'audio/mp4',
+            name: 'welcome-to-dartantic.mp3',
+          ),
+        ],
+      )
+      .forEach((r) {
+        if (r.output.isNotEmpty) {
+          buffer.write(r.output);
+          stdout.write(r.output);
+        }
+      });
+  stdout.writeln();
+
+  // Parse complete JSON
+  final completeJson = buffer.toString();
+  final transcription = jsonDecode(completeJson) as Map<String, dynamic>;
+
+  print('Transcript: ${transcription['transcript']}');
+  print('\nWord-level timestamps:');
+
+  final words = transcription['words'] as List;
+  for (final word in words) {
+    final w = word as Map<String, dynamic>;
+    print(
+      '  ${w['start_time']?.toStringAsFixed(2)}s - '
+      '${w['end_time']?.toStringAsFixed(2)}s: ${w['word']}',
     );
   }
 }

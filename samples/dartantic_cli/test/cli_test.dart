@@ -410,6 +410,62 @@ What is 9 + 6? Reply with just the number.
     });
   });
 
+  group('Phase 3B: Audio Transcription', () {
+    test('SC-070: Audio transcription to text', () async {
+      // Use the welcome audio file from the project
+      final audioPath =
+          '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
+
+      final result = await runCli([
+        '-a',
+        'google',
+        'chat',
+        '-p',
+        'Transcribe this audio file word for word: @$audioPath',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      final output = result.stdout.toString();
+      // Should contain key words from the audio
+      expect(output.toLowerCase(), anyOf(contains('hello'), contains('welcome')));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('SC-071: Audio transcription with JSON timestamps', () async {
+      // Use the welcome audio file from the project
+      final audioPath =
+          '../../packages/dartantic_ai/example/bin/files/welcome-to-dartantic.mp3';
+
+      final result = await runCli([
+        '-a',
+        'google',
+        'chat',
+        '--output-schema',
+        '{"type":"object","properties":{"transcript":{"type":"string"},"words":{"type":"array","items":{"type":"object","properties":{"word":{"type":"string"},"start_time":{"type":"number"},"end_time":{"type":"number"}}}}}}',
+        '-p',
+        'Transcribe this audio file with word-level timestamps (in seconds): @$audioPath',
+      ]);
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+
+      // Should return valid JSON with transcript and words array
+      final output = result.stdout.toString();
+      expect(output, contains('transcript'));
+      expect(output, contains('words'));
+      expect(output, contains('start_time'));
+      expect(output, contains('end_time'));
+
+      // Parse and verify structure
+      final data = jsonDecode(output) as Map<String, dynamic>;
+      expect(data['transcript'], isA<String>());
+      expect(data['words'], isA<List>());
+      final words = data['words'] as List;
+      if (words.isNotEmpty) {
+        final word = words.first as Map<String, dynamic>;
+        expect(word['word'], isA<String>());
+        expect(word['start_time'], isA<num>());
+        expect(word['end_time'], isA<num>());
+      }
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  });
+
   group('Phase 4: Output Features', () {
     test('SC-021: Chat with verbose output (shows usage)', () async {
       final result = await runCli([

@@ -88,9 +88,9 @@
     {
       "name": "multimedia_input",
       "request": "launch",
-      "cwd": "${workspaceFolder}/packages/dartantic_ai/example",
+      "cwd": "${workspaceFolder}/packages/dartantic_ai",
       "type": "dart",
-      "program": "bin/multimedia_input.dart"
+      "program": "example/bin/multimedia_input.dart"
     },
     {
       "name": "openai_compat",

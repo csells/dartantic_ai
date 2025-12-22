@@ -118,6 +118,60 @@ echo "Your prompt" | dartantic
 cat prompt.txt | dartantic
 ```
 
+### Audio Transcription
+
+Google agents support audio transcription natively. Attach an audio file with `@filename` syntax and request transcription in your prompt.
+
+**Plain text transcription:**
+
+```bash
+# Transcribe audio to text
+dartantic -a google chat \
+  -p "Transcribe this audio file: @audio.m4a"
+```
+
+**JSON transcription with word-level timestamps:**
+
+```bash
+# Get structured transcription with timing data
+dartantic -a google chat \
+  --output-schema '{
+    "type": "object",
+    "properties": {
+      "transcript": {"type": "string"},
+      "words": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "word": {"type": "string"},
+            "start_time": {"type": "number"},
+            "end_time": {"type": "number"}
+          }
+        }
+      }
+    }
+  }' \
+  -p "Transcribe this audio with word-level timestamps: @audio.m4a"
+```
+
+**Example output:**
+
+```json
+{
+  "transcript": "Hello and welcome to Dartantic.",
+  "words": [
+    {"word": "Hello", "start_time": 0.0, "end_time": 0.55},
+    {"word": "and", "start_time": 0.6, "end_time": 0.7},
+    {"word": "welcome", "start_time": 0.7, "end_time": 1.25},
+    {"word": "to", "start_time": 1.25, "end_time": 1.45},
+    {"word": "Dartantic", "start_time": 1.7, "end_time": 2.4}
+  ]
+}
+```
+
+**Note:** Audio transcription is currently only supported by Google Gemini models.
+
 ## Generate Command
 
 Generate media content (images, PDFs) based on a prompt. Supports native image

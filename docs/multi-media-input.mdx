@@ -112,9 +112,99 @@ final result = await agent.send(
 );
 ```
 
+## Audio Transcription
+
+Google Gemini models support audio transcription natively through the chat interface. Simply attach an audio file and request transcription in your prompt.
+
+### Text Transcription
+
+For simple text transcription, attach an audio file and request the transcription:
+
+```dart
+import 'dart:io';
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final agent = Agent('google');
+final audioBytes = await File('audio.m4a').readAsBytes();
+
+final result = await agent.send(
+  'Transcribe this audio file word for word.',
+  attachments: [
+    DataPart(audioBytes, mimeType: 'audio/mp4', name: 'audio.m4a'),
+  ],
+);
+
+// Get transcription text
+final transcription = result.messages
+  .expand((m) => m.parts)
+  .whereType<TextPart>()
+  .map((p) => p.text)
+  .join('\n');
+
+print(transcription);
+```
+
+### Transcription with Timestamps
+
+For word-level timestamps and structured output, use typed responses with a JSON schema:
+
+```dart
+import 'dart:io';
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:json_schema/json_schema.dart';
+
+final agent = Agent('google');
+final audioBytes = await File('audio.m4a').readAsBytes();
+
+final schema = JsonSchema.create({
+  'type': 'object',
+  'properties': {
+    'transcript': {'type': 'string'},
+    'words': {
+      'type': 'array',
+      'items': {
+        'type': 'object',
+        'properties': {
+          'word': {'type': 'string'},
+          'start_time': {'type': 'number'},
+          'end_time': {'type': 'number'},
+        },
+      },
+    },
+  },
+});
+
+final result = await agent.sendFor<Map<String, dynamic>>(
+  'Transcribe this audio with word-level timestamps (in seconds).',
+  outputSchema: schema,
+  attachments: [
+    DataPart(audioBytes, mimeType: 'audio/mp4', name: 'audio.m4a'),
+  ],
+);
+
+final transcription = result.output;
+print('Transcript: ${transcription['transcript']}');
+
+// Access word-level timestamps
+for (final word in transcription['words'] as List) {
+  final w = word as Map<String, dynamic>;
+  print('${w['start_time']}s - ${w['end_time']}s: ${w['word']}');
+}
+```
+
+### Provider Support
+
+| Provider | Audio Transcription | Timestamps |
+|----------|-------------------|-----------|
+| Google | ✅ Native support | ✅ Word-level |
+| OpenAI Responses | ❌ Not supported | ❌ |
+| Anthropic | ❌ Not supported | ❌ |
+
+Note: Only Google Gemini models currently support audio transcription through the chat interface.
+
 ## Examples
 
-- [Multimedia chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multimedia_input.dart)
+- [Multimedia chat](https://github.com/csells/dartantic_ai/blob/main/packages/dartantic_ai/example/bin/multimedia_input.dart) - includes audio transcription examples
 
 ## Next Steps
 
