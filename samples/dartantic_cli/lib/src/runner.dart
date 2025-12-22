@@ -167,7 +167,15 @@ class DartanticCommandRunner extends CommandRunner<int> {
                  arg == '-h' || arg == '--help' || arg == '--version') {
         globalArgs.add(arg);
         i++;
-      } else if (arg.startsWith('--no-server-tool')) {
+      } else if (arg == '--no-server-tool') {
+        globalArgs.add(arg);
+        if (i + 1 < args.length) {
+          globalArgs.add(args[i + 1]);
+          i += 2;
+        } else {
+          i++;
+        }
+      } else if (arg.startsWith('--no-server-tool=')) {
         globalArgs.add(arg);
         i++;
       } else {
@@ -209,6 +217,14 @@ class DartanticCommandRunner extends CommandRunner<int> {
       if (cmdResults.wasParsed('help')) {
         stdout.writeln(command!.usage);
         return ExitCodes.success;
+      }
+
+      // Explicitly handle missing subcommand for embed to avoid opaque errors.
+      if (cmdResults.name == 'embed' && cmdResults.command == null) {
+        stderr.writeln('Error: Missing subcommand for "dartantic embed".');
+        stderr.writeln();
+        stderr.writeln(command!.usage);
+        return ExitCodes.invalidArguments;
       }
 
       // Validate rest args - reject anything that looks like a flag

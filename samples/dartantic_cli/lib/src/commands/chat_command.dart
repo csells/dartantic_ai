@@ -221,12 +221,17 @@ class ChatCommand extends DartanticCommand with PromptCommandMixin {
         : null;
     JsonSchema? outputSchema;
     if (outputSchemaStr != null) {
-      final schemaResult = await parseOutputSchema(outputSchemaStr);
-      if (schemaResult.error != null) {
-        stderr.writeln('Error: Invalid output schema: ${schemaResult.error}');
+      try {
+        final schemaResult = await parseOutputSchema(outputSchemaStr);
+        if (schemaResult.error != null) {
+          stderr.writeln('Error: Invalid output schema: ${schemaResult.error}');
+          return ExitCodes.invalidArguments;
+        }
+        outputSchema = schemaResult.schema;
+      } on FormatException catch (e) {
+        stderr.writeln('Error: Invalid output schema JSON: ${e.message}');
         return ExitCodes.invalidArguments;
       }
-      outputSchema = schemaResult.schema;
     } else if (agentSettings?.outputSchema != null) {
       // Use output schema from agent settings
       outputSchema = JsonSchema.create(agentSettings!.outputSchema!);

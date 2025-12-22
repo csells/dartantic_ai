@@ -52,7 +52,7 @@ Future<ProcessResult> runCliWithStdin(
 }
 
 void main() {
-  group('Phase 1: Basic Chat Command', skip: 'Temporarily skipped', () {
+  group('Phase 1: Basic Chat Command', () {
     test('SC-001: Basic chat with default agent (google)', () async {
       final result = await runCli(['-p', 'What is 2+2? Reply with just the number.']);
       expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
@@ -102,7 +102,7 @@ void main() {
     });
   });
 
-  group('Phase 2: Settings File Support', skip: 'Temporarily skipped', () {
+  group('Phase 2: Settings File Support', () {
     late Directory tempDir;
     late String settingsPath;
 
@@ -194,7 +194,7 @@ agents:
     });
   });
 
-  group('Phase 3: Prompt Processing', skip: 'Temporarily skipped', () {
+  group('Phase 3: Prompt Processing', () {
     late Directory tempDir;
 
     setUp(() async {
@@ -410,7 +410,7 @@ What is 9 + 6? Reply with just the number.
     });
   });
 
-  group('Phase 4: Output Features', skip: 'Temporarily skipped', () {
+  group('Phase 4: Output Features', () {
     test('SC-021: Chat with verbose output (shows usage)', () async {
       final result = await runCli([
         '-v',
@@ -471,7 +471,7 @@ What is 9 + 6? Reply with just the number.
     });
   });
 
-  group('Phase 5: Structured Output & Temperature', skip: 'Temporarily skipped', () {
+  group('Phase 5: Structured Output & Temperature', () {
     late Directory tempDir;
     late String settingsPath;
 
@@ -588,7 +588,7 @@ agents:
     });
   });
 
-  group('Phase 6: Server Tools & MCP', skip: 'Temporarily skipped', () {
+  group('Phase 6: Server Tools & MCP', () {
     late Directory tempDir;
     late String settingsPath;
 
@@ -769,7 +769,7 @@ agents:
     });
   });
 
-  group('Phase 7: Generate Command', skip: 'Temporarily skipped', () {
+  group('Phase 7: Generate Command', () {
     late Directory tempDir;
 
     setUp(() async {
@@ -910,7 +910,7 @@ agents:
     }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
-  group('Phase 8: Embed Command', skip: 'Temporarily skipped', () {
+  group('Phase 8: Embed Command', () {
     late Directory tempDir;
 
     setUp(() async {
@@ -1148,7 +1148,7 @@ agents:
     }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
-  group('Phase 9: Models Command', skip: 'Temporarily skipped', () {
+  group('Phase 9: Models Command', () {
     late Directory tempDir;
     late String settingsPath;
 
@@ -1217,7 +1217,7 @@ agents:
     }, timeout: const Timeout(Duration(minutes: 2)));
   });
 
-  group('Error Handling', skip: 'Temporarily skipped', () {
+  group('Error Handling', () {
     late Directory tempDir;
 
     setUp(() async {
@@ -1291,7 +1291,7 @@ agents:
     });
   });
 
-  group('Environment Variables', skip: 'Temporarily skipped', () {
+  group('Environment Variables', () {
     test('SC-059: DARTANTIC_AGENT env var sets default agent', () async {
       final result = await runCli(
         ['-p', 'Say "ENV_AGENT_WORKS" exactly.'],
