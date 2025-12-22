@@ -237,16 +237,16 @@ void main() {
         ); // Default for large
       });
 
-      // TODO(csells): Unskip mistral once mistralai_dart adds `dimensions`
-      // parameter to EmbeddingRequest. The Mistral API supports it but the Dart
-      // package doesn't expose it yet.
-      // See: https://github.com/davidmigloz/langchain_dart/issues/820
+      // NOTE: For Mistral, we use codestral-embed-2505 instead of the
+      // default mistral-embed model because only newer models support
+      // custom dimensions. The mistralai_dart package added
+      // outputDimension support in PR #886.
       runProviderTest(
         'returns requested custom dimensions for embedQuery',
         (provider) async {
           // Use 256 which is valid for all providers that support custom dims
           const requestedDimensions = 256;
-          final modelName = provider.defaultModelNames[ModelKind.embeddings]!;
+          final modelName = _getEmbeddingsModelNameForDimensionsTest(provider);
 
           final model = _createEmbeddingsModelWithDimensions(
             provider,
@@ -265,7 +265,6 @@ void main() {
           );
         },
         requiredCaps: {ProviderTestCaps.embeddings},
-        skipProviders: {'mistral'},
       );
 
       runProviderTest(
@@ -273,7 +272,7 @@ void main() {
         (provider) async {
           // Use 256 which is valid for all providers that support custom dims
           const requestedDimensions = 256;
-          final modelName = provider.defaultModelNames[ModelKind.embeddings]!;
+          final modelName = _getEmbeddingsModelNameForDimensionsTest(provider);
 
           final model = _createEmbeddingsModelWithDimensions(
             provider,
@@ -298,7 +297,6 @@ void main() {
           }
         },
         requiredCaps: {ProviderTestCaps.embeddings},
-        skipProviders: {'mistral'},
       );
     });
 
@@ -423,6 +421,16 @@ void main() {
       );
     });
   });
+}
+
+/// Gets the appropriate model name for custom dimensions testing.
+/// For Mistral, uses codestral-embed-2505 since mistral-embed doesn't support
+/// custom dimensions. For other providers, uses their default model.
+String _getEmbeddingsModelNameForDimensionsTest(Provider provider) {
+  if (provider.name == 'mistral') {
+    return 'codestral-embed-2505';
+  }
+  return provider.defaultModelNames[ModelKind.embeddings]!;
 }
 
 /// Creates an embeddings model with custom dimensions for the given provider.

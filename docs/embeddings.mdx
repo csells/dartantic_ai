@@ -95,7 +95,7 @@ you to the right place.
 ## Configuration
 
 Different embedding models from different providers have different options, e.g.
-it's common to be able to chance the default size of the calculated embeddings
+it's common to be able to change the default size of the calculated embeddings
 vector.
 
 ```dart
@@ -109,10 +109,22 @@ final agent = Agent(
     dimensions: 256, // Smaller vectors
   ),
 );
+
+// Reduce dimensions (Mistral)
+// Note: Custom dimensions require a compatible model like codestral-embed-2505
+// The default mistral-embed model does not support custom dimensions
+final mistralAgent = Agent(
+  'mistral?embeddings=codestral-embed-2505',
+  embeddingsModelOptions: MistralEmbeddingsModelOptions(
+    dimensions: 256, // Smaller vectors
+  ),
+);
 ```
 
 It takes longer to calculate more dimensions but a larger vector gives more
-accurate comparison results.
+accurate comparison results. Note that not all embedding models support custom
+dimensions - check your provider's documentation for model-specific
+capabilities.
 
 ## Vectors are Provider-Specific
 

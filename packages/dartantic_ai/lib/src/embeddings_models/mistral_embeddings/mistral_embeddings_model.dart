@@ -98,10 +98,20 @@ class MistralEmbeddingsModel
         '(${chunk.length} texts, $chunkCharacters chars)',
       );
 
+      final actualDimensions = options?.dimensions ?? dimensions;
+      final actualEncodingFormat = options?.encodingFormat;
+
       final result = await _client.createEmbedding(
         request: EmbeddingRequest(
           model: EmbeddingModel.modelId(name),
           input: chunk,
+          outputDimension: actualDimensions,
+          encodingFormat: actualEncodingFormat != null
+              ? EmbeddingEncodingFormat.values.firstWhere(
+                  (e) => e.name == actualEncodingFormat,
+                  orElse: () => EmbeddingEncodingFormat.float,
+                )
+              : null,
         ),
       );
 

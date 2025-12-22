@@ -1,3 +1,12 @@
+## 2.1.1
+
+- Added custom dimensions support for Mistral embeddings:
+  - `MistralEmbeddingsModel` now passes `outputDimension` and `encodingFormat`
+    parameters to the Mistral API
+  - Leverages `outputDimension` parameter added in `mistralai_dart` PR #886
+  - Updated tests to use `codestral-embed-2505` for custom dimensions testing
+    (default `mistral-embed` model doesn't support custom dimensions)
+
 ## 2.1.0
 
 - Added image editing support to media generation across all providers
