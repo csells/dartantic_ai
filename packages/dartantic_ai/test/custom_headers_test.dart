@@ -152,7 +152,7 @@ Future<void> _testProviderHeaders(String providerName) async {
         headers: customHeaders,
       );
       model = MistralChatModel(
-        name: 'open-mistral-7b',
+        name: 'mistral-small-latest',
         apiKey: baseProvider.apiKey!,
         client: captureClient,
         headers: customHeaders,

@@ -16,7 +16,7 @@ flowchart TB
     subgraph "Native API Providers"
         GOO[Google<br/>gemini-2.0-flash]
         ANT[Anthropic<br/>claude-sonnet-4-0]
-        MIS[Mistral<br/>open-mistral-7b]
+        MIS[Mistral<br/>mistral-small-latest]
         OLN[Ollama Native<br/>qwen2.5:7b-instruct]
     end
 
@@ -70,7 +70,7 @@ These providers use their own native APIs in dartantic and are not OpenAI-compat
 | ------------- | ------------------- | -------------------------- | ------------------------------------ |
 | **Google**    | `GEMINI_API_KEY`    | `gemini-2.0-flash`         | Native Gemini API                    |
 | **Anthropic** | `ANTHROPIC_API_KEY` | `claude-sonnet-4-0`        | Native Claude API                    |
-| **Mistral**   | `MISTRAL_API_KEY`   | `open-mistral-7b`          | Native Mistral API                   |
+| **Mistral**   | `MISTRAL_API_KEY`   | `mistral-small-latest`     | Native Mistral API                   |
 | **Ollama**    | (none)              | `qwen2.5:7b-instruct`      | Native Ollama API at `/api` endpoint |
 
 **Notes:**

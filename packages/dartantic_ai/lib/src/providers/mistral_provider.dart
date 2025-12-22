@@ -24,7 +24,7 @@ class MistralProvider
         name: 'mistral',
         displayName: 'Mistral',
         defaultModelNames: {
-          ModelKind.chat: 'open-mistral-7b',
+          ModelKind.chat: 'mistral-small-latest',
           ModelKind.embeddings: 'mistral-embed',
         },
         baseUrl: null,

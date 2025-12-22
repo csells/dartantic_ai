@@ -6,6 +6,8 @@
   - Leverages `outputDimension` parameter added in `mistralai_dart` PR #886
   - Updated tests to use `codestral-embed-2505` for custom dimensions testing
     (default `mistral-embed` model doesn't support custom dimensions)
+- Updated default Mistral chat model from `open-mistral-7b` to
+  `mistral-small-latest` for better overall capabilities
 
 ## 2.1.0
 

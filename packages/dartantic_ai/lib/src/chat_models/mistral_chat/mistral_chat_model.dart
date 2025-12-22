@@ -33,12 +33,6 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
       'Creating Mistral model: $name '
       'with ${tools?.length ?? 0} tools, temp: $temperature',
     );
-
-    if (tools != null) {
-      // TODO: Mistral doesn't support tools yet, waiting for a fix:
-      // https://github.com/davidmigloz/langchain_dart/issues/653
-      throw UnsupportedError('Tools are not supported by Mistral.');
-    }
   }
 
   static final Logger _logger = Logger('dartantic.chat.models.mistral');
@@ -105,6 +99,7 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
     maxTokens: options?.maxTokens ?? defaultOptions.maxTokens,
     safePrompt: options?.safePrompt ?? defaultOptions.safePrompt,
     randomSeed: options?.randomSeed ?? defaultOptions.randomSeed,
+    tools: tools?.toMistralTools(),
     stream: true,
   );
 
