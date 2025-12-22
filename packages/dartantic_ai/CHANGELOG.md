@@ -1,4 +1,4 @@
-## 2.0.4
+## 2.1.0
 
 - Added image editing support to media generation across all providers
   - Fixed `GoogleMediaGenerationModel` to accept attachments with image requests
