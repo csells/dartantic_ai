@@ -18,7 +18,11 @@ void main() async {
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'google_robot');
+  dumpAssets(
+    imageResult.assets,
+    '$outputDir/bw',
+    fallbackPrefix: 'google_robot',
+  );
 
   // Image editing with attachment (uses native Imagen)
   stdout.writeln('\n## Google: Image Editing via generateMedia() with Imagen');

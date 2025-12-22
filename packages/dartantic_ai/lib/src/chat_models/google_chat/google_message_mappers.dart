@@ -192,12 +192,11 @@ extension MessageListMapper on List<ChatMessage> {
     Iterable<Part> parts, {
     required bool includeToolCalls,
     required bool includeToolResults,
-  }) =>
-      mapPartsToGoogle(
-        parts,
-        includeToolCalls: includeToolCalls,
-        includeToolResults: includeToolResults,
-      );
+  }) => mapPartsToGoogle(
+    parts,
+    includeToolCalls: includeToolCalls,
+    includeToolResults: includeToolResults,
+  );
 }
 
 /// Extension on [gl.GenerateContentResponse] to convert to [ChatResult].

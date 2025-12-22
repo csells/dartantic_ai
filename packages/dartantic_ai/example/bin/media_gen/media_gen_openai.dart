@@ -18,7 +18,11 @@ void main() async {
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'openai_robot');
+  dumpAssets(
+    imageResult.assets,
+    '$outputDir/bw',
+    fallbackPrefix: 'openai_robot',
+  );
 
   // Image editing with attachment (uses code execution)
   stdout.writeln('\n## OpenAI: Image Editing via generateMedia()');

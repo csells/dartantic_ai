@@ -18,7 +18,11 @@ void main() async {
     'Use high contrast black and white line art.',
     mimeTypes: const ['image/png'],
   );
-  dumpAssets(imageResult.assets, '$outputDir/bw', fallbackPrefix: 'anthropic_robot');
+  dumpAssets(
+    imageResult.assets,
+    '$outputDir/bw',
+    fallbackPrefix: 'anthropic_robot',
+  );
 
   // Image editing with attachment (uses PIL/Pillow via code execution)
   stdout.writeln('\n## Anthropic: Image Editing via generateMedia()');

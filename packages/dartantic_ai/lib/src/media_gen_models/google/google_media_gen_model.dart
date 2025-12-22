@@ -224,7 +224,6 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
 ''';
   }
 
-
   /// Resolves response modalities, auto-including IMAGE when needed.
   List<String>? _resolveModalities(
     List<String>? explicit, {
@@ -261,10 +260,7 @@ fpdf. For CSV files, use the csv module. Save the file and return it as output.
 
     final contents = <gl.Content>[
       ...history.toContentList(),
-      gl.Content(
-        role: 'user',
-        parts: userParts,
-      ),
+      gl.Content(role: 'user', parts: userParts),
     ];
 
     final imageConfig = gl.ImageConfig(aspectRatio: options.aspectRatio);
